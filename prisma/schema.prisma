@@ -1,0 +1,1203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  CHECKED_IN
+  CANCELLED
+  NO_SHOW
+  COMPLETED
+}
+
+enum EncounterStatus {
+  OPEN
+  CLOSED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+  LOGIN
+  EXPORT
+}
+
+enum TransactionType {
+  CHARGE // Cobrança (débito na conta)
+  PAYMENT // Pagamento (crédito na conta)
+  REFUND // Estorno
+  ADJUSTMENT // Ajuste manual
+}
+
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+  CASH
+  BOLETO
+  TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+// Sales Module Enums
+enum SaleType {
+  UNIT
+  AREA
+  BOTH
+}
+
+enum CustomerType {
+  PF // Pessoa Física
+  PJ // Pessoa Jurídica
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  APPROVED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  IN_SEPARATION
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+// Multi-tenant schema
+// User model with authentication fields
+model User {
+  id                       String                     @id @default(uuid())
+  email                    String                     @unique
+  password                 String
+  name                     String?
+  isActive                 Boolean                    @default(true)
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  clinicUsers              ClinicUser[]
+  appointments             Appointment[]              @relation("ProfessionalAppointments")
+  encounters               Encounter[]                @relation("ProfessionalEncounters")
+  auditLogs                AuditLog[]
+  notesCreated             EncounterNote[]            @relation("NoteCreator")
+  notesUpdated             EncounterNote[]            @relation("NoteUpdater")
+  attachmentsUploaded      EncounterAttachment[]      @relation("AttachmentUploader")
+  blockedSchedules         ScheduleBlock[]            @relation("BlockedProfessional")
+  createdBlocks            ScheduleBlock[]            @relation("BlockCreator")
+  notices                  Notice[]                   @relation("NoticeCreator")
+  dashboardConfigs         UserDashboardConfig[]
+  professionalWorkingHours ProfessionalWorkingHours[]
+
+  // Sales Module Relations
+  quotesAsSeller Quote[] @relation("QuoteSeller")
+  ordersAsSeller Order[] @relation("OrderSeller")
+}
+
+// Clinic model for multi-tenant support
+model Clinic {
+  id                       String                     @id @default(uuid())
+  name                     String
+  slug                     String                     @unique
+  isActive                 Boolean                    @default(true)
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  clinicUsers              ClinicUser[]
+  patients                 Patient[]
+  appointments             Appointment[]
+  encounters               Encounter[]
+  records                  RecordEntry[]
+  procedures               ProcedurePerformed[]
+  consumables              ConsumableUsage[]
+  auditLogs                AuditLog[]
+  products                 Product[]
+  stockLots                StockLot[]
+  stockMovements           StockMovement[]
+  encounterNotes           EncounterNote[]
+  encounterAttachments     EncounterAttachment[]
+  scheduleBlocks           ScheduleBlock[]
+  workingHours             ClinicWorkingHours[]
+  notices                  Notice[]
+  dashboardConfigs         UserDashboardConfig[]
+  specialties              Specialty[]
+  professionalWorkingHours ProfessionalWorkingHours[]
+  procedureCatalog         Procedure[]
+  patientAccounts          PatientAccount[]
+  transactions             Transaction[]
+  payments                 Payment[]
+  stockEntries             StockEntry[]
+  stockExits               StockExit[]
+
+  // Sales Module Relations
+  customers      Customer[]
+  architects     Architect[]
+  quotes         Quote[]
+  orders         Order[]
+  purchaseOrders PurchaseOrder[]
+  deliveries     Delivery[]
+}
+
+// Clinic working hours per day of week
+model ClinicWorkingHours {
+  id        String   @id @default(uuid())
+  clinicId  String
+  dayOfWeek Int // 0=Sunday, 1=Monday, ..., 6=Saturday
+  isOpen    Boolean  @default(false)
+  startTime String? // "HH:MM" format
+  endTime   String? // "HH:MM" format
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinic    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, dayOfWeek])
+}
+
+// Pivot table for User-Clinic many-to-many relationship with role
+model ClinicUser {
+  id          String   @id @default(uuid())
+  clinicId    String
+  userId      String
+  roleId      String
+  specialtyId String?
+  color       String? // Hex color for calendar (#FF5733)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  clinic    Clinic     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role       @relation(fields: [roleId], references: [id])
+  specialty Specialty? @relation(fields: [specialtyId], references: [id])
+
+  @@unique([clinicId, userId])
+  @@index([userId])
+  @@index([clinicId])
+  @@index([roleId])
+  @@index([specialtyId])
+}
+
+// RBAC: Role model
+model Role {
+  id              String           @id @default(uuid())
+  key             String           @unique
+  name            String
+  description     String?
+  createdAt       DateTime         @default(now())
+  clinicUsers     ClinicUser[]
+  rolePermissions RolePermission[]
+}
+
+// RBAC: Permission model
+model Permission {
+  id              String           @id @default(uuid())
+  key             String           @unique
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  rolePermissions RolePermission[]
+}
+
+// RBAC: Role-Permission pivot table
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+// Business: Patient model
+model Patient {
+  id        String    @id @default(uuid())
+  clinicId  String
+  name      String
+  email     String?
+  phone     String?
+  document  String?
+  birthDate DateTime?
+  gender    String?
+  notes     String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  clinic       Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+  encounters   Encounter[]
+  account      PatientAccount?
+  transactions Transaction[]
+  payments     Payment[]
+
+  @@index([clinicId])
+  @@index([clinicId, name])
+  @@index([clinicId, document])
+}
+
+// Business: Appointment model
+model Appointment {
+  id             String            @id @default(uuid())
+  clinicId       String
+  patientId      String
+  professionalId String
+  startAt        DateTime
+  endAt          DateTime
+  status         AppointmentStatus @default(SCHEDULED)
+  room           String?
+  notes          String?
+  checkedInAt    DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  clinic       Clinic      @relation(fields: [clinicId], references: [id])
+  patient      Patient     @relation(fields: [patientId], references: [id])
+  professional User        @relation("ProfessionalAppointments", fields: [professionalId], references: [id])
+  encounters   Encounter[] // Relation to encounters
+
+  @@index([clinicId])
+  @@index([startAt])
+  @@index([patientId])
+  @@index([professionalId])
+}
+
+// Business: Encounter model (Atendimento)
+model Encounter {
+  id             String          @id @default(uuid())
+  clinicId       String
+  patientId      String
+  professionalId String
+  appointmentId  String? // Optional link to appointment
+  date           String // Date in YYYY-MM-DD format
+  time           String? // Time in HH:MM format (optional)
+  notes          String? // General notes about the encounter
+  status         EncounterStatus @default(OPEN)
+  openedAt       DateTime        @default(now())
+  closedAt       DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  clinic         Clinic                @relation(fields: [clinicId], references: [id])
+  patient        Patient               @relation(fields: [patientId], references: [id])
+  professional   User                  @relation("ProfessionalEncounters", fields: [professionalId], references: [id])
+  appointment    Appointment?          @relation(fields: [appointmentId], references: [id])
+  records        RecordEntry[]
+  procedures     ProcedurePerformed[]
+  consumables    ConsumableUsage[]
+  note           EncounterNote?
+  attachments    EncounterAttachment[]
+  transactions   Transaction[]
+  stockMovements StockMovement[]
+
+  @@index([clinicId])
+  @@index([appointmentId])
+}
+
+// Business: RecordEntry model (Entrada de Prontuário)
+model RecordEntry {
+  id          String   @id @default(uuid())
+  clinicId    String
+  encounterId String
+  type        String
+  content     Json
+  isLocked    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  clinic    Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId])
+  @@index([encounterId])
+}
+
+// Business: ProcedurePerformed model (Procedimentos realizados)
+model ProcedurePerformed {
+  id          String   @id @default(uuid())
+  clinicId    String
+  encounterId String
+  procedureId String? // Link ao catálogo de procedimentos
+  name        String
+  priceCents  Int?
+  notes       String?
+  isActive    Boolean  @default(true)
+  performedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  clinic    Clinic     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  encounter Encounter  @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  procedure Procedure? @relation(fields: [procedureId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId])
+  @@index([encounterId])
+  @@index([procedureId])
+}
+
+// Business: ConsumableUsage model (Consumíveis utilizados)
+model ConsumableUsage {
+  id          String   @id @default(uuid())
+  clinicId    String
+  encounterId String
+  itemName    String
+  quantity    Float    @default(1)
+  unit        String?
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  clinic    Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  productId String?
+
+  @@index([clinicId])
+  @@index([encounterId])
+}
+
+// System: AuditLog model (Auditoria de ações)
+model AuditLog {
+  id        String      @id @default(uuid())
+  clinicId  String?
+  userId    String?
+  action    AuditAction
+  entity    String
+  entityId  String?
+  message   String?
+  ip        String?
+  userAgent String?
+  createdAt DateTime    @default(now())
+
+  clinic Clinic? @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId, createdAt])
+  @@index([userId, createdAt])
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUST
+}
+
+// Business: Product model (Produtos para estoque)
+model Product {
+  id          String   @id @default(uuid())
+  clinicId    String
+  name        String
+  description String?
+  unit        String? // e.g., "unidade", "caixa", "ml"
+  sku         String?
+  barcode     String?
+  minStock    Float    @default(0)
+  costCents   Int? // Custo de aquisição em centavos
+  priceCents  Int? // Preço de venda em centavos
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Campos Dimensionais para Revestimentos
+  saleType     SaleType @default(UNIT) // Tipo de venda: unidade, área ou ambos
+  boxCoverage  Float? // m² cobertos por caixa (ex: 1.44)
+  piecesPerBox Int? // peças por caixa (ex: 8)
+  boxWeight    Float? // peso da caixa em kg
+  palletBoxes  Int? // caixas por palete
+
+  clinic               Clinic                @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  lots                 StockLot[]
+  movements            StockMovement[]
+  procedureConsumables ProcedureConsumable[]
+  consumableUsages     ConsumableUsage[]
+  stockEntryItems      StockEntryItem[]
+  stockExitItems       StockExitItem[]
+  quoteItems           QuoteItem[]
+  orderItems           OrderItem[]
+  purchaseOrderItems   PurchaseOrderItem[]
+
+  @@index([clinicId])
+  @@index([clinicId, isActive])
+}
+
+// Business: StockLot model (Lotes de estoque com validade)
+model StockLot {
+  id             String   @id @default(uuid())
+  clinicId       String
+  productId      String
+  lotNumber      String
+  quantity       Float
+  expirationDate DateTime
+  createdAt      DateTime @default(now())
+
+  // Campos para Revestimentos (Tonalidade e Calibre)
+  shade   String? // Tonalidade (ex: "A1", "B2")
+  caliber String? // Calibre (ex: "9mm", "10mm")
+
+  clinic         Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  movements      StockMovement[]
+  stockExitItems StockExitItem[]
+  quoteItems     QuoteItem[]
+
+  @@index([clinicId])
+  @@index([productId])
+  @@index([expirationDate])
+  @@index([clinicId, productId, expirationDate])
+}
+
+// Business: StockMovement model (Movimentações de estoque)
+model StockMovement {
+  id        String            @id @default(uuid())
+  clinicId  String
+  productId String
+  lotId     String?
+  type      StockMovementType
+  quantity  Float
+  reason    String?
+  createdAt DateTime          @default(now())
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  lot       StockLot?  @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  encounter Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+
+  // New fields for professional stock management
+  invoiceNumber   String? // Nota Fiscal
+  supplier        String? // Fornecedor
+  batchId         String? // Group items from same operation
+  destinationType String? // 'SECTOR', 'ROOM', 'PATIENT', 'DISCARD', 'ADJUST'
+  destinationName String? // e.g. "Sala 1", "UTI"
+  encounterId     String? // Link to patient encounter
+
+  @@index([clinicId])
+  @@index([productId])
+  @@index([clinicId, createdAt])
+  @@index([encounterId])
+}
+
+// Business: StockEntry (Entrada de Nota/Estoque)
+model StockEntry {
+  id       String      @id @default(uuid())
+  clinicId String
+  status   EntryStatus @default(DRAFT)
+  type     EntryType   @default(INVOICE) // INVOICE, MANUAL, DONATION
+
+  invoiceNumber String?
+  series        String?
+  supplierId    String?
+  supplierName  String? // Denormalized name or free text if no Supplier model yet
+
+  emissionDate DateTime?
+  arrivalDate  DateTime  @default(now())
+
+  totalValue Float? // Sum of items
+  notes      String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  confirmedAt DateTime?
+  confirmedBy String? // User ID
+
+  clinic Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  items  StockEntryItem[]
+
+  @@index([clinicId])
+  @@index([status])
+}
+
+model StockEntryItem {
+  id           String @id @default(uuid())
+  stockEntryId String
+  productId    String
+
+  quantity  Float
+  unitCost  Float? // Cost per unit
+  totalCost Float? // quantity * unitCost
+
+  lotNumber      String?
+  expirationDate DateTime?
+  manufacturer   String?
+
+  stockEntry StockEntry @relation(fields: [stockEntryId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id])
+
+  @@index([stockEntryId])
+  @@index([productId])
+}
+
+// Business: StockExit (Saída/Requisição)
+model StockExit {
+  id       String     @id @default(uuid())
+  clinicId String
+  status   ExitStatus @default(DRAFT)
+  type     ExitType   @default(SECTOR_REQUEST) // SECTOR, PATIENT, DISCARD, EXPIRY
+
+  destinationType String? // SECTOR, ROOM, PATIENT
+  destinationName String? // Name or ID
+  encounterId     String? // If linked to patient encounter
+
+  requestedBy String? // User ID or Name
+  approvedBy  String? // User ID
+
+  notes String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  confirmedAt DateTime?
+
+  clinic Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  items  StockExitItem[]
+
+  @@index([clinicId])
+  @@index([status])
+}
+
+model StockExitItem {
+  id          String @id @default(uuid())
+  stockExitId String
+  productId   String
+
+  quantity Float
+  lotId    String? // Should ideally be selected at confirmation or via FIFO
+
+  stockExit StockExit @relation(fields: [stockExitId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+  lot       StockLot? @relation(fields: [lotId], references: [id])
+
+  @@index([stockExitId])
+  @@index([productId])
+}
+
+enum EntryStatus {
+  DRAFT
+  CONFIRMED
+  CANCELED
+}
+
+enum EntryType {
+  INVOICE
+  MANUAL
+  DONATION
+  RETURN
+}
+
+enum ExitStatus {
+  DRAFT
+  APPROVED
+  REJECTED
+  CONFIRMED
+}
+
+enum ExitType {
+  SECTOR_REQUEST
+  PATIENT_USE
+  DISCARD
+  EXPIRY
+  ADJUSTMENT
+}
+
+// Business: EncounterNote model (SOAP Clinical Notes)
+model EncounterNote {
+  id          String   @id @default(uuid())
+  encounterId String   @unique
+  clinicId    String
+  subjective  String?  @db.Text
+  objective   String?  @db.Text
+  assessment  String?  @db.Text
+  plan        String?  @db.Text
+  createdById String
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  clinic    Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  createdBy User      @relation("NoteCreator", fields: [createdById], references: [id])
+  updatedBy User?     @relation("NoteUpdater", fields: [updatedById], references: [id])
+
+  @@index([clinicId])
+  @@index([encounterId])
+}
+
+// Business: EncounterAttachment model (Clinical Files)
+model EncounterAttachment {
+  id           String   @id @default(uuid())
+  clinicId     String
+  encounterId  String
+  filename     String // UUID-based unique filename
+  originalName String // Original uploaded filename
+  mimeType     String
+  size         Int // Bytes
+  storagePath  String // /uploads/clinics/{clinicId}/encounters/{encounterId}/{filename}
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  clinic     Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  encounter  Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  uploadedBy User      @relation("AttachmentUploader", fields: [uploadedById], references: [id])
+
+  @@index([clinicId])
+  @@index([encounterId])
+}
+
+// Business: ScheduleBlock model (Calendar Blockers)
+model ScheduleBlock {
+  id             String   @id @default(uuid())
+  clinicId       String
+  professionalId String? // null = clinic-wide block
+  date           String // YYYY-MM-DD
+  startTime      String? // HH:MM (null = full day)
+  endTime        String? // HH:MM (null = full day)
+  reason         String?
+  isActive       Boolean  @default(true)
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  clinic       Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  professional User?  @relation("BlockedProfessional", fields: [professionalId], references: [id])
+  createdBy    User   @relation("BlockCreator", fields: [createdById], references: [id])
+
+  @@index([clinicId, date])
+  @@index([professionalId])
+}
+
+// Business: Notice model (Clinic announcements)
+model Notice {
+  id          String    @id @default(uuid())
+  clinicId    String
+  title       String
+  content     String?
+  priority    String    @default("normal") // low, normal, high, urgent
+  isActive    Boolean   @default(true)
+  expiresAt   DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  clinic    Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  createdBy User   @relation("NoticeCreator", fields: [createdById], references: [id])
+
+  @@index([clinicId, isActive])
+  @@index([clinicId, expiresAt])
+}
+
+// User: Dashboard widget configuration per user per clinic
+model UserDashboardConfig {
+  id        String   @id @default(uuid())
+  userId    String
+  clinicId  String
+  widgets   Json // Array of widget types: ["birthdays", "today_appointments", ...]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clinicId])
+  @@index([userId])
+}
+
+// Business: Specialty model (Professional specialties)
+model Specialty {
+  id        String   @id @default(uuid())
+  clinicId  String
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic      Clinic       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  clinicUsers ClinicUser[]
+
+  @@unique([clinicId, name])
+  @@index([clinicId])
+}
+
+// Business: Professional working hours per day of week
+model ProfessionalWorkingHours {
+  id        String   @id @default(uuid())
+  clinicId  String
+  userId    String
+  dayOfWeek Int // 0=Sunday, 1=Monday, ..., 6=Saturday
+  isOpen    Boolean  @default(true)
+  startTime String? // "HH:MM" format
+  endTime   String? // "HH:MM" format
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, userId, dayOfWeek])
+  @@index([clinicId])
+  @@index([userId])
+}
+
+// Business: Procedure Catalog (Catálogo de procedimentos com precificação)
+model Procedure {
+  id          String   @id @default(uuid())
+  clinicId    String
+  name        String
+  description String?
+  priceCents  Int // Preço cobrado em centavos
+  durationMin Int? // Duração padrão em minutos
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  clinic      Clinic                @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  consumables ProcedureConsumable[]
+  performed   ProcedurePerformed[]
+
+  @@index([clinicId])
+  @@index([clinicId, isActive])
+}
+
+// Business: ProcedureConsumable (Insumos padrão por procedimento)
+model ProcedureConsumable {
+  id          String   @id @default(uuid())
+  procedureId String
+  productId   String
+  quantity    Float    @default(1)
+  createdAt   DateTime @default(now())
+
+  procedure Procedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([procedureId, productId])
+  @@index([procedureId])
+  @@index([productId])
+}
+
+// Finance: PatientAccount (Conta corrente do paciente)
+model PatientAccount {
+  id           String   @id @default(uuid())
+  clinicId     String
+  patientId    String   @unique
+  balanceCents Int      @default(0) // Negativo = deve, Positivo = crédito
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  clinic       Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([clinicId])
+  @@index([patientId])
+}
+
+// Finance: Transaction (Transações financeiras)
+model Transaction {
+  id          String          @id @default(uuid())
+  clinicId    String
+  patientId   String
+  accountId   String
+  encounterId String? // Referência ao atendimento (se cobrança)
+  paymentId   String? // Referência ao pagamento (se pagamento)
+  type        TransactionType
+  amountCents Int // Sempre positivo
+  description String?
+  createdAt   DateTime        @default(now())
+
+  clinic    Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient   Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  account   PatientAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  encounter Encounter?     @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  payment   Payment?       @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([accountId])
+  @@index([encounterId])
+  @@index([paymentId])
+  @@index([clinicId, createdAt])
+}
+
+// Finance: Payment (Pagamentos recebidos)
+model Payment {
+  id           String        @id @default(uuid())
+  clinicId     String
+  patientId    String
+  amountCents  Int
+  method       PaymentMethod
+  status       PaymentStatus @default(PENDING)
+  installments Int           @default(1)
+  externalId   String? // ID do gateway
+  gatewayData  Json? // Dados do gateway
+  paidAt       DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  clinic       Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([clinicId, createdAt])
+  @@index([status])
+}
+
+// =====================================================
+// SALES MODULE - Módulo de Vendas para Revestimentos
+// =====================================================
+
+// Business: Customer model (Cliente - substitui Patient para vendas)
+model Customer {
+  id       String       @id @default(uuid())
+  clinicId String // Tenant (loja)
+  type     CustomerType @default(PF)
+
+  // Dados básicos
+  name              String
+  email             String?
+  phone             String?
+  document          String? // CPF ou CNPJ
+  stateRegistration String? // Inscrição Estadual (para PJ)
+
+  // Endereço
+  address       String?
+  addressNumber String?
+  complement    String?
+  neighborhood  String?
+  city          String?
+  state         String?
+  zipCode       String?
+
+  // Relacionamentos
+  architectId String? // Arquiteto que indicou
+  architect   Architect? @relation(fields: [architectId], references: [id])
+
+  // Financeiro
+  creditLimitCents Int? // Limite de crédito em centavos
+
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  quotes Quote[]
+  orders Order[]
+
+  @@index([clinicId])
+  @@index([clinicId, name])
+  @@index([clinicId, document])
+  @@index([architectId])
+}
+
+// Business: Architect model (Arquiteto/Indicador parceiro)
+model Architect {
+  id             String   @id @default(uuid())
+  clinicId       String
+  name           String
+  email          String?
+  phone          String?
+  document       String? // CPF
+  commissionRate Float? // Percentual de comissão (ex: 3.0 = 3%)
+  notes          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  clinic    Clinic     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  customers Customer[]
+  quotes    Quote[]
+
+  @@index([clinicId])
+  @@index([clinicId, name])
+}
+
+// Business: Quote model (Orçamento)
+model Quote {
+  id       String @id @default(uuid())
+  clinicId String
+  number   Int // Número sequencial do orçamento
+
+  // Relacionamentos
+  customerId  String
+  customer    Customer   @relation(fields: [customerId], references: [id])
+  architectId String?
+  architect   Architect? @relation(fields: [architectId], references: [id])
+  sellerId    String // Usuário que criou
+  seller      User       @relation("QuoteSeller", fields: [sellerId], references: [id])
+
+  // Status e datas
+  status     QuoteStatus @default(DRAFT)
+  validUntil DateTime? // Data de validade
+  sentAt     DateTime?
+  approvedAt DateTime?
+
+  // Valores
+  subtotalCents   Int    @default(0)
+  discountCents   Int    @default(0) // Desconto total em centavos
+  discountPercent Float? // OU desconto em %
+  deliveryFee     Int    @default(0) // Taxa de entrega em centavos
+  totalCents      Int    @default(0)
+
+  notes         String? // Observações (vão no PDF)
+  internalNotes String? // Notas internas (não vão no PDF)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  items  QuoteItem[]
+  order  Order? // Pedido gerado (se convertido)
+
+  @@unique([clinicId, number])
+  @@index([clinicId])
+  @@index([clinicId, status])
+  @@index([customerId])
+  @@index([sellerId])
+}
+
+// Business: QuoteItem model (Item do Orçamento)
+model QuoteItem {
+  id        String @id @default(uuid())
+  quoteId   String
+  productId String
+
+  // Quantidades (lógica dimensional)
+  inputArea     Float? // Área informada pelo usuário (m²)
+  quantityBoxes Int // Quantidade de caixas (calculada ou manual)
+  resultingArea Float? // Área real (caixas * boxCoverage)
+
+  // Preços
+  unitPriceCents  Int // Preço por m² ou por caixa
+  discountCents   Int    @default(0)
+  discountPercent Float?
+  totalCents      Int
+
+  // Lote preferido (opcional)
+  preferredLotId String?
+  preferredLot   StockLot? @relation(fields: [preferredLotId], references: [id])
+
+  notes String? // Ex: "Aplicar na área da cozinha"
+
+  createdAt DateTime @default(now())
+
+  quote   Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([quoteId])
+  @@index([productId])
+}
+
+// Business: Order model (Pedido de Venda)
+model Order {
+  id       String @id @default(uuid())
+  clinicId String
+  number   Int // Número sequencial do pedido
+
+  // Origem
+  quoteId String? @unique
+  quote   Quote?  @relation(fields: [quoteId], references: [id])
+
+  // Relacionamentos
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  sellerId   String
+  seller     User     @relation("OrderSeller", fields: [sellerId], references: [id])
+
+  status OrderStatus @default(PENDING)
+
+  // Valores (copiados do Quote ou recalculados)
+  subtotalCents Int
+  discountCents Int @default(0)
+  deliveryFee   Int @default(0)
+  totalCents    Int
+
+  // Entrega
+  deliveryAddress String?
+  deliveryDate    DateTime?
+  deliveredAt     DateTime?
+  
+  delivery        Delivery?
+
+  notes String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  confirmedAt DateTime?
+
+  clinic Clinic      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  items  OrderItem[]
+
+  @@unique([clinicId, number])
+  @@index([clinicId])
+  @@index([clinicId, status])
+  @@index([customerId])
+  @@index([sellerId])
+}
+
+// Business: OrderItem model (Item do Pedido)
+model OrderItem {
+  id        String @id @default(uuid())
+  orderId   String
+  productId String
+
+  // Quantidades (copiadas do QuoteItem ou inseridas manualmente)
+  inputArea     Float? // Área original (m²)
+  quantityBoxes Int // Quantidade de caixas
+  resultingArea Float? // Área real (caixas * boxCoverage)
+
+  // Preços
+  unitPriceCents Int
+  discountCents  Int @default(0)
+  totalCents     Int
+
+  // Lote reservado/usado
+  lotId String?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// =====================================================
+// PURCHASE MODULE - Módulo de Compras
+// =====================================================
+
+enum PurchaseOrderStatus {
+  DRAFT // Rascunho
+  SENT // Enviado ao fornecedor
+  CONFIRMED // Confirmado pelo fornecedor
+  PARTIAL // Recebido parcialmente
+  RECEIVED // Recebido totalmente
+  CANCELLED // Cancelado
+}
+
+// Business: PurchaseOrder model (Pedido de Compra)
+model PurchaseOrder {
+  id       String @id @default(uuid())
+  clinicId String
+  number   Int // Número sequencial
+
+  // Fornecedor
+  supplierName String
+  supplierCnpj String?
+  supplierEmail String?
+  supplierPhone String?
+
+  status PurchaseOrderStatus @default(DRAFT)
+
+  // Valores
+  subtotalCents Int @default(0)
+  shippingCents Int @default(0)
+  totalCents    Int @default(0)
+
+  // Datas
+  expectedDate DateTime? // Data prevista de entrega
+  receivedAt   DateTime?
+  
+  // NFe relacionada
+  nfeNumber String?
+  nfeKey    String? // Chave de acesso da NFe
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  items  PurchaseOrderItem[]
+
+  @@unique([clinicId, number])
+  @@index([clinicId])
+  @@index([clinicId, status])
+}
+
+// Business: PurchaseOrderItem model (Item do Pedido de Compra)
+model PurchaseOrderItem {
+  id              String @id @default(uuid())
+  purchaseOrderId String
+  productId       String?
+
+  // Dados do produto (podem não existir no sistema ainda)
+  productCode  String
+  productName  String
+  quantityOrdered Int
+  quantityReceived Int @default(0)
+  unitPriceCents  Int
+  totalCents      Int
+
+  // Lote criado ao receber
+  lotId String?
+
+  createdAt DateTime @default(now())
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product?      @relation(fields: [productId], references: [id])
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+}
+
+// =====================================================
+// DELIVERY MODULE - Módulo de Entregas
+// =====================================================
+
+enum DeliveryStatus {
+  PENDING     // Pendente de agendamento
+  SCHEDULED   // Agendado
+  IN_TRANSIT  // Em trânsito
+  DELIVERED   // Entregue
+  FAILED      // Tentativa falhou
+  CANCELED    // Cancelado
+}
+
+model Delivery {
+  id        String   @id @default(uuid())
+  clinicId  String
+  
+  orderId   String   @unique
+  order     Order    @relation(fields: [orderId], references: [id])
+  
+  status        DeliveryStatus @default(PENDING)
+  scheduledDate DateTime?
+  
+  driverName    String?
+  vehiclePlate  String?
+  trackingCode  String?
+  
+  notes         String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  clinic        Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  
+  @@index([clinicId])
+  @@index([orderId])
+  @@index([status])
+}
