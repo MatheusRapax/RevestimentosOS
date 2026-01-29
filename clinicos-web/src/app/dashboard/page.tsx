@@ -66,18 +66,6 @@ const modules = [
         icon: ArrowLeftRight,
         color: 'bg-teal-500',
     },
-    {
-        href: '/dashboard/estoque/importar',
-        label: 'Importar CSV',
-        icon: Upload,
-        color: 'bg-lime-500',
-    },
-    {
-        href: '/dashboard/estoque/importar-nfe',
-        label: 'Importar NFe',
-        icon: FileCode,
-        color: 'bg-cyan-500',
-    },
     // Compras
     {
         href: '/dashboard/compras',

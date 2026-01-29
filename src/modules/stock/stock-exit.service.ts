@@ -163,7 +163,7 @@ export class StockExitService {
                             lotId: lot.id,
                             destinationType: exit.destinationType,
                             destinationName: exit.destinationName,
-                            encounterId: exit.encounterId,
+                            stockExitId: exit.id, // Link to exit document
                             reason: `Saída: ${exit.type} - Destino: ${exit.destinationName || 'N/A'}`,
                         }
                     });

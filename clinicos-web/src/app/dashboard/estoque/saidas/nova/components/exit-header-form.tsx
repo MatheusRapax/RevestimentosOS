@@ -42,7 +42,7 @@ export function ExitHeaderForm({ onSubmit, isLoading }: ExitHeaderFormProps) {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="SECTOR_REQUEST">Requisição de Setor</SelectItem>
-                            <SelectItem value="PATIENT_USE">Uso em Paciente</SelectItem>
+                            <SelectItem value="PATIENT_USE">Uso Interno / Cliente</SelectItem>
                             <SelectItem value="DISCARD">Descarte / Avaria</SelectItem>
                             <SelectItem value="EXPIRY">Validade Vencida</SelectItem>
                             <SelectItem value="ADJUSTMENT">Ajuste de Estoque</SelectItem>
@@ -58,8 +58,8 @@ export function ExitHeaderForm({ onSubmit, isLoading }: ExitHeaderFormProps) {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="SECTOR">Setor</SelectItem>
-                            <SelectItem value="ROOM">Sala / Consultório</SelectItem>
-                            <SelectItem value="PATIENT">Paciente</SelectItem>
+                            <SelectItem value="ROOM">Showroom / Escritório</SelectItem>
+                            <SelectItem value="CLIENT">Cliente</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -69,7 +69,7 @@ export function ExitHeaderForm({ onSubmit, isLoading }: ExitHeaderFormProps) {
                     <Input
                         value={destinationName}
                         onChange={e => setDestinationName(e.target.value)}
-                        placeholder="Ex: UTI Adulto, João da Silva, Sala 02"
+                        placeholder="Ex: Showroom Principal, João Silva, Depósito"
                         required
                     />
                 </div>

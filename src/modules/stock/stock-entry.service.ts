@@ -174,7 +174,8 @@ export class StockEntryService {
                         lotId: lotId,
                         invoiceNumber: entry.invoiceNumber,
                         supplier: entry.supplierName,
-                        batchId: entry.id, // Link movement to this Entry ID
+                        stockEntryId: entry.id, // Link to entry document
+                        batchId: entry.id, // Group items from same operation
                         reason: `Entrada: ${entry.type} #${entry.invoiceNumber || entry.id}`,
                     },
                 });

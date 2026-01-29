@@ -34,8 +34,6 @@ const menuSections = [
             { href: '/dashboard/estoque', label: 'Estoque', icon: Package },
             { href: '/dashboard/estoque/produtos', label: 'Produtos', icon: ClipboardList },
             { href: '/dashboard/estoque/movimentacoes', label: 'Movimentações', icon: ArrowLeftRight },
-            { href: '/dashboard/estoque/importar', label: 'Importar CSV', icon: FileText },
-            { href: '/dashboard/estoque/importar-nfe', label: 'Importar NFe', icon: FileText },
         ],
     },
     {

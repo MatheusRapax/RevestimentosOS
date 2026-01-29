@@ -525,24 +525,35 @@ model StockMovement {
   reason    String?
   createdAt DateTime          @default(now())
 
-  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  clinic  Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  product Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  lot     StockLot? @relation(fields: [lotId], references: [id], onDelete: SetNull)
 
-  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  lot       StockLot?  @relation(fields: [lotId], references: [id], onDelete: SetNull)
-  encounter Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  // Retail Context Links (NEW)
+  orderId          String? // Link to Sales Order
+  purchaseOrderId  String? // Link to Purchase Order
+  stockEntryId     String? // Link to Stock Entry document
+  stockExitId      String? // Link to Stock Exit document
 
-  // New fields for professional stock management
+  // Legacy Clinical Link (DEPRECATED - Keep for backward compatibility)
+  encounterId     String? // Link to patient encounter
+  encounter       Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+
+  // Metadata fields
   invoiceNumber   String? // Nota Fiscal
   supplier        String? // Fornecedor
   batchId         String? // Group items from same operation
-  destinationType String? // 'SECTOR', 'ROOM', 'PATIENT', 'DISCARD', 'ADJUST'
-  destinationName String? // e.g. "Sala 1", "UTI"
-  encounterId     String? // Link to patient encounter
+  destinationType String? // 'CUSTOMER', 'SHOWROOM', 'DAMAGE', 'RETURN', 'ADJUST'
+  destinationName String? // e.g. "Cliente X", "Showroom Principal"
 
   @@index([clinicId])
   @@index([productId])
   @@index([clinicId, createdAt])
   @@index([encounterId])
+  @@index([orderId])
+  @@index([purchaseOrderId])
+  @@index([stockEntryId])
+  @@index([stockExitId])
 }
 
 // Business: StockEntry (Entrada de Nota/Estoque)

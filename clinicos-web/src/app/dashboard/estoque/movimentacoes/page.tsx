@@ -1,187 +1,255 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { useStockMovements, StockMovement } from '@/hooks/useStockMovements';
-import { StockEntryDialog } from '../components/stock-entry-dialog';
-import { StockExitDialog } from '../components/stock-exit-dialog';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Loader2, Plus, Filter, RefreshCw, ArrowDownCircle, ArrowUpCircle, Settings2 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+    ArrowDownLeft,
+    ArrowUpRight,
+    Search,
+    Filter,
+    Calendar,
+    ArrowLeftRight,
+    Download
+} from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import api from '@/lib/api';
+import { formatDate } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
-import { NewStockEntryDialog } from '../components/new-stock-entry-dialog';
-import { NewStockExitDialog } from '../components/new-stock-exit-dialog';
-import { FileText, ClipboardList } from 'lucide-react';
+interface StockMovement {
+    id: string;
+    type: 'IN' | 'OUT' | 'ADJUST';
+    quantity: number;
+    reason: string;
+    createdAt: string;
+    product: {
+        name: string;
+        unit: string;
+    };
+    invoiceNumber?: string;
+    supplier?: string;
+    orderId?: string;
+    destinationName?: string;
+}
+
+interface MovementsResponse {
+    data: StockMovement[];
+    meta: {
+        total: number;
+        page: number;
+        totalPages: number;
+    };
+}
 
 export default function MovimentacoesPage() {
-    const { movements, fetchMovements, isLoading, meta } = useStockMovements();
-    const [isEntryOpen, setIsEntryOpen] = useState(false);
-    const [isExitOpen, setIsExitOpen] = useState(false);
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
+    const [isLoading, setIsLoading] = useState(true);
+    const [movements, setMovements] = useState<StockMovement[]>([]);
+    const [meta, setMeta] = useState<MovementsResponse['meta'] | null>(null);
+
+    // Filters
+    const type = searchParams.get('type') || 'ALL';
+    const page = Number(searchParams.get('page')) || 1;
+    const search = searchParams.get('search') || '';
 
     useEffect(() => {
         fetchMovements();
-    }, []);
+    }, [type, page, search]);
 
-    const getTypeBadge = (type: string, quantity: number) => {
-        if (type === 'IN') return <Badge className="bg-green-600">Entrada</Badge>;
-        if (type === 'OUT') return <Badge variant="destructive">Saída</Badge>;
-        if (quantity > 0) return <Badge className="bg-blue-600">Ajuste (+)</Badge>;
-        return <Badge className="bg-orange-600">Ajuste (-)</Badge>;
+    const fetchMovements = async () => {
+        setIsLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (type !== 'ALL') params.append('type', type);
+            if (page > 1) params.append('page', page.toString());
+            // Note: API might not support 'search' yet, but good to have ready
+            if (search) params.append('productId', search); // Temporary mapping if needed
+
+            const { data } = await api.get<MovementsResponse>(`/stock/movements?${params.toString()}`);
+            setMovements(data.data);
+            setMeta(data.meta);
+        } catch (error) {
+            console.error('Erro ao buscar movimentações:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleTabChange = (val: string) => {
+        const params = new URLSearchParams(searchParams);
+        if (val === 'ALL') params.delete('type');
+        else params.set('type', val);
+        params.set('page', '1');
+        router.push(`?${params.toString()}`);
     };
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Link href="/dashboard/estoque">
-                        <Button variant="ghost" size="icon">
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                    </Link>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Movimentações</h1>
-                        <p className="text-muted-foreground">
-                            Histórico de entradas, saídas e ajustes de estoque.
-                        </p>
-                    </div>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Movimentações de Estoque</h1>
+                    <p className="text-muted-foreground">
+                        Histórico completo de entradas, saídas e movimentações de produtos.
+                    </p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => fetchMovements()}>
-                        <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                        Atualizar
-                    </Button>
-
-                    <Button
-                        variant="outline"
-                        className="border-green-600 text-green-600 hover:bg-green-50"
-                        onClick={() => setIsEntryOpen(true)}
-                    >
-                        <ArrowDownCircle className="h-4 w-4 mr-2" />
-                        Nova Entrada (NF)
-                    </Button>
-
-                    <Button
-                        variant="outline"
-                        className="border-red-600 text-red-600 hover:bg-red-50"
-                        onClick={() => setIsExitOpen(true)}
-                    >
-                        <ArrowUpCircle className="h-4 w-4 mr-2" />
-                        Nova Saída
-                    </Button>
-
-
+                    <Link href="/dashboard/estoque/entradas/nova">
+                        <Button className="bg-green-600 hover:bg-green-700">
+                            <ArrowDownLeft className="mr-2 h-4 w-4" />
+                            Nova Entrada
+                        </Button>
+                    </Link>
+                    <Link href="/dashboard/estoque/saidas/nova">
+                        <Button className="bg-red-600 hover:bg-red-700">
+                            <ArrowUpRight className="mr-2 h-4 w-4" />
+                            Nova Saída
+                        </Button>
+                    </Link>
                 </div>
-            </div>
-
-            <div className="flex gap-4">
-                <Link href="/dashboard/estoque/entradas" className="flex-1">
-                    <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Notas Fiscais / Entradas</CardTitle>
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-xs text-muted-foreground">Ver histórico e rascunhos de entradas</div>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                <Link href="/dashboard/estoque/saidas" className="flex-1">
-                    <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Requisições / Saídas</CardTitle>
-                            <ClipboardList className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-xs text-muted-foreground">Ver histórico e rascunhos de saídas</div>
-                        </CardContent>
-                    </Card>
-                </Link>
             </div>
 
             <Card>
-                <CardHeader>
-                    <CardTitle>Histórico Geral</CardTitle>
+                <CardHeader className="pb-3">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <Tabs defaultValue={type} onValueChange={handleTabChange} className="w-[400px]">
+                            <TabsList>
+                                <TabsTrigger value="ALL">Todas</TabsTrigger>
+                                <TabsTrigger value="IN">Entradas</TabsTrigger>
+                                <TabsTrigger value="OUT">Saídas</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+
+                        {/* Search placeholder - needs backend support for text search if not just product ID */}
+                        <div className="relative w-full md:w-[300px]">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input placeholder="Buscar (ID Produto)..." className="pl-8" />
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    {isLoading && movements.length === 0 ? (
-                        <div className="flex justify-center p-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                        </div>
-                    ) : (
-                        <div className="rounded-md border">
-                            <Table>
-                                <TableHeader>
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Data</TableHead>
+                                    <TableHead>Tipo</TableHead>
+                                    <TableHead>Produto</TableHead>
+                                    <TableHead className="text-right">Quantidade</TableHead>
+                                    <TableHead>Documento / Motivo</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoading ? (
+                                    Array.from({ length: 5 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                            <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-12 ml-auto" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : movements.length === 0 ? (
                                     <TableRow>
-                                        <TableHead>Data</TableHead>
-                                        <TableHead>Produto</TableHead>
-                                        <TableHead>Tipo</TableHead>
-                                        <TableHead>Qtd</TableHead>
-                                        <TableHead>Detalhes (NF / Destino)</TableHead>
-                                        <TableHead>Lote</TableHead>
+                                        <TableCell colSpan={5} className="h-24 text-center">
+                                            Nenhuma movimentação encontrada.
+                                        </TableCell>
                                     </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {movements.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                                Nenhuma movimentação registrada.
+                                ) : (
+                                    movements.map((mov) => (
+                                        <TableRow key={mov.id}>
+                                            <TableCell className="font-medium">
+                                                {formatDate(mov.createdAt)}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge
+                                                    variant={
+                                                        mov.type === 'IN' ? 'default' :
+                                                            mov.type === 'OUT' ? 'destructive' : 'secondary'
+                                                    }
+                                                    className={
+                                                        mov.type === 'IN' ? 'bg-green-100 text-green-800 hover:bg-green-100' :
+                                                            mov.type === 'OUT' ? 'bg-red-100 text-red-800 hover:bg-red-100' :
+                                                                'bg-gray-100 text-gray-800 hover:bg-gray-100'
+                                                    }
+                                                >
+                                                    {mov.type === 'IN' ? 'ENTRADA' :
+                                                        mov.type === 'OUT' ? 'SAÍDA' : 'AJUSTE'}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium">{mov.product?.name}</span>
+                                                    <span className="text-xs text-muted-foreground">{mov.product?.unit}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right font-medium">
+                                                {mov.quantity}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col text-sm">
+                                                    <span>{mov.reason || '-'}</span>
+                                                    {mov.invoiceNumber && (
+                                                        <span className="text-xs text-muted-foreground">NF: {mov.invoiceNumber}</span>
+                                                    )}
+                                                    {mov.destinationName && (
+                                                        <span className="text-xs text-muted-foreground">Destino: {mov.destinationName}</span>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                         </TableRow>
-                                    ) : (
-                                        movements.map((movement) => (
-                                            <TableRow key={movement.id}>
-                                                <TableCell>
-                                                    {format(new Date(movement.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                                                </TableCell>
-                                                <TableCell className="font-medium">
-                                                    {movement.product.name}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {getTypeBadge(movement.type, movement.quantity)}
-                                                </TableCell>
-                                                <TableCell className={movement.quantity > 0 ? 'text-green-600' : 'text-red-600'}>
-                                                    {movement.quantity > 0 ? '+' : ''}{movement.quantity} {movement.product.unit}
-                                                </TableCell>
-                                                <TableCell className="text-sm text-muted-foreground">
-                                                    {movement.type === 'IN' && movement.invoiceNumber ? (
-                                                        <span>NF: {movement.invoiceNumber} {movement.supplier && `(${movement.supplier})`}</span>
-                                                    ) : movement.type === 'OUT' && movement.destinationType ? (
-                                                        <span>{movement.destinationType === 'PATIENT' ? 'Paciente' : movement.destinationType}: {movement.destinationName}</span>
-                                                    ) : (
-                                                        <span>{movement.reason || '-'}</span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {movement.lot?.lotNumber || '-'}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Pagination - Simplified */}
+                    {meta && meta.totalPages > 1 && (
+                        <div className="flex items-center justify-end space-x-2 py-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    const p = new URLSearchParams(searchParams);
+                                    p.set('page', (meta!.page - 1).toString());
+                                    router.push(`?${p.toString()}`);
+                                }}
+                                disabled={meta.page <= 1}
+                            >
+                                Anterior
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    const p = new URLSearchParams(searchParams);
+                                    p.set('page', (meta!.page + 1).toString());
+                                    router.push(`?${p.toString()}`);
+                                }}
+                                disabled={meta.page >= meta.totalPages}
+                            >
+                                Próximo
+                            </Button>
                         </div>
                     )}
                 </CardContent>
             </Card>
-
-
-
-            <NewStockEntryDialog
-                open={isEntryOpen}
-                onOpenChange={setIsEntryOpen}
-                onSuccess={() => fetchMovements()}
-            />
-
-            <NewStockExitDialog
-                open={isExitOpen}
-                onOpenChange={setIsExitOpen}
-                onSuccess={() => fetchMovements()}
-            />
         </div>
     );
 }
