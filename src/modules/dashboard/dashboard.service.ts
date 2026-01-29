@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 
-// Widget types available
+// Widget types available for flooring store
 export const WIDGET_TYPES = [
     'birthdays',
-    'today_appointments',
     'stock_alerts',
-    'notices',
-    'open_encounters',
-    'upcoming_expirations',
+    'expenses_due',
+    'pending_orders',
+    'today_revenue',
+    'pending_deliveries',
 ] as const;
 
 export type WidgetType = (typeof WIDGET_TYPES)[number];
@@ -206,6 +206,84 @@ export class DashboardService {
                 },
             },
             orderBy: { expirationDate: 'asc' },
+            take: 5,
+        });
+    }
+
+    // ====================================================================
+    // NEW WIDGETS FOR FLOORING STORE
+    // ====================================================================
+
+    // Get expenses due soon (next 7 days)
+    async getExpensesDue(clinicId: string) {
+        const now = new Date();
+        const in7Days = new Date();
+        in7Days.setDate(in7Days.getDate() + 7);
+
+        return this.prisma.expense.findMany({
+            where: {
+                clinicId,
+                status: 'PENDING',
+                dueDate: {
+                    gte: now,
+                    lte: in7Days,
+                },
+            },
+            orderBy: { dueDate: 'asc' },
+            take: 5,
+        });
+    }
+
+    // Get pending orders (not delivered/cancelled)
+    async getPendingOrders(clinicId: string) {
+        return this.prisma.order.findMany({
+            where: {
+                clinicId,
+                status: { in: ['PENDING', 'CONFIRMED', 'IN_SEPARATION', 'READY'] },
+            },
+            include: {
+                customer: { select: { name: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+        });
+    }
+
+    // Get today's revenue summary
+    async getTodayRevenue(clinicId: string) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const orders = await this.prisma.order.findMany({
+            where: {
+                clinicId,
+                createdAt: { gte: today, lt: tomorrow },
+                status: { not: 'CANCELLED' },
+            },
+            select: { totalCents: true },
+        });
+
+        const totalCents = orders.reduce((sum, o) => sum + o.totalCents, 0);
+        return { totalCents, count: orders.length };
+    }
+
+    // Get pending deliveries
+    async getPendingDeliveries(clinicId: string) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        return this.prisma.order.findMany({
+            where: {
+                clinicId,
+                status: { in: ['CONFIRMED', 'IN_SEPARATION', 'READY'] },
+                deliveryDate: { gte: today },
+            },
+            include: {
+                customer: { select: { name: true } },
+            },
+            orderBy: { deliveryDate: 'asc' },
             take: 5,
         });
     }

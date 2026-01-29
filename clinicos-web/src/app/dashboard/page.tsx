@@ -4,59 +4,60 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import WidgetsBoard from '@/components/dashboard/WidgetsBoard';
 import {
-    Calendar,
     Users,
-    Stethoscope,
     Package,
+    FileText,
+    ShoppingCart,
+    Truck,
+    DollarSign,
+    Building2,
+    BarChart3,
     Shield,
-    ClipboardList,
-    History,
+    Receipt,
     UserCog,
-    ArrowLeftRight
+    ArrowLeftRight,
+    Upload,
+    FileCode
 } from 'lucide-react';
 
-// All modules in a flat list for compact display
+// Modules for a flooring/tile store ERP - synced with sidebar
 const modules = [
+    // Vendas
     {
-        href: '/dashboard/agenda',
-        label: 'Agenda',
-        icon: Calendar,
+        href: '/dashboard/clientes',
+        label: 'Clientes',
+        icon: Users,
         color: 'bg-blue-500',
     },
     {
-        href: '/dashboard/pacientes',
-        label: 'Pacientes',
-        icon: Users,
-        color: 'bg-green-500',
-    },
-    {
-        href: '/dashboard/atendimentos',
-        label: 'Atendimentos',
-        icon: Stethoscope,
-        color: 'bg-purple-500',
-    },
-    {
-        href: '/dashboard/atendimentos/historico',
-        label: 'Histórico',
-        icon: History,
+        href: '/dashboard/arquitetos',
+        label: 'Arquitetos',
+        icon: Building2,
         color: 'bg-indigo-500',
     },
     {
-        href: '/dashboard/financeiro',
-        label: 'Financeiro',
-        icon: ClipboardList,
-        color: 'bg-yellow-500',
+        href: '/dashboard/orcamentos',
+        label: 'Orçamentos',
+        icon: FileText,
+        color: 'bg-green-500',
     },
+    {
+        href: '/dashboard/pedidos',
+        label: 'Pedidos',
+        icon: ShoppingCart,
+        color: 'bg-purple-500',
+    },
+    {
+        href: '/dashboard/entregas',
+        label: 'Entregas',
+        icon: Truck,
+        color: 'bg-orange-500',
+    },
+    // Estoque
     {
         href: '/dashboard/estoque',
         label: 'Estoque',
         icon: Package,
-        color: 'bg-orange-500',
-    },
-    {
-        href: '/dashboard/estoque/produtos',
-        label: 'Produtos',
-        icon: ClipboardList,
         color: 'bg-amber-500',
     },
     {
@@ -66,40 +67,67 @@ const modules = [
         color: 'bg-teal-500',
     },
     {
-        href: '/dashboard/admin/usuarios',
-        label: 'Usuários',
-        icon: Users,
-        color: 'bg-cyan-500',
+        href: '/dashboard/estoque/importar',
+        label: 'Importar CSV',
+        icon: Upload,
+        color: 'bg-lime-500',
     },
     {
-        href: '/dashboard/admin/professionals',
-        label: 'Profissionais',
+        href: '/dashboard/estoque/importar-nfe',
+        label: 'Importar NFe',
+        icon: FileCode,
+        color: 'bg-cyan-500',
+    },
+    // Compras
+    {
+        href: '/dashboard/compras',
+        label: 'Compras',
+        icon: Receipt,
+        color: 'bg-rose-500',
+    },
+    // Financeiro
+    {
+        href: '/dashboard/financeiro',
+        label: 'Financeiro',
+        icon: DollarSign,
+        color: 'bg-emerald-500',
+    },
+    {
+        href: '/dashboard/financeiro/contas-a-pagar',
+        label: 'Contas a Pagar',
+        icon: Receipt,
+        color: 'bg-red-500',
+    },
+    {
+        href: '/dashboard/financeiro/vendedores',
+        label: 'Por Vendedor',
+        icon: BarChart3,
+        color: 'bg-sky-500',
+    },
+    {
+        href: '/dashboard/financeiro/arquitetos',
+        label: 'Comissões',
+        icon: Building2,
+        color: 'bg-violet-500',
+    },
+    // Admin
+    {
+        href: '/dashboard/admin/usuarios',
+        label: 'Usuários',
         icon: UserCog,
         color: 'bg-slate-600',
     },
     {
-        href: '/dashboard/admin/especialidades',
-        label: 'Especialidades',
-        icon: ClipboardList,
-        color: 'bg-pink-500',
-    },
-    {
-        href: '/dashboard/admin/procedimentos',
-        label: 'Procedimentos',
-        icon: ClipboardList,
-        color: 'bg-emerald-500',
-    },
-    {
         href: '/dashboard/admin/papeis',
-        label: 'Papéis',
+        label: 'Permissões',
         icon: Shield,
-        color: 'bg-violet-500',
+        color: 'bg-gray-600',
     },
     {
         href: '/dashboard/admin/auditoria',
         label: 'Auditoria',
         icon: Shield,
-        color: 'bg-red-500',
+        color: 'bg-zinc-600',
     },
 ];
 
@@ -119,7 +147,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Grid compacto - todos os módulos visíveis */}
-            <div className="grid grid-cols-4 lg:grid-cols-9 gap-4">
+            <div className="grid grid-cols-4 lg:grid-cols-6 gap-4">
                 {modules.map((module) => {
                     const Icon = module.icon;
                     return (
@@ -147,4 +175,3 @@ export default function DashboardPage() {
         </div>
     );
 }
-

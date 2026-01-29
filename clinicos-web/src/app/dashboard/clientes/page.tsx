@@ -5,6 +5,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Dialog,
     DialogContent,
@@ -12,6 +13,13 @@ import {
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Plus, Users, Edit, Trash2, Search, Building, User } from 'lucide-react';
 
 interface Customer {
@@ -22,30 +30,54 @@ interface Customer {
     phone?: string;
     document?: string;
     stateRegistration?: string;
+    address?: string;
     city?: string;
     state?: string;
+    zipCode?: string;
     isActive: boolean;
+    architectId?: string;
     architect?: { id: string; name: string } | null;
     createdAt: string;
     updatedAt: string;
 }
 
+interface Architect {
+    id: string;
+    name: string;
+}
+
+const emptyForm = {
+    name: '',
+    type: 'PF' as 'PF' | 'PJ',
+    email: '',
+    phone: '',
+    document: '',
+    stateRegistration: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    architectId: '',
+};
+
 export default function ClientesPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [architects, setArchitects] = useState<Architect[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState<'ALL' | 'PF' | 'PJ'>('ALL');
 
-    // Create dialog
-    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+    // Create/Edit dialog
+    const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+    const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+    const [formData, setFormData] = useState(emptyForm);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Delete confirmation
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
-
-    // Loading state for actions
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
     const fetchCustomers = async () => {
@@ -66,8 +98,18 @@ export default function ClientesPage() {
         }
     };
 
+    const fetchArchitects = async () => {
+        try {
+            const response = await api.get('/architects');
+            setArchitects(response.data);
+        } catch (err) {
+            console.error('Error fetching architects:', err);
+        }
+    };
+
     useEffect(() => {
         fetchCustomers();
+        fetchArchitects();
     }, [filterType]);
 
     useEffect(() => {
@@ -77,13 +119,69 @@ export default function ClientesPage() {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    // Auto-dismiss success message
     useEffect(() => {
         if (successMessage) {
             const timer = setTimeout(() => setSuccessMessage(''), 3000);
             return () => clearTimeout(timer);
         }
     }, [successMessage]);
+
+    const openCreateDialog = () => {
+        setEditingCustomer(null);
+        setFormData(emptyForm);
+        setIsFormDialogOpen(true);
+    };
+
+    const openEditDialog = (customer: Customer) => {
+        setEditingCustomer(customer);
+        setFormData({
+            name: customer.name || '',
+            type: customer.type,
+            email: customer.email || '',
+            phone: customer.phone || '',
+            document: customer.document || '',
+            stateRegistration: customer.stateRegistration || '',
+            address: customer.address || '',
+            city: customer.city || '',
+            state: customer.state || '',
+            zipCode: customer.zipCode || '',
+            architectId: customer.architectId || '',
+        });
+        setIsFormDialogOpen(true);
+    };
+
+    const handleSubmit = async () => {
+        if (!formData.name.trim()) {
+            setError('Nome é obrigatório');
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+            setError('');
+
+            const payload = {
+                ...formData,
+                architectId: formData.architectId && formData.architectId !== 'none' ? formData.architectId : undefined,
+            };
+
+            if (editingCustomer) {
+                await api.put(`/customers/${editingCustomer.id}`, payload);
+                setSuccessMessage('Cliente atualizado com sucesso!');
+            } else {
+                await api.post('/customers', payload);
+                setSuccessMessage('Cliente criado com sucesso!');
+            }
+
+            setIsFormDialogOpen(false);
+            fetchCustomers();
+        } catch (err: any) {
+            console.error('Error saving customer:', err);
+            setError(err.response?.data?.message || 'Erro ao salvar cliente');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const handleDeleteClick = (customerId: string) => {
         setDeletingId(customerId);
@@ -155,7 +253,7 @@ export default function ClientesPage() {
                     <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
                     <p className="text-gray-600 mt-1">Gerencie o cadastro de clientes (PF e PJ)</p>
                 </div>
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Button onClick={openCreateDialog}>
                     <Plus className="mr-2 h-4 w-4" />
                     Novo Cliente
                 </Button>
@@ -225,7 +323,7 @@ export default function ClientesPage() {
                     <p className="text-gray-600 mb-4">
                         Comece adicionando um novo cliente
                     </p>
-                    <Button onClick={() => setIsCreateDialogOpen(true)}>
+                    <Button onClick={openCreateDialog}>
                         <Plus className="mr-2 h-4 w-4" />
                         Adicionar Cliente
                     </Button>
@@ -294,6 +392,7 @@ export default function ClientesPage() {
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
+                                                    onClick={() => openEditDialog(customer)}
                                                     disabled={loadingAction === customer.id}
                                                 >
                                                     <Edit className="h-3 w-3 mr-1" />
@@ -317,6 +416,167 @@ export default function ClientesPage() {
                     </div>
                 </Card>
             )}
+
+            {/* Create/Edit Dialog */}
+            <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {editingCustomer ? 'Editar Cliente' : 'Novo Cliente'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {editingCustomer
+                                ? 'Atualize as informações do cliente'
+                                : 'Preencha os dados para cadastrar um novo cliente'}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="grid grid-cols-2 gap-4 pt-4">
+                        <div className="col-span-2">
+                            <Label htmlFor="name">Nome *</Label>
+                            <Input
+                                id="name"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                placeholder="Nome completo ou razão social"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="type">Tipo</Label>
+                            <Select
+                                value={formData.type}
+                                onValueChange={(v) => setFormData({ ...formData, type: v as 'PF' | 'PJ' })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="PF">Pessoa Física</SelectItem>
+                                    <SelectItem value="PJ">Pessoa Jurídica</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="document">
+                                {formData.type === 'PF' ? 'CPF' : 'CNPJ'}
+                            </Label>
+                            <Input
+                                id="document"
+                                value={formData.document}
+                                onChange={(e) => setFormData({ ...formData, document: e.target.value })}
+                                placeholder={formData.type === 'PF' ? '000.000.000-00' : '00.000.000/0001-00'}
+                            />
+                        </div>
+
+                        {formData.type === 'PJ' && (
+                            <div>
+                                <Label htmlFor="stateRegistration">Inscrição Estadual</Label>
+                                <Input
+                                    id="stateRegistration"
+                                    value={formData.stateRegistration}
+                                    onChange={(e) => setFormData({ ...formData, stateRegistration: e.target.value })}
+                                />
+                            </div>
+                        )}
+
+                        <div>
+                            <Label htmlFor="email">E-mail</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                placeholder="email@exemplo.com"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="phone">Telefone</Label>
+                            <Input
+                                id="phone"
+                                value={formData.phone}
+                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                placeholder="(11) 99999-9999"
+                            />
+                        </div>
+
+                        <div className="col-span-2">
+                            <Label htmlFor="address">Endereço</Label>
+                            <Input
+                                id="address"
+                                value={formData.address}
+                                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                placeholder="Rua, número, complemento"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="city">Cidade</Label>
+                            <Input
+                                id="city"
+                                value={formData.city}
+                                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="state">Estado</Label>
+                            <Input
+                                id="state"
+                                value={formData.state}
+                                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                                placeholder="SP"
+                                maxLength={2}
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="zipCode">CEP</Label>
+                            <Input
+                                id="zipCode"
+                                value={formData.zipCode}
+                                onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+                                placeholder="00000-000"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="architect">Arquiteto Vinculado</Label>
+                            <Select
+                                value={formData.architectId || 'none'}
+                                onValueChange={(v) => setFormData({ ...formData, architectId: v })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecione (opcional)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Nenhum</SelectItem>
+                                    {architects.map((arch) => (
+                                        <SelectItem key={arch.id} value={arch.id}>
+                                            {arch.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 justify-end pt-6">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsFormDialogOpen(false)}
+                            disabled={isSubmitting}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button onClick={handleSubmit} disabled={isSubmitting}>
+                            {isSubmitting ? 'Salvando...' : editingCustomer ? 'Salvar Alterações' : 'Criar Cliente'}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>

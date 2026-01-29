@@ -26,6 +26,8 @@ import { toast } from 'sonner';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
     PENDING: { label: 'Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+    AWAITING_STOCK: { label: 'Aguardando Estoque', color: 'bg-orange-100 text-orange-800', icon: Package },
+    PARTIAL_READY: { label: 'Pronto Parcial', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
     CONFIRMED: { label: 'Confirmado', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
     IN_SEPARATION: { label: 'Em Separação', color: 'bg-purple-100 text-purple-800', icon: Package },
     READY: { label: 'Pronto', color: 'bg-green-100 text-green-800', icon: CheckCircle },
@@ -90,6 +92,20 @@ export default function OrdersPage() {
         onError: () => toast.error('Erro ao gerar boleto')
     });
 
+    // Update Order Status Mutation
+    const updateStatusMutation = useMutation({
+        mutationFn: async (newStatus: string) => {
+            await api.patch(`/orders/${selectedOrder.id}/status`, { status: newStatus });
+        },
+        onSuccess: () => {
+            toast.success('Status atualizado com sucesso!');
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+            // Update selected order locally
+            setSelectedOrder((prev: any) => prev ? { ...prev, status: updateStatusMutation.variables } : null);
+        },
+        onError: () => toast.error('Erro ao atualizar status')
+    });
+
     const filteredOrders = orders.filter((order: any) => {
         const matchesSearch =
             order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -100,7 +116,8 @@ export default function OrdersPage() {
 
     const stats = {
         pending: orders.filter((o: any) => o.status === 'PENDING').length,
-        inProgress: orders.filter((o: any) => ['CONFIRMED', 'IN_SEPARATION'].includes(o.status)).length,
+        awaitingStock: orders.filter((o: any) => o.status === 'AWAITING_STOCK').length,
+        inProgress: orders.filter((o: any) => ['CONFIRMED', 'IN_SEPARATION', 'PARTIAL_READY'].includes(o.status)).length,
         ready: orders.filter((o: any) => o.status === 'READY').length,
         delivered: orders.filter((o: any) => o.status === 'DELIVERED').length,
     };
@@ -125,6 +142,17 @@ export default function OrdersPage() {
                         <div>
                             <p className="text-sm text-yellow-600">Pendentes</p>
                             <p className="text-2xl font-bold text-yellow-700">{stats.pending}</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-orange-100 rounded-lg">
+                            <Package className="h-5 w-5 text-orange-600" />
+                        </div>
+                        <div>
+                            <p className="text-sm text-orange-600">Aguardando Estoque</p>
+                            <p className="text-2xl font-bold text-orange-700">{stats.awaitingStock}</p>
                         </div>
                     </div>
                 </div>
@@ -185,6 +213,8 @@ export default function OrdersPage() {
                     >
                         <option value="all">Todos os Status</option>
                         <option value="PENDING">Pendente</option>
+                        <option value="AWAITING_STOCK">Aguardando Estoque</option>
+                        <option value="PARTIAL_READY">Pronto Parcial</option>
                         <option value="CONFIRMED">Confirmado</option>
                         <option value="IN_SEPARATION">Em Separação</option>
                         <option value="READY">Pronto</option>
@@ -414,23 +444,39 @@ export default function OrdersPage() {
                             {/* Actions */}
                             <div className="flex gap-3 pt-4">
                                 {selectedOrder.status === 'PENDING' && (
-                                    <button className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-                                        Confirmar Pedido
+                                    <button
+                                        onClick={() => updateStatusMutation.mutate('CONFIRMED')}
+                                        disabled={updateStatusMutation.isPending}
+                                        className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                    >
+                                        {updateStatusMutation.isPending ? 'Confirmando...' : 'Confirmar Pedido'}
                                     </button>
                                 )}
                                 {selectedOrder.status === 'CONFIRMED' && (
-                                    <button className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">
-                                        Iniciar Separação
+                                    <button
+                                        onClick={() => updateStatusMutation.mutate('IN_SEPARATION')}
+                                        disabled={updateStatusMutation.isPending}
+                                        className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                                    >
+                                        {updateStatusMutation.isPending ? 'Processando...' : 'Iniciar Separação'}
                                     </button>
                                 )}
                                 {selectedOrder.status === 'IN_SEPARATION' && (
-                                    <button className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
-                                        Marcar como Pronto
+                                    <button
+                                        onClick={() => updateStatusMutation.mutate('READY')}
+                                        disabled={updateStatusMutation.isPending}
+                                        className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                                    >
+                                        {updateStatusMutation.isPending ? 'Processando...' : 'Marcar como Pronto'}
                                     </button>
                                 )}
                                 {selectedOrder.status === 'READY' && (
-                                    <button className="flex-1 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-900 transition-colors">
-                                        Registrar Entrega
+                                    <button
+                                        onClick={() => updateStatusMutation.mutate('DELIVERED')}
+                                        disabled={updateStatusMutation.isPending}
+                                        className="flex-1 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-900 transition-colors disabled:opacity-50"
+                                    >
+                                        {updateStatusMutation.isPending ? 'Processando...' : 'Registrar Entrega'}
                                     </button>
                                 )}
                                 <button

@@ -35,4 +35,9 @@ export class CreateProductDto {
     @IsNumber()
     @Min(0)
     minStock?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0.0001)
+    boxCoverage?: number;
 }

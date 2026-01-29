@@ -14,6 +14,8 @@ interface ProductWithStock {
     unit?: string;
     minStock: number;
     totalStock: number;
+    totalReserved?: number;
+    availableStock?: number;
     isActive: boolean;
 }
 
@@ -45,8 +47,9 @@ export default function EstoquePage() {
     }, []);
 
     const getStockStatus = (product: ProductWithStock) => {
-        if (product.totalStock === 0) return 'out_of_stock';
-        if (product.totalStock <= product.minStock) return 'low_stock';
+        const available = product.availableStock ?? product.totalStock;
+        if (available <= 0) return 'out_of_stock';
+        if (available <= product.minStock) return 'low_stock';
         return 'in_stock';
     };
 
@@ -57,7 +60,7 @@ export default function EstoquePage() {
             return (
                 <span className="px-2 py-1 inline-flex items-center gap-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
                     <XCircle className="h-3 w-3" />
-                    Sem Estoque
+                    Sem Disponibilidade
                 </span>
             );
         }
@@ -66,7 +69,7 @@ export default function EstoquePage() {
             return (
                 <span className="px-2 py-1 inline-flex items-center gap-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
                     <AlertTriangle className="h-3 w-3" />
-                    Estoque Baixo
+                    Baixa Disponib.
                 </span>
             );
         }
@@ -74,7 +77,7 @@ export default function EstoquePage() {
         return (
             <span className="px-2 py-1 inline-flex items-center gap-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                 <CheckCircle className="h-3 w-3" />
-                OK
+                Disponível
             </span>
         );
     };
@@ -161,7 +164,7 @@ export default function EstoquePage() {
                             <XCircle className="h-6 w-6 text-red-600" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">Sem Estoque</p>
+                            <p className="text-sm text-gray-500">Sem Disponibilidade</p>
                             <p className="text-2xl font-bold text-red-600">{outOfStockCount}</p>
                         </div>
                     </div>
@@ -194,7 +197,7 @@ export default function EstoquePage() {
                         onClick={() => setFilter('low_stock')}
                         className={filter === 'low_stock' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}
                     >
-                        Estoque Baixo
+                        Baixa Disp.
                     </Button>
                     <Button
                         variant={filter === 'out_of_stock' ? 'default' : 'outline'}
@@ -202,7 +205,7 @@ export default function EstoquePage() {
                         onClick={() => setFilter('out_of_stock')}
                         className={filter === 'out_of_stock' ? 'bg-red-600 hover:bg-red-700' : ''}
                     >
-                        Sem Estoque
+                        Indisponível
                     </Button>
                 </div>
             </div>
@@ -238,10 +241,13 @@ export default function EstoquePage() {
                                         Unidade
                                     </th>
                                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Qtd Atual
+                                        Físico
                                     </th>
                                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Qtd Mínima
+                                        Reservado
+                                    </th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Disponível
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Status
@@ -253,7 +259,7 @@ export default function EstoquePage() {
                                     <tr
                                         key={product.id}
                                         className={`hover:bg-gray-50 ${getStockStatus(product) === 'out_of_stock' ? 'bg-red-50' :
-                                                getStockStatus(product) === 'low_stock' ? 'bg-yellow-50' : ''
+                                            getStockStatus(product) === 'low_stock' ? 'bg-yellow-50' : ''
                                             }`}
                                     >
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -265,16 +271,14 @@ export default function EstoquePage() {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {product.unit || '-'}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold">
-                                            <span className={
-                                                getStockStatus(product) === 'out_of_stock' ? 'text-red-600' :
-                                                    getStockStatus(product) === 'low_stock' ? 'text-yellow-600' : 'text-gray-900'
-                                            }>
-                                                {product.totalStock}
-                                            </span>
-                                        </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
-                                            {product.minStock}
+                                            {product.totalStock}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-orange-600 font-medium">
+                                            {product.totalReserved || 0}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">
+                                            {product.availableStock ?? product.totalStock}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             {getStatusBadge(product)}

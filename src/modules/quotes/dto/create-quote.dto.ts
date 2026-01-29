@@ -75,11 +75,16 @@ export class CreateQuoteDto {
     @Min(0)
     discountPercent?: number;
 
-    // Taxa de entrega
+    // Taxa de entrega (aceita ambos os nomes para compatibilidade)
     @IsOptional()
     @IsInt()
     @Min(0)
     deliveryFee?: number;
+
+    @IsOptional()
+    @IsInt()
+    @Min(0)
+    deliveryFeeCents?: number;
 
     @IsOptional()
     @IsString()

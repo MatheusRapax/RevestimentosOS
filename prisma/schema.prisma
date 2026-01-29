@@ -17,6 +17,13 @@ enum AppointmentStatus {
   COMPLETED
 }
 
+enum ReservationStatus {
+  ACTIVE
+  CONSUMED
+  EXPIRED
+  CANCELLED
+}
+
 enum EncounterStatus {
   OPEN
   CLOSED
@@ -79,7 +86,9 @@ enum QuoteStatus {
 enum OrderStatus {
   PENDING
   CONFIRMED
+  AWAITING_STOCK
   IN_SEPARATION
+  PARTIAL_READY
   READY
   DELIVERED
   CANCELLED
@@ -153,9 +162,11 @@ model Clinic {
   quotes         Quote[]
   orders         Order[]
   purchaseOrders PurchaseOrder[]
+  stockReservations StockReservation[]
   deliveries     Delivery[]
   invoices       Invoice[]
   expenses       Expense[]
+  suppliers      Supplier[]
 }
 
 // Clinic working hours per day of week
@@ -452,6 +463,7 @@ model StockLot {
   quantity       Float
   expirationDate DateTime
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
 
   // Campos para Revestimentos (Tonalidade e Calibre)
   shade   String? // Tonalidade (ex: "A1", "B2")
@@ -462,11 +474,40 @@ model StockLot {
   movements      StockMovement[]
   stockExitItems StockExitItem[]
   quoteItems     QuoteItem[]
+  reservations   StockReservation[]
 
+  @@unique([clinicId, lotNumber])
   @@index([clinicId])
   @@index([productId])
   @@index([expirationDate])
-  @@index([clinicId, productId, expirationDate])
+  @@index([clinicId, productId])
+}
+
+// Business: StockReservation model (Reserva de Estoque)
+model StockReservation {
+  id        String   @id @default(uuid())
+  clinicId  String
+  
+  orderId   String?
+  quoteId   String?
+  lotId     String
+  
+  quantity  Int
+  status    ReservationStatus @default(ACTIVE)
+  expiresAt DateTime
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  clinic    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  order     Order?   @relation(fields: [orderId], references: [id])
+  quote     Quote?   @relation(fields: [quoteId], references: [id])
+  lot       StockLot @relation(fields: [lotId], references: [id])
+  
+  @@index([clinicId])
+  @@index([orderId])
+  @@index([quoteId])
+  @@index([lotId])
 }
 
 // Business: StockMovement model (Movimentações de estoque)
@@ -969,6 +1010,7 @@ model Quote {
   clinic Clinic      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   items  QuoteItem[]
   order  Order? // Pedido gerado (se convertido)
+  stockReservations StockReservation[]
 
   @@unique([clinicId, number])
   @@index([clinicId])
@@ -1046,9 +1088,11 @@ model Order {
   updatedAt   DateTime  @updatedAt
   confirmedAt DateTime?
 
-  clinic Clinic      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  items  OrderItem[]
-  invoices Invoice[]
+  clinic         Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  items          OrderItem[]
+  invoices       Invoice[]
+  purchaseOrders PurchaseOrder[]
+  stockReservations StockReservation[]
 
   @@unique([clinicId, number])
   @@index([clinicId])
@@ -1100,6 +1144,29 @@ enum PurchaseOrderStatus {
   CANCELLED // Cancelado
 }
 
+// Business: Supplier model (Fornecedor)
+model Supplier {
+  id        String   @id @default(uuid())
+  clinicId  String
+  name      String
+  cnpj      String?
+  email     String?
+  phone     String?
+  address   String?
+  city      String?
+  state     String?
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic         Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([clinicId, cnpj])
+  @@index([clinicId])
+}
+
 // Business: PurchaseOrder model (Pedido de Compra)
 model PurchaseOrder {
   id       String @id @default(uuid())
@@ -1107,10 +1174,14 @@ model PurchaseOrder {
   number   Int // Número sequencial
 
   // Fornecedor
-  supplierName String
-  supplierCnpj String?
+  supplierId    String?
+  supplierName  String   // Mantido para compatibilidade/histórico
+  supplierCnpj  String?
   supplierEmail String?
   supplierPhone String?
+
+  // Vinculo com Pedido de Venda (se for compra para atender venda)
+  salesOrderId String?
 
   status PurchaseOrderStatus @default(DRAFT)
 
@@ -1132,12 +1203,15 @@ model PurchaseOrder {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clinic Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  items  PurchaseOrderItem[]
+  clinic     Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  supplier   Supplier?           @relation(fields: [supplierId], references: [id])
+  salesOrder Order?              @relation(fields: [salesOrderId], references: [id])
+  items      PurchaseOrderItem[]
+  expenses   Expense[]
 
   @@unique([clinicId, number])
-  // @@index([clinicId]) already exists, avoiding duplication if present or ensuring just one
-  expenses       Expense[]
+  @@index([clinicId])
+  @@index([supplierId])
 }
 
 // ... (Rest of file) ...

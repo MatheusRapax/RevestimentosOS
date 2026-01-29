@@ -213,7 +213,7 @@ export default function NovoOrcamentoPage() {
 
             const quoteData = {
                 customerId,
-                architectId: architectId || undefined,
+                architectId: architectId && architectId !== 'none' ? architectId : undefined,
                 notes: notes || undefined,
                 deliveryFeeCents,
                 items: items.map(item => ({
@@ -286,7 +286,7 @@ export default function NovoOrcamentoPage() {
                                 <SelectValue placeholder="Selecione o arquiteto" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">Nenhum</SelectItem>
+                                <SelectItem value="none">Nenhum</SelectItem>
                                 {architects.map((architect) => (
                                     <SelectItem key={architect.id} value={architect.id}>
                                         {architect.name}

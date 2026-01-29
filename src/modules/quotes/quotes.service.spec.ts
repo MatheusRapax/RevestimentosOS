@@ -27,7 +27,16 @@ describe('QuotesService', () => {
             $transaction: jest.fn((callback) => callback(mockPrismaService)),
         };
 
-        service = new QuotesService(mockPrismaService);
+        const mockStockService = {
+            findOne: jest.fn(),
+        } as any;
+
+        const mockStockReservationsService = {
+            create: jest.fn(),
+            findByQuote: jest.fn(),
+        } as any;
+
+        service = new QuotesService(mockPrismaService, mockStockService, mockStockReservationsService);
     });
 
     // ============================================

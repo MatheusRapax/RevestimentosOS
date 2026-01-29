@@ -1,8 +1,8 @@
 # Planejamento: Transformação ERP Revestimentos
 
-> **Status**: ✅ Implementado (Fases 1-4)  
+> **Status**: ✅ Implementado (Fases 1-5)  
 > **Data**: 28/01/2026  
-> **Atualizado**: 28/01/2026  
+> **Atualizado**: 29/01/2026  
 > **Objetivo**: Transformar o core do "ClinicOS" em um ERP especializado para Lojas de Revestimentos ("RevestimentosOS"), mantendo a arquitetura modular multi-tenant.
 
 ---
@@ -27,7 +27,7 @@
 - [x] Taxa de entrega no orçamento - Campo `deliveryFee` no Quote
 - [x] Importação de tabela de produtos (CSV/Excel) - `/dashboard/estoque/importar`
 - [x] Importação de XML de nota fiscal (entrada de estoque automática) - `/dashboard/estoque/importar-nfe`
-- [x] Contas a Pagar (Expenses) e Fluxo de Caixa - **IMPLEMENTANDO**
+- [x] Contas a Pagar (Expenses) e Fluxo de Caixa - `/dashboard/financeiro/contas-a-pagar`
 - [ ] Geração de Boletos para Clientes - **DESATIVADO/FUTURO**
 - [x] Templates de orçamento (PDF profissional) - `/quotes/:id/pdf`
 - [x] Vender produtos que estão no sistema mas não em estoque - Permitido pelo schema
@@ -440,8 +440,8 @@ model Order {
 ### ✅ Fase 4: Financeiro e Relatórios (P3) - CONCLUÍDA
 
 - [x] Integração com boletos (API Interna + Mock) - **DESATIVADO (Foco em Contas a Pagar)**
-- [ ] Módulo: Contas a Pagar / Despesas
-- [ ] Dashboard: Alertas de Vencimento
+- [x] Módulo: Contas a Pagar / Despesas - `/dashboard/financeiro/contas-a-pagar`
+- [x] Dashboard: Alertas de Vencimento (cores por status)
 - [x] Dashboard de vendas - `/dashboard/financeiro`
 - [x] Relatório por vendedor - `/dashboard/financeiro/vendedores`
 - [x] Relatório por arquiteto (comissões) - `/dashboard/financeiro/arquitetos`
@@ -490,4 +490,17 @@ Comando para rodar: `npx ts-node scripts/test-live-flow.ts`
 6. ✅ Fase 4: Financeiro e Relatórios - Concluída
 7. ✅ **Concluído**: Geração de PDF de orçamentos
 8. ✅ **Concluído**: Módulo de Entregas (Backend + Frontend)
-9. ⏳ **Em Andamento**: Módulo de Contas a Pagar (Expenses) e Ocultação de Boletos de Venda
+9. ✅ **Concluído**: Módulo de Contas a Pagar (Expenses)
+
+---
+
+## 🎉 Status Final
+
+Todas as fases planejadas foram implementadas com sucesso!
+
+### Funcionalidades Futuras (Backlog)
+- [ ] Integração externa com boletos (Asaas/Iugu) para cobrança de clientes
+- [ ] Integração automática NFe → Despesa (Contas a Pagar)
+- [ ] Relatório de fluxo de caixa consolidado (Receitas vs Despesas)
+- [ ] App mobile para vendedores
+- [ ] Integração com contabilidade

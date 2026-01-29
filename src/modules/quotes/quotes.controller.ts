@@ -62,6 +62,12 @@ export class QuotesController {
         return this.quotesService.findAll(req.clinicId, status);
     }
 
+    @Get(':id/availability')
+    @Permissions(PERMISSIONS.QUOTE_READ)
+    checkAvailability(@Request() req: any, @Param('id') id: string) {
+        return this.quotesService.checkAvailability(id, req.clinicId);
+    }
+
     @Get(':id')
     @Permissions(PERMISSIONS.QUOTE_READ)
     findOne(@Request() req: any, @Param('id') id: string) {
@@ -94,6 +100,12 @@ export class QuotesController {
     @Permissions(PERMISSIONS.QUOTE_CONVERT)
     convertToOrder(@Request() req: any, @Param('id') id: string) {
         return this.quotesService.convertToOrder(id, req.clinicId, req.user.id);
+    }
+
+    @Post(':id/reserve')
+    @Permissions(PERMISSIONS.QUOTE_UPDATE)
+    reserveStock(@Request() req: any, @Param('id') id: string) {
+        return this.quotesService.reserveStock(id, req.clinicId);
     }
 
     @Delete(':id')

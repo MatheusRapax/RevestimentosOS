@@ -2,46 +2,51 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
-import { Plus, X, Cake, Calendar, Package, Bell, Stethoscope, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Plus, X, Cake, Package, AlertTriangle, DollarSign, TrendingUp, ShoppingCart } from 'lucide-react';
 
-// Widget type definitions
+// Widget type definitions for flooring store
 const WIDGET_CONFIG = {
     birthdays: {
         label: 'Aniversários',
         icon: Cake,
         color: 'text-pink-500',
         bgColor: 'bg-pink-50',
-    },
-    today_appointments: {
-        label: 'Agenda do Dia',
-        icon: Calendar,
-        color: 'text-blue-500',
-        bgColor: 'bg-blue-50',
+        description: 'Clientes que fazem aniversário esta semana',
     },
     stock_alerts: {
-        label: 'Alertas de Estoque',
+        label: 'Estoque Baixo',
         icon: Package,
         color: 'text-orange-500',
         bgColor: 'bg-orange-50',
+        description: 'Produtos abaixo do estoque mínimo',
     },
-    notices: {
-        label: 'Avisos',
-        icon: Bell,
-        color: 'text-yellow-500',
-        bgColor: 'bg-yellow-50',
-    },
-    open_encounters: {
-        label: 'Atendimentos Abertos',
-        icon: Stethoscope,
-        color: 'text-purple-500',
-        bgColor: 'bg-purple-50',
-    },
-    upcoming_expirations: {
-        label: 'Vencimentos',
-        icon: Clock,
+    expenses_due: {
+        label: 'Contas a Vencer',
+        icon: AlertTriangle,
         color: 'text-red-500',
         bgColor: 'bg-red-50',
+        description: 'Despesas com vencimento próximo',
+    },
+    pending_orders: {
+        label: 'Pedidos Pendentes',
+        icon: ShoppingCart,
+        color: 'text-purple-500',
+        bgColor: 'bg-purple-50',
+        description: 'Pedidos aguardando ação',
+    },
+    today_revenue: {
+        label: 'Vendas Hoje',
+        icon: TrendingUp,
+        color: 'text-green-500',
+        bgColor: 'bg-green-50',
+        description: 'Resumo de vendas do dia',
+    },
+    pending_deliveries: {
+        label: 'Entregas Pendentes',
+        icon: DollarSign,
+        color: 'text-blue-500',
+        bgColor: 'bg-blue-50',
+        description: 'Entregas agendadas para hoje',
     },
 } as const;
 
@@ -63,7 +68,9 @@ export default function WidgetsBoard({ className = '' }: WidgetsBoardProps) {
     const fetchConfig = async () => {
         try {
             const response = await api.get('/dashboard/config');
-            setWidgets(response.data || []);
+            // Filter only valid widget types that exist in our config
+            const validWidgets = (response.data || []).filter((w: string) => w in WIDGET_CONFIG);
+            setWidgets(validWidgets);
         } catch (error) {
             console.error('Error fetching config:', error);
             setWidgets([]);
@@ -177,7 +184,7 @@ function WidgetCard({
     type: WidgetType;
     onRemove: () => void;
 }) {
-    const [data, setData] = useState<any[]>([]);
+    const [data, setData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const config = WIDGET_CONFIG[type];
@@ -189,16 +196,19 @@ function WidgetCard({
 
     const fetchData = async () => {
         try {
-            const endpoint = `/dashboard/widgets/${type.replace('_', '-')}`;
+            const endpoint = `/dashboard/widgets/${type.replace(/_/g, '-')}`;
             const response = await api.get(endpoint);
-            setData(Array.isArray(response.data) ? response.data : []);
+            setData(response.data);
         } catch (error) {
             console.error(`Error fetching ${type}:`, error);
-            setData([]);
+            setData(null);
         } finally {
             setIsLoading(false);
         }
     };
+
+    const formatCurrency = (cents: number) =>
+        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
 
     return (
         <div className={`p-4 rounded-xl border border-gray-100 shadow-sm ${config.bgColor}`}>
@@ -221,43 +231,97 @@ function WidgetCard({
                     <div className="h-4 bg-gray-200 rounded w-3/4" />
                     <div className="h-4 bg-gray-200 rounded w-1/2" />
                 </div>
-            ) : data.length === 0 ? (
+            ) : !data || (Array.isArray(data) && data.length === 0) ? (
                 <p className="text-sm text-gray-500 italic">Nenhum item</p>
             ) : (
-                <ul className="space-y-1">
-                    {data.slice(0, 5).map((item, i) => (
-                        <li key={i} className="text-sm text-gray-700 truncate">
-                            {renderItem(type, item)}
-                        </li>
-                    ))}
-                </ul>
+                <div className="space-y-1">
+                    {renderWidgetContent(type, data, formatCurrency)}
+                </div>
             )}
         </div>
     );
 }
 
-// Render item based on widget type
-function renderItem(type: WidgetType, item: any): string {
+// Render content based on widget type
+function renderWidgetContent(type: WidgetType, data: any, formatCurrency: (c: number) => string): React.ReactNode {
+    const items = Array.isArray(data) ? data : [];
+
     switch (type) {
         case 'birthdays':
-            return `🎂 ${item.name}`;
-        case 'today_appointments':
-            const time = new Date(item.startAt).toLocaleTimeString('pt-BR', {
-                hour: '2-digit',
-                minute: '2-digit',
-            });
-            return `${time} - ${item.patient?.name || 'Paciente'}`;
+            return (
+                <ul className="space-y-1">
+                    {items.slice(0, 5).map((item: any, i: number) => (
+                        <li key={i} className="text-sm text-gray-700 truncate">
+                            🎂 {item.name} {item.phone && `- ${item.phone}`}
+                        </li>
+                    ))}
+                </ul>
+            );
+
         case 'stock_alerts':
-            return `⚠️ ${item.name} (${item.currentStock}/${item.minStock})`;
-        case 'notices':
-            const priority = item.priority === 'urgent' ? '🔴' : item.priority === 'high' ? '🟡' : '';
-            return `${priority} ${item.title}`;
-        case 'open_encounters':
-            return `${item.patient?.name || 'Paciente'} - ${item.professional?.name || 'Profissional'}`;
-        case 'upcoming_expirations':
-            const expDate = new Date(item.expirationDate).toLocaleDateString('pt-BR');
-            return `${item.product?.name || 'Produto'} - ${expDate}`;
+            return (
+                <ul className="space-y-1">
+                    {items.slice(0, 5).map((item: any, i: number) => (
+                        <li key={i} className="text-sm text-gray-700 truncate">
+                            ⚠️ {item.name} ({item.currentStock}/{item.minStock})
+                        </li>
+                    ))}
+                </ul>
+            );
+
+        case 'expenses_due':
+            return (
+                <ul className="space-y-1">
+                    {items.slice(0, 5).map((item: any, i: number) => {
+                        const dueDate = new Date(item.dueDate).toLocaleDateString('pt-BR');
+                        return (
+                            <li key={i} className="text-sm text-gray-700 truncate">
+                                📅 {item.description} - {formatCurrency(item.amountCents)} ({dueDate})
+                            </li>
+                        );
+                    })}
+                </ul>
+            );
+
+        case 'pending_orders':
+            return (
+                <ul className="space-y-1">
+                    {items.slice(0, 5).map((item: any, i: number) => (
+                        <li key={i} className="text-sm text-gray-700 truncate">
+                            📦 Pedido #{item.number} - {item.customer?.name || 'Cliente'}
+                        </li>
+                    ))}
+                </ul>
+            );
+
+        case 'today_revenue':
+            // Expecting { totalCents, count }
+            const total = data.totalCents || 0;
+            const count = data.count || 0;
+            return (
+                <div className="text-center">
+                    <p className="text-2xl font-bold text-green-600">{formatCurrency(total)}</p>
+                    <p className="text-sm text-gray-500">{count} venda(s) hoje</p>
+                </div>
+            );
+
+        case 'pending_deliveries':
+            return (
+                <ul className="space-y-1">
+                    {items.slice(0, 5).map((item: any, i: number) => {
+                        const deliveryDate = item.deliveryDate
+                            ? new Date(item.deliveryDate).toLocaleDateString('pt-BR')
+                            : 'N/A';
+                        return (
+                            <li key={i} className="text-sm text-gray-700 truncate">
+                                🚚 {item.customer?.name || 'Cliente'} - {deliveryDate}
+                            </li>
+                        );
+                    })}
+                </ul>
+            );
+
         default:
-            return JSON.stringify(item);
+            return <p className="text-sm text-gray-500">Widget não configurado</p>;
     }
 }

@@ -24,6 +24,10 @@ import { CustomersModule } from './modules/customers/customers.module';
 import { ArchitectsModule } from './modules/architects/architects.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { DeliveriesModule } from './modules/deliveries/deliveries.module';
+import { OrdersModule } from './modules/orders/orders.module';
+import { SuppliersModule } from './modules/suppliers/suppliers.module';
+import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module';
+import { StockReservationsModule } from './modules/stock-reservations/stock-reservations.module';
 
 @Module({
     imports: [
@@ -52,6 +56,10 @@ import { DeliveriesModule } from './modules/deliveries/deliveries.module';
         ArchitectsModule,
         QuotesModule,
         DeliveriesModule,
+        OrdersModule,
+        SuppliersModule,
+        PurchaseOrdersModule,
+        StockReservationsModule,
     ],
     controllers: [],
     providers: [],

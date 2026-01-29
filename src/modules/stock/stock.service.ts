@@ -33,6 +33,7 @@ export class StockService {
                 sku: dto.sku,
                 barcode: dto.barcode,
                 minStock: dto.minStock || 0,
+                boxCoverage: dto.boxCoverage,
             },
         });
 
@@ -71,6 +72,7 @@ export class StockService {
             include: {
                 lots: {
                     where: { quantity: { gt: 0 } },
+                    include: { reservations: { where: { status: 'ACTIVE' } } },
                     orderBy: { expirationDate: 'asc' },
                 },
             },
@@ -78,10 +80,19 @@ export class StockService {
         });
 
         // Calculate total stock for each product
-        const productsWithStock = products.map((product) => ({
-            ...product,
-            totalStock: product.lots.reduce((sum, lot) => sum + lot.quantity, 0),
-        }));
+        const productsWithStock = products.map((product) => {
+            const totalStock = product.lots.reduce((sum, lot) => sum + lot.quantity, 0);
+            const totalReserved = product.lots.reduce((sum, lot) => {
+                return sum + lot.reservations.reduce((rSum: number, r: any) => rSum + r.quantity, 0);
+            }, 0);
+
+            return {
+                ...product,
+                totalStock,
+                totalReserved,
+                availableStock: totalStock - totalReserved,
+            };
+        });
 
         return productsWithStock;
     }
@@ -92,6 +103,7 @@ export class StockService {
             include: {
                 lots: {
                     where: { quantity: { gt: 0 } },
+                    include: { reservations: { where: { status: 'ACTIVE' } } },
                     orderBy: { expirationDate: 'asc' },
                 },
             },
@@ -101,9 +113,16 @@ export class StockService {
             throw new NotFoundException('Produto não encontrado');
         }
 
+        const totalStock = product.lots.reduce((sum, lot) => sum + lot.quantity, 0);
+        const totalReserved = product.lots.reduce((sum, lot) => {
+            return sum + lot.reservations.reduce((rSum: number, r: any) => rSum + r.quantity, 0);
+        }, 0);
+
         return {
             ...product,
-            totalStock: product.lots.reduce((sum, lot) => sum + lot.quantity, 0),
+            totalStock,
+            totalReserved,
+            availableStock: totalStock - totalReserved,
         };
     }
 

@@ -52,29 +52,29 @@ export class DashboardController {
         return this.dashboardService.getBirthdays(req.clinicId);
     }
 
-    @Get('widgets/today-appointments')
-    async getTodayAppointments(@Request() req: AuthRequest) {
-        return this.dashboardService.getTodayAppointments(req.clinicId);
-    }
-
     @Get('widgets/stock-alerts')
     async getStockAlerts(@Request() req: AuthRequest) {
         return this.dashboardService.getStockAlerts(req.clinicId);
     }
 
-    @Get('widgets/notices')
-    async getNotices(@Request() req: AuthRequest) {
-        return this.dashboardService.getNotices(req.clinicId);
+    @Get('widgets/expenses-due')
+    async getExpensesDue(@Request() req: AuthRequest) {
+        return this.dashboardService.getExpensesDue(req.clinicId);
     }
 
-    @Get('widgets/open-encounters')
-    async getOpenEncounters(@Request() req: AuthRequest) {
-        return this.dashboardService.getOpenEncounters(req.clinicId);
+    @Get('widgets/pending-orders')
+    async getPendingOrders(@Request() req: AuthRequest) {
+        return this.dashboardService.getPendingOrders(req.clinicId);
     }
 
-    @Get('widgets/upcoming-expirations')
-    async getUpcomingExpirations(@Request() req: AuthRequest) {
-        return this.dashboardService.getUpcomingExpirations(req.clinicId);
+    @Get('widgets/today-revenue')
+    async getTodayRevenue(@Request() req: AuthRequest) {
+        return this.dashboardService.getTodayRevenue(req.clinicId);
+    }
+
+    @Get('widgets/pending-deliveries')
+    async getPendingDeliveries(@Request() req: AuthRequest) {
+        return this.dashboardService.getPendingDeliveries(req.clinicId);
     }
 
     // ====================================================================

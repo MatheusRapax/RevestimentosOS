@@ -42,6 +42,7 @@ const menuSections = [
         title: 'Compras',
         items: [
             { href: '/dashboard/compras', label: 'Pedidos de Compra', icon: ShoppingCart },
+            { href: '/dashboard/fornecedores', label: 'Fornecedores', icon: Building2 },
         ],
     },
     {
