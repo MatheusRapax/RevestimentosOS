@@ -5,6 +5,7 @@ import {
     Body,
     UseGuards,
     Request,
+    Query,
 } from '@nestjs/common';
 import { DashboardService, WIDGET_TYPES } from './dashboard.service';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
@@ -74,5 +75,26 @@ export class DashboardController {
     @Get('widgets/upcoming-expirations')
     async getUpcomingExpirations(@Request() req: AuthRequest) {
         return this.dashboardService.getUpcomingExpirations(req.clinicId);
+    }
+
+    // ====================================================================
+    // FINANCIAL REPORTS ENDPOINTS
+    // ====================================================================
+    @Get('finance/sellers')
+    async getSellersPerformance(
+        @Request() req: AuthRequest,
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string
+    ) {
+        return this.dashboardService.getSellersPerformance(req.clinicId, startDate, endDate);
+    }
+
+    @Get('finance/architects')
+    async getArchitectsPerformance(
+        @Request() req: AuthRequest,
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string
+    ) {
+        return this.dashboardService.getArchitectsPerformance(req.clinicId, startDate, endDate);
     }
 }

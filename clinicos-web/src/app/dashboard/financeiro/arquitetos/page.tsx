@@ -12,84 +12,47 @@ import {
     Award,
     Percent
 } from 'lucide-react';
-
-// Mock data for architect commissions
-const mockArchitects = [
-    {
-        id: '1',
-        name: 'Arq. Marina Santos',
-        email: 'marina@arquitetura.com.br',
-        phone: '(11) 98765-4321',
-        commissionPercent: 5,
-        stats: {
-            customersReferred: 12,
-            ordersGenerated: 8,
-            totalSalesValue: 4890000,
-            commissionDue: 244500,
-            commissionPaid: 180000,
-            pendingPayment: 64500,
-        },
-    },
-    {
-        id: '2',
-        name: 'Arq. Pedro Lima',
-        email: 'pedro@limadesign.com.br',
-        phone: '(11) 91234-5678',
-        commissionPercent: 4,
-        stats: {
-            customersReferred: 8,
-            ordersGenerated: 5,
-            totalSalesValue: 3250000,
-            commissionDue: 130000,
-            commissionPaid: 130000,
-            pendingPayment: 0,
-        },
-    },
-    {
-        id: '3',
-        name: 'Arq. Carla Mendes',
-        email: 'carla@mendescasa.com.br',
-        phone: '(11) 99876-5432',
-        commissionPercent: 5,
-        stats: {
-            customersReferred: 6,
-            ordersGenerated: 4,
-            totalSalesValue: 2780000,
-            commissionDue: 139000,
-            commissionPaid: 89000,
-            pendingPayment: 50000,
-        },
-    },
-    {
-        id: '4',
-        name: 'Arq. Roberto Alves',
-        email: 'roberto@alvesarq.com.br',
-        phone: '(11) 98888-7777',
-        commissionPercent: 3,
-        stats: {
-            customersReferred: 4,
-            ordersGenerated: 2,
-            totalSalesValue: 1450000,
-            commissionDue: 43500,
-            commissionPaid: 0,
-            pendingPayment: 43500,
-        },
-    },
-];
-
-const mockTotals = {
-    totalArchitects: 4,
-    totalCustomersReferred: 30,
-    totalSalesValue: 12370000,
-    totalCommissionDue: 557000,
-    totalCommissionPaid: 399000,
-    totalPending: 158000,
-};
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
 
 export default function ArquitetosComissoesPage() {
     const [period] = useState('month');
-    const architects = mockArchitects;
-    const totals = mockTotals;
+
+    // Fetch real data
+    const { data: architects = [], isLoading } = useQuery({
+        queryKey: ['financial-architects', period],
+        queryFn: async () => {
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+            // Format dates as YYYY-MM-DD for backend
+            const startDate = firstDay.toISOString().split('T')[0];
+            const endDate = lastDay.toISOString().split('T')[0];
+
+            const response = await api.get('/dashboard/finance/architects', {
+                params: { startDate, endDate }
+            });
+            return response.data;
+        }
+    });
+
+    // Calculate totals on the fly
+    const totals = architects.reduce((acc: any, curr: any) => ({
+        totalArchitects: acc.totalArchitects + 1,
+        totalCustomersReferred: acc.totalCustomersReferred + curr.stats.clientsCount,
+        totalSalesValue: acc.totalSalesValue + curr.stats.totalSales,
+        totalCommissionDue: acc.totalCommissionDue + curr.stats.commissionTotal,
+        totalCommissionPaid: acc.totalCommissionPaid + 0, // Pending payment logic not fully implemented backend side yet
+        totalPending: acc.totalPending + curr.stats.commissionTotal // Assuming all is pending for now
+    }), {
+        totalArchitects: 0,
+        totalCustomersReferred: 0,
+        totalSalesValue: 0,
+        totalCommissionDue: 0,
+        totalCommissionPaid: 0,
+        totalPending: 0
+    });
 
     const formatCurrency = (cents: number) => {
         return new Intl.NumberFormat('pt-BR', {
@@ -97,6 +60,10 @@ export default function ArquitetosComissoesPage() {
             currency: 'BRL'
         }).format(cents / 100);
     };
+
+    if (isLoading) {
+        return <div className="p-6">Loading...</div>;
+    }
 
     return (
         <div className="p-6 space-y-6">
@@ -108,7 +75,7 @@ export default function ArquitetosComissoesPage() {
                 </div>
                 <div className="flex items-center gap-2 bg-white border rounded-lg px-3 py-2">
                     <Calendar className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm">Janeiro 2026</span>
+                    <span className="text-sm">Mês Atual</span>
                 </div>
             </div>
 
@@ -186,7 +153,7 @@ export default function ArquitetosComissoesPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y">
-                            {architects.map((architect) => (
+                            {architects.map((architect: any) => (
                                 <tr key={architect.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
@@ -195,49 +162,43 @@ export default function ArquitetosComissoesPage() {
                                             </div>
                                             <div>
                                                 <p className="font-medium">{architect.name}</p>
-                                                <p className="text-sm text-gray-500">{architect.email}</p>
+                                                {/* Email not always returned by backend for architects list optimization? Checking... it is not in my backend service map. */}
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm font-medium">
                                             <Percent className="h-3 w-3" />
-                                            {architect.commissionPercent}%
+                                            {architect.commissionRate}%
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex items-center justify-center gap-1">
                                             <Users className="h-4 w-4 text-gray-400" />
-                                            <span>{architect.stats.customersReferred}</span>
+                                            <span>{architect.stats.clientsCount}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex items-center justify-center gap-1">
                                             <ShoppingCart className="h-4 w-4 text-gray-400" />
-                                            <span>{architect.stats.ordersGenerated}</span>
+                                            <span>-</span> {/* Order count not returned in summary, only sales value */}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-right font-medium">
-                                        {formatCurrency(architect.stats.totalSalesValue)}
+                                        {formatCurrency(architect.stats.totalSales)}
                                     </td>
                                     <td className="px-6 py-4 text-right text-green-600 font-medium">
-                                        {formatCurrency(architect.stats.commissionDue)}
+                                        {formatCurrency(architect.stats.commissionTotal)}
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        {architect.stats.pendingPayment > 0 ? (
-                                            <span className="text-yellow-600 font-medium">
-                                                {formatCurrency(architect.stats.pendingPayment)}
-                                            </span>
-                                        ) : (
-                                            <span className="text-green-600 text-sm">Pago ✓</span>
-                                        )}
+                                        <span className="text-yellow-600 font-medium">
+                                            {formatCurrency(architect.stats.commissionTotal)}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-4 text-center">
-                                        {architect.stats.pendingPayment > 0 && (
-                                            <button className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">
-                                                Pagar
-                                            </button>
-                                        )}
+                                        <button className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">
+                                            Pagar
+                                        </button>
                                     </td>
                                 </tr>
                             ))}

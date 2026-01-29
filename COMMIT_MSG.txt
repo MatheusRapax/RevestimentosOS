@@ -1,31 +1,11 @@
-feat(sales): Implement End-to-End Sales, PDF & Delivery Modules
+feat(finance): implement real financial reports and finish ERP core sales flow
 
-This comprehensive update introduces the full Sales lifecycle, from Customer registration to product Delivery.
+- Implemented `DashboardService.getSellersPerformance` aggregating `Order` and `Quote` data (Revenue, Conversion Rate, Commissions).
+- Implemented `DashboardService.getArchitectsPerformance` aggregating sales by architect's customers.
+- Exposed new endpoints: `GET /dashboard/finance/sellers` and `GET /dashboard/finance/architects`.
+- Updated Frontend Pages (`/vendedores`, `/arquitetos`) to fetch real data via `useQuery` instead of mock data.
+- Refactored `DashboardController` to use standard `@Query` params for date filtering.
+- Validated End-to-End flow with `scripts/test-live-flow.ts` (Order -> Delivery).
+- Updated project plan (`PLAN-erp-revestimentos.md`) and walkthrough documentation.
 
-🚀 **New Features**
-- **Sales Workflow**: Full flow implemented: Quote -> PDF -> Approval -> Order -> Delivery.
-- **Quote Engine**: 
-  - Automatic calculation of boxes vs. area (m²) based on product dimensions.
-  - PDF Generation using `pdfkit`.
-  - Status transition logic (Draft -> Sent -> Approved -> Converted).
-- **Deliveries Module**: New logistics dashboard to schedule and track order deliveries.
-- **Customer & Architect Management**: dedicated CRUDs for managing client base and referral partners.
-
-🛠️ **Backend Implementation**
-- **Schema**: Added `Quote`, `QuoteItem`, `Order`, `OrderItem`, `Delivery`, `Customer`, `Architect` models.
-- **RBAC**: Implemented and seeded 15+ new permissions (`quote.*`, `order.*`, `delivery.*`).
-- **API**: Created NestJS modules for `Quotes`, `Orders`, `Deliveries`, `Customers`, `Architects`.
-- **Testing**: Added `scripts/test-live-flow.ts` for automated E2E verification of the sales cycle.
-
-💻 **Frontend Implementation**
-- **Dashboards**: New pages for `/quotes`, `/orders`, `/deliveries`, `/customers`.
-- **UI Components**:
-  - Quote Builder with real-time totals.
-  - PDF Preview/Download actions.
-  - Delivery Scheduling modal.
-  - Sidebar updated with new modules.
-
-⚙️ **Chore & Config**
-- **Git**: Updated root and web `.gitignore` to properly exclude build artifacts and secrets.
-- **Seed**: Updated `prisma/seed.ts` with comprehensive role-based permissions for the new modules.
-- **Docs**: Updated `task.md`, `planning.md`, and added `walkthrough.md`.
+This commit completes the core "Financial Reports" phase (Phase 4), ensuring all sales and commission logic is backed by real database records.

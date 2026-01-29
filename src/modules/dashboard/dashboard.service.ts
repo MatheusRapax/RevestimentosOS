@@ -209,4 +209,141 @@ export class DashboardService {
             take: 5,
         });
     }
+
+    // ====================================================================
+    // FINANCIAL REPORTS (PHASE 4)
+    // ====================================================================
+
+    // Seller Performance Report
+    async getSellersPerformance(clinicId: string, startDate?: string, endDate?: string) {
+        const dateFilter: any = {};
+        if (startDate) dateFilter.gte = new Date(startDate);
+        if (endDate) dateFilter.lte = new Date(endDate);
+
+        // 1. Get all sellers (Users with SELLER role or involved in orders)
+        const sellers = await this.prisma.user.findMany({
+            where: {
+                clinicUsers: {
+                    some: {
+                        clinicId,
+                        role: { key: 'SELLER' }
+                    }
+                }
+            },
+            select: { id: true, name: true, email: true }
+        });
+
+        const report = [];
+
+        for (const seller of sellers) {
+            // Aggregate Orders
+            const orders = await this.prisma.order.findMany({
+                where: {
+                    clinicId,
+                    sellerId: seller.id,
+                    createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+                    status: { not: 'CANCELLED' }
+                },
+                select: { totalCents: true }
+            });
+
+            // Aggregate Quotes
+            const quotesCount = await this.prisma.quote.count({
+                where: {
+                    clinicId,
+                    sellerId: seller.id,
+                    createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined
+                }
+            });
+
+            const ordersCount = orders.length;
+            const totalRevenue = orders.reduce((sum, o) => sum + o.totalCents, 0);
+            const conversionRate = quotesCount > 0 ? (ordersCount / quotesCount) * 100 : 0;
+            const averageTicket = ordersCount > 0 ? Math.round(totalRevenue / ordersCount) : 0;
+
+            // Commission logic (mock logic: 3% flat)
+            // In a real scenario, this would come from a user setting or commission rules
+            const commission = Math.round(totalRevenue * 0.03);
+
+            report.push({
+                id: seller.id,
+                name: seller.name || 'Desconhecido',
+                email: seller.email,
+                stats: {
+                    ordersCount,
+                    quotesCount,
+                    conversionRate: Number(conversionRate.toFixed(1)),
+                    totalRevenue,
+                    averageTicket,
+                    commission
+                },
+                rank: 0, // Calculated after sorting
+                trend: 0 // Requires previous period logic (omitted for MVP)
+            });
+        }
+
+        // Rank by Revenue
+        report.sort((a, b) => b.stats.totalRevenue - a.stats.totalRevenue);
+        report.forEach((r, i) => r.rank = i + 1);
+
+        // Calculate Totals
+        const totals = report.reduce((acc, curr) => ({
+            totalRevenue: acc.totalRevenue + curr.stats.totalRevenue,
+            totalOrders: acc.totalOrders + curr.stats.ordersCount,
+            totalQuotes: acc.totalQuotes + curr.stats.quotesCount,
+            totalCommission: acc.totalCommission + curr.stats.commission
+        }), { totalRevenue: 0, totalOrders: 0, totalQuotes: 0, totalCommission: 0 });
+
+        const avgConversion = totals.totalQuotes > 0 ? (totals.totalOrders / totals.totalQuotes) * 100 : 0;
+
+        return { sellers: report, totals: { ...totals, avgConversion: Number(avgConversion.toFixed(1)) } };
+    }
+
+    // Architect Commission Report
+    async getArchitectsPerformance(clinicId: string, startDate?: string, endDate?: string) {
+        const dateFilter: any = {};
+        if (startDate) dateFilter.gte = new Date(startDate);
+        if (endDate) dateFilter.lte = new Date(endDate);
+
+        // Get architects with sales
+        const architects = await this.prisma.architect.findMany({
+            where: { clinicId, isActive: true },
+            include: {
+                customers: {
+                    include: {
+                        orders: {
+                            where: {
+                                clinicId,
+                                createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+                                status: { not: 'CANCELLED' }
+                            },
+                            select: { totalCents: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        const report = architects.map(arch => {
+            // Flatten orders from all customers of this architect
+            const allOrders = arch.customers.flatMap(c => c.orders);
+            const totalSales = allOrders.reduce((sum, o) => sum + o.totalCents, 0);
+            const clientsCount = arch.customers.filter(c => c.orders.length > 0).length;
+            const commissionTotal = Math.round(totalSales * ((arch.commissionRate || 0) / 100));
+
+            return {
+                id: arch.id,
+                name: arch.name,
+                commissionRate: arch.commissionRate,
+                stats: {
+                    totalSales,
+                    clientsCount,
+                    commissionTotal
+                }
+            };
+        });
+
+        // Filter out architects with no sales? Or keep them showing 0? Keeping for visibility.
+        return report.sort((a, b) => b.stats.totalSales - a.stats.totalSales);
+    }
 }

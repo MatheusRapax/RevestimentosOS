@@ -448,12 +448,13 @@ model Order {
 ## 6. Verificação
 
 ### Testes Automatizados
-O projeto atual **não possui testes automatizados** configurados. Para verificar as mudanças:
+O projeto agora possui um script de verificação de fluxo E2E (End-to-End) em `scripts/test-live-flow.ts`.
+Comando para rodar: `npx ts-node scripts/test-live-flow.ts`
 
 ### Testes Manuais (Fase 1)
 1. **Schema**: `npx prisma migrate dev` deve rodar sem erros
 2. **Seed**: `npm run seed` deve popular as novas permissões
-3. **API**: Verificar endpoints via curl/Postman
+3. **API**: Verificar endpoints via curl/Postman ou usando o script E2E.
 
 ### Testes Manuais (Fase 2)
 1. Criar cliente PF e PJ via UI
