@@ -303,11 +303,11 @@ export default function OrdersPage() {
                                     Detalhes
                                 </button>
                                 <button
-                                    className={`px-4 py-2 font-medium text-sm ${activeTab === 'finance' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}
-                                    onClick={() => setActiveTab('finance')}
+                                    className={`px-4 py-2 font-medium text-sm border-b-2 border-blue-600 text-blue-600`}
                                 >
-                                    Financeiro
+                                    Detalhes
                                 </button>
+                                {/* Financeiro tab disabled */}
                             </div>
                         </div>
 

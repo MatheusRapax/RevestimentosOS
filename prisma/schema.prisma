@@ -155,6 +155,7 @@ model Clinic {
   purchaseOrders PurchaseOrder[]
   deliveries     Delivery[]
   invoices       Invoice[]
+  expenses       Expense[]
 }
 
 // Clinic working hours per day of week
@@ -1135,8 +1136,55 @@ model PurchaseOrder {
   items  PurchaseOrderItem[]
 
   @@unique([clinicId, number])
+  // @@index([clinicId]) already exists, avoiding duplication if present or ensuring just one
+  expenses       Expense[]
+}
+
+// ... (Rest of file) ...
+
+enum ExpenseType {
+  SUPPLIER
+  OPERATIONAL
+  TAX
+  COMMISSION
+  OTHER
+}
+
+enum ExpenseStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model Expense {
+  id              String        @id @default(uuid())
+  clinicId        String
+  
+  description     String
+  amountCents     Int
+  dueDate         DateTime
+  paidAt          DateTime?
+  
+  status          ExpenseStatus @default(PENDING)
+  type            ExpenseType   @default(OPERATIONAL)
+  
+  // Optional Links
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  
+  // Boleto Data
+  barCode         String?
+  recipientName   String?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  clinic          Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  
   @@index([clinicId])
   @@index([clinicId, status])
+  @@index([clinicId, dueDate])
 }
 
 // Business: PurchaseOrderItem model (Item do Pedido de Compra)

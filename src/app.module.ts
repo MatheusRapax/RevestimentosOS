@@ -18,6 +18,7 @@ import { SpecialtiesModule } from './modules/specialties/specialties.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { ProceduresModule } from './modules/procedures/procedures.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 // Sales Module - Revestimentos
 import { CustomersModule } from './modules/customers/customers.module';
 import { ArchitectsModule } from './modules/architects/architects.module';
@@ -45,6 +46,7 @@ import { DeliveriesModule } from './modules/deliveries/deliveries.module';
         RolesModule,
         ProceduresModule,
         FinanceModule,
+        ExpensesModule,
         // Sales Module - Revestimentos
         CustomersModule,
         ArchitectsModule,
@@ -55,3 +57,4 @@ import { DeliveriesModule } from './modules/deliveries/deliveries.module';
     providers: [],
 })
 export class AppModule { }
+
