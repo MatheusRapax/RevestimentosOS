@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Package, Search, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { ProductDetailsSheet } from './components/ProductDetailsSheet';
 
 interface ProductWithStock {
     id: string;
@@ -28,6 +29,11 @@ export default function EstoquePage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<FilterType>('all');
 
+    // Details Sheet State
+    const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+    const [selectedProductDetails, setSelectedProductDetails] = useState<any>(null);
+    const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
     const fetchStock = async () => {
         try {
             setIsLoading(true);
@@ -41,6 +47,18 @@ export default function EstoquePage() {
             setIsLoading(false);
         }
     };
+
+    const handleRowClick = async (productId: string) => {
+        try {
+            setSelectedProductId(productId);
+            setIsDetailsOpen(true);
+            // Fetch fill details
+            const res = await api.get(`/stock/products/${productId}`);
+            setSelectedProductDetails(res.data);
+        } catch (err) {
+            console.error('Error fetching product details:', err);
+        }
+    }
 
     useEffect(() => {
         fetchStock();
@@ -258,8 +276,9 @@ export default function EstoquePage() {
                                 {filteredProducts.map((product) => (
                                     <tr
                                         key={product.id}
-                                        className={`hover:bg-gray-50 ${getStockStatus(product) === 'out_of_stock' ? 'bg-red-50' :
-                                            getStockStatus(product) === 'low_stock' ? 'bg-yellow-50' : ''
+                                        onClick={() => handleRowClick(product.id)}
+                                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${getStockStatus(product) === 'out_of_stock' ? 'bg-red-50 hover:bg-red-100' :
+                                            getStockStatus(product) === 'low_stock' ? 'bg-yellow-50 hover:bg-yellow-100' : ''
                                             }`}
                                     >
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -290,6 +309,12 @@ export default function EstoquePage() {
                     </div>
                 </Card>
             )}
+
+            <ProductDetailsSheet
+                product={selectedProductDetails}
+                isOpen={isDetailsOpen}
+                onClose={() => setIsDetailsOpen(false)}
+            />
         </div>
     );
 }

@@ -45,6 +45,14 @@ interface Product {
     boxCoverage?: number;
     piecesPerBox?: number;
     unit?: string;
+    lots?: {
+        id: string;
+        lotNumber: string;
+        quantity: number;
+        shade?: string;
+        caliber?: string;
+        reservations?: any[];
+    }[];
 }
 
 interface QuoteItem {
@@ -57,6 +65,7 @@ interface QuoteItem {
     discountPercent: number;
     discountCents: number;
     totalCents: number;
+    preferredLotId?: string;
 }
 
 export default function NovoOrcamentoPage() {
@@ -154,6 +163,7 @@ export default function NovoOrcamentoPage() {
             item.productId = value;
             item.product = product;
             item.unitPriceCents = product?.priceCents || 0;
+            item.preferredLotId = undefined;
 
             // Recalculate if area was already set
             if (item.inputArea > 0 && product?.boxCoverage) {
@@ -222,6 +232,7 @@ export default function NovoOrcamentoPage() {
                     quantityBoxes: item.inputArea ? undefined : item.quantityBoxes,
                     unitPriceCents: item.unitPriceCents,
                     discountPercent: item.discountPercent || undefined,
+                    preferredLotId: item.preferredLotId || undefined,
                 })),
             };
 
@@ -373,6 +384,36 @@ export default function NovoOrcamentoPage() {
                                                     ` • ${item.product.piecesPerBox} peças/caixa`}
                                             </p>
                                         )}
+                                    </div>
+
+                                    {/* Lot Select */}
+                                    <div className="md:col-span-2 space-y-2">
+                                        <Label>Lote Preferencial (Opcional)</Label>
+                                        <Select
+                                            value={item.preferredLotId || 'none'}
+                                            onValueChange={(value) =>
+                                                updateItem(index, 'preferredLotId', value === 'none' ? undefined : value)
+                                            }
+                                            disabled={!item.productId}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={item.productId ? "Qualquer lote (Automático)" : "Selecione o produto primeiro"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Qualquer lote (Automático)</SelectItem>
+                                                {item.product?.lots?.map((lot) => {
+                                                    const reserved = lot.reservations?.reduce((acc: number, r: any) => acc + r.quantity, 0) || 0;
+                                                    const available = lot.quantity - reserved;
+                                                    return (
+                                                        <SelectItem key={lot.id} value={lot.id}>
+                                                            Lot: {lot.lotNumber} | Disp: {available}cx
+                                                            {lot.shade ? ` | Ton: ${lot.shade}` : ''}
+                                                            {lot.caliber ? ` | Cal: ${lot.caliber}` : ''}
+                                                        </SelectItem>
+                                                    );
+                                                })}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
 
                                     {/* Area Input */}

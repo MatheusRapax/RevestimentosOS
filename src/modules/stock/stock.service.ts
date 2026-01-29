@@ -103,7 +103,15 @@ export class StockService {
             include: {
                 lots: {
                     where: { quantity: { gt: 0 } },
-                    include: { reservations: { where: { status: 'ACTIVE' } } },
+                    include: {
+                        reservations: {
+                            where: { status: 'ACTIVE' },
+                            include: {
+                                quote: { select: { number: true, customer: { select: { name: true } } } },
+                                order: { select: { number: true, customer: { select: { name: true } } } },
+                            }
+                        }
+                    },
                     orderBy: { expirationDate: 'asc' },
                 },
             },

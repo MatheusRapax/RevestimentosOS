@@ -15,6 +15,7 @@ export class StockReservationsService {
     async create(clinicId: string, data: {
         orderId?: string;
         quoteId?: string;
+        quoteItemId?: string;
         lotId: string;
         quantity: number;
     }) {
@@ -41,6 +42,7 @@ export class StockReservationsService {
                 lotId: data.lotId,
                 orderId: data.orderId,
                 quoteId: data.quoteId,
+                quoteItemId: data.quoteItemId,
                 quantity: data.quantity,
                 status: 'ACTIVE',
                 expiresAt: addDays(new Date(), 30), // Expira em 30 dias

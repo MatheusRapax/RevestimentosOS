@@ -336,9 +336,9 @@ export default function OrcamentosPage() {
                 </Card>
             ) : (
                 <Card>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)]">
                         <table className="w-full">
-                            <thead className="bg-gray-50 border-b">
+                            <thead className="bg-gray-50 border-b sticky top-0 z-10">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Nº
@@ -402,11 +402,19 @@ export default function OrcamentosPage() {
                                                     <div className="text-sm font-medium text-gray-900">
                                                         {formatCurrency(quote.totalCents)}
                                                     </div>
-                                                    {quote.discountCents > 0 && (
-                                                        <div className="text-xs text-green-600">
-                                                            -{formatCurrency(quote.discountCents)} desc.
-                                                        </div>
-                                                    )}
+                                                    {(() => {
+                                                        const itemDiscounts = quote.items?.reduce((acc, item: any) => acc + (item.discountCents || 0), 0) || 0;
+                                                        const totalDiscount = quote.discountCents + itemDiscounts;
+
+                                                        if (totalDiscount > 0) {
+                                                            return (
+                                                                <div className="text-xs text-green-600">
+                                                                    -{formatCurrency(totalDiscount)} desc.
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -424,7 +432,8 @@ export default function OrcamentosPage() {
                         </table>
                     </div>
                 </Card>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }

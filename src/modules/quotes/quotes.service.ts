@@ -179,6 +179,7 @@ export class QuotesService {
                 customer: { select: { id: true, name: true } },
                 architect: { select: { id: true, name: true } },
                 seller: { select: { id: true, name: true } },
+                items: { select: { id: true, discountCents: true } },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -195,6 +196,7 @@ export class QuotesService {
                     include: {
                         product: { select: { id: true, name: true, sku: true, boxCoverage: true, unit: true } },
                         preferredLot: { select: { id: true, lotNumber: true, shade: true, caliber: true } },
+                        reservations: true,
                     },
                 },
             },
@@ -374,61 +376,53 @@ export class QuotesService {
 
         // Check availability first
         const availability = await this.checkAvailability(id, clinicId);
-        if (availability.status === 'NONE') {
-            throw new BadRequestException('Não há estoque suficiente para reservar este orçamento (Status: NONE)');
-        }
-        // NOTE: We permit PARTIAL reservations? Let's assume yes, or stick to FULL?
-        // Let's permit partial if specific items are available, but generally we want FULL for "Reserve Quote".
-        // For now, let's proceed and try to reserve what is possible.
+
+        // Find existing reservations for this quote
+        const existingReservations = await this.stockReservationsService.findByQuote(clinicId, id);
 
         const results = [];
 
         for (const item of quote.items) {
-            // Se já tem lote preferido, tenta ele primeiro/unicamente?
-            // Se tem preferredLotId, TENTAR apenas ele? Ou usar como prioridade?
-            // Lógica: Se tem preferredLotId, tenta reservar dele. Se falhar, error ou fallback?
-            // "Preferred" implica preferência. Mas se não tiver, o cliente quer o produto.
-            // Para simplificar: SE tem preferredLotId, tenta reservar dele. Se faltar, falha item.
-            // SE não tem, greedy.
+            // Check what is already reserved for this specific item
+            const itemReservations = existingReservations.filter((r: any) => r.quoteItemId === item.id);
+            const alreadyReserved = itemReservations.reduce((sum: number, r: any) => sum + r.quantity, 0);
 
-            let remainingToReserve = item.quantityBoxes;
+            let remainingToReserve = item.quantityBoxes - alreadyReserved;
+
+            if (remainingToReserve <= 0) {
+                results.push({
+                    itemId: item.id,
+                    reserved: alreadyReserved,
+                    requested: item.quantityBoxes,
+                    message: 'Already fully reserved'
+                });
+                continue;
+            }
+
             const productStock = await this.stockService.findOne(item.productId, clinicId);
             const lots = (productStock as any).lots || [];
-
-            // Existing reservations for this item/quote?
-            // We should check if we already reserved.
-            const existingReservations = await this.stockReservationsService.findByQuote(clinicId, id);
-            // Filter by product via lot (complex).
-            // Simplification: Assume this action IS the reservation step and idempotency is handled by checking if reserved.
-            // But checking if "already reserved" is hard per item.
-            // Let's assume the button is "Reserve" and if clicked again, it might duplicate if we don't check.
-            // BETTER: Delete existing active reservations for this quote first? Or append?
-            // Append is safer for partial. "Reserve remaining".
-            // But let's Start Fresh: Cancel existing active reservations for this quote?
-            // Or just throw "Already reserved".
-            // Let's just try to reserve.
 
             if (item.preferredLotId) {
                 const manualLot = lots.find((l: any) => l.id === item.preferredLotId);
                 if (manualLot) {
-                    // Check availability logic handles inside StockReservationsService.create but we need to check amount here to avoid throwing
-                    const reserved = manualLot.reservations?.reduce((sum: number, r: any) => sum + r.quantity, 0) || 0;
-                    const available = manualLot.quantity - reserved;
+                    const lotReserved = manualLot.reservations?.reduce((sum: number, r: any) => sum + r.quantity, 0) || 0;
+                    const available = manualLot.quantity - lotReserved;
                     const toTake = Math.min(available, remainingToReserve);
 
                     if (toTake > 0) {
                         await this.stockReservationsService.create(clinicId, {
                             quoteId: id,
+                            quoteItemId: item.id,
                             lotId: manualLot.id,
                             quantity: toTake,
                         });
                         remainingToReserve -= toTake;
                     }
                 }
-            } else {
+            }
+
+            if (remainingToReserve > 0 && !item.preferredLotId) {
                 // Greedy
-                // Sort lots? Maybe by largest availability first to minimize splits? Or expiry?
-                // Let's sort by quantity desc.
                 lots.sort((a: any, b: any) => {
                     const availA = a.quantity - (a.reservations?.reduce((sum: number, r: any) => sum + r.quantity, 0) || 0);
                     const availB = b.quantity - (b.reservations?.reduce((sum: number, r: any) => sum + r.quantity, 0) || 0);
@@ -445,6 +439,7 @@ export class QuotesService {
                         const toTake = Math.min(available, remainingToReserve);
                         await this.stockReservationsService.create(clinicId, {
                             quoteId: id,
+                            quoteItemId: item.id,
                             lotId: lot.id,
                             quantity: toTake,
                         });
@@ -453,7 +448,12 @@ export class QuotesService {
                 }
             }
 
-            results.push({ itemId: item.id, reserved: item.quantityBoxes - remainingToReserve, requested: item.quantityBoxes });
+            results.push({
+                itemId: item.id,
+                reserved: item.quantityBoxes - remainingToReserve,
+                requested: item.quantityBoxes,
+                newlyReserved: (item.quantityBoxes - alreadyReserved) - remainingToReserve
+            });
         }
 
         return { message: 'Reserva processada', results };

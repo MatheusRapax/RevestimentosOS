@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -34,6 +35,7 @@ interface QuoteItem {
     discountCents: number;
     totalCents: number;
     notes?: string;
+    reservations?: { quantity: number }[];
 }
 
 interface AvailabilityItem {
@@ -225,9 +227,9 @@ export default function QuoteDetailPage() {
             // If I reserve, now it's reserved.
             // Ideally we'd show "Reserved" in the table. But the current endpoint just returns avail/missing.
             // Whatever, user just wants to click Reserve.
-            alert('Estoque reservado com sucesso!');
+            toast.success('Reserva processada com sucesso!');
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erro ao reservar estoque');
+            toast.error(err.response?.data?.message || 'Erro ao reservar estoque');
         } finally {
             setActionLoading(null);
         }
@@ -413,17 +415,17 @@ export default function QuoteDetailPage() {
                         Itens do Orçamento
                     </h3>
                 </div>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-450px)]">
                     <table className="w-full">
-                        <thead className="bg-gray-50 border-b">
+                        <thead className="bg-gray-50 border-b sticky top-0 z-10">
                             <tr>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Área (m²)</th>
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Caixas</th>
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Preço Unit.</th>
-                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Preço Unit.</th>
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Desconto</th>
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Reserva</th>
                                 {availability && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Disponibilidade</th>}
                             </tr>
                         </thead>
@@ -450,6 +452,18 @@ export default function QuoteDetailPage() {
                                     </td>
                                     <td className="px-4 py-3 text-right font-medium">
                                         {formatCurrency(item.totalCents)}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                        {(() => {
+                                            const reservedQty = item.reservations?.reduce((acc, r) => acc + r.quantity, 0) || 0;
+                                            if (reservedQty >= item.quantityBoxes) {
+                                                return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Reservado</span>;
+                                            }
+                                            if (reservedQty > 0) {
+                                                return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">Parcial ({reservedQty}/{item.quantityBoxes})</span>;
+                                            }
+                                            return <span className="text-gray-400">-</span>;
+                                        })()}
                                     </td>
                                     {availability && (
                                         <td className="px-4 py-3 text-center">
@@ -493,26 +507,41 @@ export default function QuoteDetailPage() {
                     Resumo Financeiro
                 </h3>
                 <div className="space-y-2 max-w-sm ml-auto text-right">
-                    <div className="flex justify-between">
-                        <span className="text-gray-600">Subtotal:</span>
-                        <span>{formatCurrency(quote.subtotalCents)}</span>
-                    </div>
-                    {quote.discountCents > 0 && (
-                        <div className="flex justify-between text-red-600">
-                            <span>Desconto{quote.discountPercent ? ` (${quote.discountPercent}%)` : ''}:</span>
-                            <span>-{formatCurrency(quote.discountCents)}</span>
-                        </div>
-                    )}
-                    {quote.deliveryFee > 0 && (
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Taxa de Entrega:</span>
-                            <span>{formatCurrency(quote.deliveryFee)}</span>
-                        </div>
-                    )}
-                    <div className="flex justify-between text-xl font-bold border-t pt-2 mt-2">
-                        <span>Total:</span>
-                        <span className="text-green-600">{formatCurrency(quote.totalCents)}</span>
-                    </div>
+                    {(() => {
+                        const itemDiscounts = quote.items.reduce((acc, item) => acc + item.discountCents, 0);
+                        const totalDiscount = quote.discountCents + itemDiscounts;
+                        // quote.subtotalCents is currently "Net Items Total" (after item discounts)
+                        // So Gross Subtotal = quote.subtotalCents + itemDiscounts
+                        const grossSubtotal = quote.subtotalCents + itemDiscounts;
+
+                        return (
+                            <>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Subtotal:</span>
+                                    <span>{formatCurrency(grossSubtotal)}</span>
+                                </div>
+
+                                {totalDiscount > 0 && (
+                                    <div className="flex justify-between text-red-600">
+                                        <span>Desconto Total:</span>
+                                        <span>-{formatCurrency(totalDiscount)}</span>
+                                    </div>
+                                )}
+
+                                {quote.deliveryFee > 0 && (
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Taxa de Entrega:</span>
+                                        <span>{formatCurrency(quote.deliveryFee)}</span>
+                                    </div>
+                                )}
+
+                                <div className="flex justify-between text-xl font-bold border-t pt-2 mt-2">
+                                    <span>Total:</span>
+                                    <span className="text-green-600">{formatCurrency(quote.totalCents)}</span>
+                                </div>
+                            </>
+                        );
+                    })()}
                 </div>
             </Card>
 
