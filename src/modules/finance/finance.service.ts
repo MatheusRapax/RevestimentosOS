@@ -332,4 +332,65 @@ export class FinanceService {
             currency: 'BRL',
         }).format(cents / 100);
     }
+
+    // =====================================================
+    // BOLETOS / INVOICES (ERP Revestimentos)
+    // =====================================================
+
+    async generateInvoice(clinicId: string, orderId: string, dueDate: string) {
+        // 1. Verify Order
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId, clinicId },
+            include: { customer: true }
+        });
+
+        if (!order) {
+            throw new NotFoundException('Pedido não encontrado');
+        }
+
+        // 2. Generate Mock Data (Barcode, PDF Link)
+        const mockBarcode = `34191.79001 01043.510047 91020.150008 5 ${Math.floor(Date.now() / 1000)}0`;
+        const mockPdfUrl = `https://mock-bank.com/boleto/${order.id}.pdf`;
+
+        // 3. Create Invoice
+        const invoice = await this.prisma.invoice.create({
+            data: {
+                clinicId,
+                orderId,
+                amountCents: order.totalCents,
+                dueDate: new Date(dueDate),
+                status: 'PENDING',
+                barCode: mockBarcode,
+                pdfUrl: mockPdfUrl,
+                provider: 'INTERNAL_MOCK'
+            }
+        });
+
+        return invoice;
+    }
+
+    async listInvoices(clinicId: string, orderId: string) {
+        return this.prisma.invoice.findMany({
+            where: { clinicId, orderId },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+
+    async updateInvoiceStatus(clinicId: string, invoiceId: string, status: 'PAID' | 'CANCELLED') {
+        const invoice = await this.prisma.invoice.findFirst({
+            where: { id: invoiceId, clinicId }
+        });
+
+        if (!invoice) throw new NotFoundException('Boleto não encontrado');
+
+        const updated = await this.prisma.invoice.update({
+            where: { id: invoiceId },
+            data: {
+                status,
+                paidAt: status === 'PAID' ? new Date() : null
+            }
+        });
+
+        return updated;
+    }
 }

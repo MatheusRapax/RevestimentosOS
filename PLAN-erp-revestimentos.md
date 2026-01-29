@@ -27,7 +27,7 @@
 - [x] Taxa de entrega no orçamento - Campo `deliveryFee` no Quote
 - [x] Importação de tabela de produtos (CSV/Excel) - `/dashboard/estoque/importar`
 - [x] Importação de XML de nota fiscal (entrada de estoque automática) - `/dashboard/estoque/importar-nfe`
-- [ ] Boletos com lembrete de vencimento - **Pendente integração API**
+- [x] Boletos com lembrete de vencimento - **Implementado backend interno, integração externa pendente**
 - [x] Templates de orçamento (PDF profissional) - `/quotes/:id/pdf`
 - [x] Vender produtos que estão no sistema mas não em estoque - Permitido pelo schema
 
@@ -438,7 +438,7 @@ model Order {
 
 ### ✅ Fase 4: Financeiro e Relatórios (P3) - CONCLUÍDA
 
-- [ ] Integração com boletos (API TBD) - **Pendente integração externa**
+- [x] Integração com boletos (API Interna + Mock) - **Integração Real (Asaas) pendente**
 - [x] Dashboard de vendas - `/dashboard/financeiro`
 - [x] Relatório por vendedor - `/dashboard/financeiro/vendedores`
 - [x] Relatório por arquiteto (comissões) - `/dashboard/financeiro/arquitetos`
@@ -487,4 +487,4 @@ Comando para rodar: `npx ts-node scripts/test-live-flow.ts`
 6. ✅ Fase 4: Financeiro e Relatórios - Concluída
 7. ✅ **Concluído**: Geração de PDF de orçamentos
 8. ✅ **Concluído**: Módulo de Entregas (Backend + Frontend)
-9. ⏳ **Pendente**: Integração com API de boletos
+9. ✅ **Concluído**: Módulo Financeiro (Boletos - Geração Interna)

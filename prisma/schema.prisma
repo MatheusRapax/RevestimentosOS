@@ -154,6 +154,7 @@ model Clinic {
   orders         Order[]
   purchaseOrders PurchaseOrder[]
   deliveries     Delivery[]
+  invoices       Invoice[]
 }
 
 // Clinic working hours per day of week
@@ -1046,6 +1047,7 @@ model Order {
 
   clinic Clinic      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   items  OrderItem[]
+  invoices Invoice[]
 
   @@unique([clinicId, number])
   @@index([clinicId])
@@ -1176,6 +1178,13 @@ enum DeliveryStatus {
   CANCELED    // Cancelado
 }
 
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
 model Delivery {
   id        String   @id @default(uuid())
   clinicId  String
@@ -1200,4 +1209,33 @@ model Delivery {
   @@index([clinicId])
   @@index([orderId])
   @@index([status])
+}
+
+// Payment: Invoice model (Boletos)
+model Invoice {
+  id              String   @id @default(uuid())
+  clinicId        String
+  
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id])
+  
+  // Boleto Data
+  amountCents     Int
+  dueDate         DateTime
+  status          InvoiceStatus @default(PENDING) 
+  
+  // External Provider (Future Integration)
+  provider        String?  // 'ASAAS', 'IUGU', etc.
+  externalId      String?  // ID in the provider
+  pdfUrl          String?  // URL to download PDF
+  barCode         String?  // Linha digitável
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  paidAt          DateTime?
+
+  clinic          Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId])
+  @@index([orderId])
 }

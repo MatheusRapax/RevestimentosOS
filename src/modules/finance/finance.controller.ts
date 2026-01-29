@@ -2,6 +2,7 @@ import {
     Controller,
     Get,
     Post,
+    Patch,
     Param,
     Body,
     UseGuards,
@@ -125,6 +126,39 @@ export class FinanceController {
     @Permissions(PERMISSIONS.FINANCE_READ)
     listPayments(@Request() req: any, @Param('patientId') patientId: string) {
         return this.financeService.listPayments(req.clinicId, patientId);
+    }
+
+
+    // =====================================================
+    // BOLETOS / INVOICES (ERP Revestimentos)
+    // =====================================================
+
+    @Post('invoices')
+    @Permissions(PERMISSIONS.FINANCE_CHARGE)
+    async generateInvoice(
+        @Request() req: any,
+        @Body() body: { orderId: string; dueDate: string }
+    ) {
+        return this.financeService.generateInvoice(req.clinicId, body.orderId, body.dueDate);
+    }
+
+    @Get('orders/:orderId/invoices')
+    @Permissions(PERMISSIONS.FINANCE_READ)
+    async listInvoices(
+        @Request() req: any,
+        @Param('orderId') orderId: string
+    ) {
+        return this.financeService.listInvoices(req.clinicId, orderId);
+    }
+
+    @Patch('invoices/:id/status')
+    @Permissions(PERMISSIONS.FINANCE_PAYMENT)
+    async updateStatus(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Body() body: { status: 'PAID' | 'CANCELLED' }
+    ) {
+        return this.financeService.updateInvoiceStatus(req.clinicId, id, body.status);
     }
 }
 

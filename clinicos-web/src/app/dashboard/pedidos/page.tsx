@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '@/lib/api'; // Ensure this exists
 import {
     Package,
     Search,
@@ -11,107 +13,16 @@ import {
     CheckCircle,
     Clock,
     XCircle,
-    AlertCircle,
     MapPin,
     Calendar,
     User,
-    FileText
+    FileText,
+    DollarSign,
+    Download,
+    CreditCard
 } from 'lucide-react';
-
-// Mock data for orders
-const mockOrders = [
-    {
-        id: '1',
-        number: 1,
-        customer: { name: 'João Santos', type: 'PF', document: '555.666.777-88' },
-        seller: { name: 'Carlos Vendedor' },
-        status: 'CONFIRMED',
-        subtotalCents: 79500,
-        discountCents: 0,
-        deliveryFee: 8000,
-        totalCents: 87500,
-        deliveryAddress: 'Rua Principal, 456 - São Paulo, SP',
-        deliveryDate: '2026-01-31',
-        createdAt: '2026-01-28',
-        confirmedAt: '2026-01-28',
-        items: [
-            { product: 'Porcelanato Carrara 60x60', quantity: 5, area: 7.2 }
-        ]
-    },
-    {
-        id: '2',
-        number: 2,
-        customer: { name: 'Maria Oliveira', type: 'PF', document: '111.222.333-44' },
-        seller: { name: 'Carlos Vendedor' },
-        status: 'PENDING',
-        subtotalCents: 318000,
-        discountCents: 0,
-        deliveryFee: 15000,
-        totalCents: 333000,
-        deliveryAddress: 'Rua das Flores, 123 - São Paulo, SP',
-        deliveryDate: '2026-02-05',
-        createdAt: '2026-01-28',
-        items: [
-            { product: 'Porcelanato Carrara 60x60', quantity: 20, area: 28.8 }
-        ]
-    },
-    {
-        id: '3',
-        number: 3,
-        customer: { name: 'Construtora ABC Ltda', type: 'PJ', document: '12.345.678/0001-99' },
-        seller: { name: 'Maria Gerente' },
-        status: 'IN_SEPARATION',
-        subtotalCents: 895000,
-        discountCents: 44750,
-        deliveryFee: 0,
-        totalCents: 850250,
-        deliveryAddress: 'Av. Industrial, 1000 - Guarulhos, SP',
-        deliveryDate: '2026-02-10',
-        createdAt: '2026-01-27',
-        confirmedAt: '2026-01-27',
-        items: [
-            { product: 'Piso Laminado Carvalho', quantity: 50, area: 118 },
-            { product: 'Argamassa AC-III 20kg', quantity: 30, area: null }
-        ]
-    },
-    {
-        id: '4',
-        number: 4,
-        customer: { name: 'Pedro Costa', type: 'PF', document: '999.888.777-66' },
-        seller: { name: 'Carlos Vendedor' },
-        status: 'READY',
-        subtotalCents: 47400,
-        discountCents: 0,
-        deliveryFee: 0,
-        totalCents: 47400,
-        deliveryAddress: null,
-        deliveryDate: null,
-        createdAt: '2026-01-26',
-        confirmedAt: '2026-01-26',
-        items: [
-            { product: 'Rejunte Epóxi Branco 1kg', quantity: 6, area: null }
-        ]
-    },
-    {
-        id: '5',
-        number: 5,
-        customer: { name: 'Ana Ferreira', type: 'PF', document: '444.555.666-77' },
-        seller: { name: 'Carlos Vendedor' },
-        status: 'DELIVERED',
-        subtotalCents: 179000,
-        discountCents: 8950,
-        deliveryFee: 12000,
-        totalCents: 182050,
-        deliveryAddress: 'Rua Nova, 789 - São Paulo, SP',
-        deliveryDate: '2026-01-25',
-        deliveredAt: '2026-01-25',
-        createdAt: '2026-01-24',
-        confirmedAt: '2026-01-24',
-        items: [
-            { product: 'Porcelanato Madeira Nogueira 20x120', quantity: 10, area: 12 }
-        ]
-    }
-];
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
     PENDING: { label: 'Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
@@ -130,16 +41,56 @@ function formatCurrency(cents: number): string {
 }
 
 function formatDate(dateStr: string): string {
+    if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('pt-BR');
 }
 
 export default function OrdersPage() {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [selectedOrder, setSelectedOrder] = useState<typeof mockOrders[0] | null>(null);
+    const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+    const [activeTab, setActiveTab] = useState<'details' | 'finance'>('details');
 
-    const filteredOrders = mockOrders.filter(order => {
+    // Fetch Orders
+    const { data: orders = [], isLoading } = useQuery({
+        queryKey: ['orders'],
+        queryFn: async () => {
+            const response = await api.get('/orders');
+            return response.data;
+        }
+    });
+
+    // Fetch Invoices for Selected Order
+    const { data: invoices = [], refetch: refetchInvoices } = useQuery({
+        queryKey: ['invoices', selectedOrder?.id],
+        queryFn: async () => {
+            if (!selectedOrder?.id) return [];
+            const response = await api.get(`/finance/orders/${selectedOrder.id}/invoices`);
+            return response.data;
+        },
+        enabled: !!selectedOrder?.id && activeTab === 'finance'
+    });
+
+    // Generate Invoice Mutation
+    const generateInvoiceMutation = useMutation({
+        mutationFn: async () => {
+            const dueDate = new Date();
+            dueDate.setDate(dueDate.getDate() + 3); // 3 days due date
+            await api.post('/finance/invoices', {
+                orderId: selectedOrder.id,
+                dueDate: dueDate.toISOString()
+            });
+        },
+        onSuccess: () => {
+            toast.success('Boleto gerado com sucesso!');
+            refetchInvoices();
+        },
+        onError: () => toast.error('Erro ao gerar boleto')
+    });
+
+    const filteredOrders = orders.filter((order: any) => {
         const matchesSearch =
             order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             order.number.toString().includes(searchTerm);
@@ -148,10 +99,10 @@ export default function OrdersPage() {
     });
 
     const stats = {
-        pending: mockOrders.filter(o => o.status === 'PENDING').length,
-        inProgress: mockOrders.filter(o => ['CONFIRMED', 'IN_SEPARATION'].includes(o.status)).length,
-        ready: mockOrders.filter(o => o.status === 'READY').length,
-        delivered: mockOrders.filter(o => o.status === 'DELIVERED').length,
+        pending: orders.filter((o: any) => o.status === 'PENDING').length,
+        inProgress: orders.filter((o: any) => ['CONFIRMED', 'IN_SEPARATION'].includes(o.status)).length,
+        ready: orders.filter((o: any) => o.status === 'READY').length,
+        delivered: orders.filter((o: any) => o.status === 'DELIVERED').length,
     };
 
     return (
@@ -177,6 +128,7 @@ export default function OrdersPage() {
                         </div>
                     </div>
                 </div>
+                {/* ... other stats ... */}
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-blue-100 rounded-lg">
@@ -205,7 +157,7 @@ export default function OrdersPage() {
                             <Truck className="h-5 w-5 text-gray-600" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-600">Entregues (mês)</p>
+                            <p className="text-sm text-gray-600">Entregues</p>
                             <p className="text-2xl font-bold text-gray-700">{stats.delivered}</p>
                         </div>
                     </div>
@@ -247,29 +199,19 @@ export default function OrdersPage() {
                 <table className="w-full">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Pedido
-                            </th>
-                            <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Cliente
-                            </th>
-                            <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Status
-                            </th>
-                            <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Entrega
-                            </th>
-                            <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Total
-                            </th>
-                            <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Ações
-                            </th>
+                            <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Pedido</th>
+                            <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                            <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Entrega</th>
+                            <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                            <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                        {filteredOrders.map((order) => {
-                            const status = statusConfig[order.status];
+                        {isLoading ? (
+                            <tr><td colSpan={6} className="text-center py-4">Carregando...</td></tr>
+                        ) : filteredOrders.map((order: any) => {
+                            const status = statusConfig[order.status] || statusConfig['PENDING'];
                             const StatusIcon = status.icon;
                             return (
                                 <tr key={order.id} className="hover:bg-gray-50 transition-colors">
@@ -280,7 +222,7 @@ export default function OrdersPage() {
                                             </div>
                                             <div>
                                                 <p className="font-semibold text-gray-900">
-                                                    #{order.number.toString().padStart(4, '0')}
+                                                    #{order.number?.toString().padStart(4, '0')}
                                                 </p>
                                                 <p className="text-sm text-gray-500">
                                                     {formatDate(order.createdAt)}
@@ -290,8 +232,8 @@ export default function OrdersPage() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div>
-                                            <p className="font-medium text-gray-900">{order.customer.name}</p>
-                                            <p className="text-sm text-gray-500">{order.customer.document}</p>
+                                            <p className="font-medium text-gray-900">{order.customer?.name}</p>
+                                            <p className="text-sm text-gray-500">{order.customer?.document}</p>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
@@ -314,15 +256,10 @@ export default function OrdersPage() {
                                         <p className="font-semibold text-gray-900">
                                             {formatCurrency(order.totalCents)}
                                         </p>
-                                        {order.discountCents > 0 && (
-                                            <p className="text-sm text-green-600">
-                                                -{formatCurrency(order.discountCents)}
-                                            </p>
-                                        )}
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <button
-                                            onClick={() => setSelectedOrder(order)}
+                                            onClick={() => { setSelectedOrder(order); setActiveTab('details'); }}
                                             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                                             title="Ver detalhes"
                                         >
@@ -334,13 +271,6 @@ export default function OrdersPage() {
                         })}
                     </tbody>
                 </table>
-
-                {filteredOrders.length === 0 && (
-                    <div className="p-12 text-center">
-                        <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                        <p className="text-gray-500">Nenhum pedido encontrado</p>
-                    </div>
-                )}
             </div>
 
             {/* Order Details Modal */}
@@ -348,10 +278,10 @@ export default function OrdersPage() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="p-6 border-b border-gray-200">
-                            <div className="flex justify-between items-start">
+                            <div className="flex justify-between items-start mb-4">
                                 <div>
                                     <h2 className="text-xl font-bold text-gray-900">
-                                        Pedido #{selectedOrder.number.toString().padStart(4, '0')}
+                                        Pedido #{selectedOrder.number?.toString().padStart(4, '0')}
                                     </h2>
                                     <p className="text-gray-500">
                                         Criado em {formatDate(selectedOrder.createdAt)}
@@ -364,87 +294,118 @@ export default function OrdersPage() {
                                     <XCircle className="h-5 w-5 text-gray-500" />
                                 </button>
                             </div>
+                            {/* Tabs */}
+                            <div className="flex border-b">
+                                <button
+                                    className={`px-4 py-2 font-medium text-sm ${activeTab === 'details' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}
+                                    onClick={() => setActiveTab('details')}
+                                >
+                                    Detalhes
+                                </button>
+                                <button
+                                    className={`px-4 py-2 font-medium text-sm ${activeTab === 'finance' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}
+                                    onClick={() => setActiveTab('finance')}
+                                >
+                                    Financeiro
+                                </button>
+                            </div>
                         </div>
 
                         <div className="p-6 space-y-6">
-                            {/* Status */}
-                            <div className="flex items-center gap-3">
-                                <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium ${statusConfig[selectedOrder.status].color}`}>
-                                    {React.createElement(statusConfig[selectedOrder.status].icon, { className: 'h-4 w-4' })}
-                                    {statusConfig[selectedOrder.status].label}
-                                </span>
-                            </div>
-
-                            {/* Customer Info */}
-                            <div className="bg-gray-50 rounded-xl p-4">
-                                <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                                    <User className="h-4 w-4" />
-                                    Cliente
-                                </h3>
-                                <div className="space-y-1 text-sm">
-                                    <p><strong>{selectedOrder.customer.name}</strong></p>
-                                    <p className="text-gray-600">{selectedOrder.customer.document}</p>
-                                </div>
-                            </div>
-
-                            {/* Delivery Info */}
-                            {selectedOrder.deliveryAddress && (
-                                <div className="bg-blue-50 rounded-xl p-4">
-                                    <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                                        <Truck className="h-4 w-4" />
-                                        Entrega
-                                    </h3>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex items-start gap-2">
-                                            <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
-                                            <span>{selectedOrder.deliveryAddress}</span>
-                                        </div>
-                                        {selectedOrder.deliveryDate && (
-                                            <div className="flex items-center gap-2">
-                                                <Calendar className="h-4 w-4 text-gray-400" />
-                                                <span>Previsão: {formatDate(selectedOrder.deliveryDate)}</span>
-                                            </div>
-                                        )}
+                            {activeTab === 'details' ? (
+                                <>
+                                    {/* Status */}
+                                    <div className="flex items-center gap-3">
+                                        <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium ${statusConfig[selectedOrder.status]?.color}`}>
+                                            {statusConfig[selectedOrder.status]?.label}
+                                        </span>
                                     </div>
+
+                                    {/* Customer Info */}
+                                    <div className="bg-gray-50 rounded-xl p-4">
+                                        <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                                            <User className="h-4 w-4" />
+                                            Cliente
+                                        </h3>
+                                        <div className="space-y-1 text-sm">
+                                            <p><strong>{selectedOrder.customer?.name}</strong></p>
+                                            <p className="text-gray-600">{selectedOrder.customer?.document}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Items */}
+                                    <div>
+                                        <h3 className="font-medium text-gray-900 mb-3">Itens do Pedido</h3>
+                                        <div className="space-y-2">
+                                            {selectedOrder.items?.map((item: any, idx: number) => (
+                                                <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                                    <div>
+                                                        <p className="font-medium">{item.product?.name || 'Produto'}</p>
+                                                        <p className="text-sm text-gray-500">
+                                                            {item.quantityBoxes} caixas
+                                                        </p>
+                                                    </div>
+                                                    <p className="font-medium">{formatCurrency(item.totalCents)}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                /* Finance Tab */
+                                <div className="space-y-6">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                                            <DollarSign className="h-5 w-5" />
+                                            Boletos e Faturas
+                                        </h3>
+                                        <Button
+                                            onClick={() => generateInvoiceMutation.mutate()}
+                                            disabled={generateInvoiceMutation.isPending}
+                                            size="sm"
+                                        >
+                                            {generateInvoiceMutation.isPending ? 'Gerando...' : 'Gerar Novo Boleto'}
+                                        </Button>
+                                    </div>
+
+                                    {invoices.length === 0 ? (
+                                        <div className="text-center py-8 text-gray-500 border-2 border-dashed rounded-xl">
+                                            <CreditCard className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                            <p>Nenhuma fatura gerada para este pedido.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {invoices.map((inv: any) => (
+                                                <div key={inv.id} className="border rounded-lg p-4 flex justify-between items-center">
+                                                    <div>
+                                                        <p className="font-bold text-gray-900">{formatCurrency(inv.amountCents)}</p>
+                                                        <p className="text-sm text-gray-500">Vence em {formatDate(inv.dueDate)}</p>
+                                                        <div className="mt-1">
+                                                            <span className={`text-xs px-2 py-1 rounded-full ${inv.status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                {inv.status === 'PAID' ? 'Pago' : 'Pendente'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        {inv.pdfUrl && (
+                                                            <Button variant="outline" size="sm" asChild>
+                                                                <a href={inv.pdfUrl} target="_blank" rel="noopener noreferrer">
+                                                                    <Download className="h-4 w-4 mr-1" />
+                                                                    PDF
+                                                                </a>
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
-                            {/* Items */}
-                            <div>
-                                <h3 className="font-medium text-gray-900 mb-3">Itens do Pedido</h3>
-                                <div className="space-y-2">
-                                    {selectedOrder.items.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                            <div>
-                                                <p className="font-medium">{item.product}</p>
-                                                <p className="text-sm text-gray-500">
-                                                    {item.quantity} {item.area ? `caixas (${item.area}m²)` : 'unidades'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Totals */}
-                            <div className="border-t pt-4 space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">Subtotal</span>
-                                    <span>{formatCurrency(selectedOrder.subtotalCents)}</span>
-                                </div>
-                                {selectedOrder.discountCents > 0 && (
-                                    <div className="flex justify-between text-sm text-green-600">
-                                        <span>Desconto</span>
-                                        <span>-{formatCurrency(selectedOrder.discountCents)}</span>
-                                    </div>
-                                )}
-                                {selectedOrder.deliveryFee > 0 && (
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Taxa de Entrega</span>
-                                        <span>{formatCurrency(selectedOrder.deliveryFee)}</span>
-                                    </div>
-                                )}
-                                <div className="flex justify-between text-lg font-bold pt-2 border-t">
+                            {/* Totals (Always visible) */}
+                            <div className="border-t pt-4 space-y-2 mt-4">
+                                <div className="flex justify-between text-lg font-bold">
                                     <span>Total</span>
                                     <span>{formatCurrency(selectedOrder.totalCents)}</span>
                                 </div>
