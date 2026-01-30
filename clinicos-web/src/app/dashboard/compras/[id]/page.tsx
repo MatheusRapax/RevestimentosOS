@@ -16,7 +16,9 @@ import {
     XCircle,
     Truck,
     FileText,
-    MoreHorizontal
+    MoreHorizontal,
+    DollarSign,
+    X
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -109,6 +111,44 @@ export default function PurchaseOrderDetailsPage() {
         }
     };
 
+    // --- Expense Logic ---
+    const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+    const [expenseData, setExpenseData] = useState({
+        description: '',
+        amountCents: 0,
+        dueDate: '',
+        barCode: ''
+    });
+
+    const createExpenseMutation = useMutation({
+        mutationFn: async () => {
+            if (!order) return;
+            await api.post('/expenses', {
+                ...expenseData,
+                type: 'SUPPLIER',
+                purchaseOrderId: order.id,
+                recipientName: order.supplierName
+            });
+        },
+        onSuccess: () => {
+            toast.success('Despesa lançada com sucesso!');
+            setIsExpenseModalOpen(false);
+            // Optionally refetch expenses or show success indication
+        },
+        onError: () => toast.error('Erro ao lançar despesa')
+    });
+
+    const openExpenseModal = () => {
+        if (!order) return;
+        setExpenseData({
+            description: `Pagamento Pedido #${order.number}`,
+            amountCents: order.totalCents,
+            dueDate: new Date().toISOString().split('T')[0],
+            barCode: ''
+        });
+        setIsExpenseModalOpen(true);
+    };
+
     if (isLoading) {
         return <div className="p-8 text-center">Carregando detalhes...</div>;
     }
@@ -141,6 +181,27 @@ export default function PurchaseOrderDetailsPage() {
                 </div>
 
                 <div className="flex gap-2">
+                    {/* Edit Button */}
+                    {['DRAFT', 'SENT'].includes(order.status) && (
+                        <Button
+                            variant="outline"
+                            onClick={() => router.push(`/dashboard/compras/editar/${id}`)}
+                        >
+                            Editar
+                        </Button>
+                    )}
+
+                    {/* Launch Expense Button */}
+                    {['SENT', 'CONFIRMED', 'RECEIVED'].includes(order.status) && (
+                        <Button
+                            variant="outline"
+                            onClick={openExpenseModal}
+                        >
+                            <DollarSign className="mr-2 h-4 w-4" />
+                            Lançar Despesa
+                        </Button>
+                    )}
+
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline">
@@ -284,6 +345,63 @@ export default function PurchaseOrderDetailsPage() {
                     )}
                 </div>
             </div>
+
+            {/* Expense Modal */}
+            {isExpenseModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+                        <div className="p-6 border-b flex justify-between items-center">
+                            <h3 className="text-lg font-bold">Lançar no Contas a Pagar</h3>
+                            <button onClick={() => setIsExpenseModalOpen(false)}>
+                                <X className="h-5 w-5 text-gray-500" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Descrição</label>
+                                <input
+                                    className="w-full border rounded px-3 py-2"
+                                    value={expenseData.description}
+                                    onChange={e => setExpenseData({ ...expenseData, description: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Valor (R$)</label>
+                                <input
+                                    type="number"
+                                    className="w-full border rounded px-3 py-2"
+                                    value={expenseData.amountCents / 100}
+                                    onChange={e => setExpenseData({ ...expenseData, amountCents: Number(e.target.value) * 100 })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Vencimento</label>
+                                <input
+                                    type="date"
+                                    className="w-full border rounded px-3 py-2"
+                                    value={expenseData.dueDate}
+                                    onChange={e => setExpenseData({ ...expenseData, dueDate: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Linha Digitável (Boleto)</label>
+                                <input
+                                    className="w-full border rounded px-3 py-2 font-mono text-sm"
+                                    placeholder="Copie aqui o código de barras"
+                                    value={expenseData.barCode}
+                                    onChange={e => setExpenseData({ ...expenseData, barCode: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                        <div className="p-6 border-t flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setIsExpenseModalOpen(false)}>Cancelar</Button>
+                            <Button onClick={() => createExpenseMutation.mutate()} disabled={createExpenseMutation.isPending}>
+                                {createExpenseMutation.isPending ? 'Salvando...' : 'Lançar Despesa'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

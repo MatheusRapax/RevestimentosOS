@@ -135,6 +135,84 @@ export class PurchaseOrdersService {
         });
     }
 
+    async update(clinicId: string, id: string, data: {
+        supplierId?: string;
+        supplierName: string;
+        supplierCnpj?: string;
+        supplierEmail?: string;
+        supplierPhone?: string;
+        salesOrderId?: string;
+        expectedDate?: string;
+        notes?: string;
+        subtotalCents: number;
+        shippingCents?: number;
+        totalCents: number;
+        items: Array<{
+            productId: string;
+            productCode?: string;
+            productName?: string;
+            quantity: number;
+            unitPriceCents: number;
+            totalCents: number;
+        }>;
+    }) {
+        const order = await this.findOne(clinicId, id);
+
+        if (!['DRAFT', 'SENT'].includes(order.status)) {
+            throw new Error('Só é possível editar pedidos em Rascunho ou Enviados');
+        }
+
+        // Fetch product info
+        const productIds = data.items.map(i => i.productId).filter(Boolean);
+        const products = await this.prisma.product.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, sku: true, name: true },
+        });
+        const productMap = new Map(products.map(p => [p.id, p]));
+
+        // Transaction: Delete Items -> Update Order -> Create Items
+        return this.prisma.$transaction(async (tx) => {
+            // Delete existing items
+            await tx.purchaseOrderItem.deleteMany({
+                where: { purchaseOrderId: id }
+            });
+
+            // Update Order and Create New Items
+            return tx.purchaseOrder.update({
+                where: { id },
+                data: {
+                    supplierId: data.supplierId,
+                    supplierName: data.supplierName,
+                    supplierCnpj: data.supplierCnpj,
+                    supplierEmail: data.supplierEmail,
+                    supplierPhone: data.supplierPhone,
+                    salesOrderId: data.salesOrderId,
+                    expectedDate: data.expectedDate ? new Date(data.expectedDate) : null,
+                    notes: data.notes,
+                    subtotalCents: data.subtotalCents,
+                    shippingCents: data.shippingCents || 0,
+                    totalCents: data.totalCents,
+                    items: {
+                        create: data.items.map(item => {
+                            const product = productMap.get(item.productId);
+                            return {
+                                productId: item.productId,
+                                productCode: item.productCode || product?.sku || 'N/A',
+                                productName: item.productName || product?.name || 'Produto',
+                                quantityOrdered: item.quantity,
+                                unitPriceCents: item.unitPriceCents,
+                                totalCents: item.totalCents,
+                            };
+                        }),
+                    },
+                },
+                include: {
+                    items: { include: { product: true } },
+                },
+            });
+        });
+    }
+
     async delete(clinicId: string, id: string) {
         const order = await this.findOne(clinicId, id);
 
