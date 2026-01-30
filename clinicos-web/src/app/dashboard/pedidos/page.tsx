@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api'; // Ensure this exists
 import {
@@ -50,6 +50,7 @@ function formatDate(dateStr: string): string {
 
 export default function OrdersPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -57,6 +58,13 @@ export default function OrdersPage() {
     const [activeTab, setActiveTab] = useState<'details' | 'finance'>('details');
     const [isEditingDelivery, setIsEditingDelivery] = useState(false);
     const [deliveryEditDate, setDeliveryEditDate] = useState('');
+
+    useEffect(() => {
+        const id = searchParams.get('id');
+        if (id && !selectedOrder) {
+            setSelectedOrder({ id });
+        }
+    }, [searchParams]);
 
     // Fetch Orders
     const { data: orders = [], isLoading } = useQuery({
@@ -68,7 +76,7 @@ export default function OrdersPage() {
     });
 
     // Fetch Selected Order Details (Enriched)
-    const { data: orderDetails, refetch: refetchDetails } = useQuery({
+    const { data: orderDetails, isLoading: isLoadingDetails, refetch: refetchDetails } = useQuery({
         queryKey: ['order', selectedOrder?.id],
         queryFn: async () => {
             if (!selectedOrder?.id) return null;
@@ -340,22 +348,26 @@ export default function OrdersPage() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="p-6 border-b border-gray-200">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h2 className="text-xl font-bold text-gray-900">
-                                        Pedido #{selectedOrder.number?.toString().padStart(4, '0')}
-                                    </h2>
-                                    <p className="text-gray-500">
-                                        Criado em {formatDate(selectedOrder.createdAt)}
-                                    </p>
+                            {isLoadingDetails && !orderDetails ? (
+                                <div className="text-center py-4">Carregando detalhes...</div>
+                            ) : (
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h2 className="text-xl font-bold text-gray-900">
+                                            Pedido #{displayOrder.number?.toString().padStart(4, '0')}
+                                        </h2>
+                                        <p className="text-gray-500">
+                                            Criado em {formatDate(displayOrder.createdAt)}
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => { setSelectedOrder(null); router.replace('/dashboard/pedidos'); }}
+                                        className="p-2 hover:bg-gray-100 rounded-lg"
+                                    >
+                                        <XCircle className="h-5 w-5 text-gray-500" />
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => setSelectedOrder(null)}
-                                    className="p-2 hover:bg-gray-100 rounded-lg"
-                                >
-                                    <XCircle className="h-5 w-5 text-gray-500" />
-                                </button>
-                            </div>
+                            )}
                             {/* Tabs */}
                             <div className="flex border-b">
                                 <button
@@ -473,7 +485,7 @@ export default function OrdersPage() {
                                     <div>
                                         <h3 className="font-medium text-gray-900 mb-3">Itens do Pedido</h3>
                                         <div className="space-y-2">
-                                            {selectedOrder.items?.map((item: any, idx: number) => (
+                                            {displayOrder.items?.map((item: any, idx: number) => (
                                                 <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                                                     <div>
                                                         <p className="font-medium">{item.product?.name || 'Produto'}</p>
@@ -543,13 +555,13 @@ export default function OrdersPage() {
                             <div className="border-t pt-4 space-y-2 mt-4">
                                 <div className="flex justify-between text-lg font-bold">
                                     <span>Total</span>
-                                    <span>{formatCurrency(selectedOrder.totalCents)}</span>
+                                    <span>{displayOrder.totalCents ? formatCurrency(displayOrder.totalCents) : '-'}</span>
                                 </div>
                             </div>
 
                             {/* Actions */}
                             <div className="flex gap-3 pt-4">
-                                {selectedOrder.status === 'PENDING' && (
+                                {displayOrder.status === 'PENDING' && (
                                     <button
                                         onClick={() => updateStatusMutation.mutate('CONFIRMED')}
                                         disabled={updateStatusMutation.isPending}
@@ -558,7 +570,7 @@ export default function OrdersPage() {
                                         {updateStatusMutation.isPending ? 'Confirmando...' : 'Confirmar Pedido'}
                                     </button>
                                 )}
-                                {selectedOrder.status === 'CONFIRMED' && (
+                                {displayOrder.status === 'CONFIRMED' && (
                                     <button
                                         onClick={() => updateStatusMutation.mutate('IN_SEPARATION')}
                                         disabled={updateStatusMutation.isPending}
@@ -567,7 +579,7 @@ export default function OrdersPage() {
                                         {updateStatusMutation.isPending ? 'Processando...' : 'Iniciar Separação'}
                                     </button>
                                 )}
-                                {selectedOrder.status === 'IN_SEPARATION' && (
+                                {displayOrder.status === 'IN_SEPARATION' && (
                                     <button
                                         onClick={() => updateStatusMutation.mutate('READY')}
                                         disabled={updateStatusMutation.isPending}
@@ -576,7 +588,7 @@ export default function OrdersPage() {
                                         {updateStatusMutation.isPending ? 'Processando...' : 'Marcar como Pronto'}
                                     </button>
                                 )}
-                                {selectedOrder.status === 'READY' && (
+                                {displayOrder.status === 'READY' && (
                                     <button
                                         onClick={() => updateStatusMutation.mutate('DELIVERED')}
                                         disabled={updateStatusMutation.isPending}

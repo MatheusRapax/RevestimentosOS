@@ -14,64 +14,19 @@ import {
     XCircle,
     FileText,
     Building2,
-    Calendar
+    Calendar,
+    MoreHorizontal
 } from 'lucide-react';
-
-// Mock data for purchase orders
-const mockPurchaseOrders = [
-    {
-        id: '1',
-        number: 1,
-        supplierName: 'Cerâmicas do Brasil Ltda',
-        supplierCnpj: '12.345.678/0001-90',
-        status: 'RECEIVED',
-        totalCents: 1575000,
-        expectedDate: '2026-01-25',
-        receivedAt: '2026-01-25T10:30:00',
-        nfeNumber: '123456',
-        itemCount: 5,
-        createdAt: '2026-01-20T14:00:00',
-    },
-    {
-        id: '2',
-        number: 2,
-        supplierName: 'Porcelanatos Premium SA',
-        supplierCnpj: '98.765.432/0001-10',
-        status: 'CONFIRMED',
-        totalCents: 2340000,
-        expectedDate: '2026-02-05',
-        receivedAt: null,
-        nfeNumber: null,
-        itemCount: 8,
-        createdAt: '2026-01-28T09:00:00',
-    },
-    {
-        id: '3',
-        number: 3,
-        supplierName: 'Materiais de Construção XYZ',
-        supplierCnpj: '45.678.901/0001-23',
-        status: 'SENT',
-        totalCents: 890000,
-        expectedDate: '2026-02-10',
-        receivedAt: null,
-        nfeNumber: null,
-        itemCount: 3,
-        createdAt: '2026-01-28T15:30:00',
-    },
-    {
-        id: '4',
-        number: 4,
-        supplierName: 'Rejuntes & Argamassas Ltda',
-        supplierCnpj: '11.222.333/0001-44',
-        status: 'DRAFT',
-        totalCents: 450000,
-        expectedDate: null,
-        receivedAt: null,
-        nfeNumber: null,
-        itemCount: 12,
-        createdAt: '2026-01-28T16:00:00',
-    },
-];
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '@/lib/api';
+import { toast } from 'sonner';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 
 const statusConfig = {
     DRAFT: { label: 'Rascunho', color: 'bg-gray-100 text-gray-700', icon: FileText },
@@ -82,18 +37,60 @@ const statusConfig = {
     CANCELLED: { label: 'Cancelado', color: 'bg-red-100 text-red-700', icon: XCircle },
 };
 
+interface PurchaseOrder {
+    id: string;
+    number: number;
+    supplierName: string;
+    supplierCnpj?: string;
+    status: string;
+    totalCents: number;
+    expectedDate?: string;
+    receivedAt?: string;
+    nfeNumber?: string;
+    itemCount: number;
+    createdAt: string;
+}
+
 export default function PurchaseOrdersPage() {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [orders] = useState(mockPurchaseOrders);
 
-    const filteredOrders = orders.filter(order => {
-        const matchesSearch = order.supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.number.toString().includes(searchTerm);
+    // Fetch Orders
+    const { data: orders = [], isLoading } = useQuery<PurchaseOrder[]>({
+        queryKey: ['purchase-orders'],
+        queryFn: async () => {
+            const response = await api.get('/purchase-orders');
+            return response.data;
+        }
+    });
+
+    // Update Status Mutation
+    const updateStatusMutation = useMutation({
+        mutationFn: async ({ id, status }: { id: string, status: string }) => {
+            await api.patch(`/purchase-orders/${id}/status`, { status });
+        },
+        onSuccess: () => {
+            toast.success('Status atualizado com sucesso!');
+            queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+        },
+        onError: () => toast.error('Erro ao atualizar status')
+    });
+
+    const filteredOrders = orders.filter((order) => {
+        const matchesSearch =
+            (order.supplierName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            String(order.number).includes(searchTerm);
         const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
+
+    const handleStatusChange = (id: string, newStatus: string) => {
+        if (confirm(`Deseja alterar o status para ${statusConfig[newStatus as keyof typeof statusConfig]?.label}?`)) {
+            updateStatusMutation.mutate({ id, status: newStatus });
+        }
+    };
 
     const formatCurrency = (cents: number) => {
         return new Intl.NumberFormat('pt-BR', {
@@ -108,6 +105,7 @@ export default function PurchaseOrdersPage() {
     };
 
     const formatCNPJ = (cnpj: string) => {
+        if (!cnpj) return '';
         return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
     };
 
@@ -287,13 +285,46 @@ export default function PurchaseOrdersPage() {
                                             <p className="text-sm text-gray-500">{order.itemCount} itens</p>
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <button
-                                                onClick={() => router.push(`/dashboard/compras/${order.id}`)}
-                                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                                title="Ver detalhes"
-                                            >
-                                                <Eye className="h-5 w-5 text-gray-600" />
-                                            </button>
+                                            <div className="flex justify-center items-center gap-2">
+                                                <button
+                                                    onClick={() => router.push(`/dashboard/compras/${order.id}`)}
+                                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                                    title="Ver detalhes"
+                                                >
+                                                    <Eye className="h-5 w-5 text-gray-600" />
+                                                </button>
+
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => router.push(`/dashboard/compras/${order.id}`)}>
+                                                            Ver Detalhes
+                                                        </DropdownMenuItem>
+                                                        {order.status === 'DRAFT' && (
+                                                            <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'SENT')}>
+                                                                Marcar como Enviado
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        {order.status === 'SENT' && (
+                                                            <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'CONFIRMED')}>
+                                                                Marcar como Confirmado
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        {['DRAFT', 'SENT', 'CONFIRMED'].includes(order.status) && (
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleStatusChange(order.id, 'CANCELLED')}
+                                                                className="text-red-600 focus:text-red-600"
+                                                            >
+                                                                Cancelar Pedido
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
                                         </td>
                                     </tr>
                                 );

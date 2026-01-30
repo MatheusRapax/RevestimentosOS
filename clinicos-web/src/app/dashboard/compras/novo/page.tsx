@@ -51,6 +51,10 @@ interface SalesOrder {
     number: number;
     customer: { name: string };
     status: string;
+    items: {
+        product: { id: string; name: string; sku: string };
+        quantityBoxes: number;
+    }[];
 }
 
 function formatCurrency(cents: number): string {
@@ -107,6 +111,33 @@ export default function NovoPedidoCompraPage() {
         const supplier = suppliers.find((s: Supplier) => s.id === value);
         if (supplier) {
             setSupplierName(supplier.name);
+        }
+    };
+
+    const handleOrderSelection = (orderId: string) => {
+        setSelectedOrderId(orderId);
+
+        if (orderId === 'none') return;
+
+        const order = salesOrders.find((o: SalesOrder) => o.id === orderId);
+        if (order && order.items) {
+            const importedItems: PurchaseItem[] = order.items.map((item: any) => {
+                const product = products.find((p: Product) => p.id === item.product.id);
+                // Use product price (sales price) as default cost or 0 if preferred. 
+                // Usually cost is different, but for now we default to product price to have something.
+                const priceCents = product ? product.priceCents : 0;
+
+                return {
+                    productId: item.product.id,
+                    productName: `${item.product.name} (${item.product.sku})`,
+                    quantity: item.quantityBoxes || 0,
+                    unitPriceCents: priceCents,
+                    totalCents: priceCents * (item.quantityBoxes || 0),
+                };
+            });
+
+            setItems(importedItems);
+            toast.success(`Itens importados do Pedido #${order.number}`);
         }
     };
 
@@ -252,7 +283,7 @@ export default function NovoPedidoCompraPage() {
                             <p className="text-xs text-gray-500 mb-2">
                                 Use para compras sob encomenda (Back-to-Order).
                             </p>
-                            <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
+                            <Select value={selectedOrderId} onValueChange={handleOrderSelection}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Selecione um pedido..." />
                                 </SelectTrigger>

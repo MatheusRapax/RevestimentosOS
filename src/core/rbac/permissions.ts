@@ -109,6 +109,12 @@ export const PERMISSIONS = {
     DELIVERY_CREATE: 'delivery.create',
     DELIVERY_READ: 'delivery.read',
     DELIVERY_UPDATE: 'delivery.update',
+
+    // Purchase Orders (Compras)
+    PURCHASE_ORDER_CREATE: 'purchase.create',
+    PURCHASE_ORDER_READ: 'purchase.read',
+    PURCHASE_ORDER_UPDATE: 'purchase.update',
+    PURCHASE_ORDER_CANCEL: 'purchase.cancel',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
