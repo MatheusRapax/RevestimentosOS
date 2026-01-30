@@ -33,7 +33,7 @@ interface Quote {
     customer: { id: string; name: string };
     architect?: { id: string; name: string } | null;
     seller?: { id: string; name: string } | null;
-    status: 'DRAFT' | 'SENT' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'CONVERTED';
+    status: 'EM_ORCAMENTO' | 'AGUARDANDO_APROVACAO' | 'APROVADO' | 'REJEITADO' | 'EXPIRADO' | 'CONVERTIDO';
     subtotalCents: number;
     discountCents: number;
     deliveryFeeCents: number;
@@ -95,38 +95,38 @@ export default function OrcamentosPage() {
 
     const getStatusConfig = (status: Quote['status']) => {
         const configs = {
-            DRAFT: {
+            EM_ORCAMENTO: {
                 label: 'Rascunho',
                 className: 'bg-gray-100 text-gray-800',
                 icon: FileText,
             },
-            SENT: {
+            AGUARDANDO_APROVACAO: {
                 label: 'Enviado',
                 className: 'bg-blue-100 text-blue-800',
                 icon: Send,
             },
-            APPROVED: {
+            APROVADO: {
                 label: 'Aprovado',
                 className: 'bg-green-100 text-green-800',
                 icon: CheckCircle,
             },
-            REJECTED: {
+            REJEITADO: {
                 label: 'Rejeitado',
                 className: 'bg-red-100 text-red-800',
                 icon: XCircle,
             },
-            EXPIRED: {
+            EXPIRADO: {
                 label: 'Expirado',
                 className: 'bg-amber-100 text-amber-800',
                 icon: Clock,
             },
-            CONVERTED: {
+            CONVERTIDO: {
                 label: 'Convertido',
                 className: 'bg-purple-100 text-purple-800',
                 icon: ShoppingCart,
             },
         };
-        return configs[status] || configs.DRAFT;
+        return configs[status] || configs.EM_ORCAMENTO;
     };
 
     const handleSendQuote = async (quoteId: string) => {
@@ -195,7 +195,7 @@ export default function OrcamentosPage() {
             </Link>
         );
 
-        if (quote.status === 'DRAFT') {
+        if (quote.status === 'EM_ORCAMENTO') {
             buttons.push(
                 <Button
                     key="send"
@@ -211,7 +211,7 @@ export default function OrcamentosPage() {
             );
         }
 
-        if (quote.status === 'SENT') {
+        if (quote.status === 'AGUARDANDO_APROVACAO') {
             buttons.push(
                 <Button
                     key="approve"
@@ -227,7 +227,7 @@ export default function OrcamentosPage() {
             );
         }
 
-        if (quote.status === 'APPROVED') {
+        if (quote.status === 'APROVADO') {
             buttons.push(
                 <Button
                     key="convert"
@@ -284,10 +284,10 @@ export default function OrcamentosPage() {
                 <div className="flex gap-2 flex-wrap">
                     {[
                         { value: 'ALL', label: 'Todos' },
-                        { value: 'DRAFT', label: 'Rascunho' },
-                        { value: 'SENT', label: 'Enviados' },
-                        { value: 'APPROVED', label: 'Aprovados' },
-                        { value: 'CONVERTED', label: 'Convertidos' },
+                        { value: 'EM_ORCAMENTO', label: 'Rascunho' },
+                        { value: 'AGUARDANDO_APROVACAO', label: 'Enviados' },
+                        { value: 'APROVADO', label: 'Aprovados' },
+                        { value: 'CONVERTIDO', label: 'Convertidos' },
                     ].map((filter) => (
                         <Button
                             key={filter.value}

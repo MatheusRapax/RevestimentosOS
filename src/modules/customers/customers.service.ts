@@ -6,6 +6,7 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { ListCustomerDto } from './dto/list-customer.dto';
+import { OrderStatus } from '@prisma/client';
 
 @Injectable()
 export class CustomersService {
@@ -143,7 +144,7 @@ export class CustomersService {
         });
 
         const pendingOrders = await this.prisma.order.count({
-            where: { customerId, clinicId, status: 'PENDING' },
+            where: { customerId, clinicId, status: OrderStatus.CRIADO },
         });
 
         const lastOrder = await this.prisma.order.findFirst({

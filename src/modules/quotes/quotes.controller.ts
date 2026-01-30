@@ -14,8 +14,9 @@ import {
 import { Response } from 'express';
 import { QuotesService } from './quotes.service';
 import { QuotePdfService } from './pdf/quote-pdf.service';
-import { CreateQuoteDto } from './dto/create-quote.dto';
+import { CreateQuoteDto, CreateQuoteItemDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
+import { UpdateQuoteItemDto } from './dto/update-quote-item.dto';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 import { PermissionsGuard } from '../../core/rbac/guards/permissions.guard';
@@ -112,5 +113,38 @@ export class QuotesController {
     @Permissions(PERMISSIONS.QUOTE_DELETE)
     remove(@Request() req: any, @Param('id') id: string) {
         return this.quotesService.deleteQuote(id, req.clinicId);
+    }
+
+    // ========== ITEM MANAGEMENT ENDPOINTS ==========
+
+    @Post(':id/items')
+    @Permissions(PERMISSIONS.QUOTE_UPDATE)
+    addItem(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Body() createItemDto: CreateQuoteItemDto, // Reusing existing DTO
+    ) {
+        return this.quotesService.addItem(id, req.clinicId, createItemDto);
+    }
+
+    @Patch(':id/items/:itemId')
+    @Permissions(PERMISSIONS.QUOTE_UPDATE)
+    updateItem(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Param('itemId') itemId: string,
+        @Body() updateItemDto: UpdateQuoteItemDto,
+    ) {
+        return this.quotesService.updateItem(id, itemId, req.clinicId, updateItemDto);
+    }
+
+    @Delete(':id/items/:itemId')
+    @Permissions(PERMISSIONS.QUOTE_UPDATE)
+    removeItem(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Param('itemId') itemId: string,
+    ) {
+        return this.quotesService.removeItem(id, itemId, req.clinicId);
     }
 }

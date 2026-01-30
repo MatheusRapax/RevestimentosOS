@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { PrismaService } from 'src/core/prisma/prisma.service';
+import { PrismaService } from '../../core/prisma/prisma.service';
 // import { addDays } from 'date-fns';
 
 function addDays(date: Date, days: number): Date {

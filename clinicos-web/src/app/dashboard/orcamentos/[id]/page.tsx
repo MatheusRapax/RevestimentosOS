@@ -85,12 +85,12 @@ interface Quote {
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-    DRAFT: { label: 'Rascunho', color: 'bg-gray-100 text-gray-800', icon: FileText },
-    SENT: { label: 'Enviado', color: 'bg-blue-100 text-blue-800', icon: Send },
-    APPROVED: { label: 'Aprovado', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-    REJECTED: { label: 'Rejeitado', color: 'bg-red-100 text-red-800', icon: XCircle },
-    EXPIRED: { label: 'Expirado', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-    CONVERTED: { label: 'Convertido', color: 'bg-purple-100 text-purple-800', icon: Package },
+    EM_ORCAMENTO: { label: 'Rascunho', color: 'bg-gray-100 text-gray-800', icon: FileText },
+    AGUARDANDO_APROVACAO: { label: 'Aguardando Aprovação', color: 'bg-blue-100 text-blue-800', icon: Send },
+    APROVADO: { label: 'Aprovado', color: 'bg-green-100 text-green-800', icon: CheckCircle },
+    REJEITADO: { label: 'Rejeitado', color: 'bg-red-100 text-red-800', icon: XCircle },
+    EXPIRADO: { label: 'Expirado', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+    CONVERTIDO: { label: 'Convertido', color: 'bg-purple-100 text-purple-800', icon: Package },
 };
 
 function formatCurrency(cents: number): string {
@@ -261,7 +261,7 @@ export default function QuoteDetailPage() {
         return null;
     }
 
-    const statusInfo = statusConfig[quote.status] || statusConfig.DRAFT;
+    const statusInfo = statusConfig[quote.status] || statusConfig.EM_ORCAMENTO;
     const StatusIcon = statusInfo.icon;
 
     return (
@@ -303,7 +303,7 @@ export default function QuoteDetailPage() {
                         {actionLoading === 'pdf' ? 'Gerando...' : 'Baixar PDF'}
                     </Button>
 
-                    {quote.status === 'DRAFT' && (
+                    {quote.status === 'EM_ORCAMENTO' && (
                         <Button onClick={handleSendQuote} variant="outline" disabled={actionLoading === 'send'}>
                             <Send className="mr-2 h-4 w-4" />
                             {actionLoading === 'send' ? 'Enviando...' : 'Enviar ao Cliente'}
@@ -312,7 +312,7 @@ export default function QuoteDetailPage() {
 
 
 
-                    {(quote.status === 'DRAFT' || quote.status === 'SENT') && (
+                    {(quote.status === 'EM_ORCAMENTO' || quote.status === 'AGUARDANDO_APROVACAO') && (
                         <>
                             <Button onClick={handleCheckAvailability} variant="outline" disabled={actionLoading === 'check_stock'}>
                                 <Package className="mr-2 h-4 w-4" />
@@ -334,7 +334,7 @@ export default function QuoteDetailPage() {
                         </>
                     )}
 
-                    {quote.status === 'APPROVED' && (
+                    {quote.status === 'APROVADO' && (
                         <Button onClick={handleConvertToOrder} disabled={actionLoading === 'convert'} className="bg-green-600 hover:bg-green-700">
                             <Package className="mr-2 h-4 w-4" />
                             {actionLoading === 'convert' ? 'Convertendo...' : 'Converter em Pedido'}

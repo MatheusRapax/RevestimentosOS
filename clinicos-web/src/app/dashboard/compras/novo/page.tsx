@@ -46,6 +46,13 @@ interface PurchaseItem {
     totalCents: number;
 }
 
+interface SalesOrder {
+    id: string;
+    number: number;
+    customer: { name: string };
+    status: string;
+}
+
 function formatCurrency(cents: number): string {
     return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
@@ -63,6 +70,7 @@ export default function NovoPedidoCompraPage() {
     const [selectedProductId, setSelectedProductId] = useState('');
     const [quantity, setQuantity] = useState(1);
     const [unitPrice, setUnitPrice] = useState('');
+    const [selectedOrderId, setSelectedOrderId] = useState<string>('none');
 
     // Fetch suppliers
     const { data: suppliers = [] } = useQuery({
@@ -79,6 +87,18 @@ export default function NovoPedidoCompraPage() {
         queryFn: async () => {
             const response = await api.get('/stock/products');
             return response.data;
+        }
+    });
+
+    // Fetch active sales orders
+    const { data: salesOrders = [] } = useQuery({
+        queryKey: ['sales-orders', 'active'],
+        queryFn: async () => {
+            // Fetch all and filter in frontend for simplicity
+            const response = await api.get('/orders');
+            return response.data.filter((o: SalesOrder) =>
+                !['ENTREGUE', 'CANCELADO'].includes(o.status)
+            );
         }
     });
 
@@ -140,6 +160,7 @@ export default function NovoPedidoCompraPage() {
             await api.post('/purchase-orders', {
                 supplierId: supplierId || undefined,
                 supplierName,
+                salesOrderId: selectedOrderId !== 'none' ? selectedOrderId : undefined,
                 expectedDate: expectedDate || undefined,
                 notes: notes || undefined,
                 subtotalCents,
@@ -222,6 +243,28 @@ export default function NovoPedidoCompraPage() {
                                 value={expectedDate}
                                 onChange={(e) => setExpectedDate(e.target.value)}
                             />
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t">
+                            <label className="block text-sm font-medium mb-1">
+                                Vincular a Pedido de Venda (Opcional)
+                            </label>
+                            <p className="text-xs text-gray-500 mb-2">
+                                Use para compras sob encomenda (Back-to-Order).
+                            </p>
+                            <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecione um pedido..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Nenhum (Estoque Geral)</SelectItem>
+                                    {salesOrders.map((order: SalesOrder) => (
+                                        <SelectItem key={order.id} value={order.id}>
+                                            Pedido #{order.number} - {order.customer.name} ({order.status})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </Card>
 

@@ -30,4 +30,8 @@ export class RemoveStockDto {
     @IsOptional()
     @IsString()
     encounterId?: string;
+
+    @IsOptional()
+    @IsString()
+    orderId?: string;
 }

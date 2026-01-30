@@ -19,7 +19,8 @@ import {
     FileText,
     DollarSign,
     Download,
-    CreditCard
+    CreditCard,
+    Edit
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -54,6 +55,8 @@ export default function OrdersPage() {
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
     const [activeTab, setActiveTab] = useState<'details' | 'finance'>('details');
+    const [isEditingDelivery, setIsEditingDelivery] = useState(false);
+    const [deliveryEditDate, setDeliveryEditDate] = useState('');
 
     // Fetch Orders
     const { data: orders = [], isLoading } = useQuery({
@@ -63,6 +66,20 @@ export default function OrdersPage() {
             return response.data;
         }
     });
+
+    // Fetch Selected Order Details (Enriched)
+    const { data: orderDetails, refetch: refetchDetails } = useQuery({
+        queryKey: ['order', selectedOrder?.id],
+        queryFn: async () => {
+            if (!selectedOrder?.id) return null;
+            const response = await api.get(`/orders/${selectedOrder.id}`);
+            return response.data;
+        },
+        enabled: !!selectedOrder?.id
+    });
+
+    // Use enriched details if available, otherwise fallback to list data
+    const displayOrder = orderDetails || selectedOrder;
 
     // Fetch Invoices for Selected Order
     const { data: invoices = [], refetch: refetchInvoices } = useQuery({
@@ -102,8 +119,23 @@ export default function OrdersPage() {
             queryClient.invalidateQueries({ queryKey: ['orders'] });
             // Update selected order locally
             setSelectedOrder((prev: any) => prev ? { ...prev, status: updateStatusMutation.variables } : null);
+            refetchDetails();
         },
         onError: () => toast.error('Erro ao atualizar status')
+    });
+
+    // Update Delivery Mutation
+    const updateDeliveryMutation = useMutation({
+        mutationFn: async (date: string) => {
+            await api.patch(`/orders/${selectedOrder.id}/delivery`, { deliveryDate: date });
+        },
+        onSuccess: () => {
+            toast.success('Data de entrega atualizada com sucesso!');
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+            refetchDetails();
+            setIsEditingDelivery(false);
+        },
+        onError: () => toast.error('Erro ao atualizar data de entrega')
     });
 
     const filteredOrders = orders.filter((order: any) => {
@@ -346,8 +378,8 @@ export default function OrdersPage() {
                                 <>
                                     {/* Status */}
                                     <div className="flex items-center gap-3">
-                                        <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium ${statusConfig[selectedOrder.status]?.color}`}>
-                                            {statusConfig[selectedOrder.status]?.label}
+                                        <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium ${statusConfig[displayOrder.status]?.color}`}>
+                                            {statusConfig[displayOrder.status]?.label}
                                         </span>
                                     </div>
 
@@ -358,10 +390,84 @@ export default function OrdersPage() {
                                             Cliente
                                         </h3>
                                         <div className="space-y-1 text-sm">
-                                            <p><strong>{selectedOrder.customer?.name}</strong></p>
-                                            <p className="text-gray-600">{selectedOrder.customer?.document}</p>
+                                            <p><strong>{displayOrder.customer?.name}</strong></p>
+                                            <p className="text-gray-600">{displayOrder.customer?.document}</p>
                                         </div>
                                     </div>
+
+                                    {/* Delivery Info */}
+                                    <div className="bg-gray-50 rounded-xl p-4">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                                                <Truck className="h-4 w-4" />
+                                                Entrega
+                                            </h3>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setDeliveryEditDate(displayOrder.deliveryDate ? new Date(displayOrder.deliveryDate).toISOString().split('T')[0] : '');
+                                                    setIsEditingDelivery(true);
+                                                }}
+                                            >
+                                                <Edit className="h-4 w-4 text-blue-600" />
+                                            </Button>
+                                        </div>
+
+                                        {isEditingDelivery ? (
+                                            <div className="flex gap-2 items-center">
+                                                <input
+                                                    type="date"
+                                                    value={deliveryEditDate}
+                                                    onChange={(e) => setDeliveryEditDate(e.target.value)}
+                                                    className="border rounded px-2 py-1 text-sm"
+                                                />
+                                                <Button size="sm" onClick={() => updateDeliveryMutation.mutate(deliveryEditDate)}>
+                                                    Salvar
+                                                </Button>
+                                                <Button size="sm" variant="ghost" onClick={() => setIsEditingDelivery(false)}>
+                                                    Cancelar
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-1 text-sm">
+                                                <p>
+                                                    <span className="text-gray-500">Previsão: </span>
+                                                    <strong>{displayOrder.deliveryDate ? formatDate(displayOrder.deliveryDate) : 'Não informada'}</strong>
+                                                </p>
+                                                <p>
+                                                    <span className="text-gray-500">Endereço: </span>
+                                                    {displayOrder.deliveryAddress || 'Retirada na loja'}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Purchase Orders (Back-to-Order) */}
+                                    {displayOrder.purchaseOrders && displayOrder.purchaseOrders.length > 0 && (
+                                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                                            <h3 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
+                                                <Package className="h-4 w-4" />
+                                                Rastreio de Compras (Back-to-Order)
+                                            </h3>
+                                            <div className="space-y-2">
+                                                {displayOrder.purchaseOrders.map((po: any) => (
+                                                    <div key={po.id} className="bg-white p-3 rounded-lg text-sm border border-blue-100">
+                                                        <div className="flex justify-between mb-1">
+                                                            <span className="font-bold text-blue-800">Pedido Compra #{po.number}</span>
+                                                            <span className="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                                                                {po.status}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-gray-600">Fornecedor: {po.supplierName}</p>
+                                                        <p className="text-gray-600">
+                                                            Chegada Prevista: {po.expectedDate ? formatDate(po.expectedDate) : 'Indefinido'}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Items */}
                                     <div>

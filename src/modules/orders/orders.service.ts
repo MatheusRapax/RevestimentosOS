@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/core/prisma/prisma.service';
+import { PrismaService } from '../../core/prisma/prisma.service';
 import { OrderStatus } from '@prisma/client';
 
 @Injectable()
@@ -81,22 +81,44 @@ export class OrdersService {
                 },
                 delivery: true,
                 invoices: true,
+                purchaseOrders: {
+                    select: {
+                        id: true,
+                        number: true,
+                        status: true,
+                        expectedDate: true,
+                        supplierName: true,
+                    },
+                },
             },
         });
     }
 
-    async updateStatus(clinicId: string, id: string, status: string) {
+    async updateStatus(clinicId: string, id: string, status: OrderStatus) {
         const updateData: any = { status };
 
-        if (status === 'CONFIRMED') {
-            updateData.confirmedAt = new Date();
-        } else if (status === 'DELIVERED') {
+        if (status === OrderStatus.PAGO) {
+            updateData.confirmedAt = new Date(); // Semantic mapping: PAGO = confirmed
+        } else if (status === OrderStatus.ENTREGUE) {
             updateData.deliveredAt = new Date();
         }
 
-        return this.prisma.order.update({
-            where: { id },
-            data: updateData,
+        // Transaction to handle cancellations
+        return this.prisma.$transaction(async (tx) => {
+            const order = await tx.order.update({
+                where: { id },
+                data: updateData,
+            });
+
+            // If CANCELADO, cancel reservations
+            if (status === OrderStatus.CANCELADO) {
+                await tx.stockReservation.updateMany({
+                    where: { orderId: id, status: 'ACTIVE' },
+                    data: { status: 'CANCELLED' },
+                });
+            }
+
+            return order;
         });
     }
 
@@ -111,16 +133,21 @@ export class OrdersService {
     }
 
     async getStats(clinicId: string) {
-        const [pending, awaitingStock, partialReady, inProgress, ready, delivered, cancelled] = await Promise.all([
-            this.prisma.order.count({ where: { clinicId, status: 'PENDING' } }),
-            this.prisma.order.count({ where: { clinicId, status: 'AWAITING_STOCK' } }),
-            this.prisma.order.count({ where: { clinicId, status: 'PARTIAL_READY' } }),
-            this.prisma.order.count({ where: { clinicId, status: { in: [OrderStatus.CONFIRMED, OrderStatus.IN_SEPARATION] } } }),
-            this.prisma.order.count({ where: { clinicId, status: OrderStatus.READY } }),
-            this.prisma.order.count({ where: { clinicId, status: OrderStatus.DELIVERED } }),
-            this.prisma.order.count({ where: { clinicId, status: OrderStatus.CANCELLED } }),
+        const [pending, awaitingStock, ready, delivered, cancelled] = await Promise.all([
+            this.prisma.order.count({ where: { clinicId, status: OrderStatus.CRIADO } }),
+            this.prisma.order.count({ where: { clinicId, status: OrderStatus.AGUARDANDO_MATERIAL } }),
+            this.prisma.order.count({ where: { clinicId, status: OrderStatus.PRONTO_PARA_ENTREGA } }),
+            this.prisma.order.count({ where: { clinicId, status: OrderStatus.ENTREGUE } }),
+            this.prisma.order.count({ where: { clinicId, status: OrderStatus.CANCELADO } }),
         ]);
 
-        return { pending, awaitingStock, partialReady, inProgress, ready, delivered, cancelled };
+        return {
+            pending,
+            awaitingStock,
+            ready,
+            delivered,
+            cancelled,
+            inProgress: awaitingStock + ready // Aggregated metric
+        };
     }
 }

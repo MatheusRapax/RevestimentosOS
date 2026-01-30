@@ -6,7 +6,7 @@ import {
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateQuoteDto, CreateQuoteItemDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
-import { QuoteStatus } from '@prisma/client';
+import { QuoteStatus, OrderStatus, ReservationType } from '@prisma/client';
 
 import { StockService } from '../stock/stock.service';
 
@@ -257,7 +257,7 @@ export class QuotesService {
     async update(id: string, clinicId: string, updateQuoteDto: UpdateQuoteDto) {
         const quote = await this.findOne(id, clinicId);
 
-        if (quote.status !== 'DRAFT') {
+        if (quote.status !== QuoteStatus.EM_ORCAMENTO) {
             throw new BadRequestException('Apenas orçamentos em rascunho podem ser editados');
         }
 
@@ -277,14 +277,14 @@ export class QuotesService {
     async sendQuote(id: string, clinicId: string) {
         const quote = await this.findOne(id, clinicId);
 
-        if (quote.status !== 'DRAFT') {
+        if (quote.status !== QuoteStatus.EM_ORCAMENTO) {
             throw new BadRequestException('Apenas orçamentos em rascunho podem ser enviados');
         }
 
         return this.prisma.quote.update({
             where: { id },
             data: {
-                status: 'SENT',
+                status: QuoteStatus.AGUARDANDO_APROVACAO,
                 sentAt: new Date(),
             },
         });
@@ -293,14 +293,14 @@ export class QuotesService {
     async approveQuote(id: string, clinicId: string) {
         const quote = await this.findOne(id, clinicId);
 
-        if (quote.status !== 'SENT') {
+        if (quote.status !== QuoteStatus.AGUARDANDO_APROVACAO) {
             throw new BadRequestException('Apenas orçamentos enviados podem ser aprovados');
         }
 
         return this.prisma.quote.update({
             where: { id },
             data: {
-                status: 'APPROVED',
+                status: QuoteStatus.APROVADO,
                 approvedAt: new Date(),
             },
         });
@@ -309,7 +309,7 @@ export class QuotesService {
     async convertToOrder(id: string, clinicId: string, sellerId: string) {
         const quote = await this.findOne(id, clinicId);
 
-        if (quote.status !== 'APPROVED') {
+        if (quote.status !== QuoteStatus.APROVADO) {
             throw new BadRequestException('Apenas orçamentos aprovados podem ser convertidos em pedido');
         }
 
@@ -326,7 +326,7 @@ export class QuotesService {
             // Atualiza status do orçamento
             await tx.quote.update({
                 where: { id },
-                data: { status: 'CONVERTED' },
+                data: { status: QuoteStatus.CONVERTIDO },
             });
 
             // Cria o pedido
@@ -337,6 +337,7 @@ export class QuotesService {
                     quoteId: id,
                     customerId: quote.customerId,
                     sellerId,
+                    status: OrderStatus.CRIADO,
                     subtotalCents: quote.subtotalCents,
                     discountCents: quote.discountCents,
                     deliveryFee: quote.deliveryFee,
@@ -361,6 +362,20 @@ export class QuotesService {
                     items: true,
                 },
             });
+
+            // TRANSFER RESERVATIONS: Quote -> Order
+            // Update existing reservations to link to the new Order
+            await tx.stockReservation.updateMany({
+                where: {
+                    quoteId: id,
+                    status: 'ACTIVE'
+                },
+                data: {
+                    orderId: newOrder.id,
+                    type: ReservationType.PEDIDO
+                }
+            });
+
             return newOrder;
         });
 
@@ -370,7 +385,7 @@ export class QuotesService {
     async reserveStock(id: string, clinicId: string) {
         const quote = await this.findOne(id, clinicId);
 
-        if (quote.status !== 'DRAFT' && quote.status !== 'SENT') {
+        if (quote.status !== QuoteStatus.EM_ORCAMENTO && quote.status !== QuoteStatus.AGUARDANDO_APROVACAO) {
             throw new BadRequestException('Apenas orçamentos em Rascunho ou Enviados podem ter estoque reservado');
         }
 
@@ -462,12 +477,198 @@ export class QuotesService {
     async deleteQuote(id: string, clinicId: string) {
         const quote = await this.findOne(id, clinicId);
 
-        if (quote.status !== 'DRAFT') {
+        if (quote.status !== QuoteStatus.EM_ORCAMENTO) {
             throw new BadRequestException('Apenas orçamentos em rascunho podem ser excluídos');
         }
 
         return this.prisma.quote.delete({
             where: { id },
         });
+    }
+
+    // ========== ITEM MANAGEMENT ==========
+
+    private async recalculateQuoteTotals(quoteId: string) {
+        const quote = await this.prisma.quote.findUnique({
+            where: { id: quoteId },
+            include: { items: true },
+        });
+
+        if (!quote) return;
+
+        const subtotalCents = quote.items.reduce((sum, item) => sum + item.totalCents, 0);
+        let discountCents = quote.discountCents;
+
+        // Re-apply percent discount if it exists
+        if (quote.discountPercent && quote.discountPercent > 0) {
+            discountCents = Math.round(subtotalCents * (quote.discountPercent / 100));
+        }
+
+        // Integrity check: Header discount cents cannot be > subtotal (unless negative total allowed? No)
+        // If fixed discount was used, it stays constant, but cap it at subtotal
+        if (!quote.discountPercent) {
+            discountCents = Math.min(discountCents, subtotalCents);
+        }
+
+        const totalCents = Math.max(0, subtotalCents - discountCents + quote.deliveryFee);
+
+        await this.prisma.quote.update({
+            where: { id: quoteId },
+            data: {
+                subtotalCents,
+                discountCents,
+                totalCents,
+            },
+        });
+    }
+
+    async addItem(id: string, clinicId: string, dto: CreateQuoteItemDto) {
+        const quote = await this.findOne(id, clinicId);
+
+        if (quote.status !== QuoteStatus.EM_ORCAMENTO) {
+            throw new BadRequestException('Apenas orçamentos em rascunho podem receber novos itens');
+        }
+
+        const processedItem = await this.processQuoteItem(clinicId, dto);
+
+        await this.prisma.quote.update({
+            where: { id },
+            data: {
+                items: {
+                    create: {
+                        ...processedItem,
+                        // Ensure optional nulls are handled
+                        preferredLotId: processedItem.preferredLotId ?? undefined,
+                        notes: processedItem.notes ?? undefined,
+                    }
+                }
+            }
+        });
+
+        await this.recalculateQuoteTotals(id);
+
+        return this.findOne(id, clinicId);
+    }
+
+    async removeItem(id: string, itemId: string, clinicId: string) {
+        const quote = await this.findOne(id, clinicId);
+
+        if (quote.status !== QuoteStatus.EM_ORCAMENTO) {
+            throw new BadRequestException('Apenas orçamentos em rascunho podem ter itens removidos');
+        }
+
+        const item = quote.items.find(i => i.id === itemId);
+        if (!item) {
+            throw new NotFoundException('Item não encontrado');
+        }
+
+        // SYNC: Cancel linked reservations
+        await this.prisma.stockReservation.updateMany({
+            where: {
+                quoteItemId: itemId,
+                status: 'ACTIVE'
+            },
+            data: {
+                status: 'CANCELLED'
+            }
+        });
+
+        // Delete item
+        await this.prisma.quoteItem.delete({
+            where: { id: itemId }
+        });
+
+        await this.recalculateQuoteTotals(id);
+
+        return this.findOne(id, clinicId);
+    }
+
+    async updateItem(id: string, itemId: string, clinicId: string, dto: import('./dto/update-quote-item.dto').UpdateQuoteItemDto) {
+        const quote = await this.findOne(id, clinicId);
+
+        if (quote.status !== QuoteStatus.EM_ORCAMENTO) {
+            throw new BadRequestException('Apenas orçamentos em rascunho podem ter itens editados');
+        }
+
+        const currentItem = quote.items.find(i => i.id === itemId);
+        if (!currentItem) {
+            throw new NotFoundException('Item não encontrado');
+        }
+
+        // Merge DTO with current values to re-process (need product info etc)
+        // We need to re-fetch product to be safe inside processQuoteItem? 
+        // processQuoteItem expects CreateQuoteItemDto which has specific shape.
+        // Let's reconstruct the input for processQuoteItem
+        const inputForCalc: CreateQuoteItemDto = {
+            productId: currentItem.productId,
+            inputArea: dto.inputArea ?? currentItem.inputArea ?? undefined,
+            quantityBoxes: dto.quantityBoxes ?? currentItem.quantityBoxes,
+            unitPriceCents: dto.unitPriceCents ?? currentItem.unitPriceCents,
+            discountCents: dto.discountCents ?? currentItem.discountCents,
+            discountPercent: dto.discountPercent ?? currentItem.discountPercent ?? undefined,
+            preferredLotId: dto.preferredLotId ?? currentItem.preferredLotId ?? undefined,
+            notes: dto.notes ?? currentItem.notes ?? undefined,
+        };
+
+        const processed = await this.processQuoteItem(clinicId, inputForCalc);
+
+        // SYNC RESERVATIONS
+        // If quantity decreased, we might need to release some reserved stock
+        if (processed.quantityBoxes < currentItem.quantityBoxes) {
+            const activeReservations = await this.prisma.stockReservation.findMany({
+                where: { quoteItemId: itemId, status: 'ACTIVE' },
+                orderBy: { quantity: 'asc' } // Release smaller chunks first or irrelevant?
+            });
+
+            const currentlyReserved = activeReservations.reduce((sum, r) => sum + r.quantity, 0);
+
+            // Our target is to have AT MOST processed.quantityBoxes reserved
+            // (We don't want to hold 10 boxes if user now only wants 5)
+            if (currentlyReserved > processed.quantityBoxes) {
+                let toRelease = currentlyReserved - processed.quantityBoxes;
+
+                for (const res of activeReservations) {
+                    if (toRelease <= 0) break;
+
+                    const canRelease = Math.min(res.quantity, toRelease);
+
+                    if (canRelease === res.quantity) {
+                        // Cancel entire reservation
+                        await this.prisma.stockReservation.update({
+                            where: { id: res.id },
+                            data: { status: 'CANCELLED' }
+                        });
+                    } else {
+                        // Reduce quantity
+                        await this.prisma.stockReservation.update({
+                            where: { id: res.id },
+                            data: { quantity: res.quantity - canRelease }
+                        });
+                    }
+
+                    toRelease -= canRelease;
+                }
+            }
+        }
+
+        // Update Quote Item
+        await this.prisma.quoteItem.update({
+            where: { id: itemId },
+            data: {
+                inputArea: processed.inputArea,
+                quantityBoxes: processed.quantityBoxes,
+                resultingArea: processed.resultingArea,
+                unitPriceCents: processed.unitPriceCents,
+                discountCents: processed.discountCents,
+                discountPercent: inputForCalc.discountPercent, // Note: processed object doesn't have discountPercent but we use input
+                totalCents: processed.totalCents,
+                preferredLotId: processed.preferredLotId,
+                notes: processed.notes,
+            }
+        });
+
+        await this.recalculateQuoteTotals(id);
+
+        return this.findOne(id, clinicId);
     }
 }

@@ -279,6 +279,41 @@ export class StockService {
                     data: { quantity: lot.quantity - deductAmount },
                 });
 
+                // CONSUME RESERVATIONS (New Logic)
+                // If orderId is provided, we must consume linked reservations to avoid "double counting"
+                // (active reservation + physical removal = double deduction of availability)
+                if (dto.orderId) {
+                    const reservations = await tx.stockReservation.findMany({
+                        where: {
+                            orderId: dto.orderId,
+                            lotId: lot.id,
+                            status: 'ACTIVE',
+                        },
+                        orderBy: { quantity: 'asc' },
+                    });
+
+                    let amountToConsume = deductAmount;
+                    for (const res of reservations) {
+                        if (amountToConsume <= 0) break;
+
+                        const consumed = Math.min(res.quantity, amountToConsume);
+                        const newResQty = res.quantity - consumed;
+
+                        if (newResQty <= 0) {
+                            await tx.stockReservation.update({
+                                where: { id: res.id },
+                                data: { status: 'CONSUMED', quantity: 0 },
+                            });
+                        } else {
+                            await tx.stockReservation.update({
+                                where: { id: res.id },
+                                data: { quantity: newResQty },
+                            });
+                        }
+                        amountToConsume -= consumed;
+                    }
+                }
+
                 // Create OUT movement
                 await tx.stockMovement.create({
                     data: {
@@ -291,6 +326,7 @@ export class StockService {
                         destinationType: dto.destinationType,
                         destinationName: dto.destinationName,
                         encounterId: dto.encounterId,
+                        orderId: dto.orderId,
                     },
                 });
 

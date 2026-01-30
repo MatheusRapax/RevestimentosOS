@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient, CustomerType, SaleType, QuoteStatus, OrderStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
@@ -543,7 +544,7 @@ async function main() {
                 customerId: customer1.id,
                 architectId: architect1.id,
                 sellerId: sellerUser.id,
-                status: QuoteStatus.SENT,
+                status: QuoteStatus.AGUARDANDO_APROVACAO,
                 validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
                 sentAt: new Date(),
                 subtotalCents: 318000,
@@ -580,7 +581,7 @@ async function main() {
                 number: 2,
                 customerId: customer2.id,
                 sellerId: sellerUser.id,
-                status: QuoteStatus.DRAFT,
+                status: QuoteStatus.EM_ORCAMENTO,
                 validUntil: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
                 subtotalCents: 1590000,
                 discountCents: 79500,
@@ -606,7 +607,7 @@ async function main() {
                 number: 1,
                 customerId: customer3.id,
                 sellerId: sellerUser.id,
-                status: OrderStatus.CONFIRMED,
+                status: OrderStatus.PAGO,
                 subtotalCents: 79500,
                 discountCents: 0,
                 deliveryFee: 8000,

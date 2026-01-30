@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { OrderStatus } from '@prisma/client';
 
 // Widget types available for flooring store
 export const WIDGET_TYPES = [
@@ -239,7 +240,14 @@ export class DashboardService {
         return this.prisma.order.findMany({
             where: {
                 clinicId,
-                status: { in: ['PENDING', 'CONFIRMED', 'IN_SEPARATION', 'READY'] },
+                status: {
+                    in: [
+                        OrderStatus.CRIADO,
+                        OrderStatus.PAGO,
+                        OrderStatus.AGUARDANDO_MATERIAL,
+                        OrderStatus.PRONTO_PARA_ENTREGA
+                    ]
+                },
             },
             include: {
                 customer: { select: { name: true } },
@@ -260,7 +268,7 @@ export class DashboardService {
             where: {
                 clinicId,
                 createdAt: { gte: today, lt: tomorrow },
-                status: { not: 'CANCELLED' },
+                status: { not: OrderStatus.CANCELADO },
             },
             select: { totalCents: true },
         });
@@ -277,7 +285,13 @@ export class DashboardService {
         return this.prisma.order.findMany({
             where: {
                 clinicId,
-                status: { in: ['CONFIRMED', 'IN_SEPARATION', 'READY'] },
+                status: {
+                    in: [
+                        OrderStatus.PAGO,
+                        OrderStatus.AGUARDANDO_MATERIAL,
+                        OrderStatus.PRONTO_PARA_ENTREGA
+                    ]
+                },
                 deliveryDate: { gte: today },
             },
             include: {
@@ -320,7 +334,7 @@ export class DashboardService {
                     clinicId,
                     sellerId: seller.id,
                     createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
-                    status: { not: 'CANCELLED' }
+                    status: { not: OrderStatus.CANCELADO }
                 },
                 select: { totalCents: true }
             });
@@ -393,7 +407,7 @@ export class DashboardService {
                             where: {
                                 clinicId,
                                 createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
-                                status: { not: 'CANCELLED' }
+                                status: { not: OrderStatus.CANCELADO }
                             },
                             select: { totalCents: true }
                         }
@@ -404,9 +418,9 @@ export class DashboardService {
 
         const report = architects.map(arch => {
             // Flatten orders from all customers of this architect
-            const allOrders = arch.customers.flatMap(c => c.orders);
-            const totalSales = allOrders.reduce((sum, o) => sum + o.totalCents, 0);
-            const clientsCount = arch.customers.filter(c => c.orders.length > 0).length;
+            const allOrders = (arch as any).customers.flatMap((c: any) => c.orders);
+            const totalSales = allOrders.reduce((sum: number, o: any) => sum + o.totalCents, 0);
+            const clientsCount = (arch as any).customers.filter((c: any) => c.orders.length > 0).length;
             const commissionTotal = Math.round(totalSales * ((arch.commissionRate || 0) / 100));
 
             return {

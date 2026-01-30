@@ -45,6 +45,14 @@ enum TransactionType {
   ADJUSTMENT // Ajuste manual
 }
 
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
 enum PaymentMethod {
   PIX
   CREDIT_CARD
@@ -54,13 +62,16 @@ enum PaymentMethod {
   TRANSFER
 }
 
-enum PaymentStatus {
-  PENDING
-  APPROVED
-  FAILED
-  REFUNDED
-  CANCELLED
+
+enum OrderStatus {
+  CRIADO
+  PAGO
+  AGUARDANDO_MATERIAL
+  PRONTO_PARA_ENTREGA
+  ENTREGUE
+  CANCELADO
 }
+
 
 // Sales Module Enums
 enum SaleType {
@@ -75,23 +86,17 @@ enum CustomerType {
 }
 
 enum QuoteStatus {
-  DRAFT
-  SENT
-  APPROVED
-  REJECTED
-  EXPIRED
-  CONVERTED
+  EM_ORCAMENTO
+  AGUARDANDO_APROVACAO
+  APROVADO
+  REJEITADO
+  EXPIRADO
+  CONVERTIDO
 }
 
-enum OrderStatus {
-  PENDING
-  CONFIRMED
-  AWAITING_STOCK
-  IN_SEPARATION
-  PARTIAL_READY
-  READY
-  DELIVERED
-  CANCELLED
+enum ReservationType {
+  ORCAMENTO
+  PEDIDO
 }
 
 // Multi-tenant schema
@@ -492,6 +497,7 @@ model StockReservation {
   quoteId   String?
   lotId     String
   
+  type      ReservationType @default(ORCAMENTO)
   quantity  Int
   status    ReservationStatus @default(ACTIVE)
   expiresAt DateTime
@@ -1004,7 +1010,7 @@ model Quote {
   seller      User       @relation("QuoteSeller", fields: [sellerId], references: [id])
 
   // Status e datas
-  status     QuoteStatus @default(DRAFT)
+  status     QuoteStatus @default(EM_ORCAMENTO)
   validUntil DateTime? // Data de validade
   sentAt     DateTime?
   approvedAt DateTime?
@@ -1083,7 +1089,7 @@ model Order {
   sellerId   String
   seller     User     @relation("OrderSeller", fields: [sellerId], references: [id])
 
-  status OrderStatus @default(PENDING)
+  status OrderStatus @default(CRIADO)
 
   // Valores (copiados do Quote ou recalculados)
   subtotalCents Int
@@ -1135,6 +1141,8 @@ model OrderItem {
 
   // Lote reservado/usado
   lotId String?
+
+  status String? // Para controle de entrega parcial (ENTREGUE, PENDENTE, etc)
 
   notes String?
 

@@ -11,6 +11,7 @@ import {
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
+import { OrderStatus } from '@prisma/client';
 
 interface AuthRequest extends Request {
     clinicId: string;
@@ -47,7 +48,7 @@ export class OrdersController {
         @Param('id') id: string,
         @Body('status') status: string,
     ) {
-        return this.ordersService.updateStatus(req.clinicId, id, status);
+        return this.ordersService.updateStatus(req.clinicId, id, status as OrderStatus);
     }
 
     @Patch(':id/delivery')
