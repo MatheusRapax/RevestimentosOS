@@ -479,6 +479,7 @@ model StockLot {
   movements      StockMovement[]
   stockExitItems StockExitItem[]
   quoteItems     QuoteItem[]
+  orderItems     OrderItem[]
   reservations   StockReservation[]
 
   @@unique([clinicId, lotNumber])
@@ -1150,6 +1151,7 @@ model OrderItem {
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
+  lot     StockLot? @relation(fields: [lotId], references: [id])
 
   @@index([orderId])
   @@index([productId])

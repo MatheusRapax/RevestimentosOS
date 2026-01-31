@@ -71,6 +71,7 @@ export class OrdersService {
                 items: {
                     include: {
                         product: true,
+                        lot: true,
                     },
                 },
                 quote: {

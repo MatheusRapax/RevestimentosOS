@@ -595,6 +595,14 @@ export default function OrdersPage() {
                                         {updateStatusMutation.isPending ? 'Processando...' : 'Registrar Entrega'}
                                     </button>
                                 )}
+                                <Button
+                                    variant="outline"
+                                    onClick={() => window.open(`/dashboard/pedidos/${displayOrder.id}/romaneio`, '_blank')}
+                                    className="flex-1 border-gray-300 hover:bg-gray-50 text-gray-700"
+                                >
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    Imprimir Romaneio
+                                </Button>
                                 <button
                                     onClick={() => setSelectedOrder(null)}
                                     className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"

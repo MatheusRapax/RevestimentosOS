@@ -25,6 +25,7 @@ import {
     Boxes,
 } from 'lucide-react';
 import Link from 'next/link';
+import { StockLotSelector } from '@/components/stock/StockLotSelector';
 
 interface Customer {
     id: string;
@@ -197,6 +198,45 @@ export default function NovoOrcamentoPage() {
         item.totalCents = itemSubtotal - item.discountCents;
 
         newItems[index] = item;
+        setItems(newItems);
+    };
+
+    // Split item into two lines (for mixed lots)
+    const handleSplitItem = (index: number, lotId: string, maxQuantity: number) => {
+        const currentItem = { ...items[index] };
+        const remainingQuantity = currentItem.quantityBoxes - maxQuantity;
+
+        if (remainingQuantity <= 0) return;
+
+        // Update current item (limit to available)
+        const updatedCurrent = {
+            ...currentItem,
+            quantityBoxes: maxQuantity,
+            preferredLotId: lotId,
+            inputArea: 0, // Reset manual area to avoid confusion
+            resultingArea: calculateResultingArea(maxQuantity, currentItem.product?.boxCoverage || 0)
+        };
+        // Recalculate totals
+        const sub1 = updatedCurrent.unitPriceCents * updatedCurrent.quantityBoxes;
+        updatedCurrent.discountCents = Math.round(sub1 * (updatedCurrent.discountPercent / 100));
+        updatedCurrent.totalCents = sub1 - updatedCurrent.discountCents;
+
+        // Create new item (remaining)
+        const newItem = {
+            ...currentItem,
+            quantityBoxes: remainingQuantity,
+            preferredLotId: undefined, // Let user choose another lot
+            inputArea: 0,
+            resultingArea: calculateResultingArea(remainingQuantity, currentItem.product?.boxCoverage || 0)
+        };
+        // Recalculate totals
+        const sub2 = newItem.unitPriceCents * newItem.quantityBoxes;
+        newItem.discountCents = Math.round(sub2 * (newItem.discountPercent / 100));
+        newItem.totalCents = sub2 - newItem.discountCents;
+
+        const newItems = [...items];
+        newItems[index] = updatedCurrent;
+        newItems.splice(index + 1, 0, newItem); // Insert after
         setItems(newItems);
     };
 
@@ -387,33 +427,15 @@ export default function NovoOrcamentoPage() {
                                     </div>
 
                                     {/* Lot Select */}
-                                    <div className="md:col-span-2 space-y-2">
-                                        <Label>Lote Preferencial (Opcional)</Label>
-                                        <Select
-                                            value={item.preferredLotId || 'none'}
-                                            onValueChange={(value) =>
-                                                updateItem(index, 'preferredLotId', value === 'none' ? undefined : value)
-                                            }
+                                    <div className="md:col-span-2">
+                                        <StockLotSelector
+                                            lots={item.product?.lots || []}
+                                            selectedLotId={item.preferredLotId}
+                                            quantityRequested={item.quantityBoxes}
+                                            onSelectLot={(lotId) => updateItem(index, 'preferredLotId', lotId)}
+                                            onSplitItem={(lotId, max) => handleSplitItem(index, lotId, max)}
                                             disabled={!item.productId}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder={item.productId ? "Qualquer lote (Automático)" : "Selecione o produto primeiro"} />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">Qualquer lote (Automático)</SelectItem>
-                                                {item.product?.lots?.map((lot) => {
-                                                    const reserved = lot.reservations?.reduce((acc: number, r: any) => acc + r.quantity, 0) || 0;
-                                                    const available = lot.quantity - reserved;
-                                                    return (
-                                                        <SelectItem key={lot.id} value={lot.id}>
-                                                            Lot: {lot.lotNumber} | Disp: {available}cx
-                                                            {lot.shade ? ` | Ton: ${lot.shade}` : ''}
-                                                            {lot.caliber ? ` | Cal: ${lot.caliber}` : ''}
-                                                        </SelectItem>
-                                                    );
-                                                })}
-                                            </SelectContent>
-                                        </Select>
+                                        />
                                     </div>
 
                                     {/* Area Input */}
