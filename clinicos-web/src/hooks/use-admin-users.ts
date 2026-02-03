@@ -1,0 +1,51 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '@/lib/api';
+
+export interface AdminUser {
+    id: string;
+    name: string | null;
+    email: string;
+    isActive: boolean;
+    isSuperAdmin: boolean;
+    createdAt: string;
+    _count?: {
+        clinicUsers: number;
+    };
+}
+
+export interface UpdateUserData {
+    id: string;
+    isActive?: boolean;
+    isSuperAdmin?: boolean;
+    password?: string;
+}
+
+export function useAdminUsers(search?: string) {
+    const queryClient = useQueryClient();
+
+    const users = useQuery({
+        queryKey: ['admin-users', search],
+        queryFn: async () => {
+            const params = search ? { search } : {};
+            const response = await api.get<AdminUser[]>('/admin/users', { params });
+            return response.data;
+        },
+    });
+
+    const updateUser = useMutation({
+        mutationFn: async (data: UpdateUserData) => {
+            const { id, ...body } = data;
+            const response = await api.patch<AdminUser>(`/admin/users/${id}`, body);
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+        },
+    });
+
+    return {
+        users: users.data,
+        isLoading: users.isLoading,
+        updateUser,
+    };
+}

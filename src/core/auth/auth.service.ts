@@ -99,6 +99,7 @@ export class AuthService {
                 email: user.email,
                 name: user.name,
                 isActive: user.isActive,
+                isSuperAdmin: user.isSuperAdmin,
             },
             clinics,
         };
@@ -139,6 +140,8 @@ export class AuthService {
                         id: true,
                         name: true,
                         slug: true,
+                        logoUrl: true,
+                        modules: true,
                     },
                 },
             },

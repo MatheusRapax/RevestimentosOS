@@ -5,6 +5,7 @@ import { AuthModule } from './core/auth/auth.module';
 import { TenantModule } from './core/tenant/tenant.module';
 import { RbacModule } from './core/rbac/rbac.module';
 import { AuditModule } from './core/audit/audit.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { ClinicsModule } from './modules/clinics/clinics.module';
 import { PatientsModule } from './modules/patients/patients.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
@@ -29,12 +30,20 @@ import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module';
 import { StockReservationsModule } from './modules/stock-reservations/stock-reservations.module';
 
+import { join } from 'path';
+import { ServeStaticModule } from '@nestjs/serve-static';
+
 @Module({
     imports: [
+        ServeStaticModule.forRoot({
+            rootPath: join(__dirname, '..', 'uploads'),
+            serveRoot: '/uploads',
+        }),
         PrismaModule,
         TenantModule,
         RbacModule,
         AuditModule,
+        AdminModule,
         HealthModule,
         AuthModule,
         ClinicsModule,

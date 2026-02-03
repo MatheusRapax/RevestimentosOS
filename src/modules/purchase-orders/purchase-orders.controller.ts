@@ -19,8 +19,12 @@ interface AuthRequest extends Request {
     clinicId: string;
 }
 
+import { ModuleGuard } from '../../core/auth/guards/module.guard';
+import { RequireModules } from '../../core/auth/decorators/module.decorator';
+
 @Controller('purchase-orders')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, ModuleGuard)
+@RequireModules('PURCHASES')
 export class PurchaseOrdersController {
     constructor(private readonly service: PurchaseOrdersService) { }
 

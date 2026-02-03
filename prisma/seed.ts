@@ -654,6 +654,22 @@ async function main() {
     console.log(`🏛️ Arquitetos: 2`);
     console.log(`📄 Orçamentos: 2`);
     console.log(`📦 Pedidos: 1`);
+
+    // =========================================
+    // 12. CREATE SUPER ADMIN
+    // =========================================
+    const superAdmin = await prisma.user.upsert({
+        where: { email: 'superadmin@revestimentos.com' },
+        update: { password: hashedPassword, isSuperAdmin: true },
+        create: {
+            email: 'superadmin@revestimentos.com',
+            password: hashedPassword,
+            name: 'Super Admin',
+            isActive: true,
+            isSuperAdmin: true,
+        },
+    });
+    console.log('✅ Created Super Admin: superadmin@revestimentos.com');
 }
 
 main()

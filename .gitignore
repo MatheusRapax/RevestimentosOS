@@ -27,7 +27,6 @@ logs/
 *.log
 
 # Misc
-.agent/
 cloudflared.deb
 *.code-workspace
 

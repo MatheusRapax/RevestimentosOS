@@ -7,6 +7,8 @@ interface Clinic {
     id: string;
     name: string;
     slug: string;
+    modules?: string[]; // Enable optional modules
+    logoUrl?: string | null;
 }
 
 interface User {
@@ -14,13 +16,14 @@ interface User {
     name: string;
     email: string;
     clinics: Clinic[];
+    isSuperAdmin?: boolean;
 }
 
 interface AuthContextType {
     user: User | null;
     activeClinic: string | null;
     isLoading: boolean;
-    login: (email: string, password: string) => Promise<void>;
+    login: (email: string, password: string) => Promise<User | null>;
     logout: () => void;
     setActiveClinic: (clinicId: string) => void;
 }
@@ -66,6 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('AuthContext: Initialization complete, isLoading set to false');
     }, []);
 
+    const setActiveClinic = (clinicId: string) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('clinicId', clinicId);
+        }
+        setActiveClinicState(clinicId);
+    };
+
     const login = async (email: string, password: string) => {
         console.log('AuthContext: login called', { email });
 
@@ -99,6 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } else {
                 console.log('AuthContext: user has', clinics?.length || 0, 'clinics');
             }
+
+            return userWithClinics;
         } catch (error) {
             console.error('AuthContext: login error', error);
             throw error;
@@ -113,13 +125,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         setUser(null);
         setActiveClinicState(null);
-    };
-
-    const setActiveClinic = (clinicId: string) => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('clinicId', clinicId);
-        }
-        setActiveClinicState(clinicId);
     };
 
     return (

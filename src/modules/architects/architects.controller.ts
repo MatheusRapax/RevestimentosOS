@@ -19,8 +19,12 @@ import { PermissionsGuard } from '../../core/rbac/guards/permissions.guard';
 import { Permissions } from '../../core/rbac/decorators/permissions.decorator';
 import { PERMISSIONS } from '../../core/rbac/permissions';
 
+import { ModuleGuard } from '../../core/auth/guards/module.guard';
+import { RequireModules } from '../../core/auth/decorators/module.decorator';
+
 @Controller('architects')
-@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleGuard)
+@RequireModules('ARCHITECTS')
 export class ArchitectsController {
     constructor(private readonly architectsService: ArchitectsService) { }
 

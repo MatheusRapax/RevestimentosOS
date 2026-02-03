@@ -18,8 +18,12 @@ interface AuthRequest extends Request {
     user: { userId: string };
 }
 
+import { ModuleGuard } from '../../core/auth/guards/module.guard';
+import { RequireModules } from '../../core/auth/decorators/module.decorator';
+
 @Controller('orders')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, ModuleGuard)
+@RequireModules('SALES')
 export class OrdersController {
     constructor(private readonly ordersService: OrdersService) { }
 

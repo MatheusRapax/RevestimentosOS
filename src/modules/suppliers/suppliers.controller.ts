@@ -18,8 +18,12 @@ interface AuthRequest extends Request {
     clinicId: string;
 }
 
+import { ModuleGuard } from '../../core/auth/guards/module.guard';
+import { RequireModules } from '../../core/auth/decorators/module.decorator';
+
 @Controller('suppliers')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, ModuleGuard)
+@RequireModules('PURCHASES')
 export class SuppliersController {
     constructor(private readonly suppliersService: SuppliersService) { }
 

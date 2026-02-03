@@ -8,8 +8,12 @@ import { Permissions } from '../../core/rbac/decorators/permissions.decorator';
 import { PERMISSIONS } from '../../core/rbac/permissions';
 import { DeliveryStatus } from '@prisma/client';
 
+import { ModuleGuard } from '../../core/auth/guards/module.guard';
+import { RequireModules } from '../../core/auth/decorators/module.decorator';
+
 @Controller('deliveries')
-@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleGuard)
+@RequireModules('DELIVERIES')
 export class DeliveriesController {
     constructor(private readonly deliveriesService: DeliveriesService) { }
 

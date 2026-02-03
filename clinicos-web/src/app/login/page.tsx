@@ -21,10 +21,14 @@ export default function LoginPage() {
         console.log('Login attempt:', { email, password: '***' });
 
         try {
-            await login(email, password);
-            console.log('Login successful, redirecting to dashboard');
-            // Use window.location for reliable redirect
-            window.location.href = '/dashboard';
+            const user = await login(email, password);
+            console.log('Login successful', user);
+
+            if (user?.isSuperAdmin) {
+                window.location.href = '/admin';
+            } else {
+                window.location.href = '/dashboard';
+            }
         } catch (err: any) {
             console.error('Login error:', err);
             setError(err.response?.data?.message || 'Erro ao fazer login');

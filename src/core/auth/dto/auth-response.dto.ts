@@ -5,6 +5,7 @@ export class AuthResponseDto {
         email: string;
         name: string | null;
         isActive: boolean;
+        isSuperAdmin?: boolean;
     };
     clinics: {
         id: string;
