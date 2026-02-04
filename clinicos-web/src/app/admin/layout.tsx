@@ -65,6 +65,12 @@ export default function AdminLayout({
                     >
                         👥 Usuários
                     </Link>
+                    <Link
+                        href="/admin/audit"
+                        className="flex items-center gap-3 px-4 py-3 rounded-md hover:bg-slate-800 transition-colors text-sm font-medium"
+                    >
+                        🛡️ Auditoria
+                    </Link>
                 </nav>
 
                 <div className="p-4 border-t border-slate-800">

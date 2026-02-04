@@ -22,10 +22,13 @@ interface EditUserDialogProps {
     onOpenChange: (open: boolean) => void;
     onSave: (data: UpdateUserData) => Promise<void>;
     isSaving: boolean;
+    tenants: any[]; // Available tenants to link
 }
 
-export function EditUserDialog({ user, open, onOpenChange, onSave, isSaving }: EditUserDialogProps) {
-    const [formData, setFormData] = useState<Partial<UpdateUserData>>({});
+export function EditUserDialog({ user, open, onOpenChange, onSave, isSaving, tenants }: EditUserDialogProps) {
+    const [formData, setFormData] = useState<Partial<UpdateUserData & { clinicIds: string[] }>>({
+        clinicIds: []
+    });
 
     useEffect(() => {
         if (user) {
@@ -34,9 +37,10 @@ export function EditUserDialog({ user, open, onOpenChange, onSave, isSaving }: E
                 isActive: user.isActive,
                 isSuperAdmin: user.isSuperAdmin,
                 password: '', // Password starts empty
+                clinicIds: user.clinicUsers?.map((cu: any) => cu.clinic.id) || [],
             });
         }
-    }, [user]);
+    }, [user, open]);
 
     const handleSave = () => {
         if (!user) return;
@@ -45,12 +49,24 @@ export function EditUserDialog({ user, open, onOpenChange, onSave, isSaving }: E
             isActive: formData.isActive,
             isSuperAdmin: formData.isSuperAdmin,
             ...(formData.password ? { password: formData.password } : {}),
+            clinicIds: formData.clinicIds,
+        });
+    };
+
+    const toggleTenant = (tenantId: string) => {
+        setFormData(prev => {
+            const current = prev.clinicIds || [];
+            if (current.includes(tenantId)) {
+                return { ...prev, clinicIds: current.filter(id => id !== tenantId) };
+            } else {
+                return { ...prev, clinicIds: [...current, tenantId] };
+            }
         });
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Editar Usuário</DialogTitle>
                     <DialogDescription>
@@ -69,7 +85,7 @@ export function EditUserDialog({ user, open, onOpenChange, onSave, isSaving }: E
                                 onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked === true }))}
                             />
                             <Label htmlFor="isActive" className="font-normal cursor-pointer">
-                                Usuário Ativo (Pode logar)
+                                Usuário Ativo
                             </Label>
                         </div>
                     </div>
@@ -90,6 +106,27 @@ export function EditUserDialog({ user, open, onOpenChange, onSave, isSaving }: E
                         </div>
                     </div>
 
+                    <div className="grid grid-cols-4 items-start gap-4">
+                        <Label className="text-right pt-2">
+                            Lojas
+                        </Label>
+                        <div className="col-span-3 space-y-2 border rounded-md p-3 max-h-40 overflow-y-auto">
+                            {tenants.map((tenant) => (
+                                <div key={tenant.id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id={`tenant-${tenant.id}`}
+                                        checked={formData.clinicIds?.includes(tenant.id)}
+                                        onCheckedChange={() => toggleTenant(tenant.id)}
+                                    />
+                                    <Label htmlFor={`tenant-${tenant.id}`} className="font-normal cursor-pointer text-sm">
+                                        {tenant.name}
+                                    </Label>
+                                </div>
+                            ))}
+                            {tenants.length === 0 && <span className="text-sm text-muted-foreground">Nenhuma loja cadastrada.</span>}
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-4 items-center gap-4 border-t pt-4 mt-2">
                         <Label htmlFor="password" className="text-right">
                             Nova Senha
@@ -100,7 +137,7 @@ export function EditUserDialog({ user, open, onOpenChange, onSave, isSaving }: E
                             value={formData.password}
                             onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                             className="col-span-3"
-                            placeholder="Deixe em branco para manter"
+                            placeholder="*************"
                         />
                     </div>
                 </div>

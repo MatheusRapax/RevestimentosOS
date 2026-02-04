@@ -25,6 +25,55 @@ export class StockEntryService {
         });
     }
 
+    async createFromPurchaseOrder(clinicId: string, purchaseOrderId: string, userId?: string) {
+        // 1. Fetch Purchase Order
+        const po = await this.prisma.purchaseOrder.findUnique({
+            where: { id: purchaseOrderId, clinicId },
+            include: { items: true }
+        });
+
+        if (!po) throw new NotFoundException('Pedido de Compra não encontrado');
+
+        // Optional: Check status (e.g., must be SENT)
+        // if (po.status !== 'SENT') throw new BadRequestException('Pedido precisa estar Enviado');
+
+        // 2. Create Stock Entry Draft
+        const entry = await this.prisma.stockEntry.create({
+            data: {
+                clinicId,
+                status: EntryStatus.DRAFT,
+                type: EntryType.INVOICE,
+                supplierId: po.supplierId,
+                supplierName: po.supplierName,
+                arrivalDate: new Date(),
+                notes: `Importado do Pedido de Compra #${po.number}`,
+            }
+        });
+
+        // 3. Import Items
+        if (po.items && po.items.length > 0) {
+            const validItems = po.items.filter(i => i.productId);
+            await this.prisma.stockEntryItem.createMany({
+                data: validItems.map(poItem => ({
+                    stockEntryId: entry.id,
+                    productId: poItem.productId!,
+                    quantity: poItem.quantityOrdered, // Import ordered quantity
+                    unitCost: poItem.unitPriceCents, // Cost = PO Price
+                    totalCost: poItem.totalCents,
+                    // Lot/Expiry left empty for user to fill
+                }))
+            });
+
+            // Update total
+            await this.prisma.stockEntry.update({
+                where: { id: entry.id },
+                data: { totalValue: po.totalCents }
+            });
+        }
+
+        return this.getEntry(clinicId, entry.id);
+    }
+
     async addItem(clinicId: string, entryId: string, dto: AddStockEntryItemDto) {
         const entry = await this.prisma.stockEntry.findUnique({
             where: { id: entryId, clinicId },

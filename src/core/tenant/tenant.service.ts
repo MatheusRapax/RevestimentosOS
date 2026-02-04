@@ -29,7 +29,7 @@ export class TenantService {
     async validateUserClinicAccess(
         userId: string,
         clinicId: string,
-    ): Promise<boolean> {
+    ): Promise<any> {
         const clinicUser = await this.prisma.clinicUser.findFirst({
             where: {
                 userId,
@@ -38,9 +38,12 @@ export class TenantService {
                     isActive: true,
                 },
             },
+            include: {
+                clinic: true, // Include full clinic data including modules
+            }
         });
 
-        return !!clinicUser;
+        return clinicUser?.clinic || null;
     }
 
     /**

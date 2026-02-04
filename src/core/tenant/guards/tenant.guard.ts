@@ -48,16 +48,19 @@ export class TenantGuard implements CanActivate {
         }
 
         // Validate user has access to the requested clinic
-        const hasAccess = await this.tenantService.validateUserClinicAccess(
+        const clinic = await this.tenantService.validateUserClinicAccess(
             request.user.id,
             clinicId,
         );
 
-        if (!hasAccess) {
+        if (!clinic) {
             throw new ForbiddenException(
                 'Você não tem acesso a esta clínica ou ela está inativa',
             );
         }
+
+        // Attach active clinic to user for ModuleGuard
+        request.user.activeClinic = clinic;
 
         // Inject clinicId into request for use in controllers/services
         this.tenantService.setClinicContext(request, clinicId);

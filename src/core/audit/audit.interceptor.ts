@@ -29,19 +29,32 @@ export class AuditInterceptor implements NestInterceptor {
 
     private createAuditLog(request: any, responseData: any): void {
         try {
-            const action = this.mapMethodToAction(request.method);
+            let action = this.mapMethodToAction(request.method);
+            const entity = this.extractEntity(request.url);
+
+            // Special handling for Auth
+            if (entity === 'Auth') {
+                if (request.url.includes('/login')) {
+                    action = AuditAction.LOGIN;
+                }
+            }
 
             // Skip audit for certain routes
             if (this.shouldSkipAudit(request.url, action)) {
                 return;
             }
 
-            const entity = this.extractEntity(request.url);
             const entityId = this.extractEntityId(request, responseData);
 
+            // Try to get userId from request (authenticated) or response (login/register)
+            let userId = request.user?.id;
+            if (!userId && (entity === 'Auth' || entity === 'User') && responseData?.user?.id) {
+                userId = responseData.user.id;
+            }
+
             this.auditService.log({
-                clinicId: request.clinicId,
-                userId: request.user?.id,
+                clinicId: request.user?.activeClinicId || request.clinicId, // Try request.user first as it might have the active context
+                userId: userId,
                 action,
                 entity,
                 entityId,

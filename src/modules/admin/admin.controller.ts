@@ -56,4 +56,26 @@ export class AdminController {
     ) {
         return this.adminService.updateUser(id, body);
     }
+
+    @Get('stats')
+    async getStats() {
+        return this.adminService.getDashboardStats();
+    }
+
+    @Get('audit')
+    async getAudit(
+        @Query('clinicId') clinicId?: string,
+        @Query('userId') userId?: string,
+        @Query('action') action?: string,
+        @Query('limit') limit?: string,
+        @Query('offset') offset?: string,
+    ) {
+        return this.adminService.getAuditLogs({
+            clinicId,
+            userId,
+            action,
+            limit: limit ? parseInt(limit) : undefined,
+            offset: offset ? parseInt(offset) : undefined,
+        });
+    }
 }

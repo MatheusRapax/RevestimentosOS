@@ -15,6 +15,11 @@ export class StockEntryController {
         return this.service.createDraft(req.clinicId, dto, req.user.id);
     }
 
+    @Post('from-po/:poId')
+    createFromPO(@Request() req: any, @Param('poId') poId: string) {
+        return this.service.createFromPurchaseOrder(req.clinicId, poId, req.user.id);
+    }
+
     @Get()
     findAll(@Request() req: any, @Query('page') page: number) {
         return this.service.listEntries(req.clinicId, page ? Number(page) : 1);

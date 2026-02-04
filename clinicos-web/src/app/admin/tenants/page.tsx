@@ -36,6 +36,7 @@ const AVAILABLE_MODULES = [
     { id: 'FINANCE', label: 'Financeiro' },
     { id: 'ARCHITECTS', label: 'Arquitetos' },
     { id: 'DELIVERIES', label: 'Entregas' },
+    { id: 'ADMIN', label: 'Administrativo (Usuários, Config)' },
 ];
 
 export default function TenantsPage() {

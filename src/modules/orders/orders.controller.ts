@@ -52,7 +52,12 @@ export class OrdersController {
         @Param('id') id: string,
         @Body('status') status: string,
     ) {
-        return this.ordersService.updateStatus(req.clinicId, id, status as OrderStatus);
+        // req.user has { userId: string } or structure depends on JWT strategy. 
+        // Based on previous files, req.user usually IS the payload or object with id.
+        // Let's assume req.user.id or req.user.userId based on AuthRequest interface above: user: { userId: string }
+        // BUT wait, AuthRequest line 18 says: user: { userId: string };
+        const userId = req.user?.userId;
+        return this.ordersService.updateStatus(req.clinicId, id, status as OrderStatus, userId);
     }
 
     @Patch(':id/delivery')

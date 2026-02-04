@@ -71,16 +71,28 @@ export class AdminService {
                 isActive: true,
                 isSuperAdmin: true,
                 createdAt: true,
-                _count: {
+                clinicUsers: {
                     select: {
-                        clinicUsers: true,
+                        clinic: {
+                            select: {
+                                id: true,
+                                name: true,
+                                slug: true,
+                            }
+                        },
+                        role: {
+                            select: {
+                                key: true,
+                                name: true,
+                            }
+                        }
                     }
                 }
             }
         });
     }
 
-    async updateUser(id: string, data: { isActive?: boolean; password?: string; isSuperAdmin?: boolean }) {
+    async updateUser(id: string, data: { isActive?: boolean; password?: string; isSuperAdmin?: boolean; clinicIds?: string[] }) {
         const updateData: any = {};
 
         if (data.isActive !== undefined) updateData.isActive = data.isActive;
@@ -89,10 +101,103 @@ export class AdminService {
             updateData.password = await bcrypt.hash(data.password, 10);
         }
 
-        return this.prisma.user.update({
-            where: { id },
-            data: updateData,
-            select: { id: true, email: true, name: true, isActive: true, isSuperAdmin: true },
+        // Transaction to handle fields and relations
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Update basic fields
+            const user = await tx.user.update({
+                where: { id },
+                data: updateData,
+                select: { id: true, email: true, name: true, isActive: true, isSuperAdmin: true },
+            });
+
+            // 2. Sync Clinics if provided
+            if (data.clinicIds) {
+                const adminRole = await tx.role.findFirst({ where: { key: 'CLINIC_ADMIN' } });
+                const roleId = adminRole?.id;
+
+                if (roleId) {
+                    const current = await tx.clinicUser.findMany({
+                        where: { userId: id },
+                        select: { clinicId: true }
+                    });
+                    const currentIds = current.map(c => c.clinicId);
+
+                    const toAdd = data.clinicIds.filter(cid => !currentIds.includes(cid));
+                    const toRemove = currentIds.filter(cid => !data.clinicIds!.includes(cid));
+
+                    if (toRemove.length > 0) {
+                        await tx.clinicUser.deleteMany({
+                            where: {
+                                userId: id,
+                                clinicId: { in: toRemove }
+                            }
+                        });
+                    }
+
+                    if (toAdd.length > 0) {
+                        await tx.clinicUser.createMany({
+                            data: toAdd.map(clinicId => ({
+                                userId: id,
+                                clinicId,
+                                roleId: roleId,
+                            }))
+                        });
+                    }
+                }
+            }
+
+            return user;
         });
+    }
+
+    async getDashboardStats() {
+        const [
+            totalClinics,
+            activeClinics,
+            totalUsers,
+            activeUsers,
+            superAdmins,
+            recentLogs
+        ] = await Promise.all([
+            this.prisma.clinic.count(),
+            this.prisma.clinic.count({ where: { isActive: true } }),
+            this.prisma.user.count(),
+            this.prisma.user.count({ where: { isActive: true } }),
+            this.prisma.user.count({ where: { isSuperAdmin: true } }),
+            this.prisma.auditLog.findMany({
+                take: 10,
+                orderBy: { createdAt: 'desc' },
+                include: { user: { select: { name: true, email: true } }, clinic: { select: { name: true } } }
+            })
+        ]);
+
+        return {
+            clinics: { total: totalClinics, active: activeClinics },
+            users: { total: totalUsers, active: activeUsers, superAdmins },
+            recentLogs
+        };
+    }
+
+    async getAuditLogs(query?: { clinicId?: string; userId?: string; action?: string; limit?: number; offset?: number }) {
+        const where: any = {};
+        if (query?.clinicId) where.clinicId = query.clinicId;
+        if (query?.userId) where.userId = query.userId;
+        if (query?.action) where.action = query.action as any;
+
+        const [data, total] = await Promise.all([
+            this.prisma.auditLog.findMany({
+                where,
+                take: query?.limit || 50,
+                skip: query?.offset || 0,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    user: { select: { name: true, email: true } },
+                    clinic: { select: { name: true, slug: true } }
+                }
+            }),
+            this.prisma.auditLog.count({ where })
+        ]);
+
+        return { data, total };
     }
 }

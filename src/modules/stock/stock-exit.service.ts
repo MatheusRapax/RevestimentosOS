@@ -33,6 +33,73 @@ export class StockExitService {
         });
     }
 
+    async createFromOrder(clinicId: string, orderId: string, userId: string) {
+        // 1. Fetch Order with Items and Customer
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId, clinicId },
+            include: {
+                customer: true,
+                items: {
+                    include: { product: true }
+                }
+            }
+        });
+
+        if (!order) throw new NotFoundException('Pedido não encontrado');
+
+        // 2. Fetch active reservations for this order
+        const reservations = await this.prisma.stockReservation.findMany({
+            where: { orderId: orderId, status: 'ACTIVE' },
+            include: { lot: true }
+        });
+
+        // Map ProductId -> List of Reservations
+        const reservationsByProduct = new Map<string, any[]>();
+        reservations.forEach(r => {
+            if (r.lot) {
+                const prodId = r.lot.productId;
+                if (!reservationsByProduct.has(prodId)) reservationsByProduct.set(prodId, []);
+                reservationsByProduct.get(prodId)?.push(r);
+            }
+        });
+
+        // 3. Create Exit Draft (Using PATIENT_USE as "Customer/External")
+        const exit = await this.prisma.stockExit.create({
+            data: {
+                clinicId,
+                status: ExitStatus.DRAFT,
+                type: ExitType.PATIENT_USE,
+                destinationType: 'CUSTOMER',
+                destinationName: `Pedido #${order.number} - ${order.customer?.name || 'Cliente'}`,
+                requestedBy: userId,
+                notes: `Gerado a partir do Pedido #${order.number}`,
+            }
+        });
+
+        // 4. Create Items
+        for (const orderItem of order.items) {
+            const productReservations = reservationsByProduct.get(orderItem.productId) || [];
+
+            // Consuming strategy: Take first available reservation logic (greedy)
+            const reservation = productReservations.shift();
+
+            // Determine quantity (Area OR Boxes)
+            // If product is sold by area, resultingArea should be used.
+            const quantity = orderItem.resultingArea || orderItem.quantityBoxes;
+
+            await this.prisma.stockExitItem.create({
+                data: {
+                    stockExitId: exit.id,
+                    productId: orderItem.productId,
+                    quantity: Number(quantity),
+                    lotId: reservation?.lotId || null,
+                }
+            });
+        }
+
+        return this.getExit(clinicId, exit.id);
+    }
+
     async addItem(clinicId: string, exitId: string, dto: AddStockExitItemDto) {
         const exit = await this.prisma.stockExit.findUnique({
             where: { id: exitId, clinicId },

@@ -8,9 +8,17 @@ export interface AdminUser {
     isActive: boolean;
     isSuperAdmin: boolean;
     createdAt: string;
-    _count?: {
-        clinicUsers: number;
-    };
+    clinicUsers?: {
+        clinic: {
+            id: string;
+            name: string;
+            slug: string;
+        };
+        role: {
+            key: string;
+            name: string;
+        };
+    }[];
 }
 
 export interface UpdateUserData {
@@ -18,6 +26,7 @@ export interface UpdateUserData {
     isActive?: boolean;
     isSuperAdmin?: boolean;
     password?: string;
+    clinicIds?: string[];
 }
 
 export function useAdminUsers(search?: string) {

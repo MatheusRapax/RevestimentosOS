@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAdminUsers, AdminUser } from '@/hooks/use-admin-users';
+import { useAdminTenants } from '@/hooks/use-admin-tenants';
 import { Button } from '@/components/ui/button';
 import {
     Table,
@@ -21,6 +22,7 @@ import { EditUserDialog } from './edit-user-dialog';
 export default function UsersPage() {
     const [search, setSearch] = useState('');
     const { users, isLoading, updateUser } = useAdminUsers(search);
+    const { tenants } = useAdminTenants(); // Fetch tenants for assignment
     const [editUser, setEditUser] = useState<AdminUser | null>(null);
     const [isEditOpen, setIsEditOpen] = useState(false);
 
@@ -106,7 +108,16 @@ export default function UsersPage() {
                                         )}
                                         {!user.isSuperAdmin && <span className="text-slate-500 text-sm">Padrão</span>}
                                     </TableCell>
-                                    <TableCell>{user._count?.clinicUsers || 0}</TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                            {user.clinicUsers?.map((cu) => (
+                                                <Badge key={cu.clinic.id} variant="outline" className="text-[10px] bg-slate-50">
+                                                    {cu.clinic.name}
+                                                </Badge>
+                                            ))}
+                                            {(!user.clinicUsers || user.clinicUsers.length === 0) && <span className="text-xs text-slate-400">-</span>}
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="text-slate-500 text-sm">
                                         {format(new Date(user.createdAt), 'dd/MM/yyyy')}
                                     </TableCell>
@@ -128,6 +139,7 @@ export default function UsersPage() {
                 user={editUser}
                 onSave={handleSave}
                 isSaving={updateUser.isPending}
+                tenants={tenants || []}
             />
         </div>
     );

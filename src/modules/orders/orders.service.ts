@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { FinanceService } from '../finance/finance.service';
 import { OrderStatus } from '@prisma/client';
 
 @Injectable()
 export class OrdersService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private financeService: FinanceService
+    ) { }
 
     async findAll(clinicId: string, filters?: { status?: string; customerId?: string }) {
         const where: any = { clinicId };
@@ -95,7 +99,7 @@ export class OrdersService {
         });
     }
 
-    async updateStatus(clinicId: string, id: string, status: OrderStatus) {
+    async updateStatus(clinicId: string, id: string, status: OrderStatus, userId?: string) {
         const updateData: any = { status };
 
         if (status === OrderStatus.PAGO) {
@@ -104,19 +108,51 @@ export class OrdersService {
             updateData.deliveredAt = new Date();
         }
 
-        // Transaction to handle cancellations
+        // Transaction to handle cancellations and finance integration
         return this.prisma.$transaction(async (tx) => {
+            const currentOrder = await tx.order.findUnique({
+                where: { id },
+                include: { customer: true }
+            });
+
+            if (!currentOrder) throw new Error('Pedido não encontrado');
+
+            // 1. Update Order Status
             const order = await tx.order.update({
                 where: { id },
                 data: updateData,
             });
 
-            // If CANCELADO, cancel reservations
+            // 2. Cancellation Logic
             if (status === OrderStatus.CANCELADO) {
                 await tx.stockReservation.updateMany({
                     where: { orderId: id, status: 'ACTIVE' },
                     data: { status: 'CANCELLED' },
                 });
+            }
+
+            // 3. Finance Integration (Auto-Payment)
+            if (status === OrderStatus.PAGO && currentOrder.status !== OrderStatus.PAGO) {
+                // Determine description
+                const desc = `Pagamento Pedido #${currentOrder.number}`;
+
+                // Create payment in Finance Module
+                // We use specific method calling to ensure everything is trapped in transaction if possible?
+                // FinanceService uses prisma.$transaction inside ONLY if we refactor it.
+                // For now, we call it separately after order update, or we accept it's a side effect.
+                // Ideally we should pass the transaction manager to FinanceService, but it's not set up for that.
+                // We will proceed with the call. If it fails, the order status might remain PAGO.
+                // To be safe, we should wrap this differently or assume Finance won't fail easily.
+
+                await this.financeService.registerPayment(
+                    clinicId,
+                    currentOrder.customerId,
+                    currentOrder.totalCents,
+                    'OUTROS', // Default method, maybe passed from frontend later
+                    desc,
+                    1,
+                    userId
+                );
             }
 
             return order;

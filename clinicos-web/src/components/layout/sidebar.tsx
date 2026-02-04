@@ -48,6 +48,7 @@ const menuSections = [
         title: 'Financeiro',
         items: [
             { href: '/dashboard/financeiro', label: 'Visão Geral', icon: DollarSign, module: 'FINANCE' },
+            { href: '/dashboard/financeiro/contas-a-pagar', label: 'Contas a Pagar', icon: ClipboardList, module: 'FINANCE' },
             { href: '/dashboard/financeiro/vendedores', label: 'Por Vendedor', icon: Users, module: 'FINANCE' },
             { href: '/dashboard/financeiro/arquitetos', label: 'Comissões Arquitetos', icon: Building2, module: 'FINANCE' },
         ],
@@ -55,9 +56,9 @@ const menuSections = [
     {
         title: 'Administração',
         items: [
-            { href: '/dashboard/admin/usuarios', label: 'Usuários', icon: Users, module: 'admin' },
-            { href: '/dashboard/admin/papeis', label: 'Papéis e Acessos', icon: Shield, module: 'admin' },
-            { href: '/dashboard/admin/auditoria', label: 'Auditoria', icon: Shield, module: 'admin' },
+            { href: '/dashboard/admin/usuarios', label: 'Usuários', icon: Users, module: 'ADMIN' },
+            { href: '/dashboard/admin/papeis', label: 'Papéis e Acessos', icon: Shield, module: 'ADMIN' },
+            { href: '/dashboard/admin/auditoria', label: 'Auditoria', icon: Shield, module: 'ADMIN' },
         ],
     },
 ];

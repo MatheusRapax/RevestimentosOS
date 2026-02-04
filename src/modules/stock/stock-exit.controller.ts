@@ -13,6 +13,11 @@ export class StockExitController {
         return this.service.createDraft(req.clinicId, dto, req.user.id);
     }
 
+    @Post('from-order/:orderId')
+    createFromOrder(@Request() req: any, @Param('orderId') orderId: string) {
+        return this.service.createFromOrder(req.clinicId, orderId, req.user.id);
+    }
+
     @Get()
     findAll(@Request() req: any, @Query('page') page: number) {
         return this.service.listExits(req.clinicId, page ? Number(page) : 1);
