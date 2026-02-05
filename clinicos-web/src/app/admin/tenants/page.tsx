@@ -56,7 +56,8 @@ export default function TenantsPage() {
 
     const handleCreate = async () => {
         try {
-            await createTenant.mutateAsync(formData);
+            const { isActive, ...dataToSend } = formData;
+            await createTenant.mutateAsync(dataToSend);
             toast.success('Loja criada com sucesso!');
             setIsCreateOpen(false);
             setFormData({ name: '', slug: '', modules: ['SALES', 'STOCK', 'FINANCE'], logoUrl: '', isActive: true });

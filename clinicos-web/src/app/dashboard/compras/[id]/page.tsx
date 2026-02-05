@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { usePurchaseOrders } from '@/hooks/usePurchaseOrders';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -111,6 +112,26 @@ export default function PurchaseOrderDetailsPage() {
         }
     };
 
+    // --- Receive / Stock Entry Logic ---
+    const { receiveOrder } = usePurchaseOrders();
+    const [isReceiving, setIsReceiving] = useState(false);
+
+    const handleReceiveOrder = () => {
+        if (!confirm('Confirmar o recebimento deste pedido? Isso criará uma Nota de Entrada em rascunho.')) return;
+
+        setIsReceiving(true);
+        receiveOrder.mutate(id, {
+            onSuccess: (data) => {
+                toast.success('Entrada de estoque criada! Redirecionando...');
+                router.push(`/dashboard/estoque/entradas/${data.id}`);
+            },
+            onError: (err: any) => {
+                setIsReceiving(false);
+                toast.error(err.response?.data?.message || 'Erro ao criar entrada.');
+            }
+        });
+    };
+
     // --- Expense Logic ---
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
     const [expenseData, setExpenseData] = useState({
@@ -188,6 +209,19 @@ export default function PurchaseOrderDetailsPage() {
                             onClick={() => router.push(`/dashboard/compras/editar/${id}`)}
                         >
                             Editar
+                        </Button>
+                    )}
+
+                    {/* Receive/Stock Entry Button */}
+                    {['APPROVED', 'SENT'].includes(order.status) && (
+                        <Button
+                            variant="default"
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                            onClick={() => handleReceiveOrder()}
+                            disabled={isReceiving}
+                        >
+                            <Package className="mr-2 h-4 w-4" />
+                            {isReceiving ? 'Gerando...' : 'Dar Entrada (Receber)'}
                         </Button>
                     )}
 

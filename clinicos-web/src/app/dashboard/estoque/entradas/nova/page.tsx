@@ -35,7 +35,7 @@ export default function NewEntryPage() {
         if (!draftId) return;
         try {
             await confirmEntry(draftId);
-            router.push('/dashboard/estoque/entradas');
+            router.push('/dashboard/estoque/movimentacoes');
         } catch (err) {
             console.error(err);
         }
@@ -47,7 +47,7 @@ export default function NewEntryPage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
-                <Link href="/dashboard/estoque/entradas">
+                <Link href="/dashboard/estoque/movimentacoes">
                     <Button variant="ghost" size="icon">
                         <ArrowLeft className="h-4 w-4" />
                     </Button>

@@ -13,9 +13,15 @@ export class CustomersService {
     constructor(private prisma: PrismaService) { }
 
     async create(clinicId: string, createCustomerDto: CreateCustomerDto) {
+        // Sanitize architectId to avoid Foreign Key violations with empty strings
+        const data: any = { ...createCustomerDto };
+        if (!data.architectId) {
+            delete data.architectId;
+        }
+
         const customer = await this.prisma.customer.create({
             data: {
-                ...createCustomerDto,
+                ...data,
                 clinicId,
             },
             include: {
@@ -102,9 +108,15 @@ export class CustomersService {
         // Verify customer exists and belongs to clinic
         await this.findOne(id, clinicId);
 
+        // Sanitize architectId
+        const data: any = { ...updateCustomerDto };
+        if (data.architectId === '') {
+            data.architectId = null;
+        }
+
         const customer = await this.prisma.customer.update({
             where: { id },
-            data: updateCustomerDto,
+            data,
             include: {
                 architect: {
                     select: { id: true, name: true },

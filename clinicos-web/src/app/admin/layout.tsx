@@ -71,10 +71,29 @@ export default function AdminLayout({
                     >
                         🛡️ Auditoria
                     </Link>
+                    <Link
+                        href="/admin/roles"
+                        className="flex items-center gap-3 px-4 py-3 rounded-md hover:bg-slate-800 transition-colors text-sm font-medium"
+                    >
+                        🔐 Papéis e Permissões
+                    </Link>
                 </nav>
 
-                <div className="p-4 border-t border-slate-800">
-                    <Link href="/dashboard" className="text-xs text-slate-400 hover:text-white flex items-center gap-2">
+                <div className="p-4 border-t border-slate-800 space-y-2">
+                    <button
+                        onClick={async () => {
+                            // Assuming logout is available in useAuth? 
+                            // Need to check useAuth hook if it exposes logout.
+                            // Yes, I saw it in AuthContext.
+                            window.localStorage.clear();
+                            window.location.href = '/login';
+                        }}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors"
+                    >
+                        <span className="font-medium">Sair</span>
+                    </button>
+
+                    <Link href="/dashboard" className="text-xs text-slate-400 hover:text-white flex items-center gap-2 px-2">
                         ← Voltar para Lojas
                     </Link>
                 </div>

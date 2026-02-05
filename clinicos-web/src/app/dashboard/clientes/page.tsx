@@ -74,6 +74,7 @@ export default function ClientesPage() {
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
     const [formData, setFormData] = useState(emptyForm);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formError, setFormError] = useState('');
 
     // Delete confirmation
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -129,6 +130,7 @@ export default function ClientesPage() {
     const openCreateDialog = () => {
         setEditingCustomer(null);
         setFormData(emptyForm);
+        setFormError('');
         setIsFormDialogOpen(true);
     };
 
@@ -147,18 +149,19 @@ export default function ClientesPage() {
             zipCode: customer.zipCode || '',
             architectId: customer.architectId || '',
         });
+        setFormError('');
         setIsFormDialogOpen(true);
     };
 
     const handleSubmit = async () => {
         if (!formData.name.trim()) {
-            setError('Nome é obrigatório');
+            setFormError('Nome é obrigatório');
             return;
         }
 
         try {
             setIsSubmitting(true);
-            setError('');
+            setFormError('');
 
             const payload = {
                 ...formData,
@@ -177,7 +180,7 @@ export default function ClientesPage() {
             fetchCustomers();
         } catch (err: any) {
             console.error('Error saving customer:', err);
-            setError(err.response?.data?.message || 'Erro ao salvar cliente');
+            setFormError(err.response?.data?.message || 'Erro ao salvar cliente');
         } finally {
             setIsSubmitting(false);
         }
@@ -186,6 +189,7 @@ export default function ClientesPage() {
     const handleDeleteClick = (customerId: string) => {
         setDeletingId(customerId);
         setShowDeleteConfirm(true);
+        setFormError(''); // Clear errors when opening dialog
     };
 
     const confirmDelete = async () => {
@@ -200,7 +204,10 @@ export default function ClientesPage() {
             setSuccessMessage('Cliente excluído com sucesso!');
         } catch (err: any) {
             console.error('Error deleting customer:', err);
-            setError(err.response?.data?.message || 'Erro ao excluir cliente');
+            // Show error in delete dialog if possible, or main page error
+            // For now, let's use the main page error for deleting since we don't have a specific state for delete dialog error in this version,
+            // oh wait, I see I passed `formError` to Delete confirmation in my previous attempt. Let's reuse `formError` for delete dialog too since they are mutually exclusive.
+            setFormError(err.response?.data?.message || 'Erro ao excluir cliente');
         } finally {
             setLoadingAction(null);
         }
@@ -431,9 +438,15 @@ export default function ClientesPage() {
                         </DialogDescription>
                     </DialogHeader>
 
+                    {formError && (
+                        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded text-sm mb-4">
+                            {formError}
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-4 pt-4">
                         <div className="col-span-2">
-                            <Label htmlFor="name">Nome *</Label>
+                            <Label htmlFor="name">Nome <span className="text-red-500">*</span></Label>
                             <Input
                                 id="name"
                                 value={formData.name}
@@ -588,12 +601,18 @@ export default function ClientesPage() {
                             Esta ação não pode ser desfeita.
                         </DialogDescription>
                     </DialogHeader>
+                    {formError && (
+                        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded text-sm mb-4">
+                            {formError}
+                        </div>
+                    )}
                     <div className="flex gap-3 justify-end pt-4">
                         <Button
                             variant="outline"
                             onClick={() => {
                                 setShowDeleteConfirm(false);
                                 setDeletingId(null);
+                                setFormError('');
                             }}
                         >
                             Cancelar

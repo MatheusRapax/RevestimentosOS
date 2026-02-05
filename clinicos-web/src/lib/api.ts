@@ -47,8 +47,9 @@ api.interceptors.response.use(
         console.error('❌ API Error:', {
             status: error.response?.status,
             url: error.config?.url,
-            message: error.response?.data?.message,
-            data: error.response?.data
+            message: error.response?.data?.message || 'No message',
+            data: error.response?.data ? JSON.stringify(error.response.data) : 'No data',
+            fullError: error.toJSON ? error.toJSON() : error
         });
 
         if (error.response?.status === 401) {

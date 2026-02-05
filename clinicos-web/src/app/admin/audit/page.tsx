@@ -25,7 +25,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Loader2, Search, RefreshCw, FilterX } from 'lucide-react';
+import { Loader2, Search, RefreshCw, FilterX, Eye } from 'lucide-react';
+import { AuditDetailsDialog } from './audit-details-dialog';
 
 export default function AdminAuditPage() {
     const [filters, setFilters] = useState({
@@ -35,6 +36,13 @@ export default function AdminAuditPage() {
     });
     const [page, setPage] = useState(0);
     const limit = 50;
+    const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+    const [detailsOpen, setDetailsOpen] = useState(false);
+
+    const handleViewDetails = (log: AuditLog) => {
+        setSelectedLog(log);
+        setDetailsOpen(true);
+    };
 
     const { data, isLoading, refetch, isRefetching } = useAdminAudit({
         clinicId: filters.clinicId === 'all' ? undefined : filters.clinicId,
@@ -185,6 +193,16 @@ export default function AdminAuditPage() {
                                     <TableCell className="text-sm text-slate-600 max-w-xs truncate" title={log.message || ''}>
                                         {log.message || '-'}
                                     </TableCell>
+                                    <TableCell>
+                                        {log.details ? (
+                                            <Button variant="ghost" size="sm" onClick={() => handleViewDetails(log)}>
+                                                <Eye className="h-3 w-3 mr-1" />
+                                                Ver
+                                            </Button>
+                                        ) : (
+                                            <span className="text-xs text-slate-400">-</span>
+                                        )}
+                                    </TableCell>
                                 </TableRow>
                             ))
                         )}
@@ -213,6 +231,12 @@ export default function AdminAuditPage() {
                     Próxima
                 </Button>
             </div>
-        </div>
+
+            <AuditDetailsDialog
+                open={detailsOpen}
+                onOpenChange={setDetailsOpen}
+                data={selectedLog?.details}
+            />
+        </div >
     );
 }

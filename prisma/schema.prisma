@@ -411,6 +411,7 @@ model AuditLog {
   message   String?
   ip        String?
   userAgent String?
+  details   Json?
   createdAt DateTime    @default(now())
 
   clinic Clinic? @relation(fields: [clinicId], references: [id], onDelete: Cascade)
@@ -448,6 +449,17 @@ model Product {
   piecesPerBox Int? // peças por caixa (ex: 8)
   boxWeight    Float? // peso da caixa em kg
   palletBoxes  Int? // caixas por palete
+  palletWeight Float? // peso do palete em kg
+  palletCoverage Float? // m² cobertos por palete
+
+  // Campos de Padronização e Importação (Phase 7)
+  supplierId    String? 
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+  
+  format        String? // ex: "60x60", "30x90"
+  usage         String? // ex: "Piso", "Parede", "Externo"
+  line          String? // ex: "Mármore", "Concreto", "Madeira"
+  supplierCode  String? // Código de referência do fornecedor (Ref.)
 
   clinic               Clinic                @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   lots                 StockLot[]
@@ -460,6 +472,7 @@ model Product {
   orderItems           OrderItem[]
   purchaseOrderItems   PurchaseOrderItem[]
 
+  @@index([supplierId])
   @@index([clinicId])
   @@index([clinicId, isActive])
 }
@@ -1193,6 +1206,7 @@ model Supplier {
 
   clinic         Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   purchaseOrders PurchaseOrder[]
+  products       Product[]
 
   @@unique([clinicId, cnpj])
   @@index([clinicId])

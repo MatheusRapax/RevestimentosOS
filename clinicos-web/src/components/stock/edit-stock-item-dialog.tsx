@@ -21,6 +21,19 @@ interface StockItem {
     sku?: string;
     minStock?: number;
     isActive: boolean;
+    // New fields
+    format?: string;
+    line?: string;
+    usage?: string;
+    boxCoverage?: number;
+    piecesPerBox?: number;
+    boxWeight?: number;
+    palletBoxes?: number;
+    palletWeight?: number;
+    palletCoverage?: number;
+    costCents?: number;
+    priceCents?: number;
+    supplierCode?: string;
 }
 
 interface Props {
@@ -37,6 +50,19 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
         unit: '',
         sku: '',
         minStock: 0,
+        // New fields
+        format: '',
+        line: '',
+        usage: '',
+        boxCoverage: '',
+        piecesPerBox: '',
+        boxWeight: '',
+        palletBoxes: '',
+        palletWeight: '',
+        palletCoverage: '',
+        costCents: '',
+        priceCents: '',
+        supplierCode: '',
     });
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -50,6 +76,18 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                 unit: item.unit || '',
                 sku: item.sku || '',
                 minStock: item.minStock || 0,
+                format: item.format || '',
+                line: item.line || '',
+                usage: item.usage || '',
+                boxCoverage: item.boxCoverage?.toString() || '',
+                piecesPerBox: item.piecesPerBox?.toString() || '',
+                boxWeight: item.boxWeight?.toString() || '',
+                palletBoxes: item.palletBoxes?.toString() || '',
+                palletWeight: item.palletWeight?.toString() || '',
+                palletCoverage: item.palletCoverage?.toString() || '',
+                costCents: item.costCents ? (item.costCents / 100).toFixed(2) : '',
+                priceCents: item.priceCents ? (item.priceCents / 100).toFixed(2) : '',
+                supplierCode: item.supplierCode || '',
             });
         }
     }, [item]);
@@ -62,7 +100,26 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
         setIsLoading(true);
 
         try {
-            await api.patch(`/stock/${item.id}`, formData);
+            const payload = {
+                name: formData.name,
+                description: formData.description || undefined,
+                unit: formData.unit || undefined,
+                sku: formData.sku || undefined,
+                minStock: formData.minStock,
+                format: formData.format || undefined,
+                line: formData.line || undefined,
+                usage: formData.usage || undefined,
+                boxCoverage: formData.boxCoverage ? parseFloat(formData.boxCoverage) : undefined,
+                piecesPerBox: formData.piecesPerBox ? parseInt(formData.piecesPerBox) : undefined,
+                boxWeight: formData.boxWeight ? parseFloat(formData.boxWeight) : undefined,
+                palletBoxes: formData.palletBoxes ? parseInt(formData.palletBoxes) : undefined,
+                palletWeight: formData.palletWeight ? parseFloat(formData.palletWeight) : undefined,
+                palletCoverage: formData.palletCoverage ? parseFloat(formData.palletCoverage) : undefined,
+                costCents: formData.costCents ? Math.round(parseFloat(formData.costCents) * 100) : undefined,
+                priceCents: formData.priceCents ? Math.round(parseFloat(formData.priceCents) * 100) : undefined,
+                supplierCode: formData.supplierCode || undefined,
+            };
+            await api.patch(`/stock/${item.id}`, payload);
             onSuccess();
         } catch (err: any) {
             console.error('Error updating stock item:', err);
@@ -74,7 +131,7 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Editar Produto</DialogTitle>
                     <DialogDescription>
@@ -89,62 +146,223 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                         </div>
                     )}
 
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-name">Nome do Produto *</Label>
-                        <Input
-                            id="edit-name"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            placeholder="Nome do produto"
-                            required
-                            minLength={3}
-                        />
-                    </div>
+                    {/* Basic Info */}
+                    <div className="space-y-4">
+                        <h3 className="font-medium text-gray-900 border-b pb-2">Informações Básicas</h3>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-description">Descrição (opcional)</Label>
-                        <Input
-                            id="edit-description"
-                            value={formData.description}
-                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            placeholder="Descrição do produto"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="edit-unit">Unidade (opcional)</Label>
+                            <Label htmlFor="edit-name">Nome do Produto *</Label>
                             <Input
-                                id="edit-unit"
-                                value={formData.unit}
-                                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                                placeholder="Ex: unidade, caixa"
+                                id="edit-name"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                placeholder="Nome do produto"
+                                required
+                                minLength={3}
                             />
                         </div>
+
                         <div className="space-y-2">
-                            <Label htmlFor="edit-sku">SKU (opcional)</Label>
+                            <Label htmlFor="edit-description">Descrição</Label>
                             <Input
-                                id="edit-sku"
-                                value={formData.sku}
-                                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                                placeholder="Código SKU"
+                                id="edit-description"
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                placeholder="Descrição do produto"
                             />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-sku">SKU</Label>
+                                <Input
+                                    id="edit-sku"
+                                    value={formData.sku}
+                                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                                    placeholder="Código SKU"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-supplierCode">Ref. Fornecedor</Label>
+                                <Input
+                                    id="edit-supplierCode"
+                                    value={formData.supplierCode}
+                                    onChange={(e) => setFormData({ ...formData, supplierCode: e.target.value })}
+                                    placeholder="Código do fornecedor"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-unit">Unidade</Label>
+                                <Input
+                                    id="edit-unit"
+                                    value={formData.unit}
+                                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                                    placeholder="Ex: caixa, m²"
+                                />
+                            </div>
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-minStock">Estoque Mínimo</Label>
-                        <Input
-                            id="edit-minStock"
-                            type="number"
-                            min="0"
-                            value={formData.minStock}
-                            onChange={(e) => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
-                            placeholder="0"
-                        />
+                    {/* Product Classification */}
+                    <div className="space-y-4">
+                        <h3 className="font-medium text-gray-900 border-b pb-2">Classificação</h3>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-format">Formato</Label>
+                                <Input
+                                    id="edit-format"
+                                    value={formData.format}
+                                    onChange={(e) => setFormData({ ...formData, format: e.target.value })}
+                                    placeholder="Ex: 60x60, 30x90"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-line">Linha</Label>
+                                <Input
+                                    id="edit-line"
+                                    value={formData.line}
+                                    onChange={(e) => setFormData({ ...formData, line: e.target.value })}
+                                    placeholder="Ex: Mármore, Madeira"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-usage">Uso</Label>
+                                <Input
+                                    id="edit-usage"
+                                    value={formData.usage}
+                                    onChange={(e) => setFormData({ ...formData, usage: e.target.value })}
+                                    placeholder="Ex: Piso, Parede"
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="flex gap-3 justify-end pt-4">
+                    {/* Packaging Info */}
+                    <div className="space-y-4">
+                        <h3 className="font-medium text-gray-900 border-b pb-2">Informações de Embalagem</h3>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-boxCoverage">m² por Caixa</Label>
+                                <Input
+                                    id="edit-boxCoverage"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.boxCoverage}
+                                    onChange={(e) => setFormData({ ...formData, boxCoverage: e.target.value })}
+                                    placeholder="Ex: 1.44"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-piecesPerBox">Peças por Caixa</Label>
+                                <Input
+                                    id="edit-piecesPerBox"
+                                    type="number"
+                                    min="0"
+                                    value={formData.piecesPerBox}
+                                    onChange={(e) => setFormData({ ...formData, piecesPerBox: e.target.value })}
+                                    placeholder="Ex: 8"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-boxWeight">Peso Caixa (kg)</Label>
+                                <Input
+                                    id="edit-boxWeight"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.boxWeight}
+                                    onChange={(e) => setFormData({ ...formData, boxWeight: e.target.value })}
+                                    placeholder="Ex: 25.5"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-palletBoxes">Caixas/Palete</Label>
+                                <Input
+                                    id="edit-palletBoxes"
+                                    type="number"
+                                    min="0"
+                                    value={formData.palletBoxes}
+                                    onChange={(e) => setFormData({ ...formData, palletBoxes: e.target.value })}
+                                    placeholder="Ex: 48"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-palletCoverage">m²/Palete</Label>
+                                <Input
+                                    id="edit-palletCoverage"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.palletCoverage}
+                                    onChange={(e) => setFormData({ ...formData, palletCoverage: e.target.value })}
+                                    placeholder="Ex: 71.52"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-palletWeight">Peso Palete (kg)</Label>
+                                <Input
+                                    id="edit-palletWeight"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.palletWeight}
+                                    onChange={(e) => setFormData({ ...formData, palletWeight: e.target.value })}
+                                    placeholder="Ex: 1200"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Pricing */}
+                    <div className="space-y-4">
+                        <h3 className="font-medium text-gray-900 border-b pb-2">Preços e Estoque</h3>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-costCents">Custo (R$)</Label>
+                                <Input
+                                    id="edit-costCents"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.costCents}
+                                    onChange={(e) => setFormData({ ...formData, costCents: e.target.value })}
+                                    placeholder="Ex: 45.90"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-priceCents">Preço Venda (R$)</Label>
+                                <Input
+                                    id="edit-priceCents"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.priceCents}
+                                    onChange={(e) => setFormData({ ...formData, priceCents: e.target.value })}
+                                    placeholder="Ex: 89.90"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-minStock">Estoque Mínimo</Label>
+                                <Input
+                                    id="edit-minStock"
+                                    type="number"
+                                    min="0"
+                                    value={formData.minStock}
+                                    onChange={(e) => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 justify-end pt-4 border-t">
                         <Button type="button" variant="outline" onClick={onClose}>
                             Cancelar
                         </Button>

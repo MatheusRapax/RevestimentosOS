@@ -54,10 +54,12 @@ export class TenantGuard implements CanActivate {
         );
 
         if (!clinic) {
+            console.error(`❌ TenantGuard: Access denied for user ${request.user.id} to clinic ${clinicId}`);
             throw new ForbiddenException(
                 'Você não tem acesso a esta clínica ou ela está inativa',
             );
         }
+        console.log(`✅ TenantGuard: Access granted to ${clinic.name} (${clinic.id})`);
 
         // Attach active clinic to user for ModuleGuard
         request.user.activeClinic = clinic;

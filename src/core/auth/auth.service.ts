@@ -114,9 +114,14 @@ export class AuthService {
             return null;
         }
 
-        // Retornar usuário sem a senha
+        // Retornar usuário sem a senha, mas COM as clinicas (para manter sessão atualizada)
         const { password, ...userWithoutPassword } = user;
-        return userWithoutPassword;
+        const clinics = await this.getUserClinics(user.id);
+
+        return {
+            ...userWithoutPassword,
+            clinics
+        };
     }
 
     private async hashPassword(password: string): Promise<string> {

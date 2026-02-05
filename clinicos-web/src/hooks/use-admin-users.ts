@@ -26,7 +26,8 @@ export interface UpdateUserData {
     isActive?: boolean;
     isSuperAdmin?: boolean;
     password?: string;
-    clinicIds?: string[];
+    clinicRoles?: { clinicId: string; roleId: string }[];
+    // clinicIds?: string[]; // Deprecated but might be needed for compat if we don't clean up types
 }
 
 export function useAdminUsers(search?: string) {
@@ -43,8 +44,17 @@ export function useAdminUsers(search?: string) {
 
     const updateUser = useMutation({
         mutationFn: async (data: UpdateUserData) => {
-            const { id, ...body } = data;
-            const response = await api.patch<AdminUser>(`/admin/users/${id}`, body);
+            const response = await api.patch<AdminUser>(`/admin/users/${data.id}`, data);
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+        },
+    });
+
+    const createUser = useMutation({
+        mutationFn: async (data: { name: string; email: string; password?: string; isSuperAdmin?: boolean; clinicId?: string; roleId?: string }) => {
+            const response = await api.post<AdminUser>('/admin/users', data);
             return response.data;
         },
         onSuccess: () => {
@@ -56,5 +66,6 @@ export function useAdminUsers(search?: string) {
         users: users.data,
         isLoading: users.isLoading,
         updateUser,
+        createUser,
     };
 }

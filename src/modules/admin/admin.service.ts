@@ -92,7 +92,7 @@ export class AdminService {
         });
     }
 
-    async updateUser(id: string, data: { isActive?: boolean; password?: string; isSuperAdmin?: boolean; clinicIds?: string[] }) {
+    async updateUser(id: string, data: { isActive?: boolean; password?: string; isSuperAdmin?: boolean; clinicRoles?: { clinicId: string; roleId: string }[] }) {
         const updateData: any = {};
 
         if (data.isActive !== undefined) updateData.isActive = data.isActive;
@@ -111,39 +111,92 @@ export class AdminService {
             });
 
             // 2. Sync Clinics if provided
-            if (data.clinicIds) {
-                const adminRole = await tx.role.findFirst({ where: { key: 'CLINIC_ADMIN' } });
-                const roleId = adminRole?.id;
+            if (data.clinicRoles) {
+                // Determine current links
+                const current = await tx.clinicUser.findMany({
+                    where: { userId: id },
+                    select: { clinicId: true, roleId: true }
+                });
 
-                if (roleId) {
-                    const current = await tx.clinicUser.findMany({
-                        where: { userId: id },
-                        select: { clinicId: true }
+                const incomingClinicIds = data.clinicRoles.map(cr => cr.clinicId);
+                const currentClinicIds = current.map(c => c.clinicId);
+
+                // Identify removals
+                const toRemove = currentClinicIds.filter(cid => !incomingClinicIds.includes(cid));
+                if (toRemove.length > 0) {
+                    await tx.clinicUser.deleteMany({
+                        where: {
+                            userId: id,
+                            clinicId: { in: toRemove }
+                        }
                     });
-                    const currentIds = current.map(c => c.clinicId);
+                }
 
-                    const toAdd = data.clinicIds.filter(cid => !currentIds.includes(cid));
-                    const toRemove = currentIds.filter(cid => !data.clinicIds!.includes(cid));
+                // Identify upserts (new or inconsistent role)
+                for (const item of data.clinicRoles) {
+                    const existing = current.find(c => c.clinicId === item.clinicId);
 
-                    if (toRemove.length > 0) {
-                        await tx.clinicUser.deleteMany({
-                            where: {
+                    if (!existing) {
+                        // Create
+                        await tx.clinicUser.create({
+                            data: {
                                 userId: id,
-                                clinicId: { in: toRemove }
+                                clinicId: item.clinicId,
+                                roleId: item.roleId,
+                                active: true
                             }
                         });
-                    }
-
-                    if (toAdd.length > 0) {
-                        await tx.clinicUser.createMany({
-                            data: toAdd.map(clinicId => ({
-                                userId: id,
-                                clinicId,
-                                roleId: roleId,
-                            }))
+                    } else if (existing.roleId !== item.roleId) {
+                        // Update Role
+                        await tx.clinicUser.update({
+                            where: {
+                                clinicId_userId: {
+                                    clinicId: item.clinicId,
+                                    userId: id
+                                }
+                            },
+                            data: { roleId: item.roleId }
                         });
                     }
                 }
+            }
+
+            return user;
+        });
+    }
+
+    async createUser(data: { name: string; email: string; password?: string; isSuperAdmin?: boolean; clinicId?: string; roleId?: string }) {
+        const password = await bcrypt.hash(data.password || '123456', 10);
+
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Create User
+            const user = await tx.user.create({
+                data: {
+                    name: data.name,
+                    email: data.email,
+                    password,
+                    isSuperAdmin: data.isSuperAdmin || false,
+                    isActive: true,
+                },
+            });
+
+            // 2. Link to Clinic if provided
+            if (data.clinicId && data.roleId) {
+                // Check if roleId is key or ID
+                let finalRoleId = data.roleId;
+                const roleByKey = await tx.role.findFirst({ where: { key: data.roleId } });
+                if (roleByKey) {
+                    finalRoleId = roleByKey.id;
+                }
+
+                await tx.clinicUser.create({
+                    data: {
+                        userId: user.id,
+                        clinicId: data.clinicId,
+                        roleId: finalRoleId,
+                        active: true,
+                    },
+                });
             }
 
             return user;
@@ -200,4 +253,96 @@ export class AdminService {
 
         return { data, total };
     }
+
+    async getRoles() {
+        return this.prisma.role.findMany({
+            orderBy: { name: 'asc' },
+            include: {
+                rolePermissions: {
+                    include: { permission: true }
+                },
+                _count: {
+                    select: { rolePermissions: true, clinicUsers: true }
+                }
+            }
+        });
+    }
+
+    async getRole(id: string) {
+        return this.prisma.role.findUnique({
+            where: { id },
+            include: {
+                rolePermissions: {
+                    include: { permission: true }
+                },
+                _count: {
+                    select: { clinicUsers: true }
+                }
+            }
+        });
+    }
+
+    async createRole(data: { key: string; name: string; description?: string }) {
+        return this.prisma.role.create({
+            data: {
+                key: data.key,
+                name: data.name,
+                description: data.description,
+            }
+        });
+    }
+
+    async updateRole(id: string, data: { name?: string; description?: string; permissionKeys?: string[] }) {
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Update basic fields
+            const role = await tx.role.update({
+                where: { id },
+                data: {
+                    ...(data.name && { name: data.name }),
+                    ...(data.description !== undefined && { description: data.description }),
+                }
+            });
+
+            // 2. Update permissions if provided
+            if (data.permissionKeys) {
+                // Get all permission IDs for these keys
+                const permissions = await tx.permission.findMany({
+                    where: { key: { in: data.permissionKeys } },
+                    select: { id: true }
+                });
+
+                // Wipe existing
+                await tx.rolePermission.deleteMany({ where: { roleId: id } });
+
+                // Create new
+                if (permissions.length > 0) {
+                    await tx.rolePermission.createMany({
+                        data: permissions.map(p => ({
+                            roleId: id,
+                            permissionId: p.id
+                        }))
+                    });
+                }
+            }
+
+            return role;
+        });
+    }
+
+    async deleteRole(id: string) {
+        // Check usage
+        const usage = await this.prisma.clinicUser.count({ where: { roleId: id } });
+        if (usage > 0) {
+            throw new Error('Role is in use by active users');
+        }
+
+        return this.prisma.role.delete({ where: { id } });
+    }
+
+    async getAllPermissions() {
+        return this.prisma.permission.findMany({
+            orderBy: { key: 'asc' }
+        });
+    }
 }
+

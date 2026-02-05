@@ -18,13 +18,26 @@ import { format } from 'date-fns';
 import { Loader2, Search, ShieldAlert, UserX, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { EditUserDialog } from './edit-user-dialog';
+import { CreateUserDialog } from './create-user-dialog';
 
 export default function UsersPage() {
     const [search, setSearch] = useState('');
-    const { users, isLoading, updateUser } = useAdminUsers(search);
+    const { users, isLoading, updateUser, createUser } = useAdminUsers(search);
     const { tenants } = useAdminTenants(); // Fetch tenants for assignment
     const [editUser, setEditUser] = useState<AdminUser | null>(null);
     const [isEditOpen, setIsEditOpen] = useState(false);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+    const handleCreate = async (data: any) => {
+        try {
+            await createUser.mutateAsync(data);
+            toast.success('Usuário criado com sucesso!');
+            setIsCreateOpen(false);
+        } catch (error) {
+            toast.error('Erro ao criar usuário.');
+            console.error(error);
+        }
+    };
 
     const handleEditClick = (user: AdminUser) => {
         setEditUser(user);
@@ -60,6 +73,12 @@ export default function UsersPage() {
                     onChange={(e) => setSearch(e.target.value)}
                     className="flex-1"
                 />
+            </div>
+
+            <div className="flex justify-end">
+                <Button onClick={() => setIsCreateOpen(true)}>
+                    <UserCheck className="mr-2 h-4 w-4" /> Novo Usuário
+                </Button>
             </div>
 
             <div className="rounded-md border bg-white">
@@ -139,6 +158,14 @@ export default function UsersPage() {
                 user={editUser}
                 onSave={handleSave}
                 isSaving={updateUser.isPending}
+                tenants={tenants || []}
+            />
+
+            <CreateUserDialog
+                open={isCreateOpen}
+                onOpenChange={setIsCreateOpen}
+                onSave={handleCreate}
+                isSaving={createUser.isPending}
                 tenants={tenants || []}
             />
         </div>

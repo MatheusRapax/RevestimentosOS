@@ -49,10 +49,15 @@ export class AdminController {
         return this.adminService.getUsers({ search });
     }
 
+    @Post('users')
+    async createUser(@Body() body: { name: string; email: string; password?: string; isSuperAdmin?: boolean; clinicId?: string; roleId?: string }) {
+        return this.adminService.createUser(body);
+    }
+
     @Patch('users/:id')
     async updateUser(
         @Param('id') id: string,
-        @Body() body: { isActive?: boolean; password?: string; isSuperAdmin?: boolean }
+        @Body() body: { isActive?: boolean; password?: string; isSuperAdmin?: boolean; clinicRoles?: { clinicId: string; roleId: string }[] }
     ) {
         return this.adminService.updateUser(id, body);
     }

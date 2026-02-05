@@ -33,9 +33,11 @@ export class ModuleGuard implements CanActivate {
         const hasModule = requiredModules.some((module) => clinicModules.includes(module));
 
         if (!hasModule) {
+            console.error(`❌ ModuleGuard: Access denied for ${user.id} to modules ${requiredModules.join(', ')}. Active modules: ${clinicModules.join(', ')}`);
             throw new ForbiddenException(`Module ${requiredModules.join(', ')} is disabled for this tenant`);
         }
 
+        console.log(`✅ ModuleGuard: Access granted for modules ${requiredModules.join(', ')}`);
         return true;
     }
 }

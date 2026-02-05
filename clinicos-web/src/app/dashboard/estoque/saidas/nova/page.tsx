@@ -31,7 +31,7 @@ export default function NewExitPage() {
         if (!draftId) return;
         try {
             await confirmExit(draftId);
-            router.push('/dashboard/estoque/saidas');
+            router.push('/dashboard/estoque/movimentacoes');
         } catch (err) {
             console.error(err);
         }
@@ -40,7 +40,7 @@ export default function NewExitPage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
-                <Link href="/dashboard/estoque/saidas">
+                <Link href="/dashboard/estoque/movimentacoes">
                     <Button variant="ghost" size="icon">
                         <ArrowLeft className="h-4 w-4" />
                     </Button>

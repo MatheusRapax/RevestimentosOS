@@ -9,6 +9,7 @@ interface AuditLogData {
     entity: string;
     entityId?: string;
     message?: string;
+    details?: any;
     ip?: string;
     userAgent?: string;
 }
@@ -29,6 +30,7 @@ export class AuditService {
                     entity: data.entity,
                     entityId: data.entityId,
                     message: data.message,
+                    details: data.details,
                     ip: data.ip,
                     userAgent: data.userAgent,
                 },

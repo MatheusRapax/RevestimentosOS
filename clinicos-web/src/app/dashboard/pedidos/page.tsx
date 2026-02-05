@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { useOrders } from '@/hooks/useOrders';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
     CRIADO: { label: 'Novo / Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
@@ -143,6 +144,25 @@ export default function OrdersPage() {
         },
         onError: () => toast.error('Erro ao atualizar data de entrega')
     });
+
+    // --- Stock Exit Logic ---
+    const { createExit } = useOrders();
+    const [isCreatingExit, setIsCreatingExit] = useState(false);
+
+    const handleCreateExit = () => {
+        if (!confirm('Gerar saída de estoque para este pedido?')) return;
+        setIsCreatingExit(true);
+        createExit.mutate(selectedOrder.id, {
+            onSuccess: (data: any) => {
+                toast.success('Saída de estoque criada! Redirecionando...');
+                router.push(`/dashboard/estoque/saidas/${data.id}`);
+            },
+            onError: (err: any) => {
+                setIsCreatingExit(false);
+                toast.error(err.response?.data?.message || 'Erro ao gerar saída.');
+            }
+        });
+    };
 
     const filteredOrders = orders.filter((order: any) => {
         const matchesSearch =
@@ -488,6 +508,11 @@ export default function OrdersPage() {
                                                     <div>
                                                         <p className="font-medium">{item.product?.name || 'Produto'}</p>
                                                         <p className="text-sm text-gray-500">
+                                                            {item.product?.sku || ''}
+                                                            {item.product?.format && <span className="ml-2 text-blue-600">• {item.product.format}</span>}
+                                                            {item.product?.line && <span className="ml-1 text-gray-400">• {item.product.line}</span>}
+                                                        </p>
+                                                        <p className="text-xs text-gray-400">
                                                             {item.quantityBoxes} caixas
                                                         </p>
                                                     </div>
@@ -595,6 +620,21 @@ export default function OrdersPage() {
                                         {updateStatusMutation.isPending ? 'Processando...' : 'Registrar Entrega'}
                                     </button>
                                 )}
+
+
+                                {/* Stock Exit Button */}
+                                {['PAGO', 'CONFIRMED'].includes(displayOrder.status) && (
+                                    <Button
+                                        variant="default"
+                                        className="flex-1 bg-amber-600 hover:bg-amber-700 text-white"
+                                        onClick={handleCreateExit}
+                                        disabled={isCreatingExit}
+                                    >
+                                        <Package className="h-4 w-4 mr-2" />
+                                        {isCreatingExit ? 'Gerando...' : 'Gerar Saída'}
+                                    </Button>
+                                )}
+
                                 <Button
                                     variant="outline"
                                     onClick={() => window.open(`/dashboard/pedidos/${displayOrder.id}/romaneio`, '_blank')}

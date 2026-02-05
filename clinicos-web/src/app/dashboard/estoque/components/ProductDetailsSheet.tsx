@@ -61,6 +61,61 @@ export function ProductDetailsSheet({ product, isOpen, onClose }: ProductDetails
                         </div>
                     )}
 
+                    {/* Product Details */}
+                    <div className="space-y-3 mb-6">
+                        <h4 className="font-medium text-gray-700">Detalhes do Produto</h4>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                            {product.format && (
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block text-xs">Formato</span>
+                                    <span className="font-medium">{product.format}</span>
+                                </div>
+                            )}
+                            {product.line && (
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block text-xs">Linha</span>
+                                    <span className="font-medium">{product.line}</span>
+                                </div>
+                            )}
+                            {product.usage && (
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block text-xs">Uso</span>
+                                    <span className="font-medium">{product.usage}</span>
+                                </div>
+                            )}
+                            {product.boxCoverage && (
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block text-xs">m² por Caixa</span>
+                                    <span className="font-medium">{product.boxCoverage} m²</span>
+                                </div>
+                            )}
+                            {product.piecesPerBox && (
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block text-xs">Peças por Caixa</span>
+                                    <span className="font-medium">{product.piecesPerBox}</span>
+                                </div>
+                            )}
+                            {product.palletBoxes && (
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block text-xs">Caixas por Palete</span>
+                                    <span className="font-medium">{product.palletBoxes}</span>
+                                </div>
+                            )}
+                            {product.boxWeight && (
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block text-xs">Peso da Caixa</span>
+                                    <span className="font-medium">{product.boxWeight} kg</span>
+                                </div>
+                            )}
+                            {product.costCents && (
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block text-xs">Custo</span>
+                                    <span className="font-medium">R$ {(product.costCents / 100).toFixed(2)}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     <Separator className="my-6" />
 
                     <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">

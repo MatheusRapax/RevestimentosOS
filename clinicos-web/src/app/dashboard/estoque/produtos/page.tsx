@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -12,9 +13,38 @@ import {
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
-import { Plus, Package, Edit, Trash2, Search } from 'lucide-react';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import { Plus, Package, Edit, Trash2, Search, Upload, Settings2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import CreateStockItemDialog from '@/components/stock/create-stock-item-dialog';
 import EditStockItemDialog from '@/components/stock/edit-stock-item-dialog';
+
+// Column definitions
+const COLUMN_DEFINITIONS = [
+    { key: 'name', label: 'Nome', defaultVisible: true },
+    { key: 'supplierCode', label: 'Ref. Fornecedor', defaultVisible: false },
+    { key: 'format', label: 'Formato', defaultVisible: true },
+    { key: 'line', label: 'Linha', defaultVisible: true },
+    { key: 'usage', label: 'Uso', defaultVisible: true },
+    { key: 'sku', label: 'SKU', defaultVisible: true },
+    { key: 'piecesPerBox', label: 'Pç/Cx', defaultVisible: false },
+    { key: 'boxCoverage', label: 'm²/Cx', defaultVisible: true },
+    { key: 'boxWeight', label: 'Peso Cx (kg)', defaultVisible: false },
+    { key: 'palletBoxes', label: 'Cx/Pal', defaultVisible: true },
+    { key: 'palletCoverage', label: 'm²/Pal', defaultVisible: false },
+    { key: 'palletWeight', label: 'Peso Pal (kg)', defaultVisible: false },
+    { key: 'costCents', label: 'Custo', defaultVisible: false },
+    { key: 'priceCents', label: 'Preço', defaultVisible: false },
+] as const;
+
+type ColumnKey = typeof COLUMN_DEFINITIONS[number]['key'];
+
+const STORAGE_KEY = 'products-visible-columns';
 
 interface Product {
     id: string;
@@ -24,6 +54,18 @@ interface Product {
     sku?: string;
     minStock: number;
     isActive: boolean;
+    format?: string;
+    usage?: string;
+    line?: string;
+    boxCoverage?: number;
+    piecesPerBox?: number;
+    boxWeight?: number;
+    palletBoxes?: number;
+    palletCoverage?: number;
+    palletWeight?: number;
+    costCents?: number;
+    priceCents?: number;
+    supplierCode?: string;
 }
 
 export default function ProdutosPage() {
@@ -46,6 +88,57 @@ export default function ProdutosPage() {
 
     // Loading state for actions
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
+
+    // Selection for bulk actions
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
+    // Column visibility state
+    const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => {
+        // Default columns
+        return new Set(COLUMN_DEFINITIONS.filter(c => c.defaultVisible).map(c => c.key));
+    });
+
+    // Load column visibility from localStorage on mount
+    useEffect(() => {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved) as ColumnKey[];
+                setVisibleColumns(new Set(parsed));
+            } catch {
+                // Use defaults
+            }
+        }
+    }, []);
+
+    // Save column visibility to localStorage
+    const toggleColumn = (key: ColumnKey) => {
+        setVisibleColumns(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(key)) {
+                newSet.delete(key);
+            } else {
+                newSet.add(key);
+            }
+            // Save to localStorage
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(newSet)));
+            return newSet;
+        });
+    };
+
+    // Helper to format cell values
+    const formatCellValue = (product: Product, key: ColumnKey): string => {
+        const value = product[key as keyof Product];
+        if (value === null || value === undefined) return '-';
+        if (key === 'costCents' || key === 'priceCents') {
+            return `R$ ${((value as number) / 100).toFixed(2)}`;
+        }
+        if (typeof value === 'number') {
+            return value.toString();
+        }
+        return value.toString();
+    };
 
     const fetchProducts = async () => {
         try {
@@ -107,6 +200,47 @@ export default function ProdutosPage() {
         return text.substring(0, maxLength) + '...';
     };
 
+    // Selection handlers
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === filteredProducts.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredProducts.map(p => p.id)));
+        }
+    };
+
+    const confirmBulkDelete = async () => {
+        if (selectedIds.size === 0) return;
+
+        try {
+            setLoadingAction('bulk');
+            await Promise.all(
+                Array.from(selectedIds).map(id => api.delete(`/stock/${id}`))
+            );
+            setProducts(prev => prev.filter(item => !selectedIds.has(item.id)));
+            setSelectedIds(new Set());
+            setShowBulkDeleteConfirm(false);
+            setSuccessMessage(`${selectedIds.size} produto(s) removido(s) com sucesso!`);
+        } catch (err: any) {
+            console.error('Error bulk deleting products:', err);
+            setError('Erro ao remover produtos selecionados');
+        } finally {
+            setLoadingAction(null);
+        }
+    };
+
     // Filter products by search
     const filteredProducts = products.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -133,16 +267,24 @@ export default function ProdutosPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="h-full flex flex-col space-y-4">
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Produtos</h1>
                     <p className="text-gray-600 mt-1">Cadastro de produtos do estoque</p>
                 </div>
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo Produto
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" asChild>
+                        <Link href="/dashboard/estoque/importacao">
+                            <Upload className="mr-2 h-4 w-4" />
+                            Importar
+                        </Link>
+                    </Button>
+                    <Button onClick={() => setIsCreateDialogOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Novo Produto
+                    </Button>
+                </div>
             </div>
 
             {successMessage && (
@@ -151,15 +293,56 @@ export default function ProdutosPage() {
                 </div>
             )}
 
-            {/* Search */}
-            <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                    placeholder="Buscar por nome ou SKU..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                />
+            {/* Search and Bulk Actions */}
+            <div className="flex items-center gap-4">
+                <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                        placeholder="Buscar por nome ou SKU..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                    />
+                </div>
+                {selectedIds.size > 0 && (
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setShowBulkDeleteConfirm(true)}
+                        disabled={loadingAction === 'bulk'}
+                    >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Remover {selectedIds.size} selecionado(s)
+                    </Button>
+                )}
+                {/* Column Visibility Popover */}
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm">
+                            <Settings2 className="mr-2 h-4 w-4" />
+                            Colunas
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56" align="end">
+                        <div className="space-y-2">
+                            <h4 className="font-medium text-sm text-gray-900">Colunas visíveis</h4>
+                            <div className="space-y-1">
+                                {COLUMN_DEFINITIONS.map((col) => (
+                                    <div key={col.key} className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id={`col-${col.key}`}
+                                            checked={visibleColumns.has(col.key)}
+                                            onCheckedChange={() => toggleColumn(col.key)}
+                                        />
+                                        <Label htmlFor={`col-${col.key}`} className="text-sm font-normal cursor-pointer">
+                                            {col.label}
+                                        </Label>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </PopoverContent>
+                </Popover>
             </div>
 
             {filteredProducts.length === 0 ? (
@@ -181,70 +364,47 @@ export default function ProdutosPage() {
                     )}
                 </Card>
             ) : (
-                <Card>
-                    <div className="overflow-x-auto">
+                <Card className="flex-1 flex flex-col min-h-0">
+                    <div className="overflow-auto flex-1">
                         <table className="w-full">
-                            <thead className="bg-gray-50 border-b">
+                            <thead className="bg-gray-50 border-b sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Nome
+                                    <th className="px-3 py-3 text-center w-10">
+                                        <Checkbox
+                                            checked={selectedIds.size === filteredProducts.length && filteredProducts.length > 0}
+                                            onCheckedChange={toggleSelectAll}
+                                        />
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Descrição
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Unidade
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        SKU
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Qtd Mínima
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Ações
-                                    </th>
+                                    {COLUMN_DEFINITIONS.filter(col => visibleColumns.has(col.key)).map(col => (
+                                        <th key={col.key} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            {col.label}
+                                        </th>
+                                    ))}
+                                    <th className="px-3 py-3 text-center w-10"></th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {filteredProducts.map((product) => (
-                                    <tr key={product.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {product.name}
+                                    <tr key={product.id} className={`hover:bg-gray-50 ${selectedIds.has(product.id) ? 'bg-blue-50' : ''}`}>
+                                        <td className="px-3 py-3 text-center">
+                                            <Checkbox
+                                                checked={selectedIds.has(product.id)}
+                                                onCheckedChange={() => toggleSelect(product.id)}
+                                            />
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
-                                            {truncateText(product.description)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {product.unit || '-'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {product.sku || '-'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {product.minStock}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => handleEdit(product)}
-                                                    disabled={loadingAction === product.id}
-                                                >
-                                                    <Edit className="h-3 w-3 mr-1" />
-                                                    Editar
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="destructive"
-                                                    onClick={() => handleDeleteClick(product.id)}
-                                                    disabled={loadingAction === product.id}
-                                                >
-                                                    <Trash2 className="h-3 w-3 mr-1" />
-                                                    Remover
-                                                </Button>
-                                            </div>
+                                        {COLUMN_DEFINITIONS.filter(col => visibleColumns.has(col.key)).map(col => (
+                                            <td key={col.key} className={`px-4 py-3 whitespace-nowrap text-sm ${col.key === 'name' ? 'font-medium text-gray-900' : 'text-gray-500'}`}>
+                                                {formatCellValue(product, col.key)}
+                                            </td>
+                                        ))}
+                                        <td className="px-3 py-3 text-center">
+                                            <button
+                                                onClick={() => handleEdit(product)}
+                                                className="text-gray-400 hover:text-gray-600 p-1"
+                                                title="Editar"
+                                            >
+                                                <Edit className="h-4 w-4" />
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
@@ -307,6 +467,34 @@ export default function ProdutosPage() {
                             disabled={loadingAction === deletingId}
                         >
                             {loadingAction === deletingId ? 'Removendo...' : 'Sim, Remover'}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Bulk Delete Confirmation Dialog */}
+            <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Remover Produtos Selecionados</DialogTitle>
+                        <DialogDescription>
+                            Tem certeza que deseja remover {selectedIds.size} produto(s)?
+                            Esta ação não pode ser desfeita.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex gap-3 justify-end pt-4">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowBulkDeleteConfirm(false)}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={confirmBulkDelete}
+                            disabled={loadingAction === 'bulk'}
+                        >
+                            {loadingAction === 'bulk' ? 'Removendo...' : 'Sim, Remover Todos'}
                         </Button>
                     </div>
                 </DialogContent>

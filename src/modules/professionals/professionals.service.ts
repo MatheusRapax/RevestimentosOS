@@ -101,7 +101,12 @@ export class ProfessionalsService {
      */
     async getAllClinicUsers(clinicId: string) {
         const clinicUsers = await this.prisma.clinicUser.findMany({
-            where: { clinicId },
+            where: {
+                clinicId,
+                user: {
+                    isSuperAdmin: false // Hide Super Admins from local lists
+                }
+            },
             include: {
                 user: {
                     select: { id: true, name: true, email: true },

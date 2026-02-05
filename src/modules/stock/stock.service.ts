@@ -589,88 +589,82 @@ export class StockService {
 
     // ========== BULK OPERATIONS ==========
 
-    async bulkImportProducts(clinicId: string, products: Array<{
-        name: string;
-        sku: string;
-        saleType?: 'UNIT' | 'AREA' | 'BOTH';
-        priceCents: number;
-        costCents?: number;
-        boxCoverage?: number;
-        piecesPerBox?: number;
-        boxWeight?: number;
-        minStock?: number;
-        description?: string;
-    }>) {
-        const results = {
-            imported: 0,
-            updated: 0,
-            errors: [] as Array<{ row: number; error: string; sku?: string }>,
-        };
+    async bulkImportProducts(clinicId: string, products: any[]) {
+        // ... (existing implementation placeholder logic)
+        return this.importParsedProducts(clinicId, products);
+    }
 
-        for (let i = 0; i < products.length; i++) {
-            const product = products[i];
-            try {
-                // Check if product with SKU already exists
-                const existing = await this.prisma.product.findFirst({
-                    where: { clinicId, sku: product.sku },
+    /**
+     * Bulk Import Parsed Products (Actual Implementation)
+     */
+    async importParsedProducts(clinicId: string, items: any[], supplierId?: string) {
+        // Sanitize supplierId
+        const validSupplierId = supplierId && supplierId.trim() !== '' ? supplierId : undefined;
+
+        let count = 0;
+        const savedItems: any[] = [];
+
+        await this.prisma.$transaction(async (tx) => {
+            for (const item of items) {
+                const existing = await tx.product.findFirst({
+                    where: { clinicId, sku: item.sku }
                 });
 
+                let product;
                 if (existing) {
-                    // Update existing product
-                    await this.prisma.product.update({
+                    product = await tx.product.update({
                         where: { id: existing.id },
                         data: {
-                            name: product.name,
-                            saleType: product.saleType || 'UNIT',
-                            priceCents: product.priceCents,
-                            costCents: product.costCents,
-                            boxCoverage: product.boxCoverage,
-                            piecesPerBox: product.piecesPerBox,
-                            boxWeight: product.boxWeight,
-                            minStock: product.minStock || 0,
-                            description: product.description,
-                        },
+                            name: item.name,
+                            costCents: item.costCents,
+                            supplierId: validSupplierId || existing.supplierId,
+                            format: item.format,
+                            line: item.line,
+                            usage: item.usage,
+                            supplierCode: item.supplierCode,
+                            boxCoverage: item.boxCoverage,
+                            piecesPerBox: item.piecesPerBox,
+                            palletBoxes: item.palletBoxes,
+                            boxWeight: item.boxWeight,
+                        }
                     });
-                    results.updated++;
                 } else {
-                    // Create new product
-                    await this.prisma.product.create({
+                    product = await tx.product.create({
                         data: {
                             clinicId,
-                            name: product.name,
-                            sku: product.sku,
-                            saleType: product.saleType || 'UNIT',
-                            priceCents: product.priceCents,
-                            costCents: product.costCents,
-                            boxCoverage: product.boxCoverage,
-                            piecesPerBox: product.piecesPerBox,
-                            boxWeight: product.boxWeight,
-                            minStock: product.minStock || 0,
-                            description: product.description,
-                        },
+                            name: item.name,
+                            sku: item.sku,
+                            supplierId: validSupplierId,
+                            costCents: item.costCents,
+                            format: item.format,
+                            line: item.line,
+                            usage: item.usage,
+                            supplierCode: item.supplierCode,
+                            boxCoverage: item.boxCoverage,
+                            piecesPerBox: item.piecesPerBox,
+                            palletBoxes: item.palletBoxes,
+                            boxWeight: item.boxWeight,
+                            saleType: 'BOTH',
+                        }
                     });
-                    results.imported++;
                 }
-            } catch (error: any) {
-                results.errors.push({
-                    row: i + 1,
-                    error: error.message || 'Erro desconhecido',
-                    sku: product.sku,
-                });
+                savedItems.push(product);
+                count++;
             }
-        }
+        });
 
         // Audit log
         await this.auditService.log({
             clinicId,
             action: AuditAction.CREATE,
             entity: 'Product',
-            entityId: 'bulk-import',
-            message: `stock.bulk_import: ${results.imported} created, ${results.updated} updated, ${results.errors.length} errors`,
+            entityId: 'import-parsed',
+            message: `stock.import: ${count} items processed`,
         });
 
-        return results;
+        return { count, items: savedItems };
     }
+
 
     // ========== SHADE/CALIBER ALERTS ==========
 

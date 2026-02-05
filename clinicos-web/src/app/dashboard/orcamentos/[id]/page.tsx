@@ -27,6 +27,9 @@ interface QuoteItem {
         id: string;
         name: string;
         sku: string;
+        format?: string;
+        line?: string;
+        boxCoverage?: number;
     };
     inputArea?: number;
     quantityBoxes: number;
@@ -435,7 +438,11 @@ export default function QuoteDetailPage() {
                                     <td className="px-4 py-3">
                                         <div>
                                             <p className="font-medium">{item.product.name}</p>
-                                            <p className="text-xs text-gray-500">{item.product.sku}</p>
+                                            <p className="text-xs text-gray-500">
+                                                {item.product.sku}
+                                                {item.product.format && <span className="ml-2 text-blue-600">• {item.product.format}</span>}
+                                                {item.product.line && <span className="ml-1 text-gray-400">• {item.product.line}</span>}
+                                            </p>
                                         </div>
                                     </td>
                                     <td className="px-4 py-3 text-right">

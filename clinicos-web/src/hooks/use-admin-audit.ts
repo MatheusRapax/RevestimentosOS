@@ -9,6 +9,7 @@ export interface AuditLog {
     entity: string;
     entityId: string | null;
     message: string | null;
+    details?: any;
     ip: string | null;
     createdAt: string;
     user: { name: string | null; email: string } | null;

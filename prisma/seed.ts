@@ -226,6 +226,8 @@ async function main() {
     // =========================================
     const hashedPassword = await bcrypt.hash('123456', 10);
 
+    /* 
+    // DEMO DATA COMMENTED FOR PRODUCTION/TESTING RESET
     const store = await prisma.clinic.upsert({
         where: { slug: 'revestimentos-demo' },
         update: {},
@@ -635,25 +637,26 @@ async function main() {
         });
         console.log('✅ Created 1 demo order with items');
     }
+    */
 
     // =========================================
     // SUMMARY
     // =========================================
     console.log('\n🎉 Seed completed successfully!');
-    console.log('\n📋 CREDENCIAIS DE TESTE:');
-    console.log('────────────────────────────────────');
-    console.log('| Email                          | Senha  | Papel       |');
-    console.log('|--------------------------------|--------|-------------|');
-    console.log('| admin@revestimentos.com        | 123456 | Admin       |');
-    console.log('| vendedor@revestimentos.com     | 123456 | Vendedor    |');
-    console.log('| gerente@revestimentos.com      | 123456 | Gerente     |');
-    console.log('────────────────────────────────────');
-    console.log(`\n🏪 Loja ID: ${store.id}`);
-    console.log(`📦 Produtos: 6`);
-    console.log(`👥 Clientes: 3`);
-    console.log(`🏛️ Arquitetos: 2`);
-    console.log(`📄 Orçamentos: 2`);
-    console.log(`📦 Pedidos: 1`);
+    // console.log('\n📋 CREDENCIAIS DE TESTE:');
+    // console.log('────────────────────────────────────');
+    // console.log('| Email                          | Senha  | Papel       |');
+    // console.log('|--------------------------------|--------|-------------|');
+    // console.log('| admin@revestimentos.com        | 123456 | Admin       |');
+    // console.log('| vendedor@revestimentos.com     | 123456 | Vendedor    |');
+    // console.log('| gerente@revestimentos.com      | 123456 | Gerente     |');
+    // console.log('────────────────────────────────────');
+    // console.log(`\n🏪 Loja ID: ${store.id}`);
+    // console.log(`📦 Produtos: 6`);
+    // console.log(`👥 Clientes: 3`);
+    // console.log(`🏛️ Arquitetos: 2`);
+    // console.log(`📄 Orçamentos: 2`);
+    // console.log(`📦 Pedidos: 1`);
 
     // =========================================
     // 12. CREATE SUPER ADMIN

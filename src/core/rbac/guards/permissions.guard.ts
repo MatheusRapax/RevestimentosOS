@@ -85,6 +85,7 @@ export class PermissionsGuard implements CanActivate {
             throw new ForbiddenException('User has no role in this clinic');
         }
 
+
         // 4. Extract user's permissions
         const userPermissions = clinicUser.role.rolePermissions.map(
             (rp) => rp.permission.key,
@@ -96,8 +97,10 @@ export class PermissionsGuard implements CanActivate {
         );
 
         if (!hasAllPermissions) {
+            const missing = requiredPermissions.filter(p => !userPermissions.includes(p));
+            console.error(`❌ PermissionsGuard: User ${userId} (Role: ${clinicUser.role.key}) missing permissions: ${missing.join(', ')}`);
             throw new ForbiddenException(
-                'You do not have permission to perform this action',
+                `Missing permissions: ${missing.join(', ')}`,
             );
         }
 

@@ -13,6 +13,10 @@ interface ProductWithStock {
     name: string;
     sku?: string;
     unit?: string;
+    format?: string;
+    line?: string;
+    usage?: string;
+    boxCoverage?: number;
     minStock: number;
     totalStock: number;
     totalReserved?: number;
@@ -144,7 +148,7 @@ export default function EstoquePage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="h-full flex flex-col space-y-4">
             <div>
                 <h1 className="text-3xl font-bold text-gray-900">Estoque</h1>
                 <p className="text-gray-600 mt-1">Visão geral do estoque disponível</p>
@@ -244,10 +248,10 @@ export default function EstoquePage() {
                     </p>
                 </Card>
             ) : (
-                <Card>
-                    <div className="overflow-x-auto">
+                <Card className="flex-1 flex flex-col min-h-0">
+                    <div className="overflow-auto flex-1">
                         <table className="w-full">
-                            <thead className="bg-gray-50 border-b">
+                            <thead className="bg-gray-50 border-b sticky top-0 z-10">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Produto
@@ -256,7 +260,7 @@ export default function EstoquePage() {
                                         SKU
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Unidade
+                                        Formato
                                     </th>
                                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Físico
@@ -288,7 +292,7 @@ export default function EstoquePage() {
                                             {product.sku || '-'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {product.unit || '-'}
+                                            {product.format || '-'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
                                             {product.totalStock}

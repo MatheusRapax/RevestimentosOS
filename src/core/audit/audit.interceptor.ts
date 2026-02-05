@@ -52,12 +52,22 @@ export class AuditInterceptor implements NestInterceptor {
                 userId = responseData.user.id;
             }
 
+            // Sanitize body for details
+            const details = this.sanitizeData({
+                body: request.body,
+                query: request.query,
+                params: request.params
+            });
+
+            console.log(`[Audit Debug] Action: ${action}, Entity: ${entity}, Body Keys: ${Object.keys(request.body || {})}, Details:`, JSON.stringify(details));
+
             this.auditService.log({
-                clinicId: request.user?.activeClinicId || request.clinicId, // Try request.user first as it might have the active context
+                clinicId: request.user?.activeClinicId || request.clinicId,
                 userId: userId,
                 action,
                 entity,
                 entityId,
+                details,
                 ip: request.ip || request.connection?.remoteAddress,
                 userAgent: request.headers['user-agent'],
             });
@@ -154,5 +164,23 @@ export class AuditInterceptor implements NestInterceptor {
             return str.slice(0, -1);
         }
         return str;
+    }
+
+    private sanitizeData(data: any): any {
+        if (!data) return data;
+        if (typeof data !== 'object') return data;
+
+        const sanitized = { ...data };
+        const sensitiveFields = ['password', 'token', 'accessToken', 'refreshToken', 'creditCard'];
+
+        for (const key of Object.keys(sanitized)) {
+            if (sensitiveFields.includes(key)) {
+                sanitized[key] = '[REDACTED]';
+            } else if (typeof sanitized[key] === 'object') {
+                sanitized[key] = this.sanitizeData(sanitized[key]);
+            }
+        }
+
+        return sanitized;
     }
 }

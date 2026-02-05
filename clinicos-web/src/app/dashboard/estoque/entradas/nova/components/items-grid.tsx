@@ -140,7 +140,7 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
             <h2 className="text-lg font-semibold">Itens da Entrada</h2>
 
             {!readOnly && (
-                <div className="grid grid-cols-1 md:grid-cols-7 gap-2 items-end bg-muted/50 p-2 rounded-md">
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end bg-muted/50 p-2 rounded-md">
                     <div className="md:col-span-2 space-y-1">
                         <label className="text-xs font-medium">Produto</label>
                         <Popover open={open} onOpenChange={setOpen}>
@@ -167,10 +167,15 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                                                 <CommandItem
                                                     key={product.id}
                                                     value={product.name}
-                                                    onSelect={() => {
-                                                        setProductId(product.id === productId ? "" : product.id);
+                                                    onSelect={(currentValue) => {
+                                                        // Find the product by name since onSelect passes the value
+                                                        const selected = products.find(p => p.name.toLowerCase() === currentValue.toLowerCase());
+                                                        if (selected) {
+                                                            setProductId(selected.id === productId ? "" : selected.id);
+                                                        }
                                                         setOpen(false);
                                                     }}
+                                                    className="cursor-pointer"
                                                 >
                                                     <Check
                                                         className={cn(
@@ -214,15 +219,7 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                         <Input
                             value={lotNumber}
                             onChange={e => setLotNumber(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="space-y-1">
-                        <label className="text-xs font-medium">Validade</label>
-                        <Input
-                            type="date"
-                            value={expirationDate}
-                            onChange={e => setExpirationDate(e.target.value)}
+                            placeholder="Ex: NF-123456"
                         />
                     </div>
 
@@ -243,7 +240,7 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                     <TableHeader>
                         <TableRow>
                             <TableHead>Produto</TableHead>
-                            <TableHead>Lote / Validade</TableHead>
+                            <TableHead>Lote</TableHead>
                             <TableHead>Quantidade</TableHead>
                             <TableHead>Custo Unit.</TableHead>
                             <TableHead>Total</TableHead>
@@ -261,11 +258,8 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                             items?.map((item) => (
                                 <TableRow key={item.id}>
                                     <TableCell className="font-medium">{item.product.name}</TableCell>
-                                    <TableCell>
-                                        <div className="flex flex-col text-xs">
-                                            <span>{item.lotNumber || '-'}</span>
-                                            <span className="text-muted-foreground">{item.expirationDate ? new Date(item.expirationDate).toLocaleDateString('pt-BR') : '-'}</span>
-                                        </div>
+                                    <TableCell className="text-sm">
+                                        {item.lotNumber || '-'}
                                     </TableCell>
                                     <TableCell>
                                         {item.quantity} {item.product.unit}

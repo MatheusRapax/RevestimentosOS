@@ -23,11 +23,47 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
     const [formData, setFormData] = useState({
         name: '',
         description: '',
-        quantity: 0,
         unit: '',
+        sku: '',
+        minStock: 0,
+        // New fields
+        format: '',
+        line: '',
+        usage: '',
+        boxCoverage: '',
+        piecesPerBox: '',
+        boxWeight: '',
+        palletBoxes: '',
+        palletWeight: '',
+        palletCoverage: '',
+        costCents: '',
+        priceCents: '',
+        supplierCode: '',
     });
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    const resetForm = () => {
+        setFormData({
+            name: '',
+            description: '',
+            unit: '',
+            sku: '',
+            minStock: 0,
+            format: '',
+            line: '',
+            usage: '',
+            boxCoverage: '',
+            piecesPerBox: '',
+            boxWeight: '',
+            palletBoxes: '',
+            palletWeight: '',
+            palletCoverage: '',
+            costCents: '',
+            priceCents: '',
+            supplierCode: '',
+        });
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -35,15 +71,28 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
         setIsLoading(true);
 
         try {
-            await api.post('/stock', formData);
+            const payload = {
+                name: formData.name,
+                description: formData.description || undefined,
+                unit: formData.unit || undefined,
+                sku: formData.sku || undefined,
+                minStock: formData.minStock,
+                format: formData.format || undefined,
+                line: formData.line || undefined,
+                usage: formData.usage || undefined,
+                boxCoverage: formData.boxCoverage ? parseFloat(formData.boxCoverage) : undefined,
+                piecesPerBox: formData.piecesPerBox ? parseInt(formData.piecesPerBox) : undefined,
+                boxWeight: formData.boxWeight ? parseFloat(formData.boxWeight) : undefined,
+                palletBoxes: formData.palletBoxes ? parseInt(formData.palletBoxes) : undefined,
+                palletWeight: formData.palletWeight ? parseFloat(formData.palletWeight) : undefined,
+                palletCoverage: formData.palletCoverage ? parseFloat(formData.palletCoverage) : undefined,
+                costCents: formData.costCents ? Math.round(parseFloat(formData.costCents) * 100) : undefined,
+                priceCents: formData.priceCents ? Math.round(parseFloat(formData.priceCents) * 100) : undefined,
+                supplierCode: formData.supplierCode || undefined,
+            };
+            await api.post('/stock', payload);
             onSuccess();
-            // Reset form
-            setFormData({
-                name: '',
-                description: '',
-                quantity: 0,
-                unit: '',
-            });
+            resetForm();
         } catch (err: any) {
             console.error('Error creating stock item:', err);
             setError(err.response?.data?.message || 'Erro ao criar item');
@@ -54,11 +103,11 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Novo Item de Estoque</DialogTitle>
+                    <DialogTitle>Novo Produto</DialogTitle>
                     <DialogDescription>
-                        Preencha os dados para adicionar um novo item ao estoque
+                        Preencha os dados para adicionar um novo produto ao catálogo
                     </DialogDescription>
                 </DialogHeader>
 
@@ -69,58 +118,228 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
                         </div>
                     )}
 
-                    <div className="space-y-2">
-                        <Label htmlFor="name">Nome do Item *</Label>
-                        <Input
-                            id="name"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            placeholder="Nome do item"
-                            required
-                            minLength={3}
-                        />
-                    </div>
+                    {/* Basic Info */}
+                    <div className="space-y-4">
+                        <h3 className="font-medium text-gray-900 border-b pb-2">Informações Básicas</h3>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="description">Descrição (opcional)</Label>
-                        <Input
-                            id="description"
-                            value={formData.description}
-                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            placeholder="Descrição do item"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="quantity">Quantidade *</Label>
+                            <Label htmlFor="create-name">Nome do Produto *</Label>
                             <Input
-                                id="quantity"
-                                type="number"
-                                min="0"
-                                value={formData.quantity}
-                                onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-                                placeholder="0"
+                                id="create-name"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                placeholder="Nome do produto"
                                 required
+                                minLength={3}
                             />
                         </div>
+
                         <div className="space-y-2">
-                            <Label htmlFor="unit">Unidade (opcional)</Label>
+                            <Label htmlFor="create-description">Descrição</Label>
                             <Input
-                                id="unit"
-                                value={formData.unit}
-                                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                                placeholder="Ex: unidade, caixa"
+                                id="create-description"
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                placeholder="Descrição do produto"
                             />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="create-sku">SKU</Label>
+                                <Input
+                                    id="create-sku"
+                                    value={formData.sku}
+                                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                                    placeholder="Código SKU"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="create-supplierCode">Ref. Fornecedor</Label>
+                                <Input
+                                    id="create-supplierCode"
+                                    value={formData.supplierCode}
+                                    onChange={(e) => setFormData({ ...formData, supplierCode: e.target.value })}
+                                    placeholder="Código do fornecedor"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="create-unit">Unidade</Label>
+                                <Input
+                                    id="create-unit"
+                                    value={formData.unit}
+                                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                                    placeholder="Ex: caixa, m²"
+                                />
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex gap-3 justify-end pt-4">
+                    {/* Product Classification */}
+                    <div className="space-y-4">
+                        <h3 className="font-medium text-gray-900 border-b pb-2">Classificação</h3>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="create-format">Formato</Label>
+                                <Input
+                                    id="create-format"
+                                    value={formData.format}
+                                    onChange={(e) => setFormData({ ...formData, format: e.target.value })}
+                                    placeholder="Ex: 60x60, 30x90"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="create-line">Linha</Label>
+                                <Input
+                                    id="create-line"
+                                    value={formData.line}
+                                    onChange={(e) => setFormData({ ...formData, line: e.target.value })}
+                                    placeholder="Ex: Mármore, Madeira"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="create-usage">Uso</Label>
+                                <Input
+                                    id="create-usage"
+                                    value={formData.usage}
+                                    onChange={(e) => setFormData({ ...formData, usage: e.target.value })}
+                                    placeholder="Ex: Piso, Parede"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Packaging Info */}
+                    <div className="space-y-4">
+                        <h3 className="font-medium text-gray-900 border-b pb-2">Informações de Embalagem</h3>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="create-boxCoverage">m² por Caixa</Label>
+                                <Input
+                                    id="create-boxCoverage"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.boxCoverage}
+                                    onChange={(e) => setFormData({ ...formData, boxCoverage: e.target.value })}
+                                    placeholder="Ex: 1.44"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="create-piecesPerBox">Peças por Caixa</Label>
+                                <Input
+                                    id="create-piecesPerBox"
+                                    type="number"
+                                    min="0"
+                                    value={formData.piecesPerBox}
+                                    onChange={(e) => setFormData({ ...formData, piecesPerBox: e.target.value })}
+                                    placeholder="Ex: 8"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="create-boxWeight">Peso Caixa (kg)</Label>
+                                <Input
+                                    id="create-boxWeight"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.boxWeight}
+                                    onChange={(e) => setFormData({ ...formData, boxWeight: e.target.value })}
+                                    placeholder="Ex: 25.5"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="create-palletBoxes">Caixas/Palete</Label>
+                                <Input
+                                    id="create-palletBoxes"
+                                    type="number"
+                                    min="0"
+                                    value={formData.palletBoxes}
+                                    onChange={(e) => setFormData({ ...formData, palletBoxes: e.target.value })}
+                                    placeholder="Ex: 48"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="create-palletCoverage">m²/Palete</Label>
+                                <Input
+                                    id="create-palletCoverage"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.palletCoverage}
+                                    onChange={(e) => setFormData({ ...formData, palletCoverage: e.target.value })}
+                                    placeholder="Ex: 71.52"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="create-palletWeight">Peso Palete (kg)</Label>
+                                <Input
+                                    id="create-palletWeight"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.palletWeight}
+                                    onChange={(e) => setFormData({ ...formData, palletWeight: e.target.value })}
+                                    placeholder="Ex: 1200"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Pricing */}
+                    <div className="space-y-4">
+                        <h3 className="font-medium text-gray-900 border-b pb-2">Preços e Estoque</h3>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="create-costCents">Custo (R$)</Label>
+                                <Input
+                                    id="create-costCents"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.costCents}
+                                    onChange={(e) => setFormData({ ...formData, costCents: e.target.value })}
+                                    placeholder="Ex: 45.90"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="create-priceCents">Preço Venda (R$)</Label>
+                                <Input
+                                    id="create-priceCents"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.priceCents}
+                                    onChange={(e) => setFormData({ ...formData, priceCents: e.target.value })}
+                                    placeholder="Ex: 89.90"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="create-minStock">Estoque Mínimo</Label>
+                                <Input
+                                    id="create-minStock"
+                                    type="number"
+                                    min="0"
+                                    value={formData.minStock}
+                                    onChange={(e) => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 justify-end pt-4 border-t">
                         <Button type="button" variant="outline" onClick={onClose}>
                             Cancelar
                         </Button>
                         <Button type="submit" disabled={isLoading}>
-                            {isLoading ? 'Criando...' : 'Criar Item'}
+                            {isLoading ? 'Criando...' : 'Criar Produto'}
                         </Button>
                     </div>
                 </form>
