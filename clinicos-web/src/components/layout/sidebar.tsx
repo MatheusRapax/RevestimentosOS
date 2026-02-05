@@ -78,6 +78,7 @@ const menuSections = [
         items: [
             { href: '/dashboard/admin/usuarios', label: 'Usuários', icon: Users, module: 'ADMIN' },
             { href: '/dashboard/admin/papeis', label: 'Papéis e Acessos', icon: Shield, module: 'ADMIN' },
+            { href: '/dashboard/configuracoes/templates', label: 'Templates', icon: FileText, module: 'ADMIN' },
             { href: '/dashboard/admin/auditoria', label: 'Auditoria', icon: Shield, module: 'ADMIN' },
         ],
     },
