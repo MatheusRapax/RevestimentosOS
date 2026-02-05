@@ -44,7 +44,6 @@ export function ExitHeaderForm({ onSubmit, isLoading }: ExitHeaderFormProps) {
                             <SelectItem value="SECTOR_REQUEST">Requisição de Setor</SelectItem>
                             <SelectItem value="PATIENT_USE">Uso Interno / Cliente</SelectItem>
                             <SelectItem value="DISCARD">Descarte / Avaria</SelectItem>
-                            <SelectItem value="EXPIRY">Validade Vencida</SelectItem>
                             <SelectItem value="ADJUSTMENT">Ajuste de Estoque</SelectItem>
                         </SelectContent>
                     </Select>

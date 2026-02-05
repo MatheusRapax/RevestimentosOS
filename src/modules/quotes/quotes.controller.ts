@@ -37,10 +37,11 @@ export class QuotesController {
     async generatePdf(
         @Request() req: any,
         @Param('id') id: string,
+        @Query('templateId') templateId: string,
         @Res() res: Response,
     ) {
         const quote = await this.quotesService.findOne(id, req.clinicId);
-        const buffer = await this.quotePdfService.generatePdf(quote as any);
+        const buffer = await this.quotePdfService.generatePdf(quote as any, templateId);
 
         res.set({
             'Content-Type': 'application/pdf',

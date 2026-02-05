@@ -77,6 +77,12 @@ export default function AdminLayout({
                     >
                         🔐 Papéis e Permissões
                     </Link>
+                    <Link
+                        href="/admin/templates"
+                        className="flex items-center gap-3 px-4 py-3 rounded-md hover:bg-slate-800 transition-colors text-sm font-medium"
+                    >
+                        📄 Templates de Orçamento
+                    </Link>
                 </nav>
 
                 <div className="p-4 border-t border-slate-800 space-y-2">

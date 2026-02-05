@@ -167,16 +167,17 @@ model Clinic {
   stockExits               StockExit[]
 
   // Sales Module Relations
-  customers      Customer[]
-  architects     Architect[]
-  quotes         Quote[]
-  orders         Order[]
-  purchaseOrders PurchaseOrder[]
+  customers       Customer[]
+  architects      Architect[]
+  quotes          Quote[]
+  orders          Order[]
+  purchaseOrders  PurchaseOrder[]
   stockReservations StockReservation[]
-  deliveries     Delivery[]
-  invoices       Invoice[]
-  expenses       Expense[]
-  suppliers      Supplier[]
+  deliveries      Delivery[]
+  invoices        Invoice[]
+  expenses        Expense[]
+  suppliers       Supplier[]
+  quoteTemplates  QuoteTemplate[]
 }
 
 // Clinic working hours per day of week
@@ -1012,6 +1013,55 @@ model Architect {
 
   @@index([clinicId])
   @@index([clinicId, name])
+}
+
+// Business: QuoteTemplate model (Template de Orçamento)
+model QuoteTemplate {
+  id        String  @id @default(uuid())
+  clinicId  String
+  name      String  // Nome do template (ex: "Padrão", "Promocional")
+  isDefault Boolean @default(false)
+
+  // Dados da Empresa (Header)
+  companyName    String?
+  companyLogo    String? // URL ou base64 da logo
+  companyPhone   String?
+  companyEmail   String?
+  companyAddress String?
+  companyCnpj    String?
+
+  // Dados Bancários
+  bankName          String?
+  bankAgency        String?
+  bankAccount       String?
+  bankAccountHolder String?
+  bankCnpj          String?
+  pixKey            String?
+
+  // Termos e Condições
+  termsAndConditions String? @db.Text
+  validityDays       Int     @default(10)
+  validityText       String? // Ex: "Este orçamento possui validade de 10 dias úteis..."
+
+  // Prazo de entrega padrão
+  defaultDeliveryDays String? // Ex: "7dd", "15 dias úteis"
+
+  // Personalização Visual
+  primaryColor       String @default("#000000")
+  accentColor        String @default("#4CAF50")
+  showSignatureLines Boolean @default(true)
+  showBankDetails    Boolean @default(true)
+  showTerms          Boolean @default(true)
+
+  // Rodapé
+  footerText String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId])
 }
 
 // Business: Quote model (Orçamento)
