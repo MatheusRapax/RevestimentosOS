@@ -44,13 +44,14 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        console.error('❌ API Error:', {
-            status: error.response?.status,
-            url: error.config?.url,
-            message: error.response?.data?.message || 'No message',
-            data: error.response?.data ? JSON.stringify(error.response.data) : 'No data',
-            fullError: error.toJSON ? error.toJSON() : error
-        });
+        // Only log actual API errors, not cancelled requests
+        if (error.response?.status) {
+            console.error('❌ API Error:', {
+                status: error.response?.status,
+                url: error.config?.url,
+                message: error.response?.data?.message || 'No message',
+            });
+        }
 
         if (error.response?.status === 401) {
             if (typeof window !== 'undefined') {

@@ -75,9 +75,13 @@ export function useQuoteTemplates() {
         setError(null);
         try {
             const { data } = await api.get('/quotes/templates');
-            setTemplates(data);
+            setTemplates(Array.isArray(data) ? data : []);
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erro ao carregar templates');
+            // Only set error if it's a real error (not cancelled request or network issue during unmount)
+            if (err?.response?.status) {
+                setError(err.response?.data?.message || 'Erro ao carregar templates');
+            }
+            // Silently ignore cancelled/aborted requests
         } finally {
             setIsLoading(false);
         }
