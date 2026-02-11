@@ -48,7 +48,7 @@ export default function CreatePatientDialog({ open, onClose, onSuccess }: Props)
             });
         } catch (err: any) {
             console.error('Error creating patient:', err);
-            setError(err.response?.data?.message || 'Erro ao criar paciente');
+            setError(err.response?.data?.message || 'Erro ao criar cliente');
         } finally {
             setIsLoading(false);
         }
@@ -58,9 +58,9 @@ export default function CreatePatientDialog({ open, onClose, onSuccess }: Props)
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Novo Paciente</DialogTitle>
+                    <DialogTitle>Novo Cliente</DialogTitle>
                     <DialogDescription>
-                        Preencha os dados para cadastrar um novo paciente
+                        Preencha os dados para cadastrar um novo cliente
                     </DialogDescription>
                 </DialogHeader>
 
@@ -77,7 +77,7 @@ export default function CreatePatientDialog({ open, onClose, onSuccess }: Props)
                             id="name"
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            placeholder="Nome do paciente"
+                            placeholder="Nome do cliente"
                             required
                             minLength={3}
                         />
@@ -129,7 +129,7 @@ export default function CreatePatientDialog({ open, onClose, onSuccess }: Props)
                             Cancelar
                         </Button>
                         <Button type="submit" disabled={isLoading}>
-                            {isLoading ? 'Criando...' : 'Criar Paciente'}
+                            {isLoading ? 'Criando...' : 'Criar Cliente'}
                         </Button>
                     </div>
                 </form>

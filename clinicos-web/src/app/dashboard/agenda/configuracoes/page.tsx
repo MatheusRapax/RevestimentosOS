@@ -5,7 +5,8 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import { Textarea } from '@/components/ui/textarea';
 import {
     Select,
@@ -207,7 +208,7 @@ export default function AgendaConfigPage() {
             await api.delete(`/appointments/blocks/${id}`);
             fetchData();
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Erro ao remover bloqueio');
+            toast.error(err.response?.data?.message || 'Erro ao remover bloqueio');
         }
     };
 
@@ -350,7 +351,7 @@ export default function AgendaConfigPage() {
                 </div>
 
                 <p className="text-sm text-gray-500 mb-4">
-                    Defina o horário padrão de funcionamento da clínica. Agendamentos fora deste horário serão bloqueados automaticamente.
+                    Defina o horário padrão de funcionamento da loja. Agendamentos fora deste horário serão bloqueados automaticamente.
                 </p>
 
                 {workingHoursError && (
@@ -487,7 +488,7 @@ export default function AgendaConfigPage() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="clinic">Toda a Clínica</SelectItem>
+                                    <SelectItem value="clinic">Toda a Loja</SelectItem>
                                     <SelectItem value="professional">Profissional Específico</SelectItem>
                                 </SelectContent>
                             </Select>

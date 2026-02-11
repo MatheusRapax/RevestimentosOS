@@ -11,6 +11,7 @@ import { Loader2, Trash2, Plus, Check, ChevronsUpDown, AlertTriangle } from 'luc
 import { cn } from '@/lib/utils';
 import { NFeItem } from '@/lib/nfe-parser';
 import api from '@/lib/api';
+import { ItemFiscalForm } from './item-fiscal-form';
 
 interface ItemsGridProps {
     items: StockEntryItem[];
@@ -39,6 +40,10 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
     const [expirationDate, setExpirationDate] = useState('');
     const [manufacturer, setManufacturer] = useState('');
 
+    // Fiscal integration
+    const [fiscalData, setFiscalData] = useState<Partial<AddItemData>>({});
+    const [showFiscal, setShowFiscal] = useState(false);
+
     useEffect(() => {
         fetchProducts();
     }, []);
@@ -62,6 +67,7 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
             lotNumber: lotNumber || undefined,
             expirationDate: expirationDate || undefined,
             manufacturer: manufacturer || undefined,
+            ...fiscalData
         });
 
         if (resolvingIndex !== null && onResolvePending) {
@@ -76,6 +82,7 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
         setLotNumber('');
         setExpirationDate('');
         setManufacturer('');
+        setFiscalData({});
     };
 
     const handleResolve = (index: number, item: NFeItem) => {
@@ -83,8 +90,9 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
         setQuantity(item.quantity.toString());
         setUnitCost(item.unitValue.toFixed(4));
 
-        // Try to fuzzy match product name? For now, we just rely on user manual selection or we could implement basic matching
-        // Simple exact match attempt
+        if (item.lotNumber) setLotNumber(item.lotNumber);
+        if (item.expirationDate) setExpirationDate(item.expirationDate);
+
         const match = products.find(p => p.name.toLowerCase() === item.name.toLowerCase());
         if (match) {
             setProductId(match.id);
@@ -95,6 +103,14 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
 
     return (
         <div className="space-y-4 border p-4 rounded-md">
+
+            <ItemFiscalForm
+                open={showFiscal}
+                onClose={() => setShowFiscal(false)}
+                onSave={(data) => setFiscalData(data)}
+                productName={selectedProduct?.name}
+            />
+
             {pendingItems && pendingItems.length > 0 && (
                 <div className="mb-6 border-b pb-6">
                     <h3 className="text-sm font-semibold mb-2 text-orange-600 flex items-center">
@@ -167,15 +183,11 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                                                 <CommandItem
                                                     key={product.id}
                                                     value={product.name}
-                                                    onSelect={(currentValue) => {
-                                                        // Find the product by name since onSelect passes the value
-                                                        const selected = products.find(p => p.name.toLowerCase() === currentValue.toLowerCase());
-                                                        if (selected) {
-                                                            setProductId(selected.id === productId ? "" : selected.id);
-                                                        }
+                                                    onSelect={() => {
+                                                        setProductId(product.id);
                                                         setOpen(false);
                                                     }}
-                                                    className="cursor-pointer"
+                                                    className="cursor-pointer data-[disabled]:pointer-events-auto data-[disabled]:opacity-100"
                                                 >
                                                     <Check
                                                         className={cn(
@@ -223,9 +235,19 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                         />
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1 flex items-end">
                         <Button
-                            className="w-full"
+                            variant={Object.keys(fiscalData).length > 0 ? "default" : "outline"}
+                            size="icon"
+                            className="w-10 mr-2"
+                            onClick={() => setShowFiscal(true)}
+                            title="Dados Fiscais"
+                        >
+                            <span className="text-xs font-bold">F</span>
+                        </Button>
+
+                        <Button
+                            className="flex-1"
                             onClick={handleAdd}
                             disabled={isLoading || !productId || !quantity}
                         >

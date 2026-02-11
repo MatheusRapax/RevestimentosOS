@@ -66,7 +66,7 @@ export default function EditPatientDialog({ open, patient, onClose, onSuccess }:
             onSuccess();
         } catch (err: any) {
             console.error('Error updating patient:', err);
-            setError(err.response?.data?.message || 'Erro ao atualizar paciente');
+            setError(err.response?.data?.message || 'Erro ao atualizar cliente');
         } finally {
             setIsLoading(false);
         }
@@ -76,9 +76,9 @@ export default function EditPatientDialog({ open, patient, onClose, onSuccess }:
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Editar Paciente</DialogTitle>
+                    <DialogTitle>Editar Cliente</DialogTitle>
                     <DialogDescription>
-                        Atualize os dados do paciente
+                        Atualize os dados do cliente
                     </DialogDescription>
                 </DialogHeader>
 

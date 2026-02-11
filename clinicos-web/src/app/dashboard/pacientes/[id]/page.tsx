@@ -76,7 +76,7 @@ export default function PatientDetailPage() {
             setTimeline(timelineRes.data);
         } catch (err: any) {
             console.error('Error fetching patient data:', err);
-            setError(err.response?.data?.message || 'Erro ao carregar dados do paciente');
+            setError(err.response?.data?.message || 'Erro ao carregar dados do cliente');
         } finally {
             setIsLoading(false);
         }
@@ -167,7 +167,7 @@ export default function PatientDetailPage() {
                     </Button>
                 </Link>
                 <div className="rounded-lg bg-red-50 p-4">
-                    <p className="text-red-600">{error || 'Paciente não encontrado'}</p>
+                    <p className="text-red-600">{error || 'Cliente não encontrado'}</p>
                 </div>
             </div>
         );
@@ -266,8 +266,8 @@ export default function PatientDetailPage() {
                                 key={`${item.type}-${item.referenceId}`}
                                 onClick={() => handleTimelineClick(item)}
                                 className={`flex gap-4 p-4 rounded-lg border cursor-pointer transition hover:shadow-md ${item.type === 'appointment'
-                                        ? 'border-blue-200 bg-blue-50 hover:bg-blue-100'
-                                        : 'border-purple-200 bg-purple-50 hover:bg-purple-100'
+                                    ? 'border-blue-200 bg-blue-50 hover:bg-blue-100'
+                                    : 'border-purple-200 bg-purple-50 hover:bg-purple-100'
                                     }`}
                             >
                                 <div className="flex-shrink-0 mt-1">

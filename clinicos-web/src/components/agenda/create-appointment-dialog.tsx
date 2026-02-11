@@ -136,7 +136,7 @@ export default function CreateAppointmentDialog({
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2 text-sm font-medium">
                             <User className="h-4 w-4 text-gray-500" />
-                            Paciente <span className="text-red-500">*</span>
+                            Cliente <span className="text-red-500">*</span>
                         </Label>
                         <Select
                             value={formData.patientId}
@@ -144,7 +144,7 @@ export default function CreateAppointmentDialog({
                             disabled={patientsLoading || isLoading}
                         >
                             <SelectTrigger className="h-11">
-                                <SelectValue placeholder={patientsLoading ? "Carregando..." : "Selecione o paciente"} />
+                                <SelectValue placeholder={patientsLoading ? "Carregando..." : "Selecione o cliente"} />
                             </SelectTrigger>
                             <SelectContent>
                                 {patients.map((patient) => (
@@ -245,7 +245,7 @@ export default function CreateAppointmentDialog({
                         <Input
                             value={formData.room}
                             onChange={(e) => setFormData({ ...formData, room: e.target.value })}
-                            placeholder="Ex: Sala 1, Consultório 2"
+                            placeholder="Ex: Sala 1, Escritório 2"
                             className="h-11"
                         />
                     </div>

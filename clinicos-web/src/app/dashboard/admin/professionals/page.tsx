@@ -85,7 +85,7 @@ export default function ProfessionalsAdminPage() {
                         Gestão de Profissionais
                     </h1>
                     <p className="text-muted-foreground">
-                        Gerencie os profissionais da sua clínica
+                        Gerencie os profissionais da sua loja
                     </p>
                 </div>
 

@@ -135,8 +135,8 @@ export function StockExitDialog({ open, onOpenChange, onSuccess }: StockExitDial
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="SECTOR">Setor</SelectItem>
-                                    <SelectItem value="ROOM">Sala/Consultório</SelectItem>
-                                    <SelectItem value="PATIENT">Paciente (Individual)</SelectItem>
+                                    <SelectItem value="ROOM">Sala/Escritório</SelectItem>
+                                    <SelectItem value="PATIENT">Cliente (Individual)</SelectItem>
                                     <SelectItem value="DISCARD">Descarte/Avaria</SelectItem>
                                     <SelectItem value="ADJUST">Ajuste de Saldo</SelectItem>
                                 </SelectContent>

@@ -25,7 +25,7 @@ export default function Header() {
             <div className="flex items-center gap-6">
                 {clinic && (
                     <div className="text-sm">
-                        <span className="text-gray-500">Clínica:</span>
+                        <span className="text-gray-500">Loja:</span>
                         <span className="ml-2 font-medium text-gray-900">{clinic.name}</span>
                     </div>
                 )}

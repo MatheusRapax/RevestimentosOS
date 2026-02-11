@@ -103,7 +103,7 @@ export function ProfessionalActionsMenu({
                         <AlertDialogTitle>Desativar Profissional</AlertDialogTitle>
                         <AlertDialogDescription>
                             Tem certeza que deseja desativar <strong>{professional.name}</strong>? O profissional
-                            não poderá mais acessar a clínica até ser reativado.
+                            não poderá mais acessar a loja até ser reativado.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

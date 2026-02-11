@@ -1,5 +1,7 @@
 'use client';
 
+import { format } from 'date-fns';
+import { toast } from 'sonner';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +28,16 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
     const [arrivalDate, setArrivalDate] = useState(new Date().toISOString().split('T')[0]);
     const [notes, setNotes] = useState('');
 
+    // Fiscal
+    const [accessKey, setAccessKey] = useState('');
+    const [operationNature, setOperationNature] = useState('');
+    const [protocol, setProtocol] = useState('');
+    const [model, setModel] = useState('55');
+
+    // XML Data Store (Hidden)
+    const [xmlTotals, setXmlTotals] = useState<any>(null);
+    const [xmlTransport, setXmlTransport] = useState<any>(null);
+
     const [isLoadingXML, setIsLoadingXML] = useState(false);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,17 +55,22 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
             if (data.emissionDate) {
                 setEmissionDate(data.emissionDate.toISOString().split('T')[0]);
             }
-            // Pass items up if prop exists (to be implemented)
-            // For now, we just fill the header
+            if (data.accessKey) setAccessKey(data.accessKey);
+            if (data.operationNature) setOperationNature(data.operationNature);
+            if (data.protocol) setProtocol(data.protocol);
+            if (data.model) setModel(data.model);
 
-            // If items need to be passed, we might need to change the onSubmit or add a new prop
+            if (data.totals) setXmlTotals(data.totals);
+            if (data.transport) setXmlTransport(data.transport);
+
+            // Pass items up if prop exists
             if (onXmlImported && data.items.length > 0) {
                 onXmlImported(data.items);
             }
 
         } catch (error) {
             console.error("Erro ao importar XML:", error);
-            alert("Erro ao ler o arquivo XML. Verifique se é uma NFe válida.");
+            toast.error("Erro ao ler o arquivo XML. Verifique se é uma NFe válida.");
         } finally {
             setIsLoadingXML(false);
             // Reset input
@@ -71,6 +88,37 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
             emissionDate: emissionDate || undefined,
             arrivalDate,
             notes,
+            accessKey,
+            operationNature,
+            protocol,
+            model,
+
+            // Totals from XML (converted to cents/types as needed)
+            calculationBaseICMS: xmlTotals?.vBC,
+            valueICMS: xmlTotals?.vICMS,
+            calculationBaseICMSST: xmlTotals?.vBCST,
+            valueICMSST: xmlTotals?.vST,
+            totalProductsValueCents: xmlTotals?.vProd ? Math.round(xmlTotals.vProd * 100) : undefined,
+            freightValueCents: xmlTotals?.vFrete ? Math.round(xmlTotals.vFrete * 100) : undefined,
+            insuranceValueCents: xmlTotals?.vSeg ? Math.round(xmlTotals.vSeg * 100) : undefined,
+            discountValueCents: xmlTotals?.vDesc ? Math.round(xmlTotals.vDesc * 100) : undefined,
+            otherExpensesValueCents: xmlTotals?.vOutro ? Math.round(xmlTotals.vOutro * 100) : undefined,
+            totalIPIValueCents: xmlTotals?.vIPI ? Math.round(xmlTotals.vIPI * 100) : undefined,
+
+            // Transport from XML
+            freightType: xmlTransport?.modFrete,
+            carrierName: xmlTransport?.carrierName,
+            carrierDocument: xmlTransport?.carrierDocument,
+            // carrierAddress: xmlTransport?.carrierAddress, // Not in CreateEntryData type yet?
+            // carrierCity: xmlTransport?.carrierCity,
+            carrierState: xmlTransport?.carrierState,
+            carrierPlate: xmlTransport?.carrierPlate,
+
+            // Volumes
+            volumeQuantity: xmlTransport?.volQuantity,
+            volumeSpecies: xmlTransport?.volSpecies,
+            grossWeight: xmlTransport?.volGrossWeight,
+            netWeight: xmlTransport?.volNetWeight,
         });
     };
 
@@ -137,6 +185,32 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
                         value={supplierName}
                         onChange={e => setSupplierName(e.target.value)}
                         placeholder="Nome do Fornecedor"
+                    />
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2 md:col-span-2">
+                    <Label>Chave de Acesso</Label>
+                    <Input
+                        value={accessKey}
+                        onChange={e => setAccessKey(e.target.value)}
+                        placeholder="44 dígitos"
+                        maxLength={44}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label>Nat. Operação</Label>
+                    <Input
+                        value={operationNature}
+                        onChange={e => setOperationNature(e.target.value)}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label>Protocolo</Label>
+                    <Input
+                        value={protocol}
+                        onChange={e => setProtocol(e.target.value)}
                     />
                 </div>
             </div>

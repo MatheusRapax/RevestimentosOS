@@ -64,7 +64,7 @@ export function ExitHeaderForm({ onSubmit, isLoading }: ExitHeaderFormProps) {
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                    <Label>Identificação do Destino (Nome do Setor, Paciente, etc)</Label>
+                    <Label>Identificação do Destino (Nome do Setor, Cliente, etc)</Label>
                     <Input
                         value={destinationName}
                         onChange={e => setDestinationName(e.target.value)}

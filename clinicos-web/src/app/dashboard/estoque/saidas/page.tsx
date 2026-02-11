@@ -92,7 +92,7 @@ export default function StockExitsPage() {
                                                 <TableCell>
                                                     {exit.destinationType === 'SECTOR' ? 'Setor' :
                                                         exit.destinationType === 'ROOM' ? 'Sala' :
-                                                            exit.destinationType === 'PATIENT' ? 'Paciente' : exit.destinationType}
+                                                            exit.destinationType === 'PATIENT' ? 'Cliente' : exit.destinationType}
                                                 </TableCell>
                                                 <TableCell>
                                                     {exit.destinationName || '-'}

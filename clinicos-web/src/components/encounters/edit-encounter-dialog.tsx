@@ -106,14 +106,14 @@ export default function EditEncounterDialog({ open, encounter, onClose, onSucces
                     )}
 
                     <div>
-                        <Label htmlFor="edit-patientId">Paciente *</Label>
+                        <Label htmlFor="edit-patientId">Cliente *</Label>
                         <Select
                             value={formData.patientId}
                             onValueChange={(value) => setFormData({ ...formData, patientId: value })}
                             disabled={patientsLoading || isLoading}
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder={patientsLoading ? "Carregando..." : "Selecione o paciente"} />
+                                <SelectValue placeholder={patientsLoading ? "Carregando..." : "Selecione o cliente"} />
                             </SelectTrigger>
                             <SelectContent>
                                 {patients.map((patient) => (

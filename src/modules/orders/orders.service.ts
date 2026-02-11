@@ -55,6 +55,11 @@ export class OrdersService {
                         scheduledDate: true,
                     },
                 },
+                stockReservations: {
+                    include: {
+                        lot: true
+                    }
+                }
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -148,7 +153,7 @@ export class OrdersService {
                     clinicId,
                     currentOrder.customerId,
                     currentOrder.totalCents,
-                    'OUTROS', // Default method, maybe passed from frontend later
+                    'CASH', // Default method, fixed from invalid 'OUTROS'
                     desc,
                     1,
                     userId

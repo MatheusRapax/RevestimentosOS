@@ -56,7 +56,7 @@ export default function PacientesPage() {
             setPatients(response.data);
         } catch (err: any) {
             console.error('Error fetching patients:', err);
-            setError('Erro ao carregar pacientes');
+            setError('Erro ao carregar clientes');
         } finally {
             setIsLoading(false);
         }
@@ -96,10 +96,10 @@ export default function PacientesPage() {
 
             setShowDeleteConfirm(false);
             setDeletingId(null);
-            setSuccessMessage('Paciente excluído com sucesso!');
+            setSuccessMessage('Cliente excluído com sucesso!');
         } catch (err: any) {
             console.error('Error deleting patient:', err);
-            setError(err.response?.data?.message || 'Erro ao excluir paciente');
+            setError(err.response?.data?.message || 'Erro ao excluir cliente');
         } finally {
             setLoadingAction(null);
         }
@@ -143,12 +143,12 @@ export default function PacientesPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Pacientes</h1>
-                    <p className="text-gray-600 mt-1">Gerencie o cadastro de pacientes</p>
+                    <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
+                    <p className="text-gray-600 mt-1">Gerencie o cadastro de clientes</p>
                 </div>
                 <Button onClick={() => setIsCreateDialogOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Novo Paciente
+                    Novo Cliente
                 </Button>
             </div>
 
@@ -164,14 +164,14 @@ export default function PacientesPage() {
                         <Users className="h-16 w-16 mx-auto" />
                     </div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        Nenhum paciente cadastrado
+                        Nenhum cliente cadastrado
                     </h3>
                     <p className="text-gray-600 mb-4">
-                        Comece adicionando um novo paciente
+                        Comece adicionando um novo cliente
                     </p>
                     <Button onClick={() => setIsCreateDialogOpen(true)}>
                         <Plus className="mr-2 h-4 w-4" />
-                        Adicionar Paciente
+                        Adicionar Cliente
                     </Button>
                 </Card>
             ) : (
@@ -255,7 +255,7 @@ export default function PacientesPage() {
                 onSuccess={() => {
                     setIsCreateDialogOpen(false);
                     fetchPatients();
-                    setSuccessMessage('Paciente criado com sucesso!');
+                    setSuccessMessage('Cliente criado com sucesso!');
                 }}
             />
 
@@ -271,7 +271,7 @@ export default function PacientesPage() {
                     setIsEditDialogOpen(false);
                     setEditingPatient(null);
                     fetchPatients();
-                    setSuccessMessage('Paciente atualizado com sucesso!');
+                    setSuccessMessage('Cliente atualizado com sucesso!');
                 }}
             />
 
@@ -279,9 +279,9 @@ export default function PacientesPage() {
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Excluir Paciente</DialogTitle>
+                        <DialogTitle>Excluir Cliente</DialogTitle>
                         <DialogDescription>
-                            Tem certeza que deseja excluir este paciente?
+                            Tem certeza que deseja excluir este cliente?
                             Esta ação não pode ser desfeita.
                         </DialogDescription>
                     </DialogHeader>

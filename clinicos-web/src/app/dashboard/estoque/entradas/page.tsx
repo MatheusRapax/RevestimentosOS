@@ -8,12 +8,23 @@ import { Badge } from '@/components/ui/badge';
 import { useStockEntries } from '@/hooks/useStockEntries';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Loader2, Plus, FileText, ExternalLink } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, Loader2, Plus, FileText, ExternalLink, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export default function StockEntriesPage() {
-    const { entries, fetchEntries, isLoading } = useStockEntries();
+    const { entries, fetchEntries, isLoading, deleteEntry } = useStockEntries();
     const router = useRouter();
 
     useEffect(() => {
@@ -71,7 +82,7 @@ export default function StockEntriesPage() {
                                         <TableHead>Fornecedor</TableHead>
                                         <TableHead>Valor Total</TableHead>
                                         <TableHead>Status</TableHead>
-                                        <TableHead className="w-[100px]"></TableHead>
+                                        <TableHead className="w-[120px] text-right">Ações</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -106,13 +117,48 @@ export default function StockEntriesPage() {
                                                     {getStatusBadge(entry.status)}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => router.push(`/dashboard/estoque/entradas/${entry.id}`)}
-                                                    >
-                                                        <ExternalLink className="h-4 w-4" />
-                                                    </Button>
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => router.push(`/dashboard/estoque/entradas/${entry.id}`)}
+                                                            title="Abrir detalhes"
+                                                        >
+                                                            <ExternalLink className="h-4 w-4" />
+                                                        </Button>
+
+                                                        {entry.status === 'DRAFT' && (
+                                                            <AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                                                        title="Excluir rascunho"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>Excluir Rascunho?</AlertDialogTitle>
+                                                                        <AlertDialogDescription>
+                                                                            Esta ação não pode ser desfeita. O rascunho de entrada <strong>{entry.invoiceNumber ? `NF ${entry.invoiceNumber}` : 'Sem número'}</strong> e todos os seus itens serão removidos permanentemente.
+                                                                        </AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                        <AlertDialogAction
+                                                                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                                                                            onClick={() => deleteEntry(entry.id)}
+                                                                        >
+                                                                            Excluir
+                                                                        </AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))

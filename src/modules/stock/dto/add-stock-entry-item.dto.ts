@@ -24,4 +24,46 @@ export class AddStockEntryItemDto {
     @IsString()
     @IsOptional()
     manufacturer?: string;
+
+    // --- Fiscal Classification ---
+    @IsString()
+    @IsOptional()
+    ncm?: string;
+
+    @IsString()
+    @IsOptional()
+    cfop?: string;
+
+    @IsString()
+    @IsOptional()
+    cst?: string;
+
+    // --- Fiscal Values ---
+    @IsNumber()
+    @IsOptional()
+    discountValueCents?: number;
+
+    @IsNumber()
+    @IsOptional()
+    freightValueCents?: number;
+
+    @IsNumber()
+    @IsOptional()
+    insuranceValueCents?: number;
+
+    @IsNumber()
+    @IsOptional()
+    valueICMS?: number;
+
+    @IsNumber()
+    @IsOptional()
+    rateICMS?: number;
+
+    @IsNumber()
+    @IsOptional()
+    valueIPI?: number;
+
+    @IsNumber()
+    @IsOptional()
+    rateIPI?: number;
 }

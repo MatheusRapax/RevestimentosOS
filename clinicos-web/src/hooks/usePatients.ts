@@ -24,7 +24,7 @@ export function usePatients() {
                 setError('');
             } catch (err) {
                 console.error('Error fetching patients:', err);
-                setError('Erro ao carregar pacientes');
+                setError('Erro ao carregar clientes');
                 setPatients([]);
             } finally {
                 setIsLoading(false);

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -117,7 +118,7 @@ export default function ProceduresPage() {
             setIsDialogOpen(false);
             await fetchData();
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Erro ao salvar');
+            toast.error(err.response?.data?.message || 'Erro ao salvar');
         } finally {
             setSaving(false);
         }
@@ -129,7 +130,7 @@ export default function ProceduresPage() {
             await api.delete(`/procedures/${id}`);
             await fetchData();
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Erro ao remover');
+            toast.error(err.response?.data?.message || 'Erro ao remover');
         }
     };
 
@@ -148,7 +149,7 @@ export default function ProceduresPage() {
             if (updated) setSelectedProcedure(updated);
             setNewConsumable({ productId: '', quantity: 1 });
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Erro ao adicionar');
+            toast.error(err.response?.data?.message || 'Erro ao adicionar');
         }
     };
 
@@ -158,7 +159,7 @@ export default function ProceduresPage() {
             await api.delete(`/procedures/${selectedProcedure.id}/consumables/${productId}`);
             await fetchData();
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Erro ao remover');
+            toast.error(err.response?.data?.message || 'Erro ao remover');
         }
     };
 

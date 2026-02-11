@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -45,6 +46,7 @@ interface Quote {
 }
 
 export default function OrcamentosPage() {
+    const queryClient = useQueryClient();
     const [quotes, setQuotes] = useState<Quote[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -160,9 +162,29 @@ export default function OrcamentosPage() {
             setLoadingAction(quoteId);
             await api.post(`/quotes/${quoteId}/convert`);
             setSuccessMessage('Pedido criado com sucesso!');
+
+            // Invalidate orders cache to ensure they appear in the orders list
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+
             fetchQuotes();
         } catch (err: any) {
             setError(err.response?.data?.message || 'Erro ao converter orçamento');
+        } finally {
+            setLoadingAction(null);
+        }
+    };
+
+    const handleOpenPdf = async (quoteId: string) => {
+        try {
+            setLoadingAction(quoteId);
+            const response = await api.get(`/quotes/${quoteId}/pdf`, {
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            window.open(url, '_blank');
+        } catch (err: any) {
+            console.error('Error opening PDF:', err);
+            setError(err.response?.data?.message || 'Erro ao abrir PDF');
         } finally {
             setLoadingAction(null);
         }
@@ -173,17 +195,17 @@ export default function OrcamentosPage() {
         const isLoading = loadingAction === quote.id;
 
         buttons.push(
-            <a
+            <Button
                 key="pdf"
-                href={`${process.env.NEXT_PUBLIC_API_URL}/quotes/${quote.id}/pdf`}
-                target="_blank"
-                rel="noopener noreferrer"
+                size="sm"
+                variant="outline"
+                title="Abrir PDF"
+                onClick={() => handleOpenPdf(quote.id)}
+                disabled={isLoading}
             >
-                <Button size="sm" variant="outline" title="Gerar PDF">
-                    <FileText className="h-3 w-3 mr-1" />
-                    PDF
-                </Button>
-            </a>
+                <FileText className="h-3 w-3 mr-1" />
+                PDF
+            </Button>
         );
 
         buttons.push(

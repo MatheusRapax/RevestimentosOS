@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, Param, Delete, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Delete, Query, UseGuards, Request } from '@nestjs/common';
 import { StockEntryService } from './stock-entry.service';
 import { CreateStockEntryDto } from './dto/create-stock-entry.dto';
+import { UpdateStockEntryDto } from './dto/update-stock-entry.dto';
 import { AddStockEntryItemDto } from './dto/add-stock-entry-item.dto';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
@@ -15,14 +16,24 @@ export class StockEntryController {
         return this.service.createDraft(req.clinicId, dto, req.user.id);
     }
 
+    @Patch(':id')
+    update(@Request() req: any, @Param('id') id: string, @Body() dto: UpdateStockEntryDto) {
+        return this.service.update(req.clinicId, id, dto);
+    }
+
     @Post('from-po/:poId')
     createFromPO(@Request() req: any, @Param('poId') poId: string) {
         return this.service.createFromPurchaseOrder(req.clinicId, poId, req.user.id);
     }
 
     @Get()
-    findAll(@Request() req: any, @Query('page') page: number) {
-        return this.service.listEntries(req.clinicId, page ? Number(page) : 1);
+    findAll(
+        @Request() req: any,
+        @Query('page') page: number,
+        @Query('limit') limit: number,
+        @Query('status') status: string,
+    ) {
+        return this.service.listEntries(req.clinicId, page ? Number(page) : 1, limit ? Number(limit) : 20, status);
     }
 
     @Get(':id')
@@ -48,5 +59,10 @@ export class StockEntryController {
     @Post(':id/cancel')
     cancel(@Request() req: any, @Param('id') id: string) {
         return this.service.cancelEntry(req.clinicId, id);
+    }
+
+    @Delete(':id')
+    delete(@Request() req: any, @Param('id') id: string) {
+        return this.service.deleteEntry(req.clinicId, id);
     }
 }

@@ -16,6 +16,17 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
     ArrowDownLeft,
     ArrowUpRight,
     Search,
@@ -30,6 +41,7 @@ import { formatDate } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface StockMovement {
     id: string;
@@ -99,6 +111,17 @@ export default function MovimentacoesPage() {
         fetchMovements();
         fetchPendingItems();
     }, [type, page, search]);
+
+    const handleDeleteEntry = async (id: string) => {
+        try {
+            await api.delete(`/stock/entries/${id}`);
+            fetchPendingItems();
+        } catch (error: any) {
+            console.error('Erro ao excluir rascunho:', error);
+            const msg = error.response?.data?.message || 'Erro ao excluir rascunho. Tente novamente.';
+            toast.error(msg);
+        }
+    };
 
     const fetchMovements = async () => {
         setIsLoading(true);
@@ -221,6 +244,37 @@ export default function MovimentacoesPage() {
                                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(entry.totalValue)}
                                                         </span>
                                                     )}
+
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                                                                title="Excluir rascunho"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Excluir Rascunho?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Esta ação não pode ser desfeita. O rascunho de entrada <strong>{entry.invoiceNumber ? `NF ${entry.invoiceNumber}` : 'Sem número'}</strong> e todos os seus itens serão removidos permanentemente.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                <AlertDialogAction
+                                                                    className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                                                                    onClick={() => handleDeleteEntry(entry.id)}
+                                                                >
+                                                                    Excluir
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+
                                                     <Button
                                                         size="sm"
                                                         onClick={() => router.push(`/dashboard/estoque/entradas/${entry.id}`)}
@@ -256,7 +310,7 @@ export default function MovimentacoesPage() {
                                                         <p className="font-medium">
                                                             Saída - {exit.destinationType === 'SECTOR' ? 'Setor' :
                                                                 exit.destinationType === 'ROOM' ? 'Sala' :
-                                                                    exit.destinationType === 'PATIENT' ? 'Paciente' :
+                                                                    exit.destinationType === 'PATIENT' ? 'Cliente' :
                                                                         exit.destinationType === 'ORDER' ? 'Pedido' : exit.destinationType}
                                                         </p>
                                                         <p className="text-sm text-muted-foreground">

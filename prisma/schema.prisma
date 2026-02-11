@@ -594,10 +594,41 @@ model StockEntry {
   supplierId    String?
   supplierName  String? // Denormalized name or free text if no Supplier model yet
 
+  // --- Fiscal Identifiers ---
+  accessKey       String?   @unique // Chave de acesso 44 dígitos
+  operationNature String?   // Natureza da Operação
+  protocol        String?   // Protocolo de Autorização
+  model           String?   @default("55") // Modelo (55=NF-e)
+
+  // --- Fiscal Totals (All in Cents) ---
+  calculationBaseICMS     Int? @default(0)
+  valueICMS               Int? @default(0)
+  calculationBaseICMSST   Int? @default(0)
+  valueICMSST             Int? @default(0)
+  totalProductsValueCents Int? @default(0) // Valor total dos produtos (sem impostos/add)
+  freightValueCents       Int? @default(0) // Valor do Frete
+  insuranceValueCents     Int? @default(0) // Valor do Seguro
+  discountValueCents      Int? @default(0) // Valor do Desconto
+  otherExpensesValueCents Int? @default(0) // Outras Despesas Acessórias
+  totalIPIValueCents      Int? @default(0) // Valor Total do IPI
+
+  // --- Transport / Logistics ---
+  freightType     Int?    // 0=Remetente(CIF), 1=Destinatário(FOB), 9=Sem Frete
+  carrierName     String? // Nome do Transportador
+  carrierDocument String? // CPF/CNPJ do Transportador
+  carrierPlate    String? // Placa do Veículo
+  carrierState    String? // UF do Veículo
+  
+  // --- Volumes ---
+  volumeQuantity  Int?    // Quantidade de volumes
+  volumeSpecies   String? // Espécie (Caixas, Paletes)
+  grossWeight     Float?  // Peso Bruto (kg)
+  netWeight       Float?  // Peso Líquido (kg)
+
   emissionDate DateTime?
   arrivalDate  DateTime  @default(now())
 
-  totalValue Float? // Sum of items
+  totalValue Float? // Sum of items (Legacy - consider deprecating or syncing with totalNoteValue)
   notes      String?
 
   createdAt   DateTime  @default(now())
@@ -618,8 +649,24 @@ model StockEntryItem {
   productId    String
 
   quantity  Float
-  unitCost  Float? // Cost per unit
-  totalCost Float? // quantity * unitCost
+  unitCost  Float? // Cost per unit (legacy float)
+  totalCost Float? // quantity * unitCost (legacy float)
+
+  // --- Fiscal Classification ---
+  ncm     String? // Nomenclatura Comum do Mercosul
+  cfop    String? // Código Fiscal de Operações e Prestações (e.g. 5102, 1102)
+  cst     String? // Código de Situação Tributária
+  
+  // --- Item Values ---
+  discountValueCents Int? @default(0)
+  freightValueCents  Int? @default(0)
+  insuranceValueCents Int? @default(0)
+  
+  // --- Tax Values per Item ---
+  valueICMS     Int? @default(0)
+  rateICMS      Float? @default(0)
+  valueIPI      Int? @default(0)
+  rateIPI       Float? @default(0)
 
   lotNumber      String?
   expirationDate DateTime?

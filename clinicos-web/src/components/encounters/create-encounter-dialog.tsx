@@ -88,14 +88,14 @@ export default function CreateEncounterDialog({ open, onClose, onSuccess }: Prop
                     )}
 
                     <div>
-                        <Label htmlFor="patientId">Paciente *</Label>
+                        <Label htmlFor="patientId">Cliente *</Label>
                         <Select
                             value={formData.patientId}
                             onValueChange={(value) => setFormData({ ...formData, patientId: value })}
                             disabled={patientsLoading || isLoading}
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder={patientsLoading ? "Carregando..." : "Selecione o paciente"} />
+                                <SelectValue placeholder={patientsLoading ? "Carregando..." : "Selecione o cliente"} />
                             </SelectTrigger>
                             <SelectContent>
                                 {patients.map((patient) => (

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -18,8 +19,26 @@ import {
     Send,
     Printer,
     Building2,
-    Clock
+    Clock,
+    Download
 } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogFooter,
+} from '@/components/ui/dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { useQuoteTemplates } from '@/hooks/useQuoteTemplates';
 
 interface QuoteItem {
     id: string;
@@ -111,11 +130,25 @@ function formatDate(dateStr: string): string {
 export default function QuoteDetailPage() {
     const params = useParams();
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [quote, setQuote] = useState<Quote | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
+
+    // Print Dialog State
+    const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+    const { templates, isLoading: isLoadingTemplates } = useQuoteTemplates();
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+
+    // Set default template when templates load
+    useEffect(() => {
+        if (templates.length > 0 && !selectedTemplateId) {
+            const def = templates.find(t => t.isDefault);
+            setSelectedTemplateId(def ? def.id : templates[0].id);
+        }
+    }, [templates, selectedTemplateId]);
 
     const fetchQuote = async () => {
         try {
@@ -168,6 +201,11 @@ export default function QuoteDetailPage() {
         try {
             setActionLoading('convert');
             const response = await api.post(`/quotes/${quote.id}/convert`);
+
+            // Invalidate orders cache to force refresh on next visit
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+            queryClient.invalidateQueries({ queryKey: ['quotes'] }); // Also refresh quotes list if needed elsewhere
+
             router.push(`/dashboard/pedidos`);
         } catch (err: any) {
             setError(err.response?.data?.message || 'Erro ao converter orçamento em pedido');
@@ -180,21 +218,28 @@ export default function QuoteDetailPage() {
         if (!quote) return;
         try {
             setActionLoading('pdf');
+            // Use selected template or default
+            const templateId = selectedTemplateId;
+
             const response = await api.get(`/quotes/${quote.id}/pdf`, {
+                params: { templateId },
                 responseType: 'blob'
             });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `orcamento-${quote.number}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            window.open(url, '_blank');
+            setIsPrintDialogOpen(false);
         } catch (err: any) {
             setError(err.response?.data?.message || 'Erro ao gerar PDF');
         } finally {
             setActionLoading(null);
         }
+    };
+
+    const handlePrint = () => {
+        if (!quote) return;
+        const url = `/dashboard/orcamentos/${quote.id}/print?templateId=${selectedTemplateId}`;
+        window.open(url, '_blank');
+        setIsPrintDialogOpen(false);
     };
 
     const handleCheckAvailability = async () => {
@@ -301,10 +346,63 @@ export default function QuoteDetailPage() {
             {/* Actions */}
             <Card className="p-4">
                 <div className="flex flex-wrap gap-2">
-                    <Button onClick={handleDownloadPdf} variant="outline" disabled={actionLoading === 'pdf'}>
-                        <Printer className="mr-2 h-4 w-4" />
-                        {actionLoading === 'pdf' ? 'Gerando...' : 'Baixar PDF'}
-                    </Button>
+                    <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="outline">
+                                <Printer className="mr-2 h-4 w-4" />
+                                Imprimir / PDF
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Imprimir Orçamento</DialogTitle>
+                                <DialogDescription>
+                                    Escolha o modelo de impressão e o formato desejado.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="py-4">
+                                <label className="text-sm font-medium mb-2 block">Modelo de Layout</label>
+                                <Select
+                                    value={selectedTemplateId}
+                                    onValueChange={setSelectedTemplateId}
+                                    disabled={isLoadingTemplates}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione um modelo" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {templates.map(t => (
+                                            <SelectItem key={t.id} value={t.id}>
+                                                {t.name} {t.isDefault && '(Padrão)'}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <DialogFooter className="flex gap-2 sm:justify-start">
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={handlePrint}
+                                    className="flex-1"
+                                >
+                                    <Printer className="mr-2 h-4 w-4" />
+                                    Imprimir
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={handleDownloadPdf}
+                                    disabled={actionLoading === 'pdf'}
+                                    className="flex-1"
+                                >
+                                    <Download className="mr-2 h-4 w-4" />
+                                    {actionLoading === 'pdf' ? 'Gerando PDF...' : 'Baixar PDF'}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     {quote.status === 'EM_ORCAMENTO' && (
                         <Button onClick={handleSendQuote} variant="outline" disabled={actionLoading === 'send'}>

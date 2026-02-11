@@ -25,6 +25,7 @@ import {
     X,
     DoorOpen,
 } from 'lucide-react';
+import { toast } from "sonner";
 import CreateAppointmentDialog from '@/components/agenda/create-appointment-dialog';
 
 interface Appointment {
@@ -204,7 +205,7 @@ export default function DayAgendaPage() {
         if (workingHours) {
             // Day is closed
             if (!workingHours.isOpen) {
-                return { blocked: true, reason: 'Clínica fechada neste dia' };
+                return { blocked: true, reason: 'Loja fechada neste dia' };
             }
 
             // Check if time is within working hours
@@ -239,7 +240,7 @@ export default function DayAgendaPage() {
             await fetchData();
             setSelectedAppointment(null);
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Erro ao fazer check-in');
+            toast.error(err.response?.data?.message || 'Erro ao fazer check-in');
         } finally {
             setActionLoading(null);
         }
@@ -252,7 +253,7 @@ export default function DayAgendaPage() {
             const res = await api.post(`/appointments/${selectedAppointment.id}/start-encounter`);
             router.push(`/dashboard/atendimentos/${res.data.id}`);
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Erro ao iniciar atendimento');
+            toast.error(err.response?.data?.message || 'Erro ao iniciar atendimento');
         } finally {
             setActionLoading(null);
         }
@@ -272,7 +273,7 @@ export default function DayAgendaPage() {
             await fetchData();
             setSelectedAppointment(null);
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Erro ao cancelar');
+            toast.error(err.response?.data?.message || 'Erro ao cancelar');
         } finally {
             setActionLoading(null);
         }
@@ -472,7 +473,7 @@ export default function DayAgendaPage() {
                                 <div className="flex items-center gap-3">
                                     <User className="h-5 w-5 text-gray-400" />
                                     <div>
-                                        <p className="text-sm text-gray-500">Paciente</p>
+                                        <p className="text-sm text-gray-500">Cliente</p>
                                         <p className="font-medium">{selectedAppointment.patient.name}</p>
                                     </div>
                                 </div>
@@ -577,7 +578,7 @@ export default function DayAgendaPage() {
                     <div className="py-4">
                         <p>Tem certeza que deseja cancelar este agendamento?</p>
                         <p className="text-sm text-gray-500 mt-2">
-                            Paciente: <strong>{selectedAppointment?.patient.name}</strong>
+                            Cliente: <strong>{selectedAppointment?.patient.name}</strong>
                         </p>
                     </div>
                     <DialogFooter className="gap-2">

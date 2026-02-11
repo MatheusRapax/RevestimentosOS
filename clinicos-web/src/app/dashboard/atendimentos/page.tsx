@@ -166,7 +166,7 @@ export default function AtendimentosPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Atendimentos</h1>
-                    <p className="text-gray-600 mt-1">Gerencie os atendimentos da clínica</p>
+                    <p className="text-gray-600 mt-1">Gerencie os atendimentos da loja</p>
                 </div>
                 <Button onClick={() => setIsCreateDialogOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" />
@@ -206,7 +206,7 @@ export default function AtendimentosPage() {
                                         Data/Hora
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Paciente
+                                        Cliente
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Profissional

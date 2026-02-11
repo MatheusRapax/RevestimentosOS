@@ -114,7 +114,7 @@ export class StockExitService {
         });
 
         const totalStock = product?.lots.reduce((acc, lot) => acc + lot.quantity, 0) || 0;
-        if (totalStock < dto.quantity) throw new BadRequestException(`Estoque insuficiente. Disponível: ${totalStock}`);
+        if (totalStock < dto.quantity) throw new BadRequestException(`Estoque insuficiente. Disponível: ${totalStock}, Solicitado: ${dto.quantity}`);
 
         return this.prisma.stockExitItem.create({
             data: {
@@ -172,8 +172,8 @@ export class StockExitService {
         });
 
         if (!exit) throw new NotFoundException('Saída não encontrada');
-        if (exit.status !== ExitStatus.DRAFT) throw new BadRequestException('Saída não está em rascunho');
-        if (exit.items.length === 0) throw new BadRequestException('Saída vazia');
+        if (exit.status !== ExitStatus.DRAFT) throw new BadRequestException('Esta saída já foi confirmada e não pode ser processada novamente.');
+        if (exit.items.length === 0) throw new BadRequestException('A saída não possui itens. Adicione produtos antes de confirmar.');
 
         return this.prisma.$transaction(async (tx) => {
             // 1. Mark Exit as CONFIRMED
@@ -206,7 +206,7 @@ export class StockExitService {
 
                 const totalAvailable = lots.reduce((acc, l) => acc + l.quantity, 0);
                 if (totalAvailable < remainingQty) {
-                    throw new BadRequestException(`Estoque insuficiente para item ${item.productId}`);
+                    throw new BadRequestException(`Estoque insuficiente para o item (Lote/Produto).`);
                 }
 
                 // Deduct from lots

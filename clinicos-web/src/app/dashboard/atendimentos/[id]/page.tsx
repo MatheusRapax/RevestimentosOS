@@ -387,7 +387,7 @@ function EncounterDetailContent() {
                             <User className="h-5 w-5 text-blue-600" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">Paciente</p>
+                            <p className="text-sm text-gray-500">Cliente</p>
                             <p className="font-semibold text-gray-900">{encounter.patient.name}</p>
                             {encounter.patient.phone && (
                                 <p className="text-sm text-gray-500">{encounter.patient.phone}</p>
@@ -429,7 +429,7 @@ function EncounterDetailContent() {
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                         <ClipboardList className="h-5 w-5 text-teal-600" />
-                        <h2 className="text-lg font-semibold text-gray-900">Nota Clínica (SOAP)</h2>
+                        <h2 className="text-lg font-semibold text-gray-900">Anotações (SOAP)</h2>
                     </div>
                     {!isOpen && (
                         <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600 flex items-center gap-1">

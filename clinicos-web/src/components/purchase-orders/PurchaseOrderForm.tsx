@@ -127,21 +127,44 @@ export default function PurchaseOrderForm({ initialData, isEditing = false, onSu
 
         const order = salesOrders.find((o: any) => o.id === orderId);
         if (order && order.items) {
+            let skippedCount = 0;
+            let adjustedCount = 0;
+
             const importedItems: PurchaseItem[] = order.items.map((item: any) => {
                 const product = products.find((p: Product) => p.id === item.product.id);
                 const priceCents = product ? product.priceCents : 0;
 
+                // Calculate reserved quantity for this product in this order
+                const reservedQty = order.stockReservations?.filter((res: any) =>
+                    res.lot?.productId === item.product.id && res.status === 'ACTIVE'
+                ).reduce((sum: number, res: any) => sum + res.quantity, 0) || 0;
+
+                const originalQty = item.quantityBoxes || 0;
+                const neededQty = Math.max(0, originalQty - reservedQty);
+
+                if (neededQty === 0) skippedCount++;
+                else if (neededQty < originalQty) adjustedCount++;
+
+                if (neededQty === 0) return null;
+
                 return {
                     productId: item.product.id,
                     productName: `${item.product.name} (${item.product.sku})`,
-                    quantity: item.quantityBoxes || 0,
+                    quantity: neededQty,
                     unitPriceCents: priceCents,
-                    totalCents: priceCents * (item.quantityBoxes || 0),
+                    totalCents: priceCents * neededQty,
                 };
-            });
+            }).filter(Boolean); // Remove nulls
 
             setItems(importedItems);
-            toast.success(`Itens importados do Pedido #${order.number}`);
+
+            if (skippedCount > 0 || adjustedCount > 0) {
+                toast.info(
+                    `Importação inteligente aplicada: ${skippedCount} itens totalmente em estoque e ${adjustedCount} com quantidades ajustadas.`
+                );
+            } else {
+                toast.success(`Itens importados do Pedido #${order.number}`);
+            }
         }
     };
 

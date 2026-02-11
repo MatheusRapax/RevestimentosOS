@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface Order {
     id: string;
@@ -111,7 +112,7 @@ export default function EntregasPage() {
             fetchData();
         } catch (error) {
             console.error('Error creating delivery:', error);
-            alert('Erro ao agendar entrega');
+            toast.error('Erro ao agendar entrega');
         }
     };
 

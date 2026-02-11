@@ -4,7 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { Package, AlertTriangle, CheckCircle, XCircle, Calendar, Layers } from "lucide-react";
+import { Package, AlertTriangle, CheckCircle, XCircle, Calendar, Layers, Box, Truck, BarChart3, Info } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ProductDetailsSheetProps {
     product: any;
@@ -21,179 +23,228 @@ export function ProductDetailsSheet({ product, isOpen, onClose }: ProductDetails
 
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent className="w-[400px] sm:w-[540px]">
-                <SheetHeader className="mb-6">
-                    <SheetTitle className="text-xl">{product.name}</SheetTitle>
-                    <SheetDescription>
-                        SKU: {product.sku || '-'} | Unidade: {product.unit || '-'}
-                    </SheetDescription>
-                </SheetHeader>
-
-                <ScrollArea className="h-[calc(100vh-120px)] pr-4">
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                        <div className="p-4 bg-gray-50 rounded-lg border">
-                            <span className="text-sm text-gray-500 block mb-1">Físico</span>
-                            <span className="text-2xl font-bold flex items-center gap-2">
-                                <Package className="h-5 w-5 text-gray-400" />
-                                {totalStock}
-                            </span>
-                        </div>
-                        <div className="p-4 bg-green-50 rounded-lg border border-green-100">
-                            <span className="text-sm text-green-700 block mb-1">Disponível</span>
-                            <span className="text-2xl font-bold text-green-700 flex items-center gap-2">
-                                <CheckCircle className="h-5 w-5" />
-                                {availableStock}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Reservation Warning */}
-                    {totalReserved > 0 && (
-                        <div className="p-4 mb-6 bg-orange-50 rounded-lg border border-orange-100 flex items-start gap-3">
-                            <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5" />
-                            <div>
-                                <h4 className="font-semibold text-orange-800">Estoque Reservado: {totalReserved}</h4>
-                                <p className="text-sm text-orange-700 mt-1">
-                                    Há itens comprometidos em orçamentos ou pedidos pendentes.Veja os detalhes por lote abaixo.
-                                </p>
+            <SheetContent className="w-[500px] sm:w-[640px] flex flex-col h-full shadow-2xl border-l-[3px] border-l-gray-100 p-0">
+                <SheetHeader className="px-6 py-4 border-b">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <SheetTitle className="text-2xl font-bold text-gray-900">{product.name}</SheetTitle>
+                            <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+                                <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-700 font-medium">SKU: {product.sku || '-'}</span>
+                                {product.unit && <span>| Unidade: {product.unit}</span>}
                             </div>
                         </div>
-                    )}
+                    </div>
+                    {/* Tags / Badges */}
+                    <div className="flex flex-wrap gap-2 mt-3">
+                        {product.format && <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100">{product.format}</Badge>}
+                        {product.line && <Badge variant="outline" className="border-gray-300 text-gray-700">{product.line}</Badge>}
+                        {product.usage && <Badge variant="outline" className="border-gray-300 text-gray-700">{product.usage}</Badge>}
+                    </div>
+                </SheetHeader>
 
-                    {/* Product Details */}
-                    <div className="space-y-3 mb-6">
-                        <h4 className="font-medium text-gray-700">Detalhes do Produto</h4>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                            {product.format && (
-                                <div className="bg-gray-50 p-2 rounded">
-                                    <span className="text-gray-500 block text-xs">Formato</span>
-                                    <span className="font-medium">{product.format}</span>
-                                </div>
-                            )}
-                            {product.line && (
-                                <div className="bg-gray-50 p-2 rounded">
-                                    <span className="text-gray-500 block text-xs">Linha</span>
-                                    <span className="font-medium">{product.line}</span>
-                                </div>
-                            )}
-                            {product.usage && (
-                                <div className="bg-gray-50 p-2 rounded">
-                                    <span className="text-gray-500 block text-xs">Uso</span>
-                                    <span className="font-medium">{product.usage}</span>
-                                </div>
-                            )}
-                            {product.boxCoverage && (
-                                <div className="bg-gray-50 p-2 rounded">
-                                    <span className="text-gray-500 block text-xs">m² por Caixa</span>
-                                    <span className="font-medium">{product.boxCoverage} m²</span>
-                                </div>
-                            )}
-                            {product.piecesPerBox && (
-                                <div className="bg-gray-50 p-2 rounded">
-                                    <span className="text-gray-500 block text-xs">Peças por Caixa</span>
-                                    <span className="font-medium">{product.piecesPerBox}</span>
-                                </div>
-                            )}
-                            {product.palletBoxes && (
-                                <div className="bg-gray-50 p-2 rounded">
-                                    <span className="text-gray-500 block text-xs">Caixas por Palete</span>
-                                    <span className="font-medium">{product.palletBoxes}</span>
-                                </div>
-                            )}
-                            {product.boxWeight && (
-                                <div className="bg-gray-50 p-2 rounded">
-                                    <span className="text-gray-500 block text-xs">Peso da Caixa</span>
-                                    <span className="font-medium">{product.boxWeight} kg</span>
-                                </div>
-                            )}
-                            {product.costCents && (
-                                <div className="bg-gray-50 p-2 rounded">
-                                    <span className="text-gray-500 block text-xs">Custo</span>
-                                    <span className="font-medium">R$ {(product.costCents / 100).toFixed(2)}</span>
-                                </div>
-                            )}
-                        </div>
+                <Tabs defaultValue="overview" className="flex-1 flex flex-col min-h-0">
+                    <div className="px-6 pt-4">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+                            <TabsTrigger value="lots">Lotes e Estoque</TabsTrigger>
+                        </TabsList>
                     </div>
 
-                    <Separator className="my-6" />
-
-                    <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                        <Layers className="h-5 w-5" /> Detalhes dos Lotes
-                    </h3>
-
-                    <div className="space-y-4">
-                        {product.lots?.map((lot: any) => {
-                            const lotReserved = lot.reservations?.reduce((acc: number, r: any) => acc + r.quantity, 0) || 0;
-                            const lotAvailable = lot.quantity - lotReserved;
-
-                            return (
-                                <div key={lot.id} className="border rounded-lg p-4 space-y-3">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <div className="font-medium text-lg text-blue-700">{lot.lotNumber}</div>
-                                            <div className="text-sm text-gray-500 mt-1 flex gap-2">
-                                                {lot.shade && <Badge variant="outline">Ton: {lot.shade}</Badge>}
-                                                {lot.caliber && <Badge variant="outline">Cal: {lot.caliber}</Badge>}
+                    <ScrollArea className="flex-1 h-full">
+                        <div className="px-6 pb-6 pt-4">
+                            <TabsContent value="overview" className="space-y-6 mt-0">
+                                {/* Stock KPI Cards */}
+                                <div className="grid grid-cols-3 gap-3">
+                                    <Card className="bg-gray-50 border-gray-200 shadow-sm">
+                                        <div className="p-3">
+                                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Físico</p>
+                                            <div className="flex items-center gap-2">
+                                                <Package className="h-5 w-5 text-gray-400" />
+                                                <span className="text-2xl font-bold text-gray-900">{totalStock}</span>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <div className="text-sm text-gray-500">Validade</div>
-                                            <div className="font-medium flex items-center gap-1 justify-end">
-                                                <Calendar className="h-3 w-3" />
-                                                {format(new Date(lot.expirationDate), 'dd/MM/yyyy')}
+                                    </Card>
+                                    <Card className="bg-orange-50 border-orange-100 shadow-sm">
+                                        <div className="p-3">
+                                            <p className="text-xs font-medium text-orange-600 uppercase tracking-wider mb-1">Reservado</p>
+                                            <div className="flex items-center gap-2">
+                                                <AlertTriangle className="h-5 w-5 text-orange-500" />
+                                                <span className="text-2xl font-bold text-orange-700">{totalReserved}</span>
                                             </div>
+                                        </div>
+                                    </Card>
+                                    <Card className="bg-green-50 border-green-100 shadow-sm">
+                                        <div className="p-3">
+                                            <p className="text-xs font-medium text-green-600 uppercase tracking-wider mb-1">Disponível</p>
+                                            <div className="flex items-center gap-2">
+                                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                                <span className="text-2xl font-bold text-green-700">{availableStock}</span>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                </div>
+
+                                {totalReserved > 0 && (
+                                    <div className="p-3 bg-orange-50 rounded-md border border-orange-100 text-sm text-orange-800 flex items-start gap-2">
+                                        <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                        <p>Há <strong>{totalReserved}</strong> itens reservados em orçamentos ou pedidos pendentes. Verifique a aba <strong>Lotes e Estoque</strong> para detalhes.</p>
+                                    </div>
+                                )}
+
+                                <Separator />
+
+                                {/* Details Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Dimensional Specs */}
+                                    <div className="space-y-3">
+                                        <h4 className="font-semibold text-gray-900 flex items-center gap-2 text-sm">
+                                            <Layers className="h-4 w-4 text-gray-500" />
+                                            Especificações
+                                        </h4>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <DetailItem label="Formato" value={product.format} />
+                                            <DetailItem label="Linha" value={product.line} />
+                                            <DetailItem label="Uso" value={product.usage} />
+                                            <DetailItem label="Superfície" value={product.surface || '-'} />
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-3 gap-2 py-2 bg-gray-50 rounded text-center text-sm">
-                                        <div>
-                                            <span className="block text-gray-500 text-xs">Total</span>
-                                            <span className="font-medium">{lot.quantity}</span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-orange-600 text-xs">Reservado</span>
-                                            <span className="font-medium text-orange-600">{lotReserved}</span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-green-600 text-xs">Livre</span>
-                                            <span className="font-bold text-green-700">{lotAvailable}</span>
+                                    {/* Logistics Specs */}
+                                    <div className="space-y-3">
+                                        <h4 className="font-semibold text-gray-900 flex items-center gap-2 text-sm">
+                                            <Truck className="h-4 w-4 text-gray-500" />
+                                            Logística
+                                        </h4>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <DetailItem label="m² por Caixa" value={product.boxCoverage ? `${product.boxCoverage} m²` : null} />
+                                            <DetailItem label="Peças/Caixa" value={product.piecesPerBox} />
+                                            <DetailItem label="Peso/Caixa" value={product.boxWeight ? `${product.boxWeight} kg` : null} />
+                                            <DetailItem label="Caixas/Palete" value={product.palletBoxes} />
                                         </div>
                                     </div>
+                                </div>
 
-                                    {/* Reservations List */}
-                                    {lot.reservations && lot.reservations.length > 0 && (
-                                        <div className="mt-3 pl-3 border-l-2 border-orange-200">
-                                            <p className="text-xs font-semibold text-gray-900 mb-2">Reservas Ativas:</p>
-                                            <ul className="space-y-2">
-                                                {lot.reservations.map((res: any) => (
-                                                    <li key={res.id} className="text-sm flex justify-between items-start bg-white p-2 rounded border border-gray-100 shadow-sm">
+                                {/* Financial Specs */}
+                                <div className="space-y-3 pt-2">
+                                    <h4 className="font-semibold text-gray-900 flex items-center gap-2 text-sm">
+                                        <BarChart3 className="h-4 w-4 text-gray-500" />
+                                        Financeiro
+                                    </h4>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
+                                            <span className="text-xs text-gray-500 block mb-0.5">Custo</span>
+                                            <span className="font-semibold text-gray-900">
+                                                {product.costCents ? `R$ ${(product.costCents / 100).toFixed(2)}` : '-'}
+                                            </span>
+                                        </div>
+                                        <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
+                                            <span className="text-xs text-gray-500 block mb-0.5">Preço Venda</span>
+                                            <span className="font-semibold text-gray-900">
+                                                {product.priceCents ? `R$ ${(product.priceCents / 100).toFixed(2)}` : '-'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="lots" className="space-y-4 mt-0">
+                                {(!product.lots || product.lots.length === 0) ? (
+                                    <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                                        <Box className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                                        <p className="text-gray-500 font-medium">Nenhum lote registrado</p>
+                                        <p className="text-sm text-gray-400 mt-1">Este produto não possui saldo em estoque por lote.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {product.lots.map((lot: any) => {
+                                            const lotReserved = lot.reservations?.reduce((acc: number, r: any) => acc + r.quantity, 0) || 0;
+                                            const lotAvailable = lot.quantity - lotReserved;
+
+                                            return (
+                                                <Card key={lot.id} className="overflow-hidden border-gray-200">
+                                                    <div className="bg-gray-50 px-4 py-3 border-b flex justify-between items-center">
                                                         <div>
-                                                            <span className="text-gray-900 font-medium">
-                                                                {res.quote ? `Orçamento #${res.quote.number}` : res.order ? `Pedido #${res.order.number}` : 'Manua/Outro'}
-                                                            </span>
-                                                            <span className="block text-xs text-gray-500">
-                                                                {res.quote?.customer?.name || res.order?.customer?.name || 'Cliente N/A'}
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-mono font-bold text-lg text-blue-700">{lot.lotNumber}</span>
+                                                                {lot.shade && <Badge variant="secondary" className="text-xs bg-white border border-gray-200">Ton: {lot.shade}</Badge>}
+                                                                {lot.caliber && <Badge variant="secondary" className="text-xs bg-white border border-gray-200">Cal: {lot.caliber}</Badge>}
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className="text-xs text-gray-500 block">Validade</span>
+                                                            <span className="text-sm font-medium flex items-center justify-end gap-1">
+                                                                <Calendar className="h-3 w-3 text-gray-400" />
+                                                                {format(new Date(lot.expirationDate), 'dd/MM/yyyy')}
                                                             </span>
                                                         </div>
-                                                        <Badge variant="secondary" className="bg-orange-100 text-orange-800 hover:bg-orange-100">
-                                                            {res.quantity} un
-                                                        </Badge>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
+                                                    </div>
 
-                        {(!product.lots || product.lots.length === 0) && (
-                            <p className="text-center text-gray-500 py-4">Nenhum lote registrado.</p>
-                        )}
-                    </div>
-                </ScrollArea>
+                                                    <div className="p-4 space-y-4">
+                                                        {/* Lot Stats Grid */}
+                                                        <div className="grid grid-cols-3 gap-4">
+                                                            <div className="text-center p-2 rounded bg-gray-50">
+                                                                <span className="block text-gray-500 text-xs uppercase font-medium">Total</span>
+                                                                <span className="block text-lg font-bold text-gray-900">{lot.quantity}</span>
+                                                            </div>
+                                                            <div className="text-center p-2 rounded bg-orange-50">
+                                                                <span className="block text-orange-600 text-xs uppercase font-medium">Reservado</span>
+                                                                <span className="block text-lg font-bold text-orange-700">{lotReserved}</span>
+                                                            </div>
+                                                            <div className="text-center p-2 rounded bg-green-50">
+                                                                <span className="block text-green-600 text-xs uppercase font-medium">Disponível</span>
+                                                                <span className="block text-lg font-bold text-green-700">{lotAvailable}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Reservations List */}
+                                                        {lot.reservations && lot.reservations.length > 0 && (
+                                                            <div className="mt-2">
+                                                                <h5 className="text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Reservas Ativas</h5>
+                                                                <div className="space-y-2">
+                                                                    {lot.reservations.map((res: any) => (
+                                                                        <div key={res.id} className="flex justify-between items-center text-sm p-2 rounded border border-gray-100 bg-white hover:bg-gray-50 transition-colors">
+                                                                            <div className="flex flex-col">
+                                                                                <span className="font-medium text-gray-900 flex items-center gap-1.5">
+                                                                                    {res.quote ? (
+                                                                                        <span className="text-blue-600">Orçamento #{res.quote.number}</span>
+                                                                                    ) : res.order ? (
+                                                                                        <span className="text-green-600">Pedido #{res.order.number}</span>
+                                                                                    ) : 'Outra Reserva'}
+                                                                                </span>
+                                                                                <span className="text-xs text-gray-500">
+                                                                                    {res.quote?.customer?.name || res.order?.customer?.name || 'Cliente N/A'}
+                                                                                </span>
+                                                                            </div>
+                                                                            <Badge variant="secondary" className="bg-orange-100 text-orange-800 font-mono">
+                                                                                {res.quantity} un
+                                                                            </Badge>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </Card>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </TabsContent>
+                        </div>
+                    </ScrollArea>
+                </Tabs>
             </SheetContent>
         </Sheet>
+    );
+}
+
+
+function DetailItem({ label, value }: { label: string, value: string | number | null | undefined }) {
+    if (!value) return null;
+    return (
+        <div className="bg-gray-50 p-2.5 rounded border border-gray-100 h-full">
+            <span className="text-xs text-gray-500 block mb-0.5">{label}</span>
+            <span className="font-medium text-gray-900 text-sm block whitespace-normal break-words leading-tight" title={String(value)}>{value}</span>
+        </div>
     );
 }

@@ -111,7 +111,7 @@ export default function HistoricoPage() {
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold text-gray-900">Histórico de Atendimentos</h1>
-                <p className="text-gray-500">Selecione um paciente para ver o histórico de atendimentos</p>
+                <p className="text-gray-500">Selecione um cliente para ver o histórico de atendimentos</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -120,7 +120,7 @@ export default function HistoricoPage() {
                     <div className="space-y-4">
                         <div className="flex items-center gap-2">
                             <Users className="h-5 w-5 text-gray-500" />
-                            <h2 className="font-semibold">Pacientes</h2>
+                            <h2 className="font-semibold">Clientes</h2>
                         </div>
 
                         {/* Search */}
@@ -139,7 +139,7 @@ export default function HistoricoPage() {
                             {isLoading ? (
                                 <div className="text-center py-4 text-gray-500">Carregando...</div>
                             ) : filteredPatients.length === 0 ? (
-                                <div className="text-center py-4 text-gray-500">Nenhum paciente encontrado</div>
+                                <div className="text-center py-4 text-gray-500">Nenhum cliente encontrado</div>
                             ) : (
                                 filteredPatients.map((patient) => (
                                     <div
@@ -169,14 +169,14 @@ export default function HistoricoPage() {
                             <h2 className="font-semibold">
                                 {selectedPatient
                                     ? `Atendimentos de ${selectedPatient.name}`
-                                    : 'Selecione um paciente'}
+                                    : 'Selecione um cliente'}
                             </h2>
                         </div>
 
                         {!selectedPatient ? (
                             <div className="text-center py-12 text-gray-400">
                                 <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                                <p>Selecione um paciente na lista para ver o histórico</p>
+                                <p>Selecione um cliente na lista para ver o histórico</p>
                             </div>
                         ) : loadingEncounters ? (
                             <div className="text-center py-12">

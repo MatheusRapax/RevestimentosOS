@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { QuoteTemplateViewer } from '@/components/quotes/quote-template-viewer';
+
 import { useQuoteTemplates, QuoteTemplate, CreateQuoteTemplateData } from '@/hooks/useQuoteTemplates';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -483,140 +485,9 @@ export default function TemplatesPage() {
                         </TabsContent>
 
                         <TabsContent value="preview" className="pt-4">
-                            <div className="border rounded-lg bg-white shadow-sm overflow-hidden" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-                                {/* Preview Simulado */}
-                                <div className="p-8" style={{ fontFamily: 'Arial, sans-serif', fontSize: '12px' }}>
-                                    {/* Header */}
-                                    <div className="flex justify-between items-start border-b pb-4 mb-4">
-                                        <div>
-                                            <h1
-                                                className="text-xl font-bold mb-1"
-                                                style={{ color: formData.primaryColor || '#000000' }}
-                                            >
-                                                {formData.companyName || 'Nome da Empresa'}
-                                            </h1>
-                                            <p className="text-gray-600 text-xs">
-                                                {formData.companyAddress || 'Endereço da empresa'}
-                                            </p>
-                                            <p className="text-gray-600 text-xs">
-                                                {formData.companyPhone && `Tel: ${formData.companyPhone}`}
-                                                {formData.companyPhone && formData.companyEmail && ' | '}
-                                                {formData.companyEmail}
-                                            </p>
-                                            {formData.companyCnpj && (
-                                                <p className="text-gray-600 text-xs">CNPJ: {formData.companyCnpj}</p>
-                                            )}
-                                        </div>
-                                        <div className="text-right">
-                                            <h2
-                                                className="text-2xl font-bold"
-                                                style={{ color: formData.primaryColor || '#000000' }}
-                                            >
-                                                ORÇAMENTO
-                                            </h2>
-                                            <p className="text-gray-600">Nº #0001</p>
-                                            <p className="text-gray-600 text-xs">Data: {new Date().toLocaleDateString('pt-BR')}</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Cliente */}
-                                    <div className="border rounded p-3 mb-4 bg-gray-50">
-                                        <p className="font-semibold mb-1" style={{ color: formData.primaryColor || '#000000' }}>
-                                            Dados do Cliente
-                                        </p>
-                                        <p>João da Silva</p>
-                                        <p className="text-xs text-gray-600">CPF: 123.456.789-00 | Tel: (11) 99999-9999</p>
-                                    </div>
-
-                                    {/* Tabela de Itens */}
-                                    <table className="w-full mb-4 text-xs">
-                                        <thead>
-                                            <tr style={{ backgroundColor: formData.accentColor || '#4CAF50', color: 'white' }}>
-                                                <th className="p-2 text-left">Produto</th>
-                                                <th className="p-2 text-center">Qtd</th>
-                                                <th className="p-2 text-right">Unit.</th>
-                                                <th className="p-2 text-right">Total</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr className="border-b">
-                                                <td className="p-2">Porcelanato Bianco 60x60</td>
-                                                <td className="p-2 text-center">5 cx</td>
-                                                <td className="p-2 text-right">R$ 89,90</td>
-                                                <td className="p-2 text-right">R$ 449,50</td>
-                                            </tr>
-                                            <tr className="border-b">
-                                                <td className="p-2">Rejunte Cinza Platina 1kg</td>
-                                                <td className="p-2 text-center">2 un</td>
-                                                <td className="p-2 text-right">R$ 25,00</td>
-                                                <td className="p-2 text-right">R$ 50,00</td>
-                                            </tr>
-                                        </tbody>
-                                        <tfoot>
-                                            <tr className="font-semibold">
-                                                <td colSpan={3} className="p-2 text-right">Subtotal:</td>
-                                                <td className="p-2 text-right">R$ 499,50</td>
-                                            </tr>
-                                            <tr className="font-bold text-lg" style={{ color: formData.primaryColor || '#000000' }}>
-                                                <td colSpan={3} className="p-2 text-right">TOTAL:</td>
-                                                <td className="p-2 text-right">R$ 499,50</td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-
-                                    {/* Dados Bancários */}
-                                    {formData.showBankDetails && formData.bankName && (
-                                        <div className="border rounded p-3 mb-4 bg-gray-50">
-                                            <p className="font-semibold mb-1" style={{ color: formData.primaryColor || '#000000' }}>
-                                                Dados Bancários
-                                            </p>
-                                            <div className="grid grid-cols-2 gap-2 text-xs">
-                                                <p>Banco: {formData.bankName}</p>
-                                                {formData.bankAgency && <p>Agência: {formData.bankAgency}</p>}
-                                                {formData.bankAccount && <p>Conta: {formData.bankAccount}</p>}
-                                                {formData.bankAccountHolder && <p>Titular: {formData.bankAccountHolder}</p>}
-                                                {formData.pixKey && <p className="col-span-2">PIX: {formData.pixKey}</p>}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Termos */}
-                                    {formData.showTerms && formData.termsAndConditions && (
-                                        <div className="mb-4">
-                                            <p className="font-semibold mb-1 text-xs" style={{ color: formData.primaryColor || '#000000' }}>
-                                                Termos e Condições
-                                            </p>
-                                            <p className="text-xs text-gray-600 whitespace-pre-line">
-                                                {formData.termsAndConditions}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {/* Validade */}
-                                    <p className="text-center text-xs text-gray-600 mb-4">
-                                        {formData.validityText || `Este orçamento é válido por ${formData.validityDays || 10} dias.`}
-                                    </p>
-
-                                    {/* Assinaturas */}
-                                    {formData.showSignatureLines && (
-                                        <div className="flex justify-around pt-8 mt-4">
-                                            <div className="text-center">
-                                                <div className="border-t border-black w-40 mb-1"></div>
-                                                <p className="text-xs">Vendedor</p>
-                                            </div>
-                                            <div className="text-center">
-                                                <div className="border-t border-black w-40 mb-1"></div>
-                                                <p className="text-xs">Cliente</p>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Footer */}
-                                    {formData.footerText && (
-                                        <p className="text-center text-xs text-gray-500 mt-4 pt-2 border-t">
-                                            {formData.footerText}
-                                        </p>
-                                    )}
+                            <div className="border rounded-lg bg-white shadow-sm overflow-hidden" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                                <div className="transform scale-90 origin-top">
+                                    <QuoteTemplateViewer template={formData} />
                                 </div>
                             </div>
                             <p className="text-xs text-muted-foreground text-center mt-2">

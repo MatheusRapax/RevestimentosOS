@@ -37,8 +37,8 @@ export default function DashboardLayout({
         return (
             <div className="flex min-h-screen items-center justify-center bg-gray-50">
                 <div className="w-full max-w-md space-y-4 rounded-lg bg-white p-8 shadow-lg">
-                    <h2 className="text-2xl font-bold text-gray-900">Selecione uma clínica</h2>
-                    <p className="text-gray-600">Escolha a clínica para acessar o sistema</p>
+                    <h2 className="text-2xl font-bold text-gray-900">Selecione uma loja</h2>
+                    <p className="text-gray-600">Escolha a loja para acessar o sistema</p>
                     <div className="space-y-2">
                         {user.clinics.map((clinic) => (
                             <button
@@ -115,7 +115,7 @@ export default function DashboardLayout({
         setActiveClinic(user.clinics[0].id);
         return (
             <div className="flex min-h-screen items-center justify-center">
-                <div className="text-lg">Configurando clínica...</div>
+                <div className="text-lg">Configurando loja...</div>
             </div>
         );
     }

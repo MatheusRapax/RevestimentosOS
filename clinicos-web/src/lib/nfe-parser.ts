@@ -3,6 +3,9 @@ export interface NFeData {
     invoiceNumber: string;
     series: string;
     accessKey: string;
+    operationNature: string;
+    protocol: string;
+    model: string;
     emissionDate: Date | null;
     supplier: {
         name: string;
@@ -10,6 +13,30 @@ export interface NFeData {
     };
     items: NFeItem[];
     totalValue: number;
+    totals: {
+        vBC: number;
+        vICMS: number;
+        vBCST: number;
+        vST: number;
+        vProd: number;
+        vFrete: number;
+        vSeg: number;
+        vDesc: number;
+        vIPI: number;
+        vOutro: number;
+    };
+    transport: {
+        modFrete?: number;
+        carrierName?: string;
+        carrierDocument?: string;
+        carrierAddress?: string;
+        carrierCity?: string;
+        carrierState?: string;
+        volQuantity?: number;
+        volSpecies?: string;
+        volNetWeight?: number;
+        volGrossWeight?: number;
+    };
 }
 
 export interface NFeItem {
@@ -20,6 +47,8 @@ export interface NFeItem {
     unitValue: number;
     totalValue: number;
     ean: string;
+    lotNumber?: string;
+    expirationDate?: string;
     // NCM, CFOP, etc could be added here
 }
 
@@ -49,18 +78,62 @@ export async function parseNFeXML(file: File): Promise<NFeData> {
                 const ide = xmlDoc.getElementsByTagName("ide")[0];
                 const emit = xmlDoc.getElementsByTagName("emit")[0];
                 const total = xmlDoc.getElementsByTagName("total")[0];
+                const transp = xmlDoc.getElementsByTagName("transp")[0];
 
                 const invoiceNumber = getTagValue(ide, "nNF");
                 const series = getTagValue(ide, "serie");
                 const accessKey = infNFe.getAttribute("Id")?.replace("NFe", "") || "";
+
+                const operationNature = getTagValue(ide, "natOp");
+                const model = getTagValue(ide, "mod");
                 const dhEmiString = getTagValue(ide, "dhEmi");
                 const emissionDate = dhEmiString ? new Date(dhEmiString) : null;
+
+                // Protocol usually in protNFe -> infProt -> nProt
+                const protNFe = xmlDoc.getElementsByTagName("protNFe")[0];
+                const protocol = protNFe ? getTagValue(protNFe, "nProt") : "";
 
                 const supplierName = getTagValue(emit, "xNome");
                 const supplierCNPJ = getTagValue(emit, "CNPJ");
 
-                const vNF = getTagValue(total, "vNF");
+                // --- Totals ---
+                const icmsTot = total?.getElementsByTagName("ICMSTot")[0];
+                const vNF = icmsTot ? getTagValue(icmsTot, "vNF") : "0";
                 const totalValue = vNF ? parseFloat(vNF) : 0;
+
+                const totals = {
+                    vBC: parseFloat(getTagValue(icmsTot, "vBC") || "0"),
+                    vICMS: parseFloat(getTagValue(icmsTot, "vICMS") || "0"),
+                    vBCST: parseFloat(getTagValue(icmsTot, "vBCST") || "0"),
+                    vST: parseFloat(getTagValue(icmsTot, "vST") || "0"),
+                    vProd: parseFloat(getTagValue(icmsTot, "vProd") || "0"),
+                    vFrete: parseFloat(getTagValue(icmsTot, "vFrete") || "0"),
+                    vSeg: parseFloat(getTagValue(icmsTot, "vSeg") || "0"),
+                    vDesc: parseFloat(getTagValue(icmsTot, "vDesc") || "0"),
+                    vIPI: parseFloat(getTagValue(icmsTot, "vIPI") || "0"),
+                    vOutro: parseFloat(getTagValue(icmsTot, "vOutro") || "0"),
+                };
+
+                // --- Transport ---
+                let transport = {};
+                if (transp) {
+                    const transporta = transp.getElementsByTagName("transporta")[0];
+                    const vol = transp.getElementsByTagName("vol")[0];
+
+                    transport = {
+                        modFrete: parseInt(getTagValue(transp, "modFrete") || "0"),
+                        carrierName: transporta ? getTagValue(transporta, "xNome") : undefined,
+                        carrierDocument: transporta ? (getTagValue(transporta, "CNPJ") || getTagValue(transporta, "CPF")) : undefined,
+                        carrierAddress: transporta ? getTagValue(transporta, "xEnder") : undefined,
+                        carrierCity: transporta ? getTagValue(transporta, "xMun") : undefined,
+                        carrierState: transporta ? getTagValue(transporta, "UF") : undefined,
+
+                        volQuantity: vol ? parseInt(getTagValue(vol, "qVol") || "0") : undefined,
+                        volSpecies: vol ? getTagValue(vol, "esp") : undefined,
+                        volNetWeight: vol ? parseFloat(getTagValue(vol, "pesoL") || "0") : undefined,
+                        volGrossWeight: vol ? parseFloat(getTagValue(vol, "pesoB") || "0") : undefined,
+                    };
+                }
 
                 // --- Items Data ---
                 const dets = xmlDoc.getElementsByTagName("det");
@@ -71,6 +144,17 @@ export async function parseNFeXML(file: File): Promise<NFeData> {
                     const prod = det.getElementsByTagName("prod")[0];
 
                     if (prod) {
+                        // Lot / Traceability
+                        const rastro = prod.getElementsByTagName("rastro")[0] || det.getElementsByTagName("rastro")[0];
+                        let lotNumber = undefined;
+                        let expirationDate = undefined;
+
+                        if (rastro) {
+                            lotNumber = getTagValue(rastro, "nLote");
+                            const dVal = getTagValue(rastro, "dVal"); // YYYY-MM-DD
+                            if (dVal) expirationDate = dVal;
+                        }
+
                         items.push({
                             code: getTagValue(prod, "cProd"),
                             name: getTagValue(prod, "xProd"),
@@ -79,6 +163,8 @@ export async function parseNFeXML(file: File): Promise<NFeData> {
                             unitValue: parseFloat(getTagValue(prod, "vUnCom")),
                             totalValue: parseFloat(getTagValue(prod, "vProd")),
                             ean: getTagValue(prod, "cEAN"),
+                            lotNumber,
+                            expirationDate
                         });
                     }
                 }
@@ -87,13 +173,18 @@ export async function parseNFeXML(file: File): Promise<NFeData> {
                     invoiceNumber,
                     series,
                     accessKey,
+                    operationNature,
+                    protocol,
+                    model,
                     emissionDate,
                     supplier: {
                         name: supplierName,
                         cnpj: supplierCNPJ,
                     },
                     items,
-                    totalValue
+                    totalValue,
+                    totals,
+                    transport
                 });
 
             } catch (error) {

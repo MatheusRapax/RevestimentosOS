@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     Dialog,
@@ -100,7 +102,7 @@ export default function RolesPage() {
             await fetchData();
             setEditingRole(null);
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Erro ao salvar');
+            toast.error(err.response?.data?.message || 'Erro ao salvar');
         } finally {
             setSaving(false);
         }
@@ -120,13 +122,13 @@ export default function RolesPage() {
 
     const categoryNames: Record<string, string> = {
         appointment: 'Agendamentos',
-        patient: 'Pacientes',
+        patient: 'Clientes',
         encounter: 'Atendimentos',
         record: 'Prontuário',
         procedure: 'Procedimentos',
         consumable: 'Consumíveis',
         stock: 'Estoque',
-        clinic: 'Clínica',
+        clinic: 'Loja',
         user: 'Usuários',
         schedule: 'Agenda',
         notice: 'Avisos',
@@ -249,8 +251,8 @@ export default function RolesPage() {
                                         <label
                                             key={perm.id}
                                             className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${selectedPermissions.has(perm.id)
-                                                    ? 'bg-blue-50 border-blue-300'
-                                                    : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                                                ? 'bg-blue-50 border-blue-300'
+                                                : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                                 }`}
                                         >
                                             <input

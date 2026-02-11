@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -71,7 +73,7 @@ export default function UsersPage() {
             setTimeout(() => setSuccess(null), 2000);
             await fetchData();
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Erro ao alterar papel');
+            toast.error(err.response?.data?.message || 'Erro ao alterar papel');
         } finally {
             setSaving(null);
         }
@@ -99,7 +101,7 @@ export default function UsersPage() {
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                     <Users className="h-6 w-6" />
-                    Usuários da Clínica
+                    Usuários da Loja
                 </h1>
                 <p className="text-gray-500">Gerencie os papéis de cada usuário</p>
             </div>
@@ -145,8 +147,8 @@ export default function UsersPage() {
                                         <TableCell>
                                             <span
                                                 className={`text-xs px-2 py-1 rounded-full ${user.active
-                                                        ? 'bg-green-100 text-green-700'
-                                                        : 'bg-red-100 text-red-700'
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : 'bg-red-100 text-red-700'
                                                     }`}
                                             >
                                                 {user.active ? 'Ativo' : 'Inativo'}
@@ -160,8 +162,8 @@ export default function UsersPage() {
                                                 }
                                                 disabled={isCurrentUser || isSaving}
                                                 className={`px-3 py-1.5 border rounded-md text-sm ${isCurrentUser
-                                                        ? 'bg-gray-100 cursor-not-allowed'
-                                                        : 'cursor-pointer hover:border-blue-400'
+                                                    ? 'bg-gray-100 cursor-not-allowed'
+                                                    : 'cursor-pointer hover:border-blue-400'
                                                     }`}
                                             >
                                                 {roles.map((role) => (

@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Package, Search, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Package, Search, AlertTriangle, CheckCircle, XCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { ProductDetailsSheet } from './components/ProductDetailsSheet';
 
 interface ProductWithStock {
@@ -127,6 +127,58 @@ export default function EstoquePage() {
     const totalProducts = products.length;
     const lowStockCount = products.filter(p => getStockStatus(p) === 'low_stock').length;
     const outOfStockCount = products.filter(p => getStockStatus(p) === 'out_of_stock').length;
+
+    // Sorting
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortedProducts = (products: ProductWithStock[]) => {
+        if (!sortConfig) return products;
+
+        return [...products].sort((a, b) => {
+            let aValue: any = (a as any)[sortConfig.key];
+            let bValue: any = (b as any)[sortConfig.key];
+
+            // Special handling for computed fields
+            if (sortConfig.key === 'status') {
+                aValue = getStockStatus(a);
+                bValue = getStockStatus(b);
+            }
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    };
+
+    const sortedProducts = getSortedProducts(filteredProducts);
+
+    // Helper for Sort Icon
+    const SortIcon = ({ columnKey }: { columnKey: string }) => {
+        if (sortConfig?.key !== columnKey) return <ArrowUpDown className="ml-2 h-4 w-4 text-gray-400" />;
+        return sortConfig.direction === 'asc'
+            ? <ArrowUp className="ml-2 h-4 w-4 text-gray-900" />
+            : <ArrowDown className="ml-2 h-4 w-4 text-gray-900" />;
+    };
+
+    const SortableHeader = ({ label, columnKey, align = 'left' }: { label: string, columnKey: string, align?: 'left' | 'right' | 'center' }) => (
+        <th
+            className={`px-6 py-3 text-${align} text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group select-none`}
+            onClick={() => handleSort(columnKey)}
+        >
+            <div className={`flex items-center ${align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start'}`}>
+                {label}
+                <SortIcon columnKey={columnKey} />
+            </div>
+        </th>
+    );
 
     if (isLoading) {
         return (
@@ -253,31 +305,17 @@ export default function EstoquePage() {
                         <table className="w-full">
                             <thead className="bg-gray-50 border-b sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Produto
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        SKU
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Formato
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Físico
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Reservado
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Disponível
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Status
-                                    </th>
+                                    <SortableHeader label="Produto" columnKey="name" />
+                                    <SortableHeader label="SKU" columnKey="sku" />
+                                    <SortableHeader label="Formato" columnKey="format" />
+                                    <SortableHeader label="Físico" columnKey="totalStock" align="right" />
+                                    <SortableHeader label="Reservado" columnKey="totalReserved" align="right" />
+                                    <SortableHeader label="Disponível" columnKey="availableStock" align="right" />
+                                    <SortableHeader label="Status" columnKey="status" />
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredProducts.map((product) => (
+                                {sortedProducts.map((product) => (
                                     <tr
                                         key={product.id}
                                         onClick={() => handleRowClick(product.id)}
