@@ -11,16 +11,32 @@ export class FinanceService {
     ) { }
 
     /**
-     * Get or create patient account
+     * Get or create patient/customer account
      */
-    async getOrCreateAccount(clinicId: string, patientId: string) {
-        let account = await this.prisma.patientAccount.findUnique({
-            where: { patientId },
-        });
+    async getOrCreateAccount(clinicId: string, patientId?: string | null, customerId?: string | null) {
+        if (!patientId && !customerId) {
+            throw new BadRequestException('ID do Paciente ou Cliente é obrigatório');
+        }
+
+        let account;
+
+        if (patientId) {
+            account = await this.prisma.patientAccount.findUnique({
+                where: { patientId },
+            });
+        } else if (customerId) {
+            account = await this.prisma.patientAccount.findUnique({
+                where: { customerId },
+            });
+        }
 
         if (!account) {
             account = await this.prisma.patientAccount.create({
-                data: { clinicId, patientId },
+                data: {
+                    clinicId,
+                    patientId: patientId || undefined,
+                    customerId: customerId || undefined
+                },
             });
         }
 
@@ -243,24 +259,26 @@ export class FinanceService {
      */
     async registerPayment(
         clinicId: string,
-        patientId: string,
+        patientId: string | null | undefined,
         amountCents: number,
         method: string,
         description?: string,
         installments = 1,
         userId?: string,
+        customerId?: string,
     ) {
         if (amountCents <= 0) {
             throw new BadRequestException('Valor deve ser positivo');
         }
 
-        const account = await this.getOrCreateAccount(clinicId, patientId);
+        const account = await this.getOrCreateAccount(clinicId, patientId, customerId);
 
         // Create payment record
         const payment = await this.prisma.payment.create({
             data: {
                 clinicId,
-                patientId,
+                patientId: patientId || undefined,
+                customerId: customerId || undefined,
                 amountCents,
                 method: method as any,
                 status: 'APPROVED',
@@ -273,7 +291,8 @@ export class FinanceService {
         const transaction = await this.prisma.transaction.create({
             data: {
                 clinicId,
-                patientId,
+                patientId: patientId || undefined,
+                customerId: customerId || undefined,
                 accountId: account.id,
                 paymentId: payment.id,
                 type: TransactionType.PAYMENT,

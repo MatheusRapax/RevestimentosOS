@@ -11,10 +11,12 @@ import { ExcelService } from '../../core/excel/excel.service';
 import { ProductImportService } from './services/product-import.service';
 import { ProductImportController } from './product-import.controller';
 
+import { StockAllocationService } from './services/stock-allocation.service';
+
 @Module({
     imports: [AuditModule],
     controllers: [StockController, StockEntryController, StockExitController, ProductImportController],
-    providers: [StockService, StockConsumptionService, StockEntryService, StockExitService, ExcelService, ProductImportService],
-    exports: [StockService, StockConsumptionService, StockEntryService, StockExitService],
+    providers: [StockService, StockConsumptionService, StockEntryService, StockExitService, ExcelService, ProductImportService, StockAllocationService],
+    exports: [StockService, StockConsumptionService, StockEntryService, StockExitService, StockAllocationService],
 })
 export class StockModule { }

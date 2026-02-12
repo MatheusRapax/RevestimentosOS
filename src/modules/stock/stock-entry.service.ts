@@ -5,9 +5,14 @@ import { AddStockEntryItemDto } from './dto/add-stock-entry-item.dto';
 import { UpdateStockEntryDto } from './dto/update-stock-entry.dto';
 import { EntryStatus, StockMovementType, EntryType } from '@prisma/client';
 
+import { StockAllocationService } from './services/stock-allocation.service';
+
 @Injectable()
 export class StockEntryService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private stockAllocationService: StockAllocationService
+    ) { }
 
     async createDraft(clinicId: string, dto: CreateStockEntryDto, userId?: string) {
         let existingEntry = null;
@@ -135,54 +140,7 @@ export class StockEntryService {
         });
     }
 
-    async createFromPurchaseOrder(clinicId: string, purchaseOrderId: string, userId?: string) {
-        // 1. Fetch Purchase Order
-        const po = await this.prisma.purchaseOrder.findUnique({
-            where: { id: purchaseOrderId, clinicId },
-            include: { items: true }
-        });
 
-        if (!po) throw new NotFoundException('Pedido de Compra não encontrado');
-
-        // Optional: Check status (e.g., must be SENT)
-        // if (po.status !== 'SENT') throw new BadRequestException('Pedido precisa estar Enviado');
-
-        // 2. Create Stock Entry Draft
-        const entry = await this.prisma.stockEntry.create({
-            data: {
-                clinicId,
-                status: EntryStatus.DRAFT,
-                type: EntryType.INVOICE,
-                supplierId: po.supplierId,
-                supplierName: po.supplierName,
-                arrivalDate: new Date(),
-                notes: `Importado do Pedido de Compra #${po.number}`,
-            }
-        });
-
-        // 3. Import Items
-        if (po.items && po.items.length > 0) {
-            const validItems = po.items.filter(i => i.productId);
-            await this.prisma.stockEntryItem.createMany({
-                data: validItems.map(poItem => ({
-                    stockEntryId: entry.id,
-                    productId: poItem.productId!,
-                    quantity: poItem.quantityOrdered, // Import ordered quantity
-                    unitCost: poItem.unitPriceCents, // Cost = PO Price
-                    totalCost: poItem.totalCents,
-                    // Lot/Expiry left empty for user to fill
-                }))
-            });
-
-            // Update total
-            await this.prisma.stockEntry.update({
-                where: { id: entry.id },
-                data: { totalValue: po.totalCents }
-            });
-        }
-
-        return this.getEntry(clinicId, entry.id);
-    }
 
     async update(clinicId: string, entryId: string, dto: UpdateStockEntryDto) {
         const entry = await this.prisma.stockEntry.findUnique({ where: { id: entryId, clinicId } });
@@ -331,6 +289,50 @@ export class StockEntryService {
         };
     }
 
+    async createFromPurchaseOrder(clinicId: string, purchaseOrderId: string, userId?: string) {
+        // 1. Fetch Purchase Order
+        const po = await this.prisma.purchaseOrder.findUnique({
+            where: { id: purchaseOrderId, clinicId },
+            include: { items: true, supplier: true }
+        });
+
+        if (!po) throw new NotFoundException('Pedido de Compra não encontrado');
+        if (['RECEIVED', 'CANCELLED'].includes(po.status)) throw new BadRequestException(`Este pedido já está com status ${po.status}`);
+
+        // 2. Create Stock Entry Draft
+        return this.prisma.stockEntry.create({
+            data: {
+                clinicId,
+                status: EntryStatus.DRAFT,
+                type: EntryType.INVOICE,
+                purchaseOrderId: po.id, // Link to PO
+
+                // Copy Supplier Info
+                supplierId: po.supplierId,
+                supplierName: po.supplierName,
+
+                // Initialize with values
+                totalProductsValueCents: po.subtotalCents,
+                freightValueCents: po.shippingCents,
+                totalValue: po.totalCents / 100, // Legacy float (consider removing eventually)
+
+                // Copy Items
+                // Copy Items
+                items: {
+                    create: po.items
+                        .filter(item => item.productId) // Only items with Product ID
+                        .map(item => ({
+                            product: { connect: { id: item.productId! } },
+                            productName: item.productName,
+                            quantity: item.quantityOrdered, // Default to ordered quantity
+                            unitCost: item.unitPriceCents, // Use unitCost field name
+                            totalCost: item.totalCents, // Use totalCost field name
+                        }))
+                }
+            }
+        });
+    }
+
     // === CRITICAL: CONFIRM ENTRY TRANSACTION ===
     async confirmEntry(clinicId: string, entryId: string, userId: string) {
         const entry = await this.prisma.stockEntry.findUnique({
@@ -351,7 +353,7 @@ export class StockEntryService {
         if (!entry.arrivalDate) throw new BadRequestException('Informe a Data de Chegada para confirmar.');
 
         // Start Transaction
-        return this.prisma.$transaction(async (tx) => {
+        const result = await this.prisma.$transaction(async (tx) => {
             // 1. Mark Entry as CONFIRMED
             const confirmedEntry = await tx.stockEntry.update({
                 where: { id: entryId },
@@ -418,7 +420,38 @@ export class StockEntryService {
 
             return confirmedEntry;
         });
+
+        // 3. Trigger Auto-Allocation for waiting orders (Outside Transaction)
+        if (entry && entry.items) {
+            // Collect unique product IDs from entry items
+            const productIds = [...new Set(entry.items.map(i => i.productId))];
+
+            // Fire and forget (or await but don't fail confirm based on allocation errors)
+            try {
+                await this.stockAllocationService.processStockArrival(clinicId, productIds, userId);
+            } catch (error) {
+                console.error('Failed to trigger processStockArrival:', error);
+            }
+        }
+
+        // 4. Update linked Purchase Order status (Outside Transaction)
+        if (entry.purchaseOrderId) {
+            try {
+                await this.prisma.purchaseOrder.update({
+                    where: { id: entry.purchaseOrderId },
+                    data: {
+                        status: 'RECEIVED',
+                        receivedAt: new Date(),
+                    }
+                });
+            } catch (error) {
+                console.error(`Failed to update PurchaseOrder ${entry.purchaseOrderId} status:`, error);
+            }
+        }
+
+        return result;
     }
+
 
     async cancelEntry(clinicId: string, entryId: string) {
         // Only if DRAFT

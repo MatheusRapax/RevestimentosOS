@@ -65,9 +65,16 @@ enum PaymentMethod {
 
 enum OrderStatus {
   CRIADO
+  RASCUNHO
+  AGUARDANDO_PAGAMENTO
   PAGO
-  AGUARDANDO_MATERIAL
-  PRONTO_PARA_ENTREGA
+  AGUARDANDO_COMPRA
+  AGUARDANDO_CHEGADA
+  AGUARDANDO_MATERIAL // Deprecated
+  EM_SEPARACAO
+  PRONTO_PARA_RETIRA
+  PRONTO_PARA_ENTREGA // Deprecated
+  SAIU_PARA_ENTREGA
   ENTREGUE
   CANCELADO
 }
@@ -472,6 +479,7 @@ model Product {
   quoteItems           QuoteItem[]
   orderItems           OrderItem[]
   purchaseOrderItems   PurchaseOrderItem[]
+  stockReservations    StockReservation[]
 
   @@index([supplierId])
   @@index([clinicId])
@@ -514,8 +522,10 @@ model StockReservation {
   clinicId  String
   
   orderId   String?
+  orderItemId String?
   quoteId   String?
   lotId     String
+  productId String?
   
   type      ReservationType @default(ORCAMENTO)
   quantity  Int
@@ -527,17 +537,21 @@ model StockReservation {
   
   clinic    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   order     Order?   @relation(fields: [orderId], references: [id])
+  orderItem OrderItem? @relation(fields: [orderItemId], references: [id])
   quote     Quote?   @relation(fields: [quoteId], references: [id])
   
   quoteItemId String?
   quoteItem   QuoteItem? @relation(fields: [quoteItemId], references: [id])
 
   lot       StockLot @relation(fields: [lotId], references: [id])
+  product   Product?  @relation(fields: [productId], references: [id])
   
   @@index([clinicId])
   @@index([orderId])
+  @@index([orderItemId])
   @@index([quoteId])
   @@index([lotId])
+  @@index([productId])
 }
 
 // Business: StockMovement model (Movimentações de estoque)
@@ -593,6 +607,9 @@ model StockEntry {
   series        String?
   supplierId    String?
   supplierName  String? // Denormalized name or free text if no Supplier model yet
+
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
 
   // --- Fiscal Identifiers ---
   accessKey       String?   @unique // Chave de acesso 44 dígitos
@@ -927,24 +944,30 @@ model ProcedureConsumable {
 model PatientAccount {
   id           String   @id @default(uuid())
   clinicId     String
-  patientId    String   @unique
+  patientId    String?  @unique
   balanceCents Int      @default(0) // Negativo = deve, Positivo = crédito
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   clinic       Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient      Patient?      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  customerId   String?       @unique
+  customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
   transactions Transaction[]
 
   @@index([clinicId])
   @@index([patientId])
+  @@index([customerId])
 }
 
 // Finance: Transaction (Transações financeiras)
 model Transaction {
   id          String          @id @default(uuid())
   clinicId    String
-  patientId   String
+  patientId   String?
+  customerId  String?
   accountId   String
   encounterId String? // Referência ao atendimento (se cobrança)
   paymentId   String? // Referência ao pagamento (se pagamento)
@@ -954,13 +977,15 @@ model Transaction {
   createdAt   DateTime        @default(now())
 
   clinic    Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  patient   Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient   Patient?       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  customer  Customer?      @relation(fields: [customerId], references: [id], onDelete: Cascade)
   account   PatientAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   encounter Encounter?     @relation(fields: [encounterId], references: [id], onDelete: SetNull)
   payment   Payment?       @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 
   @@index([clinicId])
   @@index([patientId])
+  @@index([customerId])
   @@index([accountId])
   @@index([encounterId])
   @@index([paymentId])
@@ -971,7 +996,8 @@ model Transaction {
 model Payment {
   id           String        @id @default(uuid())
   clinicId     String
-  patientId    String
+  patientId    String?
+  customerId   String?
   amountCents  Int
   method       PaymentMethod
   status       PaymentStatus @default(PENDING)
@@ -983,11 +1009,13 @@ model Payment {
   updatedAt    DateTime      @updatedAt
 
   clinic       Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient      Patient?      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: Cascade)
   transactions Transaction[]
 
   @@index([clinicId])
   @@index([patientId])
+  @@index([customerId])
   @@index([clinicId, createdAt])
   @@index([status])
 }
@@ -1033,6 +1061,11 @@ model Customer {
   clinic Clinic  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   quotes Quote[]
   orders Order[]
+  
+  // Finance
+  patientAccount PatientAccount?
+  transactions   Transaction[]
+  payments       Payment[]
 
   @@index([clinicId])
   @@index([clinicId, name])
@@ -1189,6 +1222,18 @@ model QuoteItem {
   @@index([productId])
 }
 
+enum FulfillmentStatus {
+  PENDING             // Aguardando processamento
+  AWAITING_STOCK      // Aguardando chegada de material (Backorder/Cross-docking)
+  AWAITING_PICKING    // Estoque disponível, aguardando separação
+  IN_PICKING          // Em separação
+  READY_FOR_PICKUP    // Separado e aguardando retirada
+  OUT_FOR_DELIVERY    // Saiu para entrega
+  DELIVERED           // Entregue ao cliente
+  RETURNED            // Devolvido
+  PARTIALLY_FULFILLED // Parcialmente atendido
+}
+
 // Business: Order model (Pedido de Venda)
 model Order {
   id       String @id @default(uuid())
@@ -1212,6 +1257,9 @@ model Order {
   discountCents Int @default(0)
   deliveryFee   Int @default(0)
   totalCents    Int
+
+  // Status Logístico (Novo)
+  fulfillmentStatus FulfillmentStatus @default(PENDING)
 
   // Entrega
   deliveryAddress String?
@@ -1267,6 +1315,7 @@ model OrderItem {
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
   lot     StockLot? @relation(fields: [lotId], references: [id])
+  reservations StockReservation[]
 
   @@index([orderId])
   @@index([productId])
@@ -1348,6 +1397,7 @@ model PurchaseOrder {
   clinic     Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   supplier   Supplier?           @relation(fields: [supplierId], references: [id])
   salesOrder Order?              @relation(fields: [salesOrderId], references: [id])
+  stockEntries StockEntry[]
   items      PurchaseOrderItem[]
   expenses   Expense[]
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import PurchaseOrderForm from '@/components/purchase-orders/PurchaseOrderForm';
 
 export default function NovoPedidoCompraPage() {
     const router = useRouter();
+    const queryClient = useQueryClient();
 
     const createMutation = useMutation({
         mutationFn: async (data: any) => {
@@ -17,6 +18,7 @@ export default function NovoPedidoCompraPage() {
         },
         onSuccess: () => {
             toast.success('Pedido de compra criado com sucesso!');
+            queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
             router.push('/dashboard/compras');
         },
         onError: (err: any) => {

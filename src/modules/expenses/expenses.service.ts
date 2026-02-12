@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 
 @Injectable()
@@ -12,7 +12,21 @@ export class ExpensesService {
         type: 'SUPPLIER' | 'OPERATIONAL' | 'TAX' | 'COMMISSION' | 'OTHER';
         barCode?: string;
         recipientName?: string;
+        purchaseOrderId?: string;
     }) {
+        // Prevent duplicate expense for same PO
+        if (data.purchaseOrderId) {
+            const existing = await this.prisma.expense.findFirst({
+                where: {
+                    clinicId,
+                    purchaseOrderId: data.purchaseOrderId
+                }
+            });
+            if (existing) {
+                throw new BadRequestException('Já existe uma despesa lançada para este Pedido de Compra.');
+            }
+        }
+
         return this.prisma.expense.create({
             data: {
                 clinicId,
@@ -22,6 +36,7 @@ export class ExpensesService {
                 type: data.type,
                 barCode: data.barCode,
                 recipientName: data.recipientName,
+                purchaseOrderId: data.purchaseOrderId,
                 status: 'PENDING'
             }
         });

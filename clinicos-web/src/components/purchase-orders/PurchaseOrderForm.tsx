@@ -36,6 +36,7 @@ interface Product {
     name: string;
     sku: string;
     priceCents: number;
+    costCents: number;
 }
 
 interface PurchaseItem {
@@ -106,7 +107,10 @@ export default function PurchaseOrderForm({ initialData, isEditing = false, onSu
         queryKey: ['sales-orders', 'active'],
         queryFn: async () => {
             const response = await api.get('/orders');
-            return response.data;
+            // Filter out delivered and cancelled orders
+            return (response.data || []).filter((o: any) =>
+                o.status !== 'ENTREGUE' && o.status !== 'CANCELADO'
+            );
         },
         enabled: !isEditing // Disable auto-fetch related logic if editing for now, or keep enabled?
     });
@@ -132,7 +136,7 @@ export default function PurchaseOrderForm({ initialData, isEditing = false, onSu
 
             const importedItems: PurchaseItem[] = order.items.map((item: any) => {
                 const product = products.find((p: Product) => p.id === item.product.id);
-                const priceCents = product ? product.priceCents : 0;
+                const priceCents = product ? (product.costCents || 0) : 0;
 
                 // Calculate reserved quantity for this product in this order
                 const reservedQty = order.stockReservations?.filter((res: any) =>
@@ -181,7 +185,7 @@ export default function PurchaseOrderForm({ initialData, isEditing = false, onSu
         const product = products.find((p: Product) => p.id === selectedProductId);
         if (!product) return;
 
-        const priceCents = unitPrice ? Math.round(parseFloat(unitPrice.replace(',', '.')) * 100) : product.priceCents;
+        const priceCents = unitPrice ? Math.round(parseFloat(unitPrice.replace(',', '.')) * 100) : (product.costCents || 0);
 
         const newItem: PurchaseItem = {
             productId: product.id,

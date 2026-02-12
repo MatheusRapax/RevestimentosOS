@@ -28,11 +28,30 @@ import { useOrders } from '@/hooks/useOrders';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
     CRIADO: { label: 'Novo / Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+    RASCUNHO: { label: 'Rascunho', color: 'bg-gray-100 text-gray-800', icon: FileText },
+    AGUARDANDO_PAGAMENTO: { label: 'Aguardando Pagamento', color: 'bg-yellow-50 text-yellow-700', icon: DollarSign },
+    PAGO: { label: 'Pago / Confirmado', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
+    AGUARDANDO_COMPRA: { label: 'Aguardando Compra', color: 'bg-orange-100 text-orange-800', icon: Package },
+    AGUARDANDO_CHEGADA: { label: 'Aguardando Chegada', color: 'bg-indigo-100 text-indigo-800', icon: Truck },
     AGUARDANDO_MATERIAL: { label: 'Aguardando Material', color: 'bg-orange-100 text-orange-800', icon: Package },
-    PAGO: { label: 'Pago / Confirmado', color: 'bg-blue-100 text-blue-800', icon: Package },
+    EM_SEPARACAO: { label: 'Em Separação', color: 'bg-blue-50 text-blue-600', icon: Package },
+    PRONTO_PARA_RETIRA: { label: 'Pronto p/ Retirada', color: 'bg-green-100 text-green-800', icon: CheckCircle },
     PRONTO_PARA_ENTREGA: { label: 'Pronto p/ Entrega', color: 'bg-green-100 text-green-800', icon: CheckCircle },
+    SAIU_PARA_ENTREGA: { label: 'Saiu p/ Entrega', color: 'bg-purple-100 text-purple-800', icon: Truck },
     ENTREGUE: { label: 'Entregue', color: 'bg-gray-100 text-gray-800', icon: Truck },
     CANCELADO: { label: 'Cancelado', color: 'bg-red-100 text-red-800', icon: XCircle },
+};
+
+const fulfillmentStatusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+    PENDING: { label: 'Pendente', color: 'bg-gray-100 text-gray-600', icon: Clock },
+    AWAITING_STOCK: { label: 'Aguardando Estoque', color: 'bg-orange-100 text-orange-800', icon: Package },
+    AWAITING_PICKING: { label: 'Aguardando Separação', color: 'bg-yellow-100 text-yellow-800', icon: Package },
+    IN_PICKING: { label: 'Em Separação', color: 'bg-blue-100 text-blue-800', icon: Package },
+    READY_FOR_PICKUP: { label: 'Pronto p/ Retirada', color: 'bg-green-100 text-green-800', icon: CheckCircle },
+    OUT_FOR_DELIVERY: { label: 'Saiu p/ Entrega', color: 'bg-purple-100 text-purple-800', icon: Truck },
+    DELIVERED: { label: 'Entregue', color: 'bg-gray-800 text-white', icon: Truck },
+    RETURNED: { label: 'Devolvido', color: 'bg-red-100 text-red-800', icon: XCircle },
+    PARTIALLY_FULFILLED: { label: 'Parcialmente Atendido', color: 'bg-teal-100 text-teal-800', icon: CheckCircle },
 };
 
 function formatCurrency(cents: number): string {
@@ -290,6 +309,7 @@ export default function OrdersPage() {
                             <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Pedido</th>
                             <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
                             <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Logística</th>
                             <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Entrega</th>
                             <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                             <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
@@ -329,6 +349,18 @@ export default function OrdersPage() {
                                             <StatusIcon className="h-4 w-4" />
                                             {status.label}
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {(() => {
+                                            const fStatus = fulfillmentStatusConfig[order.fulfillmentStatus] || fulfillmentStatusConfig['PENDING'];
+                                            const FIcon = fStatus.icon;
+                                            return (
+                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${fStatus.color}`}>
+                                                    <FIcon className="h-3 w-3" />
+                                                    {fStatus.label}
+                                                </span>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-6 py-4">
                                         {order.deliveryDate ? (
@@ -411,6 +443,12 @@ export default function OrdersPage() {
                                         <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium ${statusConfig[displayOrder.status]?.color}`}>
                                             {statusConfig[displayOrder.status]?.label}
                                         </span>
+                                        {/* Fulfillment Badge in Details */}
+                                        {displayOrder.fulfillmentStatus && (
+                                            <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium ${fulfillmentStatusConfig[displayOrder.fulfillmentStatus]?.color || 'bg-gray-100'}`}>
+                                                {fulfillmentStatusConfig[displayOrder.fulfillmentStatus]?.label || displayOrder.fulfillmentStatus}
+                                            </span>
+                                        )}
                                     </div>
 
                                     {/* Customer Info */}
@@ -495,6 +533,108 @@ export default function OrdersPage() {
                                                         </p>
                                                     </div>
                                                 ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* ── Allocation Panel ── */}
+                                    {displayOrder.fulfillmentStatus && displayOrder.fulfillmentStatus !== 'PENDING' && (
+                                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                                            <h3 className="font-medium text-amber-900 mb-3 flex items-center gap-2">
+                                                <Package className="h-4 w-4" />
+                                                Alocação de Estoque
+                                            </h3>
+                                            <div className="space-y-2">
+                                                {displayOrder.items?.map((item: any) => {
+                                                    const reservations = item.reservations || [];
+                                                    const reservedQty = reservations.reduce((s: number, r: any) => s + r.quantity, 0);
+                                                    const needed = item.quantityBoxes;
+                                                    const isFullyReserved = reservedQty >= needed;
+                                                    const hasReservation = reservations.length > 0;
+
+                                                    return (
+                                                        <div key={`alloc-${item.id}`} className="bg-white p-3 rounded-lg border border-amber-100">
+                                                            <div className="flex justify-between items-start">
+                                                                <div className="flex-1">
+                                                                    <p className="font-medium text-sm">{item.product?.name}</p>
+                                                                    <p className="text-xs text-gray-500">{needed} caixas necessárias</p>
+                                                                </div>
+                                                                {isFullyReserved ? (
+                                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-800 flex items-center gap-1">
+                                                                        <CheckCircle className="h-3 w-3" /> Alocado
+                                                                    </span>
+                                                                ) : hasReservation ? (
+                                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
+                                                                        Parcial ({reservedQty}/{needed})
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-800">
+                                                                        Sem reserva
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {reservations.map((res: any) => (
+                                                                <div key={res.id} className="mt-2 flex items-center justify-between text-xs bg-gray-50 p-2 rounded">
+                                                                    <div>
+                                                                        <span className="font-mono text-blue-700">{res.lot?.lotNumber}</span>
+                                                                        {res.lot?.shade && <span className="ml-2 text-gray-600">Ton: {res.lot.shade}</span>}
+                                                                        {res.lot?.caliber && <span className="ml-2 text-gray-600">Cal: {res.lot.caliber}</span>}
+                                                                        <span className="ml-2 text-gray-500">({res.quantity} cx)</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px]">Auto</span>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="h-6 text-xs text-amber-700 hover:text-amber-900 px-2"
+                                                                            onClick={async () => {
+                                                                                // Fetch available lots for this product
+                                                                                try {
+                                                                                    const resp = await api.get(`/stock/products/${item.productId}`);
+                                                                                    const lots = resp.data?.lots?.filter((l: any) => l.id !== res.lotId && l.quantity > 0) || [];
+                                                                                    if (lots.length === 0) {
+                                                                                        toast.error('Não há outros lotes disponíveis para este produto');
+                                                                                        return;
+                                                                                    }
+                                                                                    // Show lot picker via prompt (simple approach)
+                                                                                    const lotOptions = lots.map((l: any, i: number) =>
+                                                                                        `${i + 1}. ${l.lotNumber} (${l.quantity} cx${l.shade ? `, Ton: ${l.shade}` : ''}${l.caliber ? `, Cal: ${l.caliber}` : ''})`
+                                                                                    ).join('\n');
+                                                                                    const choice = prompt(`Selecione o novo lote:\n\n${lotOptions}\n\nDigite o número:`);
+                                                                                    if (!choice) return;
+                                                                                    const idx = parseInt(choice) - 1;
+                                                                                    if (idx < 0 || idx >= lots.length) {
+                                                                                        toast.error('Opção inválida');
+                                                                                        return;
+                                                                                    }
+                                                                                    const newLot = lots[idx];
+                                                                                    await api.patch(`/orders/${displayOrder.id}/reservations/${res.id}/swap-lot`, { newLotId: newLot.id });
+                                                                                    toast.success(`Lote trocado para ${newLot.lotNumber}`);
+                                                                                    queryClient.invalidateQueries({ queryKey: ['order', displayOrder.id] });
+                                                                                } catch (err: any) {
+                                                                                    toast.error(err?.response?.data?.message || 'Erro ao trocar lote');
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            Trocar Lote
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+
+                                                            {!hasReservation && (
+                                                                <p className="mt-2 text-xs text-red-600">
+                                                                    {displayOrder.fulfillmentStatus === 'AWAITING_STOCK'
+                                                                        ? '⏳ Aguardando chegada de estoque'
+                                                                        : displayOrder.fulfillmentStatus === 'AWAITING_PICKING'
+                                                                            ? '⚠️ Estoque fragmentado em múltiplos lotes — alocação manual necessária'
+                                                                            : 'Sem estoque disponível'}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}

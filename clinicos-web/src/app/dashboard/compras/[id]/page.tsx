@@ -27,6 +27,16 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface PurchaseItem {
     id: string;
@@ -57,6 +67,7 @@ interface PurchaseOrder {
     totalCents: number;
     salesOrderId?: string;
     createdAt: string;
+    expenses?: { id: string }[];
 }
 
 const statusConfig = {
@@ -86,6 +97,21 @@ export default function PurchaseOrderDetailsPage() {
     const queryClient = useQueryClient();
     const id = params?.id as string;
 
+    // Alert Dialog State
+    const [alertConfig, setAlertConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        confirmLabel?: string;
+        action: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        description: '',
+        confirmLabel: 'Confirmar',
+        action: () => { },
+    });
+
     const { data: order, isLoading } = useQuery<PurchaseOrder>({
         queryKey: ['purchase-order', id],
         queryFn: async () => {
@@ -107,9 +133,13 @@ export default function PurchaseOrderDetailsPage() {
     });
 
     const handleStatusChange = (newStatus: string) => {
-        if (confirm(`Deseja alterar o status para ${statusConfig[newStatus as keyof typeof statusConfig]?.label}?`)) {
-            updateStatusMutation.mutate(newStatus);
-        }
+        setAlertConfig({
+            isOpen: true,
+            title: 'Alterar Status',
+            description: `Deseja alterar o status para "${statusConfig[newStatus as keyof typeof statusConfig]?.label}"?`,
+            confirmLabel: 'Confirmar',
+            action: () => updateStatusMutation.mutate(newStatus)
+        });
     };
 
     // --- Receive / Stock Entry Logic ---
@@ -117,17 +147,23 @@ export default function PurchaseOrderDetailsPage() {
     const [isReceiving, setIsReceiving] = useState(false);
 
     const handleReceiveOrder = () => {
-        if (!confirm('Confirmar o recebimento deste pedido? Isso criará uma Nota de Entrada em rascunho.')) return;
-
-        setIsReceiving(true);
-        receiveOrder.mutate(id, {
-            onSuccess: (data) => {
-                toast.success('Entrada de estoque criada! Redirecionando...');
-                router.push(`/dashboard/estoque/entradas/${data.id}`);
-            },
-            onError: (err: any) => {
-                setIsReceiving(false);
-                toast.error(err.response?.data?.message || 'Erro ao criar entrada.');
+        setAlertConfig({
+            isOpen: true,
+            title: 'Confirmar Recebimento',
+            description: 'Confirmar o recebimento deste pedido? Isso criará uma Nota de Entrada em rascunho.',
+            confirmLabel: 'Dar Entrada',
+            action: () => {
+                setIsReceiving(true);
+                receiveOrder.mutate(id, {
+                    onSuccess: (data) => {
+                        toast.success('Entrada de estoque criada! Redirecionando...');
+                        router.push(`/dashboard/estoque/entradas/${data.id}`);
+                    },
+                    onError: (err: any) => {
+                        setIsReceiving(false);
+                        toast.error(err.response?.data?.message || 'Erro ao criar entrada.');
+                    }
+                });
             }
         });
     };
@@ -154,7 +190,8 @@ export default function PurchaseOrderDetailsPage() {
         onSuccess: () => {
             toast.success('Despesa lançada com sucesso!');
             setIsExpenseModalOpen(false);
-            // Optionally refetch expenses or show success indication
+            queryClient.invalidateQueries({ queryKey: ['purchase-order', id] });
+            queryClient.invalidateQueries({ queryKey: ['expenses'] });
         },
         onError: () => toast.error('Erro ao lançar despesa')
     });
@@ -213,7 +250,7 @@ export default function PurchaseOrderDetailsPage() {
                     )}
 
                     {/* Receive/Stock Entry Button */}
-                    {['APPROVED', 'SENT'].includes(order.status) && (
+                    {['CONFIRMED', 'SENT', 'PARTIAL'].includes(order.status) && (
                         <Button
                             variant="default"
                             className="bg-emerald-600 hover:bg-emerald-700"
@@ -227,13 +264,20 @@ export default function PurchaseOrderDetailsPage() {
 
                     {/* Launch Expense Button */}
                     {['SENT', 'CONFIRMED', 'RECEIVED'].includes(order.status) && (
-                        <Button
-                            variant="outline"
-                            onClick={openExpenseModal}
-                        >
-                            <DollarSign className="mr-2 h-4 w-4" />
-                            Lançar Despesa
-                        </Button>
+                        order.expenses && order.expenses.length > 0 ? (
+                            <Button variant="outline" disabled className="opacity-75 cursor-not-allowed">
+                                <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                                Despesa Lançada
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                onClick={openExpenseModal}
+                            >
+                                <DollarSign className="mr-2 h-4 w-4" />
+                                Lançar Despesa
+                            </Button>
+                        )
                     )}
 
                     <DropdownMenu>
@@ -436,6 +480,25 @@ export default function PurchaseOrderDetailsPage() {
                     </div>
                 </div>
             )}
+
+            {/* Alert Dialog */}
+            <AlertDialog open={alertConfig.isOpen} onOpenChange={(open) => setAlertConfig(prev => ({ ...prev, isOpen: open }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{alertConfig.title}</AlertDialogTitle>
+                        <AlertDialogDescription>{alertConfig.description}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            alertConfig.action();
+                            setAlertConfig(prev => ({ ...prev, isOpen: false }));
+                        }}>
+                            {alertConfig.confirmLabel || 'Confirmar'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

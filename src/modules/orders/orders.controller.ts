@@ -68,4 +68,20 @@ export class OrdersController {
     ) {
         return this.ordersService.updateDeliveryInfo(req.clinicId, id, body);
     }
+
+    @Patch(':id/reservations/:reservationId/swap-lot')
+    async swapReservationLot(
+        @Request() req: AuthRequest,
+        @Param('id') orderId: string,
+        @Param('reservationId') reservationId: string,
+        @Body() body: { newLotId: string },
+    ) {
+        return this.ordersService.swapReservationLot(
+            req.clinicId,
+            orderId,
+            reservationId,
+            body.newLotId,
+            req.user?.userId,
+        );
+    }
 }

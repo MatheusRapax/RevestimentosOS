@@ -27,6 +27,16 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const statusConfig = {
     DRAFT: { label: 'Rascunho', color: 'bg-gray-100 text-gray-700', icon: FileText },
@@ -56,6 +66,17 @@ export default function PurchaseOrdersPage() {
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [alertConfig, setAlertConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        action: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        description: '',
+        action: () => { },
+    });
 
     // Fetch Orders
     const { data: orders = [], isLoading } = useQuery<PurchaseOrder[]>({
@@ -87,9 +108,12 @@ export default function PurchaseOrdersPage() {
     });
 
     const handleStatusChange = (id: string, newStatus: string) => {
-        if (confirm(`Deseja alterar o status para ${statusConfig[newStatus as keyof typeof statusConfig]?.label}?`)) {
-            updateStatusMutation.mutate({ id, status: newStatus });
-        }
+        setAlertConfig({
+            isOpen: true,
+            title: 'Confirmar alteração de status',
+            description: `Deseja alterar o status para "${statusConfig[newStatus as keyof typeof statusConfig]?.label}"?`,
+            action: () => updateStatusMutation.mutate({ id, status: newStatus })
+        });
     };
 
     const formatCurrency = (cents: number) => {
@@ -340,6 +364,24 @@ export default function PurchaseOrdersPage() {
                     </div>
                 )}
             </div>
+            {/* Alert Dialog */}
+            <AlertDialog open={alertConfig.isOpen} onOpenChange={(open) => setAlertConfig(prev => ({ ...prev, isOpen: open }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{alertConfig.title}</AlertDialogTitle>
+                        <AlertDialogDescription>{alertConfig.description}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            alertConfig.action();
+                            setAlertConfig(prev => ({ ...prev, isOpen: false }));
+                        }}>
+                            Confirmar
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

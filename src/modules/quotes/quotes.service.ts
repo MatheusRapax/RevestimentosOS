@@ -364,17 +364,30 @@ export class QuotesService {
             });
 
             // TRANSFER RESERVATIONS: Quote -> Order
-            // Update existing reservations to link to the new Order
-            await tx.stockReservation.updateMany({
-                where: {
-                    quoteId: id,
-                    status: 'ACTIVE'
-                },
-                data: {
-                    orderId: newOrder.id,
-                    type: ReservationType.PEDIDO
-                }
+            // Match each reservation to its corresponding order item via productId + lotId
+            const quoteReservations = await tx.stockReservation.findMany({
+                where: { quoteId: id, status: 'ACTIVE' },
+                include: { lot: true },
             });
+
+            for (const res of quoteReservations) {
+                // Find the order item that matches this reservation's product
+                const resProductId = res.productId || res.lot?.productId;
+                const matchingOrderItem = newOrder.items.find(oi =>
+                    oi.productId === resProductId &&
+                    (!oi.lotId || oi.lotId === res.lotId) // Prefer exact lot match
+                );
+
+                await tx.stockReservation.update({
+                    where: { id: res.id },
+                    data: {
+                        orderId: newOrder.id,
+                        orderItemId: matchingOrderItem?.id || null,
+                        productId: resProductId || null,
+                        type: ReservationType.PEDIDO,
+                    },
+                });
+            }
 
             return newOrder;
         });

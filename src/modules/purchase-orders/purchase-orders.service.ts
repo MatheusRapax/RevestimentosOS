@@ -40,6 +40,7 @@ export class PurchaseOrdersService {
                         product: true,
                     },
                 },
+                expenses: true,
             },
         });
 
