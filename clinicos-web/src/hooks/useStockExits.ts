@@ -114,6 +114,19 @@ export function useStockExits() {
         }
     };
 
+    const deleteExit = async (id: string) => {
+        setIsLoading(true);
+        try {
+            await api.delete(`/stock/exits/${id}`);
+            return true;
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Erro ao excluir saída');
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return {
         exits,
         currentExit,
@@ -126,5 +139,6 @@ export function useStockExits() {
         addItem,
         removeItem,
         confirmExit,
+        deleteExit,
     };
 }

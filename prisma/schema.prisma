@@ -765,6 +765,7 @@ enum ExitType {
   DISCARD
   EXPIRY
   ADJUSTMENT
+  SALE
 }
 
 // Business: EncounterNote model (SOAP Clinical Notes)

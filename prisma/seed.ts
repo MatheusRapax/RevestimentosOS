@@ -48,10 +48,21 @@ async function main() {
         { key: 'delivery.read', description: 'Visualizar entregas' },
         { key: 'delivery.create', description: 'Agendar entregas' },
         { key: 'delivery.update', description: 'Atualizar entregas' },
-        // Stock
-        { key: 'stock.read', description: 'Visualizar estoque' },
-        { key: 'stock.create', description: 'Criar itens de estoque' },
-        { key: 'stock.update', description: 'Atualizar itens de estoque' },
+        { key: 'delivery.update', description: 'Atualizar entregas' },
+
+        // Product Catalog (Cadastro de Produtos)
+        { key: 'product.create', description: 'Criar produtos' },
+        { key: 'product.read', description: 'Visualizar catálogo de produtos' },
+        { key: 'product.update', description: 'Atualizar produtos' },
+        { key: 'product.delete', description: 'Excluir produtos' },
+
+        // Stock Operations (Estoque Físico)
+        { key: 'stock.view', description: 'Visualizar saldos de estoque' },
+        { key: 'stock.adjust', description: 'Realizar ajustes de estoque' },
+        // { key: 'stock.read', description: 'Visualizar estoque' }, // DEPRECATED
+        // { key: 'stock.create', description: 'Criar itens de estoque' }, // DEPRECATED
+        // { key: 'stock.update', description: 'Atualizar itens de estoque' }, // DEPRECATED
+
         // Finance
         { key: 'finance.read', description: 'Visualizar financeiro' },
         { key: 'finance.charge', description: 'Gerar cobranças' },
@@ -171,7 +182,7 @@ async function main() {
         'quote.read', 'quote.create', 'quote.update',
         'order.read', 'order.create',
         'delivery.read', 'delivery.create', 'delivery.update',
-        'stock.read',
+        'product.read', 'stock.view', // Catalog + Balances
         'clinic.read',
     ];
     for (const key of sellerPermKeys) {
@@ -191,7 +202,8 @@ async function main() {
         'customer.delete', 'architect.create', 'architect.update', 'architect.delete',
         'quote.delete', 'quote.convert',
         'order.update', 'order.cancel',
-        'stock.create', 'stock.update',
+        'product.create', 'product.update', // Manage Catalog
+        'stock.adjust', // Manage Stock
         'finance.read', 'finance.charge', 'finance.payment',
         'user.read', 'audit.read',
     ];
@@ -207,7 +219,12 @@ async function main() {
     }
 
     // STOCK_MANAGER permissions
-    const stockPermKeys = ['stock.read', 'stock.create', 'stock.update', 'clinic.read'];
+    const stockPermKeys = [
+        'product.read', 'product.create', 'product.update', // Catalog management
+        'stock.view', 'stock.adjust', // Stock management
+        'stock.create', 'stock.read', 'stock.update', // Legacy/Safety
+        'clinic.read'
+    ];
     for (const key of stockPermKeys) {
         const perm = permissionMap.get(key);
         if (perm) {

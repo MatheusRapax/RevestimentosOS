@@ -68,7 +68,7 @@ export class StockExitService {
             data: {
                 clinicId,
                 status: ExitStatus.DRAFT,
-                type: ExitType.PATIENT_USE,
+                type: ExitType.SALE,
                 destinationType: 'CUSTOMER',
                 destinationName: `Pedido #${order.number} - ${order.customer?.name || 'Cliente'}`,
                 requestedBy: userId,

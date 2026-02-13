@@ -145,6 +145,9 @@ export class StockEntryService {
     async update(clinicId: string, entryId: string, dto: UpdateStockEntryDto) {
         const entry = await this.prisma.stockEntry.findUnique({ where: { id: entryId, clinicId } });
         if (!entry) throw new NotFoundException('Entrada não encontrada');
+        if (entry.status === EntryStatus.CONFIRMED) return entry;
+
+        // Only drafts can be edited. If the status is not DRAFT and not CONFIRMED (e.g., CANCELLED), throw an error.
         if (entry.status !== EntryStatus.DRAFT) throw new BadRequestException('Apenas rascunhos podem ser editados');
 
         return this.prisma.stockEntry.update({
@@ -325,8 +328,8 @@ export class StockEntryService {
                             product: { connect: { id: item.productId! } },
                             productName: item.productName,
                             quantity: item.quantityOrdered, // Default to ordered quantity
-                            unitCost: item.unitPriceCents, // Use unitCost field name
-                            totalCost: item.totalCents, // Use totalCost field name
+                            unitCost: item.unitPriceCents / 100, // Convert cents (Int) to float
+                            totalCost: item.totalCents / 100, // Convert cents (Int) to float
                         }))
                 }
             }
@@ -345,8 +348,26 @@ export class StockEntryService {
         if (entry.items.length === 0) throw new BadRequestException('A entrada não possui itens. Adicione produtos antes de confirmar.');
 
         // Mandatory Fields Validation
-        if (!entry.invoiceNumber && entry.type === EntryType.INVOICE) throw new BadRequestException('Número da Nota Fiscal é obrigatório para confirmar.');
-        if ((!entry.supplierId && !entry.supplierName) && entry.type === EntryType.INVOICE) throw new BadRequestException('Informe o Fornecedor para confirmar a entrada.');
+        if (entry.type === EntryType.INVOICE) {
+            const requiredFields = [
+                { field: 'invoiceNumber', label: 'Número da Nota' },
+                { field: 'series', label: 'Série' },
+                { field: 'supplierName', label: 'Fornecedor' },
+                { field: 'totalProductsValueCents', label: 'Valor Total dos Produtos' },
+                { field: 'operationNature', label: 'Natureza da Operação' },
+                { field: 'emissionDate', label: 'Data de Emissão' },
+            ];
+
+            const missingFields = requiredFields
+                .filter(req => !entry[req.field as keyof typeof entry])
+                .map(req => req.label);
+
+            if (missingFields.length > 0) {
+                throw new BadRequestException(
+                    `Campos obrigatórios faltando para confirmar a nota fiscal: ${missingFields.join(', ')}`
+                );
+            }
+        }
         // if (!entry.arrivalDate) throw new BadRequestException('Data de Chegada é obrigatória para confirmar.'); // arrivalDate often defaults to now if missing, but let's be strict if user asked for it. 
         // Actually, createDraft defaults arrivalDate to new Date() if missing. So checks might pass always unless explicitly null.
         // Let's check anyway.
@@ -416,6 +437,18 @@ export class StockEntryService {
                         reason: `Entrada: ${entry.type} #${entry.invoiceNumber || entry.id}`,
                     },
                 });
+
+                // 2c. Update Product Cost (Last Cost Strategy)
+                // StockEntryItem.unitCost is Float (e.g., 50.49). Product.costCents is Int (e.g., 5049).
+                if (item.unitCost) {
+                    await tx.product.update({
+                        where: { id: item.productId },
+                        data: {
+                            costCents: Math.round(item.unitCost * 100), // Convert Float back to Cents
+                            updatedAt: new Date(),
+                        }
+                    });
+                }
             }
 
             return confirmedEntry;

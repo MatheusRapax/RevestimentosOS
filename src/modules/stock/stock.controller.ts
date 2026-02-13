@@ -37,28 +37,28 @@ export class StockController {
 
     @Get()
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_READ)
+    @Permissions(PERMISSIONS.PRODUCT_READ)
     findAll(@Request() req: any) {
         return this.stockService.listProducts(req.clinicId, {});
     }
 
     @Post()
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_CREATE)
+    @Permissions(PERMISSIONS.PRODUCT_CREATE)
     create(@Body() createDto: any, @Request() req: any) {
         return this.stockService.createProduct(req.clinicId, createDto);
     }
 
     @Patch(':id')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_UPDATE)
+    @Permissions(PERMISSIONS.PRODUCT_UPDATE)
     update(@Param('id') id: string, @Body() updateDto: any, @Request() req: any) {
         return this.stockService.updateProduct(id, req.clinicId, updateDto);
     }
 
     @Delete(':id')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_UPDATE)
+    @Permissions(PERMISSIONS.PRODUCT_DELETE)
     remove(@Param('id') id: string, @Request() req: any) {
         return this.stockService.softDeleteProduct(id, req.clinicId);
     }
@@ -67,28 +67,28 @@ export class StockController {
 
     @Post('products')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_CREATE)
+    @Permissions(PERMISSIONS.PRODUCT_CREATE)
     createProduct(@Body() createProductDto: CreateProductDto, @Request() req: any) {
         return this.stockService.createProduct(req.clinicId, createProductDto);
     }
 
     @Get('products')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_READ)
+    @Permissions(PERMISSIONS.PRODUCT_READ)
     listProducts(@Query() query: ListProductsDto, @Request() req: any) {
         return this.stockService.listProducts(req.clinicId, query);
     }
 
     @Get('products/:id')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_READ)
+    @Permissions(PERMISSIONS.PRODUCT_READ)
     getProduct(@Param('id') id: string, @Request() req: any) {
         return this.stockService.findOne(id, req.clinicId);
     }
 
     @Patch('products/:id')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_UPDATE)
+    @Permissions(PERMISSIONS.PRODUCT_UPDATE)
     updateProduct(
         @Param('id') id: string,
         @Body() updateProductDto: UpdateProductDto,
@@ -99,7 +99,7 @@ export class StockController {
 
     @Delete('products/:id')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_UPDATE)
+    @Permissions(PERMISSIONS.PRODUCT_DELETE)
     deleteProduct(@Param('id') id: string, @Request() req: any) {
         return this.stockService.softDeleteProduct(id, req.clinicId);
     }
@@ -108,35 +108,35 @@ export class StockController {
 
     @Post('stock/in')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_CREATE)
+    @Permissions(PERMISSIONS.STOCK_ADJUST)
     addStock(@Body() addStockDto: AddStockDto, @Request() req: any) {
         return this.stockService.addStock(req.clinicId, addStockDto);
     }
 
     @Post('stock/out')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_UPDATE)
+    @Permissions(PERMISSIONS.STOCK_ADJUST)
     removeStock(@Body() removeStockDto: RemoveStockDto, @Request() req: any) {
         return this.stockService.removeStock(req.clinicId, removeStockDto);
     }
 
     @Post('adjust')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_UPDATE)
+    @Permissions(PERMISSIONS.STOCK_ADJUST)
     adjustStock(@Body() adjustDto: AdjustStockDto, @Request() req: any) {
         return this.stockService.adjustStock(req.clinicId, adjustDto);
     }
 
     @Get('movements')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_READ)
+    @Permissions(PERMISSIONS.STOCK_VIEW)
     listMovements(@Query() query: ListStockMovementsDto, @Request() req: any) {
         return this.stockService.listMovements(req.clinicId, query);
     }
 
     @Get('stock/product/:productId')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_READ)
+    @Permissions(PERMISSIONS.STOCK_VIEW)
     getProductStock(@Param('productId') productId: string, @Request() req: any) {
         return this.stockService.getProductStock(productId, req.clinicId);
     }
@@ -145,7 +145,7 @@ export class StockController {
 
     @Get('stock/alerts')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_READ)
+    @Permissions(PERMISSIONS.STOCK_VIEW)
     async getAlerts(@Request() req: any) {
         const [lowStock, expiring, shadeCaliberAlerts] = await Promise.all([
             this.stockService.getLowStockAlerts(req.clinicId),
@@ -164,7 +164,7 @@ export class StockController {
 
     @Post('products/import')
     @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.STOCK_CREATE)
+    @Permissions(PERMISSIONS.PRODUCT_CREATE)
     async bulkImportProducts(@Body() body: { products: any[] }, @Request() req: any) {
         return this.stockService.bulkImportProducts(req.clinicId, body.products);
     }

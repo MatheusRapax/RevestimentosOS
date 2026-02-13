@@ -7,6 +7,7 @@ import {
     Body,
     UseGuards,
     Request,
+    Query,
 } from '@nestjs/common';
 import { FinanceService } from './finance.service';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
@@ -23,6 +24,23 @@ import { RequireModules } from '../../core/auth/decorators/module.decorator';
 @RequireModules('FINANCE')
 export class FinanceController {
     constructor(private readonly financeService: FinanceService) { }
+
+    /**
+     * GET /finance/patients/:patientId/account
+     * Get patient account with transactions
+     */
+    @Get('dashboard')
+    @Permissions(PERMISSIONS.FINANCE_READ)
+    async getDashboardStats(
+        @Request() req: any,
+        @Query('month') month?: string,
+        @Query('year') year?: string
+    ) {
+        const now = new Date();
+        const m = month ? parseInt(month) : now.getMonth() + 1;
+        const y = year ? parseInt(year) : now.getFullYear();
+        return this.financeService.getDashboardStats(req.clinicId, m, y);
+    }
 
     /**
      * GET /finance/patients/:patientId/account

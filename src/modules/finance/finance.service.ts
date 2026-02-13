@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { AuditService } from '../../core/audit/audit.service';
-import { AuditAction, TransactionType } from '@prisma/client';
+import { AuditAction, TransactionType, OrderStatus, QuoteStatus, ExpenseStatus } from '@prisma/client';
+import { startOfMonth, endOfMonth, subMonths, format, subDays } from 'date-fns';
 
 @Injectable()
 export class FinanceService {
@@ -85,6 +86,214 @@ export class FinanceService {
                 createdAt: t.createdAt,
             })),
         };
+    }
+
+    /**
+     * Get aggregated Dashboard Stats
+     */
+    async getDashboardStats(clinicId: string, month: number, year: number) {
+        console.log(`[FinanceService] getDashboardStats called for clinic=${clinicId}, month=${month}, year=${year}`);
+        try {
+            const now = new Date();
+            const targetDate = new Date(year, month - 1, 1); // Month is 1-based in API
+            const startDate = startOfMonth(targetDate);
+            const endDate = endOfMonth(targetDate);
+
+            const prevDate = subMonths(targetDate, 1);
+            const prevStartDate = startOfMonth(prevDate);
+            const prevEndDate = endOfMonth(prevDate);
+
+            console.log(`[FinanceService] Date ranges: Current=[${startDate.toISOString()} - ${endDate.toISOString()}], Prev=[${prevStartDate.toISOString()} - ${prevEndDate.toISOString()}]`);
+
+            // Run queries in parallel
+            const [
+                currentRevenue,
+                currentExpenses,
+                currentOrdersCount,
+                currentQuotesCount,
+                prevRevenue,
+                prevExpenses,
+                prevOrdersCount,
+                prevQuotesCount,
+                monthlyTrend,
+                topProducts,
+                recentOrders
+            ] = await Promise.all([
+                // 1. Current Month Revenue (Orders created/confirmed in period, not cancelled/draft)
+                this.prisma.order.aggregate({
+                    _sum: { totalCents: true },
+                    where: {
+                        clinicId,
+                        createdAt: { gte: startDate, lte: endDate },
+                        status: { notIn: [OrderStatus.RASCUNHO, OrderStatus.CANCELADO] }
+                    }
+                }).catch(e => { console.error('Error fetching currentRevenue', e); throw e; }),
+                // 2. Current Month Expenses
+                this.prisma.expense.aggregate({
+                    _sum: { amountCents: true },
+                    where: {
+                        clinicId,
+                        dueDate: { gte: startDate, lte: endDate },
+                        status: { not: ExpenseStatus.CANCELLED }
+                    }
+                }).catch(e => { console.error('Error fetching currentExpenses', e); throw e; }),
+                // 3. Current Orders Count
+                this.prisma.order.count({
+                    where: {
+                        clinicId,
+                        createdAt: { gte: startDate, lte: endDate },
+                        status: { notIn: [OrderStatus.RASCUNHO, OrderStatus.CANCELADO] }
+                    }
+                }).catch(e => { console.error('Error fetching currentOrdersCount', e); throw e; }),
+                // 4. Current Quotes Count
+                this.prisma.quote.count({
+                    where: {
+                        clinicId,
+                        createdAt: { gte: startDate, lte: endDate }
+                    }
+                }).catch(e => { console.error('Error fetching currentQuotesCount', e); throw e; }),
+                // 5. Previous Month Revenue
+                this.prisma.order.aggregate({
+                    _sum: { totalCents: true },
+                    where: {
+                        clinicId,
+                        createdAt: { gte: prevStartDate, lte: prevEndDate },
+                        status: { notIn: [OrderStatus.RASCUNHO, OrderStatus.CANCELADO] }
+                    }
+                }).catch(e => { console.error('Error fetching prevRevenue', e); throw e; }),
+                // 6. Previous Month Expenses
+                this.prisma.expense.aggregate({
+                    _sum: { amountCents: true },
+                    where: {
+                        clinicId,
+                        dueDate: { gte: prevStartDate, lte: prevEndDate },
+                        status: { not: ExpenseStatus.CANCELLED }
+                    }
+                }).catch(e => { console.error('Error fetching prevExpenses', e); throw e; }),
+                // 7. Previous Orders Count
+                this.prisma.order.count({
+                    where: {
+                        clinicId,
+                        createdAt: { gte: prevStartDate, lte: prevEndDate },
+                        status: { notIn: [OrderStatus.RASCUNHO, OrderStatus.CANCELADO] }
+                    }
+                }).catch(e => { console.error('Error fetching prevOrdersCount', e); throw e; }),
+                // 8. Previous Quotes Count
+                this.prisma.quote.count({
+                    where: {
+                        clinicId,
+                        createdAt: { gte: prevStartDate, lte: prevEndDate }
+                    }
+                }).catch(e => { console.error('Error fetching prevQuotesCount', e); throw e; }),
+                // 9. Monthly Trend (Last 6 Months)
+                this.getMonthlyTrend(clinicId, 6).catch(e => { console.error('Error fetching monthlyTrend', e); throw e; }),
+                // 10. Top Products (Revenue)
+                this.prisma.orderItem.groupBy({
+                    by: ['productId'],
+                    _sum: { totalCents: true, quantityBoxes: true },
+                    where: {
+                        order: {
+                            clinicId,
+                            createdAt: { gte: subMonths(new Date(), 3) }, // Last 3 months for relevance
+                            status: { notIn: [OrderStatus.RASCUNHO, OrderStatus.CANCELADO] }
+                        }
+                    },
+                    orderBy: { _sum: { totalCents: 'desc' } },
+                    take: 5
+                }).catch(e => { console.error('Error fetching topProducts', e); throw e; }),
+                // 11. Recent Orders
+                this.prisma.order.findMany({
+                    where: { clinicId },
+                    orderBy: { createdAt: 'desc' },
+                    take: 5,
+                    include: { customer: { select: { name: true } } }
+                }).catch(e => { console.error('Error fetching recentOrders', e); throw e; })
+            ]);
+
+            console.log('[FinanceService] All queries completed successfully');
+
+            // Process Top Products Names
+            console.log('[FinanceService] Processing top products names...');
+            const topProductsWithNames = await Promise.all(
+                topProducts.map(async (item) => {
+                    const product = await this.prisma.product.findUnique({
+                        where: { id: item.productId },
+                        select: { name: true }
+                    });
+                    return {
+                        name: product?.name || 'Produto Desconhecido',
+                        sold: item._sum.quantityBoxes || 0,
+                        revenue: item._sum.totalCents || 0
+                    };
+                })
+            );
+
+            // Calculate Metrics
+            const revenue = currentRevenue._sum?.totalCents || 0;
+            const expenses = currentExpenses._sum?.amountCents || 0;
+            const profit = revenue - expenses;
+            const averageTicket = currentOrdersCount > 0 ? Math.round(revenue / currentOrdersCount) : 0;
+            const conversionRate = currentQuotesCount > 0 ? ((currentOrdersCount / currentQuotesCount) * 100).toFixed(1) : 0;
+
+            const prevProfit = (prevRevenue._sum?.totalCents || 0) - (prevExpenses._sum?.amountCents || 0);
+
+            console.log(`[FinanceService] Returning stats: Revenue=${revenue}, Profit=${profit}`);
+
+            return {
+                currentMonth: {
+                    revenue,
+                    expenses,
+                    profit,
+                    ordersCount: currentOrdersCount,
+                    averageTicket,
+                    quotesCount: currentQuotesCount,
+                    conversionRate: Number(conversionRate),
+                },
+                previousMonth: {
+                    revenue: prevRevenue._sum?.totalCents || 0,
+                    expenses: prevExpenses._sum?.amountCents || 0,
+                    profit: prevProfit,
+                    ordersCount: prevOrdersCount,
+                },
+                monthlyTrend,
+                topProducts: topProductsWithNames,
+                recentOrders: recentOrders.map(o => ({
+                    id: o.id,
+                    customer: o.customer.name,
+                    date: o.createdAt,
+                    total: o.totalCents,
+                    status: o.fulfillmentStatus || (o.status === OrderStatus.ENTREGUE ? 'DELIVERED' : o.status === OrderStatus.EM_SEPARACAO ? 'IN_SEPARATION' : 'PENDING'), // Map to frontend expected statuses
+                }))
+            };
+        } catch (error) {
+            console.error('[FinanceService] Critical Error in getDashboardStats:', error);
+            throw error;
+        }
+    }
+
+    private async getMonthlyTrend(clinicId: string, months: number) {
+        const result = [];
+        for (let i = months - 1; i >= 0; i--) {
+            const date = subMonths(new Date(), i);
+            const start = startOfMonth(date);
+            const end = endOfMonth(date);
+            const monthLabel = format(date, 'MMM', {}); // English shorthand for now, can use locale
+
+            const revenue = await this.prisma.order.aggregate({
+                _sum: { totalCents: true },
+                where: {
+                    clinicId,
+                    createdAt: { gte: start, lte: end },
+                    status: { notIn: [OrderStatus.RASCUNHO, OrderStatus.CANCELADO] }
+                }
+            });
+
+            result.push({
+                month: monthLabel,
+                revenue: revenue._sum?.totalCents || 0
+            });
+        }
+        return result;
     }
 
     /**

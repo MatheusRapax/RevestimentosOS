@@ -42,10 +42,18 @@ export const PERMISSIONS = {
     // Audit
     AUDIT_READ: 'audit.read',
 
-    // Stock
-    STOCK_CREATE: 'stock.create',
-    STOCK_READ: 'stock.read',
-    STOCK_UPDATE: 'stock.update',
+    // Product Catalog (Cadastro de Produtos)
+    PRODUCT_CREATE: 'product.create',
+    PRODUCT_READ: 'product.read',
+    PRODUCT_UPDATE: 'product.update',
+    PRODUCT_DELETE: 'product.delete',
+
+    // Stock Operations (Estoque Físico)
+    STOCK_VIEW: 'stock.view', // Visualizar saldos e movimentações
+    STOCK_ADJUST: 'stock.adjust', // Ajustes manuais
+    // STOCK_CREATE: 'stock.create', // DEPRECATED: Use PRODUCT_CREATE
+    // STOCK_READ: 'stock.read',     // DEPRECATED: Use PRODUCT_READ or STOCK_VIEW
+    // STOCK_UPDATE: 'stock.update', // DEPRECATED: Use PRODUCT_UPDATE
 
     // Schedule
     SCHEDULE_BLOCK: 'schedule.block',

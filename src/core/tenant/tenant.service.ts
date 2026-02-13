@@ -47,6 +47,15 @@ export class TenantService {
     }
 
     /**
+     * Fetch a clinic directly by ID (Used for Super Admin bypass)
+     */
+    async getClinic(clinicId: string) {
+        return this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+        });
+    }
+
+    /**
      * Set clinic context in request
      */
     setClinicContext(req: any, clinicId: string): void {

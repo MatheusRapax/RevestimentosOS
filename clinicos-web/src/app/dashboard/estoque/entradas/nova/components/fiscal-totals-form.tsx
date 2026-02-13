@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { AlertTriangle } from 'lucide-react';
 
 interface FiscalTotalsFormProps {
     entryId: string;
@@ -47,7 +48,10 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
         operationNature: initialData?.operationNature ?? '',
         protocol: initialData?.protocol ?? '',
         model: initialData?.model ?? '55',
+        emissionDate: initialData?.emissionDate ? new Date(initialData.emissionDate).toISOString().split('T')[0] : '',
     });
+
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     const formatCurrency = (val: number) => (val / 100).toFixed(2);
     const parseCurrency = (val: string) => Math.round(parseFloat(val || '0') * 100);
@@ -90,12 +94,30 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                 operationNature: initialData.operationNature ?? '',
                 protocol: initialData.protocol ?? '',
                 model: initialData.model ?? '55',
+                emissionDate: initialData.emissionDate ? new Date(initialData.emissionDate).toISOString().split('T')[0] : '',
             });
         }
     }, [initialData]);
 
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        if (!formData.invoiceNumber) newErrors.invoiceNumber = 'Campo obrigatório';
+        if (!formData.series) newErrors.series = 'Campo obrigatório';
+        if (!formData.operationNature) newErrors.operationNature = 'Campo obrigatório';
+        if (!formData.emissionDate) newErrors.emissionDate = 'Campo obrigatório';
+        if (!formData.totalProductsValueCents) newErrors.totalProductsValueCents = 'Campo obrigatório';
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!validate()) {
+            return; // Stop if validation fails
+        }
+
         setLoading(true);
         try {
             await onUpdate(formData);
@@ -116,18 +138,26 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                 <TabsContent value="header" className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                            <Label>Número da Nota</Label>
+                            <Label className="flex items-center gap-1">
+                                Número da Nota <span className="text-red-500">*</span>
+                            </Label>
                             <Input
                                 value={formData.invoiceNumber || ''}
                                 onChange={e => handleChange('invoiceNumber', e.target.value)}
+                                className={errors.invoiceNumber ? 'border-red-500' : ''}
                             />
+                            {errors.invoiceNumber && <span className="text-xs text-red-500">{errors.invoiceNumber}</span>}
                         </div>
                         <div className="space-y-2">
-                            <Label>Série</Label>
+                            <Label className="flex items-center gap-1">
+                                Série <span className="text-red-500">*</span>
+                            </Label>
                             <Input
                                 value={formData.series || ''}
                                 onChange={e => handleChange('series', e.target.value)}
+                                className={errors.series ? 'border-red-500' : ''}
                             />
+                            {errors.series && <span className="text-xs text-red-500">{errors.series}</span>}
                         </div>
                         <div className="space-y-2">
                             <Label>Modelo</Label>
@@ -136,7 +166,19 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 onChange={e => handleChange('model', e.target.value)}
                             />
                         </div>
-                        <div className="space-y-2 md:col-span-3">
+                        <div className="space-y-2 md:col-span-1">
+                            <Label className="flex items-center gap-1">
+                                Data de Emissão <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                                type="date"
+                                value={formData.emissionDate || ''}
+                                onChange={e => handleChange('emissionDate', e.target.value)}
+                                className={errors.emissionDate ? 'border-red-500' : ''}
+                            />
+                            {errors.emissionDate && <span className="text-xs text-red-500">{errors.emissionDate}</span>}
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
                             <Label>Chave de Acesso</Label>
                             <Input
                                 value={formData.accessKey || ''}
@@ -144,12 +186,16 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 maxLength={44}
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Natureza da Operação</Label>
+                        <div className="space-y-2 md:col-span-2">
+                            <Label className="flex items-center gap-1">
+                                Natureza da Operação <span className="text-red-500">*</span>
+                            </Label>
                             <Input
                                 value={formData.operationNature || ''}
                                 onChange={e => handleChange('operationNature', e.target.value)}
+                                className={errors.operationNature ? 'border-red-500' : ''}
                             />
+                            {errors.operationNature && <span className="text-xs text-red-500">{errors.operationNature}</span>}
                         </div>
                         <div className="space-y-2">
                             <Label>Protocolo</Label>
@@ -199,12 +245,16 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                         <Separator className="col-span-full my-2" />
 
                         <div className="space-y-2">
-                            <Label>Total Produtos</Label>
+                            <Label className="flex items-center gap-1">
+                                Total Produtos <span className="text-red-500">*</span>
+                            </Label>
                             <Input
                                 type="number"
                                 value={formatCurrency(formData.totalProductsValueCents)}
                                 onChange={e => handleChange('totalProductsValueCents', parseCurrency(e.target.value))}
+                                className={errors.totalProductsValueCents ? 'border-red-500' : ''}
                             />
+                            {errors.totalProductsValueCents && <span className="text-xs text-red-500">{errors.totalProductsValueCents}</span>}
                         </div>
                         <div className="space-y-2">
                             <Label>Valor Frete</Label>

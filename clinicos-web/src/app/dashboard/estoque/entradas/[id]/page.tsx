@@ -1,16 +1,17 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, use, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FiscalTotalsForm } from '../nova/components/fiscal-totals-form';
 import { ItemsGrid } from '../nova/components/items-grid';
 import { useStockEntries } from '@/hooks/useStockEntries';
-import { ArrowLeft, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, AlertTriangle, Loader2, Upload, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { parseNFeXML, NFeItem } from '@/lib/nfe-parser';
 
 interface EditEntryPageProps {
     params: Promise<{
@@ -21,8 +22,10 @@ interface EditEntryPageProps {
 export default function EditEntryPage({ params }: EditEntryPageProps) {
     const { id } = use(params);
     const router = useRouter();
-    const { getEntry, currentEntry, addItem, removeItem, updateEntry, confirmEntry, error, isLoading } = useStockEntries();
+    const { getEntry, currentEntry, addItem, removeItem, updateEntry, confirmEntry, deleteEntry, error, isLoading } = useStockEntries();
     const [isInitializing, setIsInitializing] = useState(true);
+    const [pendingXmlItems, setPendingXmlItems] = useState<NFeItem[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const loadEntry = async () => {
@@ -47,6 +50,18 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
         }
     };
 
+    const handleDelete = async () => {
+        if (!id) return;
+        if (!confirm('Tem certeza que deseja excluir este rascunho de entrada? Esta ação não pode ser desfeita.')) return;
+
+        try {
+            await deleteEntry(id);
+            router.push('/dashboard/estoque/movimentacoes');
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     const handleUpdateEntry = async (data: any) => {
         if (!id) return;
         try {
@@ -55,6 +70,83 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
             console.error(err);
         }
     };
+
+    const handleImportXml = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !id) return;
+
+        if (currentEntry?.items && currentEntry.items.length > 0) {
+            if (!confirm('Importar este XML irá substituir toda a lista de itens atual para que você possa fazer a conciliação. Deseja continuar?')) {
+                if (fileInputRef.current) fileInputRef.current.value = '';
+                return;
+            }
+        }
+
+        try {
+            const nfeData = await parseNFeXML(file);
+
+            // Update Entry Header & Totals
+            const updateData = {
+                // Header
+                invoiceNumber: nfeData.invoiceNumber,
+                series: nfeData.series,
+                accessKey: nfeData.accessKey,
+                operationNature: nfeData.operationNature,
+                protocol: nfeData.protocol,
+                model: nfeData.model,
+                emissionDate: nfeData.emissionDate ? nfeData.emissionDate.toISOString() : undefined,
+                supplierName: nfeData.supplier.name, // Keep supplier from XML if possible, but ID remains from PO? 
+                // Note: updating supplierName might be good, but supplierId might be needed. 
+                // Ideally we keep the supplierId from PO. 
+
+                // Totals
+                calculationBaseICMS: Math.round(nfeData.totals.vBC * 100),
+                valueICMS: Math.round(nfeData.totals.vICMS * 100),
+                calculationBaseICMSST: Math.round(nfeData.totals.vBCST * 100),
+                valueICMSST: Math.round(nfeData.totals.vST * 100),
+                totalProductsValueCents: Math.round(nfeData.totals.vProd * 100),
+                freightValueCents: Math.round(nfeData.totals.vFrete * 100),
+                insuranceValueCents: Math.round(nfeData.totals.vSeg * 100),
+                discountValueCents: Math.round(nfeData.totals.vDesc * 100),
+                otherExpensesValueCents: Math.round(nfeData.totals.vOutro * 100),
+                totalIPIValueCents: Math.round(nfeData.totals.vIPI * 100),
+
+                // Transport
+                freightType: nfeData.transport.modFrete,
+                carrierName: nfeData.transport.carrierName,
+                carrierDocument: nfeData.transport.carrierDocument,
+                carrierState: nfeData.transport.carrierState,
+                // carrierPlate not always in basic parser, check if needed
+
+                // Volumes
+                volumeQuantity: nfeData.transport.volQuantity,
+                volumeSpecies: nfeData.transport.volSpecies,
+                grossWeight: nfeData.transport.volGrossWeight,
+                netWeight: nfeData.transport.volNetWeight,
+            };
+
+            await updateEntry(id, updateData);
+
+            // Remove existing items to allow clean reconciliation
+            if (currentEntry?.items?.length) {
+                // We need to remove them one by one or have a bulk remove endpoint. 
+                // For now, parallel remove is fine for typically small POs.
+                await Promise.all(currentEntry.items.map(item => removeItem(id, item.id)));
+            }
+
+            setPendingXmlItems(nfeData.items);
+            await getEntry(id); // Reload to show new fiscal data
+
+            alert('XML importado com sucesso! Utilize a lista de itens pendentes abaixo para conciliar com seus produtos.');
+
+        } catch (err: any) {
+            console.error(err);
+            alert('Erro ao importar XML: ' + (err.message || 'Erro desconhecido'));
+        } finally {
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
 
     if (isInitializing) {
         return (
@@ -98,6 +190,19 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                         Edite os dados e adicione itens à entrada em rascunho.
                     </p>
                 </div>
+                {currentEntry.status === 'DRAFT' && (
+                    <div className="ml-auto">
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleDelete}
+                            disabled={isLoading}
+                        >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir Rascunho
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {error && (
@@ -110,10 +215,33 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex justify-between items-center">
-                        <span>Dados da Entrada</span>
-                        <div className="text-sm font-normal text-muted-foreground flex items-center gap-2">
-                            <span>ID: {currentEntry.id}</span>
-                            <span className="bg-secondary px-2 py-0.5 rounded text-xs uppercase">{currentEntry.status === 'DRAFT' ? 'Rascunho' : currentEntry.status}</span>
+                        <div className="flex items-center gap-4">
+                            <span>Dados da Entrada</span>
+                            <div className="text-sm font-normal text-muted-foreground flex items-center gap-2">
+                                <span>ID: {currentEntry.id}</span>
+                                <span className="bg-secondary px-2 py-0.5 rounded text-xs uppercase">{currentEntry.status === 'DRAFT' ? 'Rascunho' : currentEntry.status}</span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="file"
+                                accept=".xml"
+                                className="hidden"
+                                ref={fileInputRef}
+                                onChange={handleImportXml}
+                            />
+                            {currentEntry.status === 'DRAFT' && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isLoading}
+                                >
+                                    <Upload className="h-4 w-4 mr-2" />
+                                    Importar XML da NF-e
+                                </Button>
+                            )}
                         </div>
                     </CardTitle>
                 </CardHeader>
@@ -168,6 +296,10 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                         onAdd={(data) => addItem(currentEntry.id, data)}
                         onRemove={(itemId) => removeItem(currentEntry.id, itemId)}
                         isLoading={isLoading}
+                        pendingItems={pendingXmlItems}
+                        onResolvePending={(index) => {
+                            setPendingXmlItems(prev => prev.filter((_, i) => i !== index));
+                        }}
                     />
 
                     <div className="flex justify-between items-center bg-muted/20 p-4 rounded-md">

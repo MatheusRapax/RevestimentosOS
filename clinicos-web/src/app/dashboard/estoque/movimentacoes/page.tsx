@@ -123,6 +123,17 @@ export default function MovimentacoesPage() {
         }
     };
 
+    const handleDeleteExit = async (id: string) => {
+        try {
+            await api.delete(`/stock/exits/${id}`);
+            fetchPendingItems();
+        } catch (error: any) {
+            console.error('Erro ao excluir rascunho:', error);
+            const msg = error.response?.data?.message || 'Erro ao excluir rascunho. Tente novamente.';
+            toast.error(msg);
+        }
+    };
+
     const fetchMovements = async () => {
         setIsLoading(true);
         try {
@@ -321,6 +332,37 @@ export default function MovimentacoesPage() {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
+
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                                                                title="Excluir rascunho"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Excluir Rascunho?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Esta ação não pode ser desfeita. O rascunho de saída será removido permanentemente.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                <AlertDialogAction
+                                                                    className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                                                                    onClick={() => handleDeleteExit(exit.id)}
+                                                                >
+                                                                    Excluir
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+
                                                     <Button
                                                         size="sm"
                                                         onClick={() => router.push(`/dashboard/estoque/saidas/${exit.id}`)}

@@ -38,35 +38,51 @@ export class TenantGuard implements CanActivate {
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const request = context.switchToHttp().getRequest();
 
-        // Resolve clinicId from X-Clinic-Id header or JWT payload
-        const clinicId = this.tenantService.resolveClinicId(request);
+        try {
+            // Resolve clinicId from X-Clinic-Id header or JWT payload
+            const clinicId = this.tenantService.resolveClinicId(request);
 
-        if (!clinicId) {
-            throw new ForbiddenException(
-                'Contexto de clínica não definido. Use o header X-Clinic-Id ou inclua clinicId no token JWT',
-            );
+            if (!clinicId) {
+                console.warn('⚠️ TenantGuard: No clinicId found in request');
+                throw new ForbiddenException(
+                    'Contexto de clínica não definido. Use o header X-Clinic-Id ou inclua clinicId no token JWT',
+                );
+            }
+
+            console.log(`🔍 TenantGuard: Validating access for user ${request.user?.id} to clinic ${clinicId}`);
+
+            let clinic;
+
+            // SUPER ADMIN BYPASS
+            if (request.user?.isSuperAdmin) {
+                console.log(`🦸‍♂️ SuperAdmin detected. Bypassing user-clinic check.`);
+                clinic = await this.tenantService.getClinic(clinicId);
+            } else {
+                // REGULAR USER CHECK
+                clinic = await this.tenantService.validateUserClinicAccess(
+                    request.user.id,
+                    clinicId,
+                );
+            }
+
+            if (!clinic) {
+                console.error(`❌ TenantGuard: Access denied for user ${request.user.id} to clinic ${clinicId}`);
+                throw new ForbiddenException(
+                    'Você não tem acesso a esta clínica ou ela está inativa',
+                );
+            }
+            console.log(`✅ TenantGuard: Access granted to ${clinic.name} (${clinic.id})`);
+
+            // Attach active clinic to user for ModuleGuard
+            request.user.activeClinic = clinic;
+
+            // Inject clinicId into request for use in controllers/services
+            this.tenantService.setClinicContext(request, clinicId);
+
+            return true;
+        } catch (error) {
+            console.error('💥 TenantGuard Critical Error:', error);
+            throw error;
         }
-
-        // Validate user has access to the requested clinic
-        const clinic = await this.tenantService.validateUserClinicAccess(
-            request.user.id,
-            clinicId,
-        );
-
-        if (!clinic) {
-            console.error(`❌ TenantGuard: Access denied for user ${request.user.id} to clinic ${clinicId}`);
-            throw new ForbiddenException(
-                'Você não tem acesso a esta clínica ou ela está inativa',
-            );
-        }
-        console.log(`✅ TenantGuard: Access granted to ${clinic.name} (${clinic.id})`);
-
-        // Attach active clinic to user for ModuleGuard
-        request.user.activeClinic = clinic;
-
-        // Inject clinicId into request for use in controllers/services
-        this.tenantService.setClinicContext(request, clinicId);
-
-        return true;
     }
 }

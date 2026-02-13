@@ -82,7 +82,7 @@ export default function EntregasPage() {
             setLoading(true);
             const [deliveriesRes, ordersRes] = await Promise.all([
                 api.get('/deliveries'),
-                api.get('/orders?status=CONFIRMED')
+                api.get('/orders?status=PRONTO_PARA_ENTREGA')
             ]);
             setDeliveries(deliveriesRes.data);
 
@@ -110,18 +110,37 @@ export default function EntregasPage() {
             setIsCreateOpen(false);
             resetForm();
             fetchData();
-        } catch (error) {
+            toast.success('Entrega agendada com sucesso!');
+        } catch (error: any) {
             console.error('Error creating delivery:', error);
-            toast.error('Erro ao agendar entrega');
+            const msg = error?.response?.data?.message || 'Erro ao agendar entrega';
+            toast.error(msg);
         }
     };
 
+    const statusLabels: Record<string, string> = {
+        IN_TRANSIT: 'Em Trânsito',
+        DELIVERED: 'Entregue',
+        CANCELED: 'Cancelado',
+    };
+
     const handleUpdateStatus = async (id: string, newStatus: string) => {
+        // Warn user that completing delivery will auto-finalize the order
+        if (newStatus === 'DELIVERED') {
+            const confirm = window.confirm(
+                'Ao concluir a entrega, o pedido será automaticamente finalizado (status → Entregue). Deseja continuar?'
+            );
+            if (!confirm) return;
+        }
+
         try {
             await api.patch(`/deliveries/${id}`, { status: newStatus });
             fetchData();
-        } catch (error) {
+            toast.success(`Status atualizado para ${statusLabels[newStatus] || newStatus}`);
+        } catch (error: any) {
             console.error('Error updating status:', error);
+            const msg = error?.response?.data?.message || 'Erro ao atualizar status';
+            toast.error(msg);
         }
     };
 

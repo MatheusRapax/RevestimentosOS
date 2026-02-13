@@ -52,6 +52,13 @@ export class PermissionsGuard implements CanActivate {
 
         // 2. Extract request data
         const request = context.switchToHttp().getRequest();
+
+        // SUPER ADMIN BYPASS
+        if (request.user?.isSuperAdmin) {
+            // console.log('🦸‍♂️ SuperAdmin detected. Bypassing permission check.');
+            return true;
+        }
+
         const userId = request.user?.id;
         const clinicId = request.clinicId; // Set by TenantGuard
 

@@ -50,6 +50,7 @@ export class StockService {
     }
 
     async listProducts(clinicId: string, filters?: { search?: string; isActive?: boolean }) {
+        console.log(`[StockService] listProducts called with clinicId=${clinicId}, filters=${JSON.stringify(filters)}`);
         const where: any = { clinicId };
 
         // Default to showing only active products
