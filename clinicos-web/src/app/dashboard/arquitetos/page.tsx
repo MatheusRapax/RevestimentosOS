@@ -14,6 +14,7 @@ import {
     DialogDescription,
 } from '@/components/ui/dialog';
 import { Plus, Users, Edit, Trash2, Percent, Building2 } from 'lucide-react';
+import { maskCPF, maskPhone, maskDate, unmask } from '@/lib/masks';
 
 interface Architect {
     id: string;
@@ -21,6 +22,7 @@ interface Architect {
     email?: string;
     phone?: string;
     document?: string;
+    birthDate?: string;
     commissionRate?: number;
     isActive: boolean;
     createdAt: string;
@@ -32,6 +34,7 @@ const emptyForm = {
     email: '',
     phone: '',
     document: '',
+    birthDate: '',
     commissionRate: 5,
 };
 
@@ -90,6 +93,7 @@ export default function ArquitetosPage() {
             email: architect.email || '',
             phone: architect.phone || '',
             document: architect.document || '',
+            birthDate: architect.birthDate ? new Date(architect.birthDate).toLocaleDateString('pt-BR') : '',
             commissionRate: architect.commissionRate || 5,
         });
         setIsFormDialogOpen(true);
@@ -107,6 +111,9 @@ export default function ArquitetosPage() {
 
             const payload = {
                 ...formData,
+                document: unmask(formData.document),
+                phone: unmask(formData.phone),
+                birthDate: formData.birthDate ? new Date(formData.birthDate.split('/').reverse().join('-')).toISOString() : undefined,
                 commissionRate: Number(formData.commissionRate),
             };
 
@@ -349,8 +356,9 @@ export default function ArquitetosPage() {
                             <Input
                                 id="phone"
                                 value={formData.phone}
-                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                onChange={(e) => setFormData({ ...formData, phone: maskPhone(e.target.value) })}
                                 placeholder="(11) 99999-9999"
+                                maxLength={15}
                             />
                         </div>
 
@@ -359,8 +367,20 @@ export default function ArquitetosPage() {
                             <Input
                                 id="document"
                                 value={formData.document}
-                                onChange={(e) => setFormData({ ...formData, document: e.target.value })}
+                                onChange={(e) => setFormData({ ...formData, document: maskCPF(e.target.value) })}
                                 placeholder="000.000.000-00"
+                                maxLength={14}
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="birthDate">Data de Nascimento</Label>
+                            <Input
+                                id="birthDate"
+                                value={formData.birthDate}
+                                onChange={(e) => setFormData({ ...formData, birthDate: maskDate(e.target.value) })}
+                                placeholder="DD/MM/AAAA"
+                                maxLength={10}
                             />
                         </div>
 

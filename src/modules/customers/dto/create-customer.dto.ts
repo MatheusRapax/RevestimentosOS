@@ -7,6 +7,7 @@ import {
     MinLength,
     MaxLength,
     Min,
+    IsDateString,
 } from 'class-validator';
 import { CustomerType } from '@prisma/client';
 
@@ -38,6 +39,10 @@ export class CreateCustomerDto {
     @IsString()
     @MaxLength(20)
     stateRegistration?: string; // Inscrição Estadual (PJ)
+
+    @IsOptional()
+    @IsDateString()
+    birthDate?: string;
 
     // Endereço
     @IsOptional()

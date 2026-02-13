@@ -1037,6 +1037,7 @@ model Customer {
   phone             String?
   document          String? // CPF ou CNPJ
   stateRegistration String? // Inscrição Estadual (para PJ)
+  birthDate         DateTime? // Data de Nascimento/Fundação
 
   // Endereço
   address       String?
@@ -1082,6 +1083,7 @@ model Architect {
   email          String?
   phone          String?
   document       String? // CPF
+  birthDate      DateTime?
   commissionRate Float? // Percentual de comissão (ex: 3.0 = 3%)
   notes          String?
   isActive       Boolean  @default(true)

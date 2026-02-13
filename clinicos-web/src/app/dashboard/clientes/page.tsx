@@ -21,6 +21,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Plus, Users, Edit, Trash2, Search, Building, User } from 'lucide-react';
+import { maskCPF, maskCNPJ, maskPhone, maskCEP, maskDate, unmask } from '@/lib/masks';
 
 interface Customer {
     id: string;
@@ -34,6 +35,7 @@ interface Customer {
     city?: string;
     state?: string;
     zipCode?: string;
+    birthDate?: string;
     isActive: boolean;
     architectId?: string;
     architect?: { id: string; name: string } | null;
@@ -57,6 +59,9 @@ const emptyForm = {
     city: '',
     state: '',
     zipCode: '',
+    state: '',
+    zipCode: '',
+    birthDate: '',
     architectId: '',
 };
 
@@ -147,6 +152,8 @@ export default function ClientesPage() {
             city: customer.city || '',
             state: customer.state || '',
             zipCode: customer.zipCode || '',
+            zipCode: customer.zipCode || '',
+            birthDate: customer.birthDate ? new Date(customer.birthDate).toLocaleDateString('pt-BR') : '',
             architectId: customer.architectId || '',
         });
         setFormError('');
@@ -165,6 +172,11 @@ export default function ClientesPage() {
 
             const payload = {
                 ...formData,
+                ...formData,
+                document: unmask(formData.document),
+                phone: unmask(formData.phone),
+                zipCode: unmask(formData.zipCode),
+                birthDate: formData.birthDate ? new Date(formData.birthDate.split('/').reverse().join('-')).toISOString() : undefined,
                 architectId: formData.architectId && formData.architectId !== 'none' ? formData.architectId : undefined,
             };
 
@@ -478,10 +490,27 @@ export default function ClientesPage() {
                             <Input
                                 id="document"
                                 value={formData.document}
-                                onChange={(e) => setFormData({ ...formData, document: e.target.value })}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    const masked = formData.type === 'PF' ? maskCPF(value) : maskCNPJ(value);
+                                    setFormData({ ...formData, document: masked });
+                                }}
                                 placeholder={formData.type === 'PF' ? '000.000.000-00' : '00.000.000/0001-00'}
                             />
                         </div>
+
+                        {formData.type === 'PF' && (
+                            <div>
+                                <Label htmlFor="birthDate">Data de Nascimento</Label>
+                                <Input
+                                    id="birthDate"
+                                    value={formData.birthDate || ''}
+                                    onChange={(e) => setFormData({ ...formData, birthDate: maskDate(e.target.value) })}
+                                    placeholder="DD/MM/AAAA"
+                                    maxLength={10}
+                                />
+                            </div>
+                        )}
 
                         {formData.type === 'PJ' && (
                             <div>
@@ -510,8 +539,9 @@ export default function ClientesPage() {
                             <Input
                                 id="phone"
                                 value={formData.phone}
-                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                onChange={(e) => setFormData({ ...formData, phone: maskPhone(e.target.value) })}
                                 placeholder="(11) 99999-9999"
+                                maxLength={15}
                             />
                         </div>
 
@@ -550,8 +580,9 @@ export default function ClientesPage() {
                             <Input
                                 id="zipCode"
                                 value={formData.zipCode}
-                                onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+                                onChange={(e) => setFormData({ ...formData, zipCode: maskCEP(e.target.value) })}
                                 placeholder="00000-000"
+                                maxLength={9}
                             />
                         </div>
 

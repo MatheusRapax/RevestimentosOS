@@ -33,6 +33,7 @@ import {
     ToggleLeft,
     ToggleRight
 } from 'lucide-react';
+import { maskCNPJ, maskPhone, unmask } from '@/lib/masks';
 
 interface Supplier {
     id: string;
@@ -79,7 +80,11 @@ export default function FornecedoresPage() {
     // Create mutation
     const createMutation = useMutation({
         mutationFn: async (data: typeof formData) => {
-            await api.post('/suppliers', data);
+            await api.post('/suppliers', {
+                ...data,
+                cnpj: unmask(data.cnpj),
+                phone: unmask(data.phone),
+            });
         },
         onSuccess: () => {
             toast.success('Fornecedor criado com sucesso!');
@@ -92,7 +97,11 @@ export default function FornecedoresPage() {
     // Update mutation
     const updateMutation = useMutation({
         mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-            await api.patch(`/suppliers/${id}`, data);
+            await api.patch(`/suppliers/${id}`, {
+                ...data,
+                cnpj: unmask(data.cnpj),
+                phone: unmask(data.phone),
+            });
         },
         onSuccess: () => {
             toast.success('Fornecedor atualizado com sucesso!');
@@ -295,8 +304,8 @@ export default function FornecedoresPage() {
                                     </TableCell>
                                     <TableCell>
                                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${supplier.isActive
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-gray-100 text-gray-800'
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-gray-100 text-gray-800'
                                             }`}>
                                             {supplier.isActive ? 'Ativo' : 'Inativo'}
                                         </span>
@@ -355,8 +364,9 @@ export default function FornecedoresPage() {
                             <label className="block text-sm font-medium mb-1">CNPJ</label>
                             <Input
                                 value={formData.cnpj}
-                                onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
+                                onChange={(e) => setFormData({ ...formData, cnpj: maskCNPJ(e.target.value) })}
                                 placeholder="00.000.000/0000-00"
+                                maxLength={18}
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -373,8 +383,9 @@ export default function FornecedoresPage() {
                                 <label className="block text-sm font-medium mb-1">Telefone</label>
                                 <Input
                                     value={formData.phone}
-                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                    onChange={(e) => setFormData({ ...formData, phone: maskPhone(e.target.value) })}
                                     placeholder="(00) 00000-0000"
+                                    maxLength={15}
                                 />
                             </div>
                         </div>

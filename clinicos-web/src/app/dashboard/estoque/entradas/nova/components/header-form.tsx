@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { maskAccessKey } from '@/lib/masks';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CreateEntryData } from '@/hooks/useStockEntries';
@@ -193,10 +194,10 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
                 <div className="space-y-2 md:col-span-2">
                     <Label>Chave de Acesso</Label>
                     <Input
-                        value={accessKey}
-                        onChange={e => setAccessKey(e.target.value)}
-                        placeholder="44 dígitos"
-                        maxLength={44}
+                        value={maskAccessKey(accessKey)}
+                        onChange={e => setAccessKey(maskAccessKey(e.target.value))}
+                        placeholder="0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                        maxLength={54}
                     />
                 </div>
                 <div className="space-y-2">

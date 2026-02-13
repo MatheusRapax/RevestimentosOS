@@ -7,6 +7,7 @@ import {
     MaxLength,
     Min,
     Max,
+    IsDateString,
 } from 'class-validator';
 
 export class CreateArchitectDto {
@@ -28,6 +29,10 @@ export class CreateArchitectDto {
     @IsString()
     @MaxLength(20)
     document?: string; // CPF
+
+    @IsOptional()
+    @IsDateString()
+    birthDate?: string;
 
     @IsOptional()
     @IsNumber()

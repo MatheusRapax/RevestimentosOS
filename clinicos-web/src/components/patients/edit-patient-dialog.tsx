@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { maskCPF, maskPhone, unmask } from '@/lib/masks';
 
 interface Patient {
     id: string;
@@ -62,7 +63,11 @@ export default function EditPatientDialog({ open, patient, onClose, onSuccess }:
         setIsLoading(true);
 
         try {
-            await api.patch(`/patients/${patient.id}`, formData);
+            await api.patch(`/patients/${patient.id}`, {
+                ...formData,
+                document: unmask(formData.document),
+                phone: unmask(formData.phone),
+            });
             onSuccess();
         } catch (err: any) {
             console.error('Error updating patient:', err);
@@ -113,22 +118,24 @@ export default function EditPatientDialog({ open, patient, onClose, onSuccess }:
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="edit-phone">Telefone (opcional)</Label>
+                        <Label htmlFor="phone">Telefone</Label>
                         <Input
-                            id="edit-phone"
+                            id="phone"
                             value={formData.phone}
-                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                            placeholder="(11) 98765-4321"
+                            onChange={(e) => setFormData({ ...formData, phone: maskPhone(e.target.value) })}
+                            placeholder="(11) 99999-9999"
+                            maxLength={15}
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="edit-document">Documento - CPF/NIF (opcional)</Label>
+                        <Label htmlFor="document">CPF</Label>
                         <Input
-                            id="edit-document"
+                            id="document"
                             value={formData.document}
-                            onChange={(e) => setFormData({ ...formData, document: e.target.value })}
+                            onChange={(e) => setFormData({ ...formData, document: maskCPF(e.target.value) })}
                             placeholder="000.000.000-00"
+                            maxLength={14}
                         />
                     </div>
 

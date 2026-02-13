@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { maskCPF, maskPhone, unmask } from '@/lib/masks';
 
 interface Props {
     open: boolean;
@@ -36,7 +37,11 @@ export default function CreatePatientDialog({ open, onClose, onSuccess }: Props)
         setIsLoading(true);
 
         try {
-            await api.post('/patients', formData);
+            await api.post('/patients', {
+                ...formData,
+                document: unmask(formData.document),
+                phone: unmask(formData.phone),
+            });
             onSuccess();
             // Reset form
             setFormData({
@@ -99,8 +104,9 @@ export default function CreatePatientDialog({ open, onClose, onSuccess }: Props)
                         <Input
                             id="phone"
                             value={formData.phone}
-                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                            onChange={(e) => setFormData({ ...formData, phone: maskPhone(e.target.value) })}
                             placeholder="(11) 98765-4321"
+                            maxLength={15}
                         />
                     </div>
 
@@ -109,8 +115,9 @@ export default function CreatePatientDialog({ open, onClose, onSuccess }: Props)
                         <Input
                             id="document"
                             value={formData.document}
-                            onChange={(e) => setFormData({ ...formData, document: e.target.value })}
+                            onChange={(e) => setFormData({ ...formData, document: maskCPF(e.target.value) })}
                             placeholder="000.000.000-00"
+                            maxLength={14}
                         />
                     </div>
 
