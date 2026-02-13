@@ -36,6 +36,7 @@ const AVAILABLE_MODULES = [
     { id: 'FINANCE', label: 'Financeiro' },
     { id: 'ARCHITECTS', label: 'Arquitetos' },
     { id: 'DELIVERIES', label: 'Entregas' },
+    { id: 'FISCAL', label: 'Fiscal (NF-e/NFC-e)' },
     { id: 'ADMIN', label: 'Administrativo (Usuários, Config)' },
 ];
 

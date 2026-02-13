@@ -100,6 +100,7 @@ export class OrdersService {
                 },
                 delivery: true,
                 invoices: true,
+                fiscalDocuments: true,
                 purchaseOrders: {
                     select: {
                         id: true,

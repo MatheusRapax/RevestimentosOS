@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { StockLotSelector } from '@/components/stock/StockLotSelector';
+import { ProductCombobox } from '@/components/quotes/product-combobox';
 
 interface Customer {
     id: string;
@@ -395,28 +396,11 @@ export default function NovoOrcamentoPage() {
                                     {/* Product Select */}
                                     <div className="md:col-span-2 space-y-2">
                                         <Label>Produto</Label>
-                                        <Select
+                                        <ProductCombobox
+                                            products={products}
                                             value={item.productId}
-                                            onValueChange={(value) =>
-                                                updateItem(index, 'productId', value)
-                                            }
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Selecione o produto" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {products.map((product) => (
-                                                    <SelectItem key={product.id} value={product.id}>
-                                                        {product.name}
-                                                        {product.boxCoverage && (
-                                                            <span className="text-gray-500 ml-2">
-                                                                ({product.boxCoverage} m²/cx)
-                                                            </span>
-                                                        )}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            onChange={(value) => updateItem(index, 'productId', value)}
+                                        />
                                         {item.product?.boxCoverage && (
                                             <p className="text-xs text-gray-500">
                                                 Cobertura: {item.product.boxCoverage} m²/caixa

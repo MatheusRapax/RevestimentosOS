@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { QuoteTemplateViewer } from '@/components/quotes/quote-template-viewer';
+import { maskCNPJ, maskPhone, unmask } from '@/lib/masks';
 
 import { useQuoteTemplates, QuoteTemplate, CreateQuoteTemplateData } from '@/hooks/useQuoteTemplates';
 import { Button } from '@/components/ui/button';
@@ -59,15 +60,15 @@ export default function TemplatesPage() {
             name: template.name,
             companyName: template.companyName || '',
             companyLogo: template.companyLogo || '',
-            companyPhone: template.companyPhone || '',
+            companyPhone: maskPhone(template.companyPhone || ''),
             companyEmail: template.companyEmail || '',
             companyAddress: template.companyAddress || '',
-            companyCnpj: template.companyCnpj || '',
+            companyCnpj: maskCNPJ(template.companyCnpj || ''),
             bankName: template.bankName || '',
             bankAgency: template.bankAgency || '',
             bankAccount: template.bankAccount || '',
             bankAccountHolder: template.bankAccountHolder || '',
-            bankCnpj: template.bankCnpj || '',
+            bankCnpj: maskCNPJ(template.bankCnpj || ''),
             pixKey: template.pixKey || '',
             termsAndConditions: template.termsAndConditions || '',
             validityDays: template.validityDays,
@@ -96,11 +97,18 @@ export default function TemplatesPage() {
         }
         setIsSaving(true);
         try {
+            const payload = {
+                ...formData,
+                companyCnpj: unmask(formData.companyCnpj || ''),
+                companyPhone: unmask(formData.companyPhone || ''),
+                bankCnpj: unmask(formData.bankCnpj || ''),
+            };
+
             if (editingTemplate) {
-                await updateTemplate(editingTemplate.id, formData);
+                await updateTemplate(editingTemplate.id, payload);
                 toast.success('Template atualizado!');
             } else {
-                await createTemplate(formData);
+                await createTemplate(payload);
                 toast.success('Template criado!');
             }
             handleClose();
@@ -284,16 +292,18 @@ export default function TemplatesPage() {
                                     <Label>CNPJ</Label>
                                     <Input
                                         value={formData.companyCnpj || ''}
-                                        onChange={(e) => updateField('companyCnpj', e.target.value)}
+                                        onChange={(e) => updateField('companyCnpj', maskCNPJ(e.target.value))}
                                         placeholder="00.000.000/0001-00"
+                                        maxLength={18}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Telefone</Label>
                                     <Input
                                         value={formData.companyPhone || ''}
-                                        onChange={(e) => updateField('companyPhone', e.target.value)}
+                                        onChange={(e) => updateField('companyPhone', maskPhone(e.target.value))}
                                         placeholder="(00) 00000-0000"
+                                        maxLength={15}
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -361,8 +371,9 @@ export default function TemplatesPage() {
                                     <Label>CNPJ do Titular</Label>
                                     <Input
                                         value={formData.bankCnpj || ''}
-                                        onChange={(e) => updateField('bankCnpj', e.target.value)}
+                                        onChange={(e) => updateField('bankCnpj', maskCNPJ(e.target.value))}
                                         placeholder="00.000.000/0001-00"
+                                        maxLength={18}
                                     />
                                 </div>
                                 <div className="space-y-2">

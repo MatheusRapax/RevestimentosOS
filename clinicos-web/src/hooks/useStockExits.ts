@@ -15,7 +15,7 @@ export interface StockExitItem {
 export interface StockExit {
     id: string;
     status: 'DRAFT' | 'APPROVED' | 'REJECTED' | 'CONFIRMED';
-    type: 'SECTOR_REQUEST' | 'PATIENT_USE' | 'DISCARD' | 'EXPIRY' | 'ADJUSTMENT';
+    type: 'SECTOR_REQUEST' | 'PATIENT_USE' | 'DISCARD' | 'EXPIRY' | 'ADJUSTMENT' | 'SALE';
     destinationType?: string;
     destinationName?: string;
     notes?: string;

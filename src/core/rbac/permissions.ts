@@ -123,6 +123,12 @@ export const PERMISSIONS = {
     PURCHASE_ORDER_READ: 'purchase.read',
     PURCHASE_ORDER_UPDATE: 'purchase.update',
     PURCHASE_ORDER_CANCEL: 'purchase.cancel',
+
+    // Fiscal (NF-e/NFC-e)
+    FISCAL_CONFIG: 'fiscal.config',
+    FISCAL_VIEW: 'fiscal.view',
+    FISCAL_EMIT: 'fiscal.emit',
+    FISCAL_CANCEL: 'fiscal.cancel',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

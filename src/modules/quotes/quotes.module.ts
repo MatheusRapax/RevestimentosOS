@@ -9,7 +9,7 @@ import { StockReservationsModule } from '../stock-reservations/stock-reservation
 
 @Module({
     imports: [StockModule, StockReservationsModule],
-    controllers: [QuotesController, QuoteTemplatesController],
+    controllers: [QuoteTemplatesController, QuotesController],
     providers: [QuotesService, QuotePdfService, QuoteTemplatesService],
     exports: [QuotesService, QuoteTemplatesService],
 })

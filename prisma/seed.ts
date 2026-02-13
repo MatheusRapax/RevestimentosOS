@@ -104,6 +104,12 @@ async function main() {
         { key: 'role.manage', description: 'Gerenciar permissões de papéis' },
         { key: 'finance.create', description: 'Criar registros financeiros' },
         { key: 'finance.update', description: 'Atualizar registros financeiros' },
+
+        // Fiscal (NF-e/NFC-e)
+        { key: 'fiscal.config', description: 'Configurar Módulo Fiscal' },
+        { key: 'fiscal.view', description: 'Visualizar Notas Fiscais' },
+        { key: 'fiscal.emit', description: 'Emitir Notas Fiscais' },
+        { key: 'fiscal.cancel', description: 'Cancelar Notas Fiscais' },
     ];
 
     for (const perm of permissions) {
@@ -205,6 +211,7 @@ async function main() {
         'product.create', 'product.update', // Manage Catalog
         'stock.adjust', // Manage Stock
         'finance.read', 'finance.charge', 'finance.payment',
+        'fiscal.view', 'fiscal.emit', 'fiscal.cancel', // Fiscal Access
         'user.read', 'audit.read',
     ];
     for (const key of managerPermKeys) {

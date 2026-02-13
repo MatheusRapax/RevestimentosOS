@@ -43,6 +43,8 @@ enum TransactionType {
   PAYMENT // Pagamento (crédito na conta)
   REFUND // Estorno
   ADJUSTMENT // Ajuste manual
+  FISCAL_EMIT // Emissão Fiscal
+  FISCAL_CANCEL // Cancelamento Fiscal
 }
 
 enum PaymentStatus {
@@ -161,6 +163,10 @@ model Clinic {
   encounterNotes           EncounterNote[]
   encounterAttachments     EncounterAttachment[]
   scheduleBlocks           ScheduleBlock[]
+  fiscalDocuments          FiscalDocument[]
+  fiscalConfig             ClinicFiscalConfig?
+  
+
   workingHours             ClinicWorkingHours[]
   notices                  Notice[]
   dashboardConfigs         UserDashboardConfig[]
@@ -450,6 +456,13 @@ model Product {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  // Campos Fiscais (Webmania)
+  ncm           String? // Nomenclatura Comum do Mercosul (8 digits)
+  cest          String? // Código Especificador da Substituição Tributária
+  origin        Int?    // Origem da Mercadoria (0, 1, 2...)
+  mva           Float?  // Margem de Valor Agregado (%)
+  taxClass      String? // Classe de Imposto (Webmania ID)
 
   // Campos Dimensionais para Revestimentos
   saleType     SaleType @default(UNIT) // Tipo de venda: unidade, área ou ambos
@@ -1288,6 +1301,7 @@ model Order {
   @@index([clinicId, status])
   @@index([customerId])
   @@index([sellerId])
+  fiscalDocuments FiscalDocument[]
 }
 
 // Business: OrderItem model (Item do Pedido)
@@ -1319,6 +1333,7 @@ model OrderItem {
   product Product @relation(fields: [productId], references: [id])
   lot     StockLot? @relation(fields: [lotId], references: [id])
   reservations StockReservation[]
+
 
   @@index([orderId])
   @@index([productId])
@@ -1555,4 +1570,72 @@ model Invoice {
 
   @@index([clinicId])
   @@index([orderId])
+}
+
+
+// Fiscal: FiscalDocument model (NF-e/NFC-e)
+model FiscalDocument {
+  id            String   @id @default(uuid())
+  clinicId      String
+  orderId       String?  // Optional link to Sales Order
+  
+  uuid          String?  @unique // Webmania UUID
+  status        FiscalStatus @default(DRAFT) // DRAFT, PROCESSING, APPROVED, REJECTED, CANCELLED
+  type          FiscalType // NFE, NFCE
+  
+  serie         String?
+  number        String?
+  key           String?  // Chave de Acesso (44 chars)
+  
+  xmlUrl        String?
+  danfeUrl      String?
+  
+  errorMessage  String?  @db.Text
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  clinic        Clinic   @relation(fields: [clinicId], references: [id])
+  order         Order?   @relation(fields: [orderId], references: [id])
+
+  @@index([clinicId])
+  @@index([orderId])
+  @@index([uuid])
+  @@index([status])
+}
+
+// Fiscal: ClinicFiscalConfig model (Webmania Credentials)
+model ClinicFiscalConfig {
+  id             String @id @default(uuid())
+  clinicId       String @unique
+  
+  // Credentials (Optional - Fallback to Env Vars)
+  consumerKey    String?
+  consumerSecret String?
+  accessToken    String?
+  accessTokenSecret String?
+  
+  // Business Rules / Defaults
+  environment             String  @default("2") // 1=Production, 2=Homologation
+  defaultNaturezaOperacao String  @default("Venda de mercadoria")
+  defaultTaxClass         String? // ID da Classe de Imposto na Webmania
+  defaultNcm              String?
+  defaultCest             String?
+  defaultOrigin           Int?    @default(0) // 0=Nacional, etc.
+  
+  clinic         Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+}
+
+enum FiscalStatus {
+  DRAFT
+  PROCESSING
+  APPROVED
+  REJECTED
+  CANCELLED
+  CONTINGENCY // Em contingência
+}
+
+enum FiscalType {
+  NFE
+  NFCE
 }

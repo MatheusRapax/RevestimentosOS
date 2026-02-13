@@ -20,7 +20,9 @@ import {
     DollarSign,
     Download,
     CreditCard,
-    Edit
+
+    Edit,
+    Receipt
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -76,6 +78,25 @@ export default function OrdersPage() {
     const [activeTab, setActiveTab] = useState<'details' | 'finance'>('details');
     const [isEditingDelivery, setIsEditingDelivery] = useState(false);
     const [deliveryEditDate, setDeliveryEditDate] = useState('');
+    const [isEmitting, setIsEmitting] = useState(false);
+
+    const handleEmitFiscal = async () => {
+        if (!displayOrder?.id) return;
+        if (!confirm('Deseja realmente emitir a Nota Fiscal para este pedido?')) return;
+
+        setIsEmitting(true);
+        try {
+            const response = await api.post(`/fiscal/emit/${displayOrder.id}`);
+            toast.success('Nota Fiscal enviada para processamento!');
+            // Refresh details to show new status
+            refetchDetails();
+        } catch (error: any) {
+            console.error('Erro ao emitir nota:', error);
+            toast.error(error.response?.data?.message || 'Erro ao emitir Nota Fiscal');
+        } finally {
+            setIsEmitting(false);
+        }
+    };
 
     useEffect(() => {
         const id = searchParams.get('id');
@@ -162,6 +183,22 @@ export default function OrdersPage() {
             setIsEditingDelivery(false);
         },
         onError: () => toast.error('Erro ao atualizar data de entrega')
+    });
+
+    // Fiscal Emission Mutation
+    const emitFiscalMutation = useMutation({
+        mutationFn: async () => {
+            const response = await api.post(`/fiscal/emit/${selectedOrder.id}`);
+            return response.data;
+        },
+        onSuccess: (data) => {
+            toast.success('Emissão de NF-e iniciada! Acompanhe o status.');
+            // Invalidating orders might not be enough if status is async, but good start
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.message || 'Erro ao emitir NF-e');
+        }
     });
 
     // --- Stock Exit Logic ---
@@ -537,6 +574,71 @@ export default function OrdersPage() {
                                         </div>
                                     )}
 
+                                    {/* Fiscal Info (NFe) */}
+                                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h3 className="font-medium text-slate-900 flex items-center gap-2">
+                                                <FileText className="h-4 w-4" />
+                                                Nota Fiscal
+                                            </h3>
+                                            {(!displayOrder.fiscalDocuments || displayOrder.fiscalDocuments.length === 0) && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={handleEmitFiscal}
+                                                    disabled={isEmitting}
+                                                >
+                                                    {isEmitting ? 'Emitindo...' : 'Emitir Nota'}
+                                                </Button>
+                                            )}
+                                        </div>
+
+                                        {displayOrder.fiscalDocuments && displayOrder.fiscalDocuments.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {displayOrder.fiscalDocuments.map((doc: any) => (
+                                                    <div key={doc.id} className="bg-white p-3 rounded-lg text-sm border border-slate-200">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <div>
+                                                                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide
+                                                                    ${doc.status === 'APROVADO' || doc.status === 'aprovado' || doc.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                                                                        doc.status === 'REJEITADO' || doc.status === 'rejeitado' || doc.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                                                            'bg-yellow-100 text-yellow-700'
+                                                                    }`}>
+                                                                    {doc.status}
+                                                                </span>
+                                                                {doc.number && <span className="ml-2 text-gray-600 font-mono">Nº {doc.number}</span>}
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                {doc.xmlUrl && (
+                                                                    <a href={doc.xmlUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
+                                                                        XML
+                                                                    </a>
+                                                                )}
+                                                                {doc.danfeUrl && (
+                                                                    <a href={doc.danfeUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
+                                                                        PDF
+                                                                    </a>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {doc.errorMessage && (
+                                                            <div className="mt-2 bg-red-50 text-red-700 p-2 rounded text-xs">
+                                                                <strong>Erro:</strong> {doc.errorMessage}
+                                                            </div>
+                                                        )}
+
+                                                        <div className="mt-1 text-xs text-gray-400">
+                                                            Chave: {doc.key || '-'}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-gray-500 italic">Nenhuma nota fiscal emitida.</p>
+                                        )}
+                                    </div>
+
                                     {/* ── Allocation Panel ── */}
                                     {displayOrder.fulfillmentStatus && displayOrder.fulfillmentStatus !== 'PENDING' && (
                                         <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
@@ -772,6 +874,20 @@ export default function OrdersPage() {
                                     >
                                         <Package className="h-4 w-4 mr-2" />
                                         {isCreatingExit ? 'Gerando...' : 'Gerar Saída'}
+                                    </Button>
+                                )}
+
+
+
+                                {['PAGO', 'PRONTO_PARA_ENTREGA', 'ENTREGUE'].includes(displayOrder.status) && (
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                        onClick={() => emitFiscalMutation.mutate()}
+                                        disabled={emitFiscalMutation.isPending}
+                                    >
+                                        <Receipt className="h-4 w-4 mr-2" />
+                                        {emitFiscalMutation.isPending ? 'Emitindo...' : 'Emitir NF-e'}
                                     </Button>
                                 )}
 

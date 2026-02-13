@@ -45,12 +45,17 @@ api.interceptors.response.use(
     },
     (error) => {
         // Only log actual API errors, not cancelled requests
-        if (error.response?.status) {
-            console.error('❌ API Error:', {
-                status: error.response?.status,
-                url: error.config?.url,
-                message: error.response?.data?.message || 'No message',
-            });
+        if (error?.response?.status) {
+            try {
+                const status = error.response.status;
+                const url = error.config?.url;
+                const data = error.response.data;
+                const message = (data && typeof data === 'object' && 'message' in data) ? (data as any).message : 'No message';
+
+                console.error(`❌ API Error [${status}] ${url}:`, message);
+            } catch (loggingError) {
+                console.error('❌ API Error (Raw):', error.message);
+            }
         }
 
         if (error.response?.status === 401) {
