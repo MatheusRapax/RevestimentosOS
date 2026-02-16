@@ -56,6 +56,25 @@ async function main() {
         { key: 'product.update', description: 'Atualizar produtos' },
         { key: 'product.delete', description: 'Excluir produtos' },
 
+        // Suppliers
+        { key: 'supplier.read', description: 'Visualizar fornecedores' },
+        { key: 'supplier.create', description: 'Criar fornecedores' },
+        { key: 'supplier.update', description: 'Atualizar fornecedores' },
+        { key: 'supplier.delete', description: 'Deletar fornecedores' },
+
+        // Categories
+        { key: 'catalogue.settings', description: 'Gerenciar configurações do catálogo' },
+        { key: 'category.read', description: 'Visualizar categorias' },
+        { key: 'category.create', description: 'Criar categorias' },
+        { key: 'category.update', description: 'Atualizar categorias' },
+        { key: 'category.delete', description: 'Deletar categorias' },
+
+        // Brands
+        { key: 'brand.read', description: 'Visualizar marcas' },
+        { key: 'brand.create', description: 'Criar marcas' },
+        { key: 'brand.update', description: 'Atualizar marcas' },
+        { key: 'brand.delete', description: 'Deletar marcas' },
+
         // Stock Operations (Estoque Físico)
         { key: 'stock.view', description: 'Visualizar saldos de estoque' },
         { key: 'stock.adjust', description: 'Realizar ajustes de estoque' },
@@ -209,6 +228,10 @@ async function main() {
         'quote.delete', 'quote.convert',
         'order.update', 'order.cancel',
         'product.create', 'product.update', // Manage Catalog
+        'supplier.create', 'supplier.update', 'supplier.delete', // Manage Suppliers
+        'catalogue.settings', // Manage Catalogue Settings (Markup)
+        'category.create', 'category.update', 'category.delete', // Manage Categories
+        'brand.create', 'brand.update', 'brand.delete', // Manage Brands
         'stock.adjust', // Manage Stock
         'finance.read', 'finance.charge', 'finance.payment',
         'fiscal.view', 'fiscal.emit', 'fiscal.cancel', // Fiscal Access
@@ -228,6 +251,10 @@ async function main() {
     // STOCK_MANAGER permissions
     const stockPermKeys = [
         'product.read', 'product.create', 'product.update', // Catalog management
+        'catalogue.settings', // Manage Catalogue Settings
+        'supplier.read', 'supplier.create', 'supplier.update', // Supplier management
+        'category.read', 'category.create', 'category.update', // Category management
+        'brand.read', 'brand.create', 'brand.update', // Brand management
         'stock.view', 'stock.adjust', // Stock management
         'stock.create', 'stock.read', 'stock.update', // Legacy/Safety
         'clinic.read'

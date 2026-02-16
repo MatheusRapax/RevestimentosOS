@@ -2,7 +2,9 @@ import {
     Controller,
     Post,
     Get,
+    Patch,
     Body,
+    Param,
     UseGuards,
     Request,
     ForbiddenException,
@@ -13,6 +15,7 @@ import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { PermissionsGuard } from '../../core/rbac/guards/permissions.guard';
 import { Permissions } from '../../core/rbac/decorators/permissions.decorator';
 import { PERMISSIONS } from '../../core/rbac/permissions';
+import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 
 @Controller('clinics')
 @UseGuards(JwtAuthGuard)
@@ -90,6 +93,43 @@ export class ClinicsController {
             userId: req.user.id,
             clinicId: req.clinicId,
         };
+    }
+
+    @Patch(':id')
+    @UseGuards(TenantGuard, PermissionsGuard)
+    @Permissions(PERMISSIONS.CATALOGUE_SETTINGS)
+    async updateClinic(
+        @Param('id') id: string,
+        @Body() updateClinicDto: any,
+        @Request() req: any,
+    ) {
+        // Validar se usuário tem acesso à essa clínica
+        const hasAccess = await this.clinicsService.validateUserClinicAccess(
+            req.user.id,
+            id,
+        );
+
+        if (!hasAccess) {
+            throw new ForbiddenException('Acesso negado a esta clínica');
+        }
+
+        return this.clinicsService.updateClinic(id, updateClinicDto);
+    }
+
+    @Get(':id')
+    @UseGuards(TenantGuard, PermissionsGuard)
+    @Permissions(PERMISSIONS.CATALOGUE_SETTINGS)
+    async getClinic(@Param('id') id: string, @Request() req: any) {
+        const hasAccess = await this.clinicsService.validateUserClinicAccess(
+            req.user.id,
+            id,
+        );
+
+        if (!hasAccess) {
+            throw new ForbiddenException('Acesso negado a esta clínica');
+        }
+
+        return this.clinicsService.getClinicById(id);
     }
 }
 

@@ -5,6 +5,7 @@ import {
     Min,
     MaxLength,
     IsInt,
+    IsBoolean,
 } from 'class-validator';
 
 export class CreateProductDto {
@@ -94,6 +95,23 @@ export class CreateProductDto {
     @IsInt()
     @Min(0)
     priceCents?: number;
+
+    // Dynamic Pricing
+    @IsOptional()
+    @IsString()
+    categoryId?: string;
+
+    @IsOptional()
+    @IsString()
+    brandId?: string;
+
+    @IsOptional()
+    @IsNumber()
+    markup?: number;
+
+    @IsOptional()
+    @IsBoolean()
+    manualPrice?: boolean;
 
     // Supplier reference
     @IsOptional()

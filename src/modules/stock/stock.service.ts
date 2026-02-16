@@ -34,6 +34,13 @@ export class StockService {
                 barcode: dto.barcode,
                 minStock: dto.minStock || 0,
                 boxCoverage: dto.boxCoverage,
+                costCents: dto.costCents,
+                priceCents: dto.priceCents,
+                supplierCode: dto.supplierCode,
+                categoryId: dto.categoryId,
+                brandId: dto.brandId,
+                markup: dto.markup,
+                manualPrice: dto.manualPrice,
             },
         });
 
@@ -76,9 +83,19 @@ export class StockService {
                     include: { reservations: { where: { status: 'ACTIVE' } } },
                     orderBy: { expirationDate: 'asc' },
                 },
+                category: true,
+                brand: true,
             },
             orderBy: { name: 'asc' },
         });
+
+        // Fetch Global Markup
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { globalMarkup: true },
+        });
+
+        const globalMarkup = clinic?.globalMarkup || 40.0;
 
         // Calculate total stock for each product
         const productsWithStock = products.map((product) => {
@@ -87,8 +104,27 @@ export class StockService {
                 return sum + lot.reservations.reduce((rSum: number, r: any) => rSum + r.quantity, 0);
             }, 0);
 
+            // Dynamic Price Calculation (Fallback)
+            let displayPriceCents = product.priceCents;
+            if ((!displayPriceCents || displayPriceCents === 0) && product.costCents) {
+                let markup = globalMarkup;
+
+                if (product.markup) {
+                    markup = product.markup;
+                } else if (product.brand?.defaultMarkup) {
+                    markup = product.brand.defaultMarkup;
+                } else if (product.category?.defaultMarkup) {
+                    markup = product.category.defaultMarkup;
+                }
+
+                const cost = product.costCents;
+                const price = cost * (1 + markup / 100);
+                displayPriceCents = Math.round(price);
+            }
+
             return {
                 ...product,
+                priceCents: displayPriceCents,
                 totalStock,
                 totalReserved,
                 availableStock: totalStock - totalReserved,
@@ -99,24 +135,32 @@ export class StockService {
     }
 
     async findOne(id: string, clinicId: string) {
-        const product = await this.prisma.product.findFirst({
-            where: { id, clinicId },
-            include: {
-                lots: {
-                    where: { quantity: { gt: 0 } },
-                    include: {
-                        reservations: {
-                            where: { status: 'ACTIVE' },
-                            include: {
-                                quote: { select: { number: true, customer: { select: { name: true } } } },
-                                order: { select: { number: true, customer: { select: { name: true } } } },
+        const [product, clinic] = await Promise.all([
+            this.prisma.product.findFirst({
+                where: { id, clinicId },
+                include: {
+                    lots: {
+                        where: { quantity: { gt: 0 } },
+                        include: {
+                            reservations: {
+                                where: { status: 'ACTIVE' },
+                                include: {
+                                    quote: { select: { number: true, customer: { select: { name: true } } } },
+                                    order: { select: { number: true, customer: { select: { name: true } } } },
+                                }
                             }
-                        }
+                        },
+                        orderBy: { expirationDate: 'asc' },
                     },
-                    orderBy: { expirationDate: 'asc' },
+                    category: true,
+                    brand: true,
                 },
-            },
-        });
+            }),
+            this.prisma.clinic.findUnique({
+                where: { id: clinicId },
+                select: { globalMarkup: true },
+            }),
+        ]);
 
         if (!product) {
             throw new NotFoundException('Produto não encontrado');
@@ -127,8 +171,28 @@ export class StockService {
             return sum + lot.reservations.reduce((rSum: number, r: any) => rSum + r.quantity, 0);
         }, 0);
 
+        // Dynamic Price Calculation if not manually set or missing
+        let displayPriceCents = product.priceCents;
+
+        if ((!displayPriceCents || displayPriceCents === 0) && product.costCents) {
+            let markup = clinic?.globalMarkup || 40.0; // Default or Global
+
+            if (product.markup) {
+                markup = product.markup;
+            } else if (product.brand?.defaultMarkup) {
+                markup = product.brand.defaultMarkup;
+            } else if (product.category?.defaultMarkup) {
+                markup = product.category.defaultMarkup;
+            }
+
+            const cost = product.costCents;
+            const price = cost * (1 + markup / 100);
+            displayPriceCents = Math.round(price);
+        }
+
         return {
             ...product,
+            priceCents: displayPriceCents,
             totalStock,
             totalReserved,
             availableStock: totalStock - totalReserved,

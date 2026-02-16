@@ -147,6 +147,7 @@ model Clinic {
   isActive                 Boolean                    @default(true)
   logoUrl                  String?                    // URL do logo da loja
   modules                  String[]                   @default([]) // Módulos ativos: SALES, FINANCE, STOCK, etc.
+  globalMarkup             Float                      @default(40.0) // Markup global padrão para precificação
   createdAt                DateTime                   @default(now())
   updatedAt                DateTime                   @updatedAt
   clinicUsers              ClinicUser[]
@@ -167,6 +168,8 @@ model Clinic {
   fiscalConfig             ClinicFiscalConfig?
   
 
+  categories               Category[]
+  brands                   Brand[]
   workingHours             ClinicWorkingHours[]
   notices                  Notice[]
   dashboardConfigs         UserDashboardConfig[]
@@ -457,6 +460,17 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Campos de Precificação Dinâmica (Markup)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  
+  brandId    String?
+  brand      Brand?    @relation(fields: [brandId], references: [id])
+  
+  markup      Float?   // Markup específico do produto (override)
+  manualPrice Boolean  @default(false) // Se true, ignora o motor de precificação
+
+
   // Campos Fiscais (Webmania)
   ncm           String? // Nomenclatura Comum do Mercosul (8 digits)
   cest          String? // Código Especificador da Substituição Tributária
@@ -497,6 +511,44 @@ model Product {
   @@index([supplierId])
   @@index([clinicId])
   @@index([clinicId, isActive])
+  @@index([categoryId])
+  @@index([brandId])
+}
+
+// Business: Category model (Categoria de Produto)
+model Category {
+  id            String   @id @default(uuid())
+  clinicId      String
+  name          String
+  defaultMarkup Float?   // Markup padrão da categoria (ex: 30.0)
+  
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  clinic   Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([clinicId, name])
+  @@index([clinicId])
+}
+
+// Business: Brand model (Marca de Produto)
+model Brand {
+  id            String   @id @default(uuid())
+  clinicId      String
+  name          String
+  defaultMarkup Float?   // Markup padrão da marca (ex: 30.0)
+  
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  clinic   Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([clinicId, name])
+  @@index([clinicId])
 }
 
 // Business: StockLot model (Lotes de estoque com validade)

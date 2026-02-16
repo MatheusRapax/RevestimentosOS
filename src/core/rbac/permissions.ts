@@ -48,6 +48,25 @@ export const PERMISSIONS = {
     PRODUCT_UPDATE: 'product.update',
     PRODUCT_DELETE: 'product.delete',
 
+    // Suppliers (Fornecedores)
+    SUPPLIER_CREATE: 'supplier.create',
+    SUPPLIER_READ: 'supplier.read',
+    SUPPLIER_UPDATE: 'supplier.update',
+    SUPPLIER_DELETE: 'supplier.delete',
+
+    // Categories (Categorias)
+    CATALOGUE_SETTINGS: 'catalogue.settings',
+    CATEGORY_CREATE: 'category.create',
+    CATEGORY_READ: 'category.read',
+    CATEGORY_UPDATE: 'category.update',
+    CATEGORY_DELETE: 'category.delete',
+
+    // Brands (Marcas)
+    BRAND_CREATE: 'brand.create',
+    BRAND_READ: 'brand.read',
+    BRAND_UPDATE: 'brand.update',
+    BRAND_DELETE: 'brand.delete',
+
     // Stock Operations (Estoque Físico)
     STOCK_VIEW: 'stock.view', // Visualizar saldos e movimentações
     STOCK_ADJUST: 'stock.adjust', // Ajustes manuais

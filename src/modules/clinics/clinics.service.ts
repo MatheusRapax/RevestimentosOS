@@ -140,4 +140,11 @@ export class ClinicsService {
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-+|-+$/g, '');
     }
+
+    async updateClinic(id: string, data: any) {
+        return this.prisma.clinic.update({
+            where: { id },
+            data,
+        });
+    }
 }

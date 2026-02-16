@@ -51,7 +51,7 @@ export function ProductDetailsSheet({ product, isOpen, onClose }: ProductDetails
                     </div>
 
                     <ScrollArea className="flex-1 h-full">
-                        <div className="px-6 pb-6 pt-4">
+                        <div className="px-6 pb-24 pt-4">
                             <TabsContent value="overview" className="space-y-6 mt-0">
                                 {/* Stock KPI Cards */}
                                 <div className="grid grid-cols-3 gap-3">

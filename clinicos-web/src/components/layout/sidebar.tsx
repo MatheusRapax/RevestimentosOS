@@ -36,6 +36,7 @@ const menuSections = [
             { href: '/dashboard/arquitetos', label: 'Arquitetos', icon: Building2, module: 'ARCHITECTS' },
             { href: '/dashboard/fornecedores', label: 'Fornecedores', icon: Building2, module: 'PURCHASES' },
             { href: '/dashboard/estoque/produtos', label: 'Produtos', icon: Package, module: 'STOCK' },
+            { href: '/dashboard/admin/catalogo', label: 'Catálogo', icon: ClipboardList, module: 'STOCK' },
         ],
     },
     {

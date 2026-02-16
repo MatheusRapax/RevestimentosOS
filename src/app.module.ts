@@ -30,6 +30,7 @@ import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module';
 import { StockReservationsModule } from './modules/stock-reservations/stock-reservations.module';
 import { FiscalModule } from './modules/fiscal/fiscal.module';
+import { CatalogueModule } from './modules/catalogue/catalogue.module';
 
 import { join } from 'path';
 import { ServeStaticModule } from '@nestjs/serve-static';
@@ -48,6 +49,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
         HealthModule,
         AuthModule,
         ClinicsModule,
+        CatalogueModule,
         PatientsModule,
         SchedulingModule,
         EncountersModule,
