@@ -185,9 +185,13 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                     </Button>
                 </Link>
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Continuar Entrada</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        {currentEntry.status === 'DRAFT' ? 'Continuar Entrada' : 'Detalhes da Entrada'}
+                    </h1>
                     <p className="text-muted-foreground">
-                        Edite os dados e adicione itens à entrada em rascunho.
+                        {currentEntry.status === 'DRAFT'
+                            ? 'Edite os dados e adicione itens à entrada em rascunho.'
+                            : 'Visualização completa da entrada de estoque confirmada.'}
                     </p>
                 </div>
                 {currentEntry.status === 'DRAFT' && (
@@ -282,6 +286,7 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                         entryId={currentEntry.id}
                         initialData={currentEntry}
                         onUpdate={handleUpdateEntry}
+                        readOnly={currentEntry.status !== 'DRAFT'}
                     />
                 </CardContent>
             </Card>
@@ -300,6 +305,7 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                         onResolvePending={(index) => {
                             setPendingXmlItems(prev => prev.filter((_, i) => i !== index));
                         }}
+                        readOnly={currentEntry.status !== 'DRAFT'}
                     />
 
                     <div className="flex justify-between items-center bg-muted/20 p-4 rounded-md">
@@ -310,15 +316,17 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                                     : 'R$ 0,00'}
                             </strong>
                         </div>
-                        <Button
-                            size="lg"
-                            className="bg-green-600 hover:bg-green-700"
-                            onClick={handleConfirm}
-                            disabled={isLoading || !currentEntry.items?.length}
-                        >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Confirmar Entrada
-                        </Button>
+                        {currentEntry.status === 'DRAFT' && (
+                            <Button
+                                size="lg"
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={handleConfirm}
+                                disabled={isLoading || !currentEntry.items?.length}
+                            >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Confirmar Entrada
+                            </Button>
+                        )}
                     </div>
                 </CardContent>
             </Card>

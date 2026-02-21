@@ -54,7 +54,7 @@ async function bootstrap() {
     // Start server
     await app.listen(env.port);
 
-    console.log(`🚀 ClinicOS API running on http://localhost:${env.port}`);
+    console.log(`🚀 MOA NEXUS API running on http://localhost:${env.port}`);
     console.log(`📊 Health check: http://localhost:${env.port}/health`);
     console.log(`🔐 Auth endpoints: http://localhost:${env.port}/auth`);
 }

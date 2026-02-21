@@ -8,13 +8,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { AlertTriangle } from 'lucide-react';
 
+// ... (imports remain)
+
 interface FiscalTotalsFormProps {
     entryId: string;
     initialData?: any;
     onUpdate: (data: any) => Promise<void>;
+    readOnly?: boolean;
 }
 
-export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotalsFormProps) {
+export function FiscalTotalsForm({ entryId, initialData, onUpdate, readOnly }: FiscalTotalsFormProps) {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         // Totals
@@ -113,6 +116,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (readOnly) return;
 
         if (!validate()) {
             return; // Stop if validation fails
@@ -145,6 +149,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 value={formData.invoiceNumber || ''}
                                 onChange={e => handleChange('invoiceNumber', e.target.value)}
                                 className={errors.invoiceNumber ? 'border-red-500' : ''}
+                                disabled={readOnly}
                             />
                             {errors.invoiceNumber && <span className="text-xs text-red-500">{errors.invoiceNumber}</span>}
                         </div>
@@ -156,6 +161,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 value={formData.series || ''}
                                 onChange={e => handleChange('series', e.target.value)}
                                 className={errors.series ? 'border-red-500' : ''}
+                                disabled={readOnly}
                             />
                             {errors.series && <span className="text-xs text-red-500">{errors.series}</span>}
                         </div>
@@ -164,6 +170,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                             <Input
                                 value={formData.model || ''}
                                 onChange={e => handleChange('model', e.target.value)}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2 md:col-span-1">
@@ -175,6 +182,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 value={formData.emissionDate || ''}
                                 onChange={e => handleChange('emissionDate', e.target.value)}
                                 className={errors.emissionDate ? 'border-red-500' : ''}
+                                disabled={readOnly}
                             />
                             {errors.emissionDate && <span className="text-xs text-red-500">{errors.emissionDate}</span>}
                         </div>
@@ -184,6 +192,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 value={formData.accessKey || ''}
                                 onChange={e => handleChange('accessKey', e.target.value)}
                                 maxLength={44}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2 md:col-span-2">
@@ -194,6 +203,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 value={formData.operationNature || ''}
                                 onChange={e => handleChange('operationNature', e.target.value)}
                                 className={errors.operationNature ? 'border-red-500' : ''}
+                                disabled={readOnly}
                             />
                             {errors.operationNature && <span className="text-xs text-red-500">{errors.operationNature}</span>}
                         </div>
@@ -202,6 +212,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                             <Input
                                 value={formData.protocol || ''}
                                 onChange={e => handleChange('protocol', e.target.value)}
+                                disabled={readOnly}
                             />
                         </div>
                     </div>
@@ -215,6 +226,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 type="number"
                                 value={formatCurrency(formData.calculationBaseICMS)}
                                 onChange={e => handleChange('calculationBaseICMS', parseCurrency(e.target.value))}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -223,6 +235,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 type="number"
                                 value={formatCurrency(formData.valueICMS)}
                                 onChange={e => handleChange('valueICMS', parseCurrency(e.target.value))}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -231,6 +244,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 type="number"
                                 value={formatCurrency(formData.calculationBaseICMSST)}
                                 onChange={e => handleChange('calculationBaseICMSST', parseCurrency(e.target.value))}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -239,6 +253,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 type="number"
                                 value={formatCurrency(formData.valueICMSST)}
                                 onChange={e => handleChange('valueICMSST', parseCurrency(e.target.value))}
+                                disabled={readOnly}
                             />
                         </div>
 
@@ -253,6 +268,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 value={formatCurrency(formData.totalProductsValueCents)}
                                 onChange={e => handleChange('totalProductsValueCents', parseCurrency(e.target.value))}
                                 className={errors.totalProductsValueCents ? 'border-red-500' : ''}
+                                disabled={readOnly}
                             />
                             {errors.totalProductsValueCents && <span className="text-xs text-red-500">{errors.totalProductsValueCents}</span>}
                         </div>
@@ -262,6 +278,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 type="number"
                                 value={formatCurrency(formData.freightValueCents)}
                                 onChange={e => handleChange('freightValueCents', parseCurrency(e.target.value))}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -270,6 +287,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 type="number"
                                 value={formatCurrency(formData.insuranceValueCents)}
                                 onChange={e => handleChange('insuranceValueCents', parseCurrency(e.target.value))}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -278,6 +296,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 type="number"
                                 value={formatCurrency(formData.discountValueCents)}
                                 onChange={e => handleChange('discountValueCents', parseCurrency(e.target.value))}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -286,6 +305,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 type="number"
                                 value={formatCurrency(formData.otherExpensesValueCents)}
                                 onChange={e => handleChange('otherExpensesValueCents', parseCurrency(e.target.value))}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -294,6 +314,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 type="number"
                                 value={formatCurrency(formData.totalIPIValueCents)}
                                 onChange={e => handleChange('totalIPIValueCents', parseCurrency(e.target.value))}
+                                disabled={readOnly}
                             />
                         </div>
                     </div>
@@ -306,6 +327,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                             <Select
                                 value={String(formData.freightType)}
                                 onValueChange={v => handleChange('freightType', parseInt(v))}
+                                disabled={readOnly}
                             >
                                 <SelectTrigger>
                                     <SelectValue />
@@ -322,6 +344,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                             <Input
                                 value={formData.carrierName}
                                 onChange={e => handleChange('carrierName', e.target.value)}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -329,6 +352,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                             <Input
                                 value={formData.carrierDocument}
                                 onChange={e => handleChange('carrierDocument', e.target.value)}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -336,6 +360,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                             <Input
                                 value={formData.carrierPlate}
                                 onChange={e => handleChange('carrierPlate', e.target.value)}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -344,6 +369,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 value={formData.carrierState}
                                 maxLength={2}
                                 onChange={e => handleChange('carrierState', e.target.value.toUpperCase())}
+                                disabled={readOnly}
                             />
                         </div>
                     </div>
@@ -357,6 +383,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 type="number"
                                 value={formData.volumeQuantity}
                                 onChange={e => handleChange('volumeQuantity', parseInt(e.target.value))}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -364,6 +391,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                             <Input
                                 value={formData.volumeSpecies}
                                 onChange={e => handleChange('volumeSpecies', e.target.value)}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -373,6 +401,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 step="0.001"
                                 value={formData.grossWeight}
                                 onChange={e => handleChange('grossWeight', parseFloat(e.target.value))}
+                                disabled={readOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -382,17 +411,20 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate }: FiscalTotal
                                 step="0.001"
                                 value={formData.netWeight}
                                 onChange={e => handleChange('netWeight', parseFloat(e.target.value))}
+                                disabled={readOnly}
                             />
                         </div>
                     </div>
                 </TabsContent>
             </Tabs>
 
-            <div className="flex justify-end">
-                <Button type="submit" disabled={loading}>
-                    {loading ? 'Salvando...' : 'Salvar Dados Fiscais'}
-                </Button>
-            </div>
+            {!readOnly && (
+                <div className="flex justify-end">
+                    <Button type="submit" disabled={loading}>
+                        {loading ? 'Salvando...' : 'Salvar Dados Fiscais'}
+                    </Button>
+                </div>
+            )}
         </form>
     );
 }

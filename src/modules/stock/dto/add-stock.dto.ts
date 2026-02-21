@@ -19,8 +19,9 @@ export class AddStockDto {
     @Min(0.01)
     quantity: number;
 
+    @IsOptional()
     @IsDateString()
-    expirationDate: string;
+    expirationDate?: string;
 
     @IsOptional()
     @IsString()

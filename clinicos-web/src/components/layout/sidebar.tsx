@@ -192,7 +192,11 @@ export default function Sidebar() {
                                 className="max-h-12 max-w-[150px] object-contain"
                             />
                         ) : (
-                            <h1 className="text-lg font-bold truncate">RevestimentosOS</h1>
+                            <img
+                                src="/logo.png"
+                                alt="MOA NEXUS"
+                                className="max-h-12 w-auto object-contain"
+                            />
                         )}
                     </>
                 )}

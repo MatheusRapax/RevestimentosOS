@@ -24,6 +24,8 @@ export interface NFeData {
         vDesc: number;
         vIPI: number;
         vOutro: number;
+        vIBS?: number;
+        vCBS?: number;
     };
     transport: {
         modFrete?: number;
@@ -98,8 +100,12 @@ export async function parseNFeXML(file: File): Promise<NFeData> {
 
                 // --- Totals ---
                 const icmsTot = total?.getElementsByTagName("ICMSTot")[0];
+
+                // Try vNFTot first (New Layout), fallback to vNF (Legacy)
+                const vNFTot = getTagValue(total, "vNFTot");
                 const vNF = icmsTot ? getTagValue(icmsTot, "vNF") : "0";
-                const totalValue = vNF ? parseFloat(vNF) : 0;
+
+                const totalValue = vNFTot ? parseFloat(vNFTot) : (vNF ? parseFloat(vNF) : 0);
 
                 const totals = {
                     vBC: parseFloat(getTagValue(icmsTot, "vBC") || "0"),
@@ -112,7 +118,32 @@ export async function parseNFeXML(file: File): Promise<NFeData> {
                     vDesc: parseFloat(getTagValue(icmsTot, "vDesc") || "0"),
                     vIPI: parseFloat(getTagValue(icmsTot, "vIPI") || "0"),
                     vOutro: parseFloat(getTagValue(icmsTot, "vOutro") || "0"),
+                    vIBS: 0,
+                    vCBS: 0,
                 };
+
+                // --- Totals (Tax Reform 2026+) ---
+                const ibscbsTot = total?.getElementsByTagName("IBSCBSTot")[0];
+                if (ibscbsTot) {
+                    // Start by trying to get direct children (vIBS/vCBS might be nested or direct depending on schema version, 
+                    // but in the provided XML they are inside <gIBS><vIBS> and <gCBS><vCBS>)
+
+                    const gIBS = ibscbsTot.getElementsByTagName("gIBS")[0];
+                    const gCBS = ibscbsTot.getElementsByTagName("gCBS")[0];
+
+                    const vIBS = gIBS ? parseFloat(getTagValue(gIBS, "vIBS") || "0") : 0;
+                    const vCBS = gCBS ? parseFloat(getTagValue(gCBS, "vCBS") || "0") : 0;
+
+                    totals.vIBS = vIBS;
+                    totals.vCBS = vCBS;
+
+                    // If vNFTot exists, we might want to use it as the totalValue instead of vNF from ICMSTot
+                    const vNFTot = getTagValue(total, "vNFTot");
+                    if (vNFTot) {
+                        // We overwrite the totalValue derived from vNF if vNFTot is present
+                        // (But we need to return it effectively. We assigned to a const 'totalValue' earlier)
+                    }
+                }
 
                 // --- Transport ---
                 let transport = {};

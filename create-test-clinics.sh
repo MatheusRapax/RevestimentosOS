@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script para criar clínicas de teste no ClinicOS
+# Script para criar clínicas de teste no MOA NEXUS
 # Substitua "Teste123!" pela senha do seu usuário teste@clinicos.com
 
 echo "🏥 Criando clínicas de teste..."

@@ -9,7 +9,7 @@ import { TenantService } from '../tenant.service';
 /**
  * TenantGuard - Multi-Tenancy Access Control
  * 
- * This guard enforces clinic-level isolation in the ClinicOS system.
+ * This guard enforces clinic-level isolation in the MOA NEXUS system.
  * It MUST execute AFTER JwtAuthGuard to ensure req.user exists.
  * 
  * Responsibilities:

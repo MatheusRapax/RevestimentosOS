@@ -74,7 +74,7 @@ export class ReportService {
                 margin: 50,
                 info: {
                     Title: `Relatório Clínico - ${encounter.patient.name}`,
-                    Author: 'ClinicOS',
+                    Author: 'MOA NEXUS',
                 },
             });
 
@@ -196,7 +196,7 @@ export class ReportService {
             doc.fontSize(8).font('Helvetica');
             const now = new Date();
             doc.text(`Gerado em: ${now.toLocaleString('pt-BR')}`, { align: 'center' });
-            doc.text('ClinicOS - Sistema de Gestão Clínica', { align: 'center' });
+            doc.text('MOA NEXUS - Sistema Multi-tenant', { align: 'center' });
 
             doc.end();
         });

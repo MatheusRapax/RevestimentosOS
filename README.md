@@ -1,4 +1,4 @@
-# ClinicOS
+# MOA NEXUS
 
 Sistema ERP completo para clínicas com backend NestJS e frontend Next.js.
 

@@ -25,7 +25,7 @@ export class StockAllocationService {
                 purchaseOrders: true, // Include linked POs to determine waiting status
                 items: {
                     include: {
-                        product: { include: { lots: { where: { quantity: { gt: 0 } }, orderBy: { expirationDate: 'asc' } } } },
+                        product: { include: { lots: { where: { quantity: { gt: 0 } }, orderBy: [{ expirationDate: 'asc' }, { createdAt: 'asc' }] } } },
                     },
                 },
             },

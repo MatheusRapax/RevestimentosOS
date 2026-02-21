@@ -1,8 +1,8 @@
-# ClinicOS - Arquitetura do Sistema
+# MOA NEXUS - Arquitetura do Sistema
 
 ## Visão Geral
 
-O ClinicOS é um sistema ERP multi-tenant para clínicas, construído com arquitetura modular e escalável usando NestJS, Prisma e PostgreSQL.
+O MOA NEXUS é um sistema ERP multi-tenant para clínicas, construído com arquitetura modular e escalável usando NestJS, Prisma e PostgreSQL.
 
 ## Princípios Arquiteturais
 

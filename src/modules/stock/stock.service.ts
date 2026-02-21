@@ -252,10 +252,13 @@ export class StockService {
             throw new NotFoundException('Produto não encontrado');
         }
 
-        // Validate expiration date is in the future
-        const expirationDate = new Date(dto.expirationDate);
-        if (expirationDate <= new Date()) {
-            throw new BadRequestException('Data de validade deve ser futura');
+        // Validate expiration date is in the future (if provided)
+        let expirationDate: Date | null = null;
+        if (dto.expirationDate) {
+            expirationDate = new Date(dto.expirationDate);
+            if (expirationDate <= new Date()) {
+                throw new BadRequestException('Data de validade deve ser futura');
+            }
         }
 
         // Create lot and movement in a transaction
@@ -267,7 +270,7 @@ export class StockService {
                     productId: dto.productId,
                     lotNumber: dto.lotNumber,
                     quantity: dto.quantity,
-                    expirationDate,
+                    expirationDate: expirationDate as any, // Cast to satisfy Prisma types (allows null)
                 },
             });
 
@@ -557,6 +560,9 @@ export class StockService {
                 include: {
                     product: { select: { name: true, unit: true } },
                     lot: { select: { lotNumber: true } },
+                    // Include IDs for linking
+                    stockEntry: { select: { id: true, invoiceNumber: true } },
+                    stockExit: { select: { id: true } },
                 },
                 orderBy: { createdAt: 'desc' },
                 skip,

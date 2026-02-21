@@ -4,7 +4,6 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExitHeaderForm } from '../nova/components/exit-header-form';
 import { ExitItemsGrid } from '../nova/components/exit-items-grid'; // Check if this path is correct
 import { useStockExits } from '@/hooks/useStockExits';
 import { ArrowLeft, CheckCircle, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
@@ -94,11 +93,13 @@ export default function EditExitPage({ params }: EditExitPageProps) {
                     </Button>
                 </Link>
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Editar Saída de Estoque</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        {currentExit.status === 'DRAFT' ? 'Continuar Saída' : 'Detalhes da Saída'}
+                    </h1>
                     <p className="text-muted-foreground">
                         {currentExit.status === 'DRAFT'
                             ? 'Edite os dados e adicione itens à saída em rascunho.'
-                            : 'Detalhes da saída de estoque.'}
+                            : 'Visualização completa da saída de estoque confirmada.'}
                     </p>
                 </div>
                 {currentExit.status === 'DRAFT' && (

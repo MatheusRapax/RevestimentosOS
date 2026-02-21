@@ -390,36 +390,39 @@ export class StockEntryService {
                 let lotId = null;
 
                 // 2a. Handle Lot (Create or Find)
-                if (item.lotNumber && item.expirationDate) {
-                    // Try to find existing lot for this product/number
-                    const existingLot = await tx.stockLot.findFirst({
-                        where: {
+                // Use defaults if missing to ensure stock is always credited
+                const finalLotNumber = item.lotNumber || 'PADRAO';
+                // Default expiration: NULL if not provided (for non-perishable items like tiles)
+                const finalExpirationDate = item.expirationDate || null;
+
+                // Always proceed with Lot logic
+                const existingLot = await tx.stockLot.findFirst({
+                    where: {
+                        clinicId,
+                        productId: item.productId,
+                        lotNumber: finalLotNumber,
+                    },
+                });
+
+                if (existingLot) {
+                    // Update existing lot
+                    await tx.stockLot.update({
+                        where: { id: existingLot.id },
+                        data: { quantity: { increment: item.quantity } },
+                    });
+                    lotId = existingLot.id;
+                } else {
+                    // Create new lot
+                    const newLot = await tx.stockLot.create({
+                        data: {
                             clinicId,
                             productId: item.productId,
-                            lotNumber: item.lotNumber,
+                            lotNumber: finalLotNumber,
+                            expirationDate: finalExpirationDate as Date, // Cast to satisfy Prisma types (it allows null)
+                            quantity: item.quantity,
                         },
                     });
-
-                    if (existingLot) {
-                        // Update existing lot
-                        await tx.stockLot.update({
-                            where: { id: existingLot.id },
-                            data: { quantity: { increment: item.quantity } },
-                        });
-                        lotId = existingLot.id;
-                    } else {
-                        // Create new lot
-                        const newLot = await tx.stockLot.create({
-                            data: {
-                                clinicId,
-                                productId: item.productId,
-                                lotNumber: item.lotNumber,
-                                expirationDate: item.expirationDate,
-                                quantity: item.quantity,
-                            },
-                        });
-                        lotId = newLot.id;
-                    }
+                    lotId = newLot.id;
                 }
 
                 // 2b. Create Stock Movement (Ledger)

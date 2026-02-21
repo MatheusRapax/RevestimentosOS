@@ -103,7 +103,11 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
             freightValueCents: xmlTotals?.vFrete ? Math.round(xmlTotals.vFrete * 100) : undefined,
             insuranceValueCents: xmlTotals?.vSeg ? Math.round(xmlTotals.vSeg * 100) : undefined,
             discountValueCents: xmlTotals?.vDesc ? Math.round(xmlTotals.vDesc * 100) : undefined,
-            otherExpensesValueCents: xmlTotals?.vOutro ? Math.round(xmlTotals.vOutro * 100) : undefined,
+            otherExpensesValueCents: (
+                (xmlTotals?.vOutro ? Math.round(xmlTotals.vOutro * 100) : 0) +
+                (xmlTotals?.vIBS ? Math.round(xmlTotals.vIBS * 100) : 0) +
+                (xmlTotals?.vCBS ? Math.round(xmlTotals.vCBS * 100) : 0)
+            ) || undefined,
             totalIPIValueCents: xmlTotals?.vIPI ? Math.round(xmlTotals.vIPI * 100) : undefined,
 
             // Transport from XML
@@ -163,29 +167,40 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Número Documento / NF</Label>
+                    <Label className="flex items-center gap-1">
+                        Número Documento / NF
+                        {type === 'INVOICE' && <span className="text-red-500">*</span>}
+                    </Label>
                     <Input
                         value={invoiceNumber}
                         onChange={e => setInvoiceNumber(e.target.value)}
                         placeholder={type === 'INVOICE' ? 'Ex: 12345' : 'Opcional'}
+                        className={type === 'INVOICE' && !invoiceNumber ? 'border-red-300' : ''}
                     />
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Série</Label>
+                    <Label className="flex items-center gap-1">
+                        Série
+                        {type === 'INVOICE' && <span className="text-red-500">*</span>}
+                    </Label>
                     <Input
                         value={series}
                         onChange={e => setSeries(e.target.value)}
                         placeholder="Ex: 1"
+                        className={type === 'INVOICE' && !series ? 'border-red-300' : ''}
                     />
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Fornecedor</Label>
+                    <Label className="flex items-center gap-1">
+                        Fornecedor <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                         value={supplierName}
                         onChange={e => setSupplierName(e.target.value)}
                         placeholder="Nome do Fornecedor"
+                        className={!supplierName ? 'border-red-300' : ''}
                     />
                 </div>
             </div>
@@ -201,10 +216,14 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
                     />
                 </div>
                 <div className="space-y-2">
-                    <Label>Nat. Operação</Label>
+                    <Label className="flex items-center gap-1">
+                        Nat. Operação
+                        {type === 'INVOICE' && <span className="text-red-500">*</span>}
+                    </Label>
                     <Input
                         value={operationNature}
                         onChange={e => setOperationNature(e.target.value)}
+                        className={type === 'INVOICE' && !operationNature ? 'border-red-300' : ''}
                     />
                 </div>
                 <div className="space-y-2">
@@ -218,21 +237,28 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                    <Label>Data Emissão</Label>
+                    <Label className="flex items-center gap-1">
+                        Data Emissão
+                        {type === 'INVOICE' && <span className="text-red-500">*</span>}
+                    </Label>
                     <Input
                         type="date"
                         value={emissionDate}
                         onChange={e => setEmissionDate(e.target.value)}
+                        className={type === 'INVOICE' && !emissionDate ? 'border-red-300' : ''}
                     />
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Data Chegada / Entrada</Label>
+                    <Label className="flex items-center gap-1">
+                        Data Chegada / Entrada <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                         type="date"
                         value={arrivalDate}
                         onChange={e => setArrivalDate(e.target.value)}
                         required
+                        className={!arrivalDate ? 'border-red-300' : ''}
                     />
                 </div>
 

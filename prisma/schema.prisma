@@ -558,7 +558,7 @@ model StockLot {
   productId      String
   lotNumber      String
   quantity       Float
-  expirationDate DateTime
+  expirationDate DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @default(now()) @updatedAt
 
@@ -638,7 +638,9 @@ model StockMovement {
   orderId          String? // Link to Sales Order
   purchaseOrderId  String? // Link to Purchase Order
   stockEntryId     String? // Link to Stock Entry document
+  stockEntry       StockEntry? @relation(fields: [stockEntryId], references: [id])
   stockExitId      String? // Link to Stock Exit document
+  stockExit        StockExit? @relation(fields: [stockExitId], references: [id])
 
   // Legacy Clinical Link (DEPRECATED - Keep for backward compatibility)
   encounterId     String? // Link to patient encounter
@@ -719,7 +721,8 @@ model StockEntry {
   confirmedBy String? // User ID
 
   clinic Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  items  StockEntryItem[]
+  items          StockEntryItem[]
+  stockMovements StockMovement[]
 
   @@index([clinicId])
   @@index([status])
@@ -782,7 +785,8 @@ model StockExit {
   confirmedAt DateTime?
 
   clinic Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  items  StockExitItem[]
+  items          StockExitItem[]
+  stockMovements StockMovement[]
 
   @@index([clinicId])
   @@index([status])

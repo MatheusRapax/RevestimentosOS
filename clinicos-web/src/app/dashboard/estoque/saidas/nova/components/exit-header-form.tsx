@@ -64,20 +64,27 @@ export function ExitHeaderForm({ onSubmit, isLoading }: ExitHeaderFormProps) {
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                    <Label>Identificação do Destino (Nome do Setor, Cliente, etc)</Label>
+                    <Label className="flex items-center gap-1">
+                        Identificação do Destino (Nome do Setor, Cliente, etc) <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                         value={destinationName}
                         onChange={e => setDestinationName(e.target.value)}
                         placeholder="Ex: Showroom Principal, João Silva, Depósito"
                         required
+                        className={!destinationName ? 'border-red-300' : ''}
                     />
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                    <Label>Observações / Motivo</Label>
+                    <Label className="flex items-center gap-1">
+                        Observações / Motivo <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                         value={notes}
                         onChange={e => setNotes(e.target.value)}
+                        required
+                        className={!notes ? 'border-red-300' : ''}
                     />
                 </div>
             </div>

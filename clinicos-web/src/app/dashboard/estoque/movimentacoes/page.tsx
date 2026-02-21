@@ -57,6 +57,8 @@ interface StockMovement {
     supplier?: string;
     orderId?: string;
     destinationName?: string;
+    stockEntry?: { id: string; invoiceNumber?: string };
+    stockExit?: { id: string };
 }
 
 interface MovementsResponse {
@@ -466,12 +468,32 @@ export default function MovimentacoesPage() {
                                             <TableCell>
                                                 <div className="flex flex-col text-sm">
                                                     <span>{mov.reason || '-'}</span>
-                                                    {mov.invoiceNumber && (
+
+                                                    {/* Link to Stock Entry */}
+                                                    {mov.type === 'IN' && mov.stockEntry ? (
+                                                        <Link
+                                                            href={`/dashboard/estoque/entradas/${mov.stockEntry.id}`}
+                                                            className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                                                        >
+                                                            <ArrowDownLeft className="h-3 w-3" />
+                                                            {mov.stockEntry.invoiceNumber ? `NF: ${mov.stockEntry.invoiceNumber}` : 'Ver Entrada'}
+                                                        </Link>
+                                                    ) : mov.invoiceNumber ? (
                                                         <span className="text-xs text-muted-foreground">NF: {mov.invoiceNumber}</span>
-                                                    )}
-                                                    {mov.destinationName && (
+                                                    ) : null}
+
+                                                    {/* Link to Stock Exit */}
+                                                    {mov.type === 'OUT' && mov.stockExit ? (
+                                                        <Link
+                                                            href={`/dashboard/estoque/saidas/${mov.stockExit.id}`}
+                                                            className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                                                        >
+                                                            <ArrowUpRight className="h-3 w-3" />
+                                                            Ver Saída
+                                                        </Link>
+                                                    ) : mov.destinationName ? (
                                                         <span className="text-xs text-muted-foreground">Destino: {mov.destinationName}</span>
-                                                    )}
+                                                    ) : null}
                                                 </div>
                                             </TableCell>
                                         </TableRow>
