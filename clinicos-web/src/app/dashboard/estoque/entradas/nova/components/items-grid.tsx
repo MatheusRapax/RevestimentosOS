@@ -21,15 +21,18 @@ interface ItemsGridProps {
     readOnly?: boolean;
     pendingItems?: NFeItem[];
     onResolvePending?: (index: number) => void;
+    onUpdate?: (itemId: string, data: Partial<AddItemData>) => Promise<void>;
 }
 
 interface Product {
     id: string;
     name: string;
     unit?: string;
+    boxCoverage?: number;
+    piecesPerBox?: number;
 }
 
-export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pendingItems, onResolvePending }: ItemsGridProps) {
+export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pendingItems, onResolvePending, onUpdate }: ItemsGridProps) {
     const [products, setProducts] = useState<Product[]>([]);
     const [open, setOpen] = useState(false);
     const [resolvingIndex, setResolvingIndex] = useState<number | null>(null);
@@ -39,6 +42,13 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
     const [lotNumber, setLotNumber] = useState('');
     const [expirationDate, setExpirationDate] = useState('');
     const [manufacturer, setManufacturer] = useState('');
+
+    // Edit state
+    const [editingItemId, setEditingItemId] = useState<string | null>(null);
+    const [editQuantity, setEditQuantity] = useState('');
+    const [editUnitCost, setEditUnitCost] = useState('');
+    const [editLotNumber, setEditLotNumber] = useState('');
+    const [isUpdating, setIsUpdating] = useState(false);
 
     // Fiscal integration
     const [fiscalData, setFiscalData] = useState<Partial<AddItemData>>({});
@@ -96,6 +106,32 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
         const match = products.find(p => p.name.toLowerCase() === item.name.toLowerCase());
         if (match) {
             setProductId(match.id);
+        }
+    };
+
+    const handleEditClick = (item: StockEntryItem) => {
+        setEditingItemId(item.id);
+        setEditQuantity(String(item.quantity));
+        setEditUnitCost(item.unitCost ? String(item.unitCost) : '');
+        setEditLotNumber(item.lotNumber || '');
+    };
+
+    const handleCancelEdit = () => {
+        setEditingItemId(null);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingItemId || !onUpdate) return;
+        try {
+            setIsUpdating(true);
+            await onUpdate(editingItemId, {
+                quantity: parseFloat(editQuantity),
+                unitCost: editUnitCost ? parseFloat(editUnitCost) : undefined,
+                lotNumber: editLotNumber || undefined
+            });
+            setEditingItemId(null);
+        } finally {
+            setIsUpdating(false);
         }
     };
 
@@ -213,6 +249,11 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                             value={quantity}
                             onChange={e => setQuantity(e.target.value)}
                         />
+                        {selectedProduct?.boxCoverage && quantity && (
+                            <p className="text-[10px] text-muted-foreground pt-1">
+                                {(parseFloat(quantity) * selectedProduct.boxCoverage).toFixed(2)} m²
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-1">
@@ -281,32 +322,104 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                                 <TableRow key={item.id}>
                                     <TableCell className="font-medium">{item.product.name}</TableCell>
                                     <TableCell className="text-sm">
-                                        {item.lotNumber || '-'}
+                                        {editingItemId === item.id ? (
+                                            <Input
+                                                value={editLotNumber}
+                                                onChange={e => setEditLotNumber(e.target.value)}
+                                                className="h-8 w-24 text-xs"
+                                                placeholder="Lote"
+                                            />
+                                        ) : (
+                                            item.lotNumber || '-'
+                                        )}
                                     </TableCell>
                                     <TableCell>
-                                        {item.quantity} {item.product.unit}
+                                        <div className="flex flex-col">
+                                            {editingItemId === item.id ? (
+                                                <Input
+                                                    type="number"
+                                                    value={editQuantity}
+                                                    onChange={e => setEditQuantity(e.target.value)}
+                                                    className="h-8 w-20 text-xs"
+                                                />
+                                            ) : (
+                                                <span>
+                                                    {item.quantity} {item.product.unit}
+                                                </span>
+                                            )}
+                                            {item.product.boxCoverage && (
+                                                <span className="text-[10px] text-muted-foreground">
+                                                    {((editingItemId === item.id ? parseFloat(editQuantity || '0') : item.quantity) * item.product.boxCoverage).toFixed(2)} m²
+                                                </span>
+                                            )}
+                                        </div>
                                     </TableCell>
                                     <TableCell>
-                                        {item.unitCost ?
-                                            new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.unitCost)
-                                            : '-'}
+                                        {editingItemId === item.id ? (
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                value={editUnitCost}
+                                                onChange={e => setEditUnitCost(e.target.value)}
+                                                className="h-8 w-24 text-xs"
+                                                placeholder="0,00"
+                                            />
+                                        ) : (
+                                            item.unitCost ?
+                                                new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.unitCost)
+                                                : '-'
+                                        )}
                                     </TableCell>
                                     <TableCell>
-                                        {item.totalCost ?
+                                        {item.totalCost && editingItemId !== item.id ?
                                             new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.totalCost)
-                                            : '-'}
+                                            : editingItemId === item.id ? '-' : '-'}
                                     </TableCell>
                                     {!readOnly && (
                                         <TableCell>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-red-500"
-                                                onClick={() => onRemove(item.id)}
-                                                disabled={isLoading}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            {editingItemId === item.id ? (
+                                                <div className="flex items-center gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                        onClick={handleSaveEdit}
+                                                        disabled={isUpdating || !editQuantity}
+                                                    >
+                                                        <Check className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground"
+                                                        onClick={handleCancelEdit}
+                                                        disabled={isUpdating}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" /> {/* Or an X icon, but let's just use what's available or leave it missing if we want to add an X later */}
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 text-xs underline"
+                                                        onClick={() => handleEditClick(item)}
+                                                        disabled={isLoading || isUpdating || editingItemId !== null}
+                                                    >
+                                                        Editar
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-red-500"
+                                                        onClick={() => onRemove(item.id)}
+                                                        disabled={isLoading || isUpdating || editingItemId !== null}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </TableCell>
                                     )}
                                 </TableRow>

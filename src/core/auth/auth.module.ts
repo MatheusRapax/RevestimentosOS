@@ -7,15 +7,15 @@ import { JwtStrategy } from './jwt.strategy';
 import { env } from '../../config/env';
 
 @Module({
-    imports: [
-        PassportModule,
-        JwtModule.register({
-            secret: env.jwt.secret,
-            signOptions: { expiresIn: '1h' },
-        }),
-    ],
-    controllers: [AuthController],
-    providers: [AuthService, JwtStrategy],
-    exports: [AuthService],
+  imports: [
+    PassportModule,
+    JwtModule.register({
+      secret: env.jwt.secret,
+      signOptions: { expiresIn: '1h' },
+    }),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy],
+  exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}

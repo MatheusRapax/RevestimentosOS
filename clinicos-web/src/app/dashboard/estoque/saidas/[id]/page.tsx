@@ -18,7 +18,7 @@ interface EditExitPageProps {
 export default function EditExitPage({ params }: EditExitPageProps) {
     const { id } = use(params);
     const router = useRouter();
-    const { getExit, currentExit, addItem, removeItem, confirmExit, deleteExit, error, isLoading } = useStockExits();
+    const { currentExit, getExit, confirmExit, addItem, updateItem, removeItem, deleteExit, isLoading, error } = useStockExits();
     const [isInitializing, setIsInitializing] = useState(true);
 
     useEffect(() => {
@@ -178,6 +178,7 @@ export default function EditExitPage({ params }: EditExitPageProps) {
                         items={currentExit.items || []}
                         onAdd={(data) => addItem(currentExit.id, data)}
                         onRemove={(itemId) => removeItem(currentExit.id, itemId)}
+                        onUpdate={(itemId, data) => updateItem(currentExit.id, itemId, data)}
                         isLoading={isLoading}
                         readOnly={currentExit.status !== 'DRAFT'}
                     />

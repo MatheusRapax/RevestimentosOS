@@ -854,13 +854,25 @@ export default function OrdersPage() {
                                     </button>
                                 )}
                                 {displayOrder.status === 'PRONTO_PARA_ENTREGA' && (
-                                    <button
-                                        onClick={() => updateStatusMutation.mutate('ENTREGUE')}
-                                        disabled={updateStatusMutation.isPending}
-                                        className="flex-1 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-900 transition-colors disabled:opacity-50"
-                                    >
-                                        {updateStatusMutation.isPending ? 'Processando...' : 'Registrar Entrega'}
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => router.push('/dashboard/entregas')}
+                                            className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                                            title="Agendar entrega no módulo de logística"
+                                        >
+                                            <Truck className="h-4 w-4" />
+                                            Ir para Entregas
+                                        </button>
+                                        <button
+                                            onClick={() => updateStatusMutation.mutate('ENTREGUE')}
+                                            disabled={updateStatusMutation.isPending}
+                                            className="flex-1 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-900 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                            title="Finalizar pedido como retirado pelo cliente na loja"
+                                        >
+                                            <CheckCircle className="h-4 w-4" />
+                                            {updateStatusMutation.isPending ? 'Processando...' : 'Retirado na Loja'}
+                                        </button>
+                                    </>
                                 )}
 
 

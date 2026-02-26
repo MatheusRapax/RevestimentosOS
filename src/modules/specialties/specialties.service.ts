@@ -1,121 +1,130 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { AuditService } from '../../core/audit/audit.service';
 import { AuditAction } from '@prisma/client';
 
 export interface CreateSpecialtyDto {
-    name: string;
+  name: string;
 }
 
 export interface UpdateSpecialtyDto {
-    name?: string;
+  name?: string;
 }
 
 @Injectable()
 export class SpecialtiesService {
-    constructor(
-        private prisma: PrismaService,
-        private auditService: AuditService,
-    ) { }
+  constructor(
+    private prisma: PrismaService,
+    private auditService: AuditService,
+  ) {}
 
-    async findAll(clinicId: string) {
-        return this.prisma.specialty.findMany({
-            where: {
-                clinicId,
-                isActive: true,
-            },
-            orderBy: { name: 'asc' },
-        });
+  async findAll(clinicId: string) {
+    return this.prisma.specialty.findMany({
+      where: {
+        clinicId,
+        isActive: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async findOne(id: string, clinicId: string) {
+    const specialty = await this.prisma.specialty.findFirst({
+      where: { id, clinicId, isActive: true },
+    });
+
+    if (!specialty) {
+      throw new NotFoundException('Especialidade não encontrada');
     }
 
-    async findOne(id: string, clinicId: string) {
-        const specialty = await this.prisma.specialty.findFirst({
-            where: { id, clinicId, isActive: true },
-        });
+    return specialty;
+  }
 
-        if (!specialty) {
-            throw new NotFoundException('Especialidade não encontrada');
-        }
+  async create(clinicId: string, userId: string, dto: CreateSpecialtyDto) {
+    // Check if name already exists
+    const existing = await this.prisma.specialty.findFirst({
+      where: { clinicId, name: dto.name, isActive: true },
+    });
 
-        return specialty;
+    if (existing) {
+      throw new ConflictException('Especialidade já existe');
     }
 
-    async create(clinicId: string, userId: string, dto: CreateSpecialtyDto) {
-        // Check if name already exists
-        const existing = await this.prisma.specialty.findFirst({
-            where: { clinicId, name: dto.name, isActive: true },
-        });
+    const specialty = await this.prisma.specialty.create({
+      data: {
+        clinicId,
+        name: dto.name,
+      },
+    });
 
-        if (existing) {
-            throw new ConflictException('Especialidade já existe');
-        }
+    await this.auditService.log({
+      clinicId,
+      userId,
+      action: AuditAction.CREATE,
+      entity: 'Specialty',
+      entityId: specialty.id,
+      message: `Especialidade criada: ${specialty.name}`,
+    });
 
-        const specialty = await this.prisma.specialty.create({
-            data: {
-                clinicId,
-                name: dto.name,
-            },
-        });
+    return specialty;
+  }
 
-        await this.auditService.log({
-            clinicId,
-            userId,
-            action: AuditAction.CREATE,
-            entity: 'Specialty',
-            entityId: specialty.id,
-            message: `Especialidade criada: ${specialty.name}`,
-        });
+  async update(
+    id: string,
+    clinicId: string,
+    userId: string,
+    dto: UpdateSpecialtyDto,
+  ) {
+    await this.findOne(id, clinicId);
 
-        return specialty;
+    if (dto.name) {
+      const existing = await this.prisma.specialty.findFirst({
+        where: { clinicId, name: dto.name, isActive: true, id: { not: id } },
+      });
+      if (existing) {
+        throw new ConflictException('Especialidade já existe');
+      }
     }
 
-    async update(id: string, clinicId: string, userId: string, dto: UpdateSpecialtyDto) {
-        await this.findOne(id, clinicId);
+    const specialty = await this.prisma.specialty.update({
+      where: { id },
+      data: { name: dto.name },
+    });
 
-        if (dto.name) {
-            const existing = await this.prisma.specialty.findFirst({
-                where: { clinicId, name: dto.name, isActive: true, id: { not: id } },
-            });
-            if (existing) {
-                throw new ConflictException('Especialidade já existe');
-            }
-        }
+    await this.auditService.log({
+      clinicId,
+      userId,
+      action: AuditAction.UPDATE,
+      entity: 'Specialty',
+      entityId: id,
+      message: `Especialidade atualizada: ${specialty.name}`,
+    });
 
-        const specialty = await this.prisma.specialty.update({
-            where: { id },
-            data: { name: dto.name },
-        });
+    return specialty;
+  }
 
-        await this.auditService.log({
-            clinicId,
-            userId,
-            action: AuditAction.UPDATE,
-            entity: 'Specialty',
-            entityId: id,
-            message: `Especialidade atualizada: ${specialty.name}`,
-        });
+  async remove(id: string, clinicId: string, userId: string) {
+    await this.findOne(id, clinicId);
 
-        return specialty;
-    }
+    // Soft delete
+    await this.prisma.specialty.update({
+      where: { id },
+      data: { isActive: false },
+    });
 
-    async remove(id: string, clinicId: string, userId: string) {
-        await this.findOne(id, clinicId);
+    await this.auditService.log({
+      clinicId,
+      userId,
+      action: AuditAction.DELETE,
+      entity: 'Specialty',
+      entityId: id,
+      message: 'Especialidade removida',
+    });
 
-        // Soft delete
-        await this.prisma.specialty.update({
-            where: { id },
-            data: { isActive: false },
-        });
-
-        await this.auditService.log({
-            clinicId,
-            userId,
-            action: AuditAction.DELETE,
-            entity: 'Specialty',
-            entityId: id,
-            message: 'Especialidade removida',
-        });
-
-        return { success: true };
-    }
+    return { success: true };
+  }
 }

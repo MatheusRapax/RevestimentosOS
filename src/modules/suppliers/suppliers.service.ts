@@ -3,83 +3,90 @@ import { PrismaService } from 'src/core/prisma/prisma.service';
 
 @Injectable()
 export class SuppliersService {
-    constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
-    async findAll(clinicId: string, filters?: { isActive?: boolean }) {
-        const where: any = { clinicId };
+  async findAll(clinicId: string, filters?: { isActive?: boolean }) {
+    const where: any = { clinicId };
 
-        if (filters?.isActive !== undefined) {
-            where.isActive = filters.isActive;
-        }
-
-        return this.prisma.supplier.findMany({
-            where,
-            orderBy: { name: 'asc' },
-        });
+    if (filters?.isActive !== undefined) {
+      where.isActive = filters.isActive;
     }
 
-    async findOne(clinicId: string, id: string) {
-        const supplier = await this.prisma.supplier.findFirst({
-            where: { id, clinicId },
-            include: {
-                purchaseOrders: {
-                    orderBy: { createdAt: 'desc' },
-                    take: 10,
-                },
-            },
-        });
+    return this.prisma.supplier.findMany({
+      where,
+      orderBy: { name: 'asc' },
+    });
+  }
 
-        if (!supplier) {
-            throw new NotFoundException('Fornecedor não encontrado');
-        }
+  async findOne(clinicId: string, id: string) {
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id, clinicId },
+      include: {
+        purchaseOrders: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+      },
+    });
 
-        return supplier;
+    if (!supplier) {
+      throw new NotFoundException('Fornecedor não encontrado');
     }
 
-    async create(clinicId: string, data: {
-        name: string;
-        cnpj?: string;
-        email?: string;
-        phone?: string;
-        address?: string;
-        city?: string;
-        state?: string;
-        notes?: string;
-    }) {
-        return this.prisma.supplier.create({
-            data: {
-                clinicId,
-                ...data,
-            },
-        });
-    }
+    return supplier;
+  }
 
-    async update(clinicId: string, id: string, data: {
-        name?: string;
-        cnpj?: string;
-        email?: string;
-        phone?: string;
-        address?: string;
-        city?: string;
-        state?: string;
-        notes?: string;
-        isActive?: boolean;
-    }) {
-        const supplier = await this.findOne(clinicId, id);
+  async create(
+    clinicId: string,
+    data: {
+      name: string;
+      cnpj?: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      notes?: string;
+    },
+  ) {
+    return this.prisma.supplier.create({
+      data: {
+        clinicId,
+        ...data,
+      },
+    });
+  }
 
-        return this.prisma.supplier.update({
-            where: { id: supplier.id },
-            data,
-        });
-    }
+  async update(
+    clinicId: string,
+    id: string,
+    data: {
+      name?: string;
+      cnpj?: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      notes?: string;
+      isActive?: boolean;
+    },
+  ) {
+    const supplier = await this.findOne(clinicId, id);
 
-    async delete(clinicId: string, id: string) {
-        const supplier = await this.findOne(clinicId, id);
+    return this.prisma.supplier.update({
+      where: { id: supplier.id },
+      data,
+    });
+  }
 
-        // Soft delete - apenas desativa
-        return this.prisma.supplier.update({
-            where: { id: supplier.id },
-            data: { isActive: false },
-        });
-    }
+  async delete(clinicId: string, id: string) {
+    const supplier = await this.findOne(clinicId, id);
+
+    // Soft delete - apenas desativa
+    return this.prisma.supplier.update({
+      where: { id: supplier.id },
+      data: { isActive: false },
+    });
+  }
 }

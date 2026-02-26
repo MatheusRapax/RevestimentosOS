@@ -4,9 +4,9 @@ import { ExpensesService } from './expenses.service';
 import { PrismaModule } from '../../core/prisma/prisma.module';
 
 @Module({
-    imports: [PrismaModule],
-    controllers: [ExpensesController],
-    providers: [ExpensesService],
-    exports: [ExpensesService]
+  imports: [PrismaModule],
+  controllers: [ExpensesController],
+  providers: [ExpensesService],
+  exports: [ExpensesService],
 })
-export class ExpensesModule { }
+export class ExpensesModule {}

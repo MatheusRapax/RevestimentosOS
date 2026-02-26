@@ -16,4 +16,4 @@ export const PERMISSIONS_KEY = 'permissions';
  * async createProfessional() { }
  */
 export const Permissions = (...permissions: Permission[]) =>
-    SetMetadata(PERMISSIONS_KEY, permissions);
+  SetMetadata(PERMISSIONS_KEY, permissions);

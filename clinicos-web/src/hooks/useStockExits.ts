@@ -7,6 +7,8 @@ export interface StockExitItem {
     product: {
         name: string;
         unit?: string;
+        boxCoverage?: number;
+        piecesPerBox?: number;
     };
     quantity: number;
     lotId?: string;
@@ -92,6 +94,17 @@ export function useStockExits() {
         }
     };
 
+    const updateItem = async (exitId: string, itemId: string, data: Partial<AddExitItemData>) => {
+        try {
+            await api.patch(`/stock/exits/${exitId}/items/${itemId}`, data);
+            await getExit(exitId);
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Erro ao editar item');
+            throw err;
+        }
+    };
+
+
     const removeItem = async (exitId: string, itemId: string) => {
         try {
             await api.delete(`/stock/exits/${exitId}/items/${itemId}`);
@@ -137,6 +150,7 @@ export function useStockExits() {
         getExit,
         createDraft,
         addItem,
+        updateItem,
         removeItem,
         confirmExit,
         deleteExit,

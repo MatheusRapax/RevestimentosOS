@@ -1,68 +1,111 @@
-import { Controller, Get, Post, Patch, Body, Param, Delete, Query, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { StockEntryService } from './stock-entry.service';
 import { CreateStockEntryDto } from './dto/create-stock-entry.dto';
 import { UpdateStockEntryDto } from './dto/update-stock-entry.dto';
 import { AddStockEntryItemDto } from './dto/add-stock-entry-item.dto';
+import { UpdateStockEntryItemDto } from './dto/update-stock-entry-item.dto';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 
 @Controller('stock/entries')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class StockEntryController {
-    constructor(private readonly service: StockEntryService) { }
+  constructor(private readonly service: StockEntryService) {}
 
-    @Post()
-    create(@Request() req: any, @Body() dto: CreateStockEntryDto) {
-        return this.service.createDraft(req.clinicId, dto, req.user.id);
-    }
+  @Post()
+  create(@Request() req: any, @Body() dto: CreateStockEntryDto) {
+    return this.service.createDraft(req.clinicId, dto, req.user.id);
+  }
 
-    @Patch(':id')
-    update(@Request() req: any, @Param('id') id: string, @Body() dto: UpdateStockEntryDto) {
-        return this.service.update(req.clinicId, id, dto);
-    }
+  @Patch(':id')
+  update(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateStockEntryDto,
+  ) {
+    return this.service.update(req.clinicId, id, dto);
+  }
 
-    @Post('from-po/:poId')
-    createFromPO(@Request() req: any, @Param('poId') poId: string) {
-        return this.service.createFromPurchaseOrder(req.clinicId, poId, req.user.id);
-    }
+  @Post('from-po/:poId')
+  createFromPO(@Request() req: any, @Param('poId') poId: string) {
+    return this.service.createFromPurchaseOrder(
+      req.clinicId,
+      poId,
+      req.user.id,
+    );
+  }
 
-    @Get()
-    findAll(
-        @Request() req: any,
-        @Query('page') page: number,
-        @Query('limit') limit: number,
-        @Query('status') status: string,
-    ) {
-        return this.service.listEntries(req.clinicId, page ? Number(page) : 1, limit ? Number(limit) : 20, status);
-    }
+  @Get()
+  findAll(
+    @Request() req: any,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query('status') status: string,
+  ) {
+    return this.service.listEntries(
+      req.clinicId,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 20,
+      status,
+    );
+  }
 
-    @Get(':id')
-    findOne(@Request() req: any, @Param('id') id: string) {
-        return this.service.getEntry(req.clinicId, id);
-    }
+  @Get(':id')
+  findOne(@Request() req: any, @Param('id') id: string) {
+    return this.service.getEntry(req.clinicId, id);
+  }
 
-    @Post(':id/items')
-    addItem(@Request() req: any, @Param('id') id: string, @Body() dto: AddStockEntryItemDto) {
-        return this.service.addItem(req.clinicId, id, dto);
-    }
+  @Post(':id/items')
+  addItem(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() dto: AddStockEntryItemDto,
+  ) {
+    return this.service.addItem(req.clinicId, id, dto);
+  }
 
-    @Delete(':id/items/:itemId')
-    removeItem(@Request() req: any, @Param('id') id: string, @Param('itemId') itemId: string) {
-        return this.service.removeItem(req.clinicId, id, itemId);
-    }
+  @Patch(':id/items/:itemId')
+  updateItem(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdateStockEntryItemDto,
+  ) {
+    return this.service.updateItem(req.clinicId, id, itemId, dto);
+  }
 
-    @Post(':id/confirm')
-    confirm(@Request() req: any, @Param('id') id: string) {
-        return this.service.confirmEntry(req.clinicId, id, req.user.id);
-    }
+  @Delete(':id/items/:itemId')
+  removeItem(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+  ) {
+    return this.service.removeItem(req.clinicId, id, itemId);
+  }
 
-    @Post(':id/cancel')
-    cancel(@Request() req: any, @Param('id') id: string) {
-        return this.service.cancelEntry(req.clinicId, id);
-    }
+  @Post(':id/confirm')
+  confirm(@Request() req: any, @Param('id') id: string) {
+    return this.service.confirmEntry(req.clinicId, id, req.user.id);
+  }
 
-    @Delete(':id')
-    delete(@Request() req: any, @Param('id') id: string) {
-        return this.service.deleteEntry(req.clinicId, id);
-    }
+  @Post(':id/cancel')
+  cancel(@Request() req: any, @Param('id') id: string) {
+    return this.service.cancelEntry(req.clinicId, id);
+  }
+
+  @Delete(':id')
+  delete(@Request() req: any, @Param('id') id: string) {
+    return this.service.deleteEntry(req.clinicId, id);
+  }
 }

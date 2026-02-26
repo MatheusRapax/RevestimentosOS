@@ -1,19 +1,19 @@
 import { IsString, IsNumber, IsOptional, IsNotEmpty } from 'class-validator';
 
 export class AdjustStockDto {
-    @IsString()
-    @IsNotEmpty()
-    productId: string;
+  @IsString()
+  @IsNotEmpty()
+  productId: string;
 
-    @IsString()
-    @IsOptional()
-    lotId?: string;
+  @IsString()
+  @IsOptional()
+  lotId?: string;
 
-    @IsNumber()
-    @IsNotEmpty()
-    quantity: number; // Positive to add, negative to remove
+  @IsNumber()
+  @IsNotEmpty()
+  quantity: number; // Positive to add, negative to remove
 
-    @IsString()
-    @IsNotEmpty()
-    reason: string;
+  @IsString()
+  @IsNotEmpty()
+  reason: string;
 }

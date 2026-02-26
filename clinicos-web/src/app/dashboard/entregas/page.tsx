@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -20,6 +21,16 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
     Truck,
     Calendar,
@@ -59,12 +70,14 @@ interface Delivery {
 }
 
 export default function EntregasPage() {
+    const queryClient = useQueryClient();
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [confirmDeliveryId, setConfirmDeliveryId] = useState<string | null>(null);
 
     // Create Form State
     const [selectedOrderId, setSelectedOrderId] = useState('');
@@ -110,6 +123,7 @@ export default function EntregasPage() {
             setIsCreateOpen(false);
             resetForm();
             fetchData();
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
             toast.success('Entrega agendada com sucesso!');
         } catch (error: any) {
             console.error('Error creating delivery:', error);
@@ -127,15 +141,18 @@ export default function EntregasPage() {
     const handleUpdateStatus = async (id: string, newStatus: string) => {
         // Warn user that completing delivery will auto-finalize the order
         if (newStatus === 'DELIVERED') {
-            const confirm = window.confirm(
-                'Ao concluir a entrega, o pedido será automaticamente finalizado (status → Entregue). Deseja continuar?'
-            );
-            if (!confirm) return;
+            setConfirmDeliveryId(id);
+            return;
         }
 
+        await performUpdateStatus(id, newStatus);
+    };
+
+    const performUpdateStatus = async (id: string, newStatus: string) => {
         try {
             await api.patch(`/deliveries/${id}`, { status: newStatus });
             fetchData();
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
             toast.success(`Status atualizado para ${statusLabels[newStatus] || newStatus}`);
         } catch (error: any) {
             console.error('Error updating status:', error);
@@ -376,6 +393,29 @@ export default function EntregasPage() {
                     )}
                 </div>
             </Card>
+
+            <AlertDialog open={!!confirmDeliveryId} onOpenChange={(open) => {
+                if (!open) setConfirmDeliveryId(null);
+            }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Concluir Entrega</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Ao concluir a entrega, o pedido será automaticamente finalizado (status → Entregue). Deseja continuar?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            if (confirmDeliveryId) {
+                                performUpdateStatus(confirmDeliveryId, 'DELIVERED');
+                            }
+                        }}>
+                            Continuar
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

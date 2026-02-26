@@ -8,6 +8,8 @@ export interface StockEntryItem {
     product: {
         name: string;
         unit?: string;
+        boxCoverage?: number;
+        piecesPerBox?: number;
     };
     quantity: number;
     unitCost?: number;
@@ -210,6 +212,17 @@ export function useStockEntries() {
         }
     };
 
+    const updateItem = async (entryId: string, itemId: string, data: Partial<AddItemData>) => {
+        setError(null);
+        try {
+            await api.patch(`/stock/entries/${entryId}/items/${itemId}`, data);
+            await getEntry(entryId);
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Erro ao editar item');
+            throw err;
+        }
+    };
+
     const removeItem = async (entryId: string, itemId: string) => {
         setError(null);
         try {
@@ -259,6 +272,7 @@ export function useStockEntries() {
         createDraft,
         updateEntry,
         addItem,
+        updateItem,
         removeItem,
         confirmEntry,
         deleteEntry,

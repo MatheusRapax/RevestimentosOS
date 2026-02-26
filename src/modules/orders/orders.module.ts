@@ -6,9 +6,9 @@ import { FinanceModule } from '../finance/finance.module';
 import { StockModule } from '../stock/stock.module';
 
 @Module({
-    imports: [PrismaModule, FinanceModule, StockModule],
-    controllers: [OrdersController],
-    providers: [OrdersService],
-    exports: [OrdersService],
+  imports: [PrismaModule, FinanceModule, StockModule],
+  controllers: [OrdersController],
+  providers: [OrdersService],
+  exports: [OrdersService],
 })
-export class OrdersModule { }
+export class OrdersModule {}

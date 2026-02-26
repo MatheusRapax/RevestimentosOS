@@ -1,15 +1,15 @@
 import { IsString, IsEnum, IsObject } from 'class-validator';
 
 export enum RecordType {
-    ANAMNESIS = 'ANAMNESIS',
-    EVOLUTION = 'EVOLUTION',
-    NOTE = 'NOTE',
+  ANAMNESIS = 'ANAMNESIS',
+  EVOLUTION = 'EVOLUTION',
+  NOTE = 'NOTE',
 }
 
 export class AddRecordDto {
-    @IsEnum(RecordType)
-    type: RecordType;
+  @IsEnum(RecordType)
+  type: RecordType;
 
-    @IsObject()
-    content: Record<string, any>;
+  @IsObject()
+  content: Record<string, any>;
 }

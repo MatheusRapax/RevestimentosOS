@@ -5,9 +5,9 @@ import { PrismaModule } from '../../core/prisma/prisma.module';
 import { AuditModule } from '../../core/audit/audit.module';
 
 @Module({
-    imports: [PrismaModule, AuditModule],
-    controllers: [SpecialtiesController],
-    providers: [SpecialtiesService],
-    exports: [SpecialtiesService],
+  imports: [PrismaModule, AuditModule],
+  controllers: [SpecialtiesController],
+  providers: [SpecialtiesService],
+  exports: [SpecialtiesService],
 })
-export class SpecialtiesModule { }
+export class SpecialtiesModule {}

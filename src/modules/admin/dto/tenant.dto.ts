@@ -1,43 +1,49 @@
-import { IsString, IsNotEmpty, IsArray, IsOptional, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsArray,
+  IsOptional,
+  IsBoolean,
+} from 'class-validator';
 
 export class CreateTenantDto {
-    @IsString()
-    @IsNotEmpty()
-    name: string;
+  @IsString()
+  @IsNotEmpty()
+  name: string;
 
-    @IsString()
-    @IsNotEmpty()
-    slug: string;
+  @IsString()
+  @IsNotEmpty()
+  slug: string;
 
-    @IsArray()
-    @IsString({ each: true })
-    @IsOptional()
-    modules?: string[];
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  modules?: string[];
 
-    @IsString()
-    @IsOptional()
-    logoUrl?: string;
+  @IsString()
+  @IsOptional()
+  logoUrl?: string;
 }
 
 export class UpdateTenantDto {
-    @IsString()
-    @IsOptional()
-    name?: string;
+  @IsString()
+  @IsOptional()
+  name?: string;
 
-    @IsString()
-    @IsOptional()
-    slug?: string;
+  @IsString()
+  @IsOptional()
+  slug?: string;
 
-    @IsArray()
-    @IsString({ each: true })
-    @IsOptional()
-    modules?: string[];
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  modules?: string[];
 
-    @IsString()
-    @IsOptional()
-    logoUrl?: string;
+  @IsString()
+  @IsOptional()
+  logoUrl?: string;
 
-    @IsBoolean()
-    @IsOptional()
-    isActive?: boolean;
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 }

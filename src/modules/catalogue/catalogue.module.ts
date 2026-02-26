@@ -7,9 +7,9 @@ import { BrandsController } from './controllers/brands.controller';
 import { PrismaModule } from '../../core/prisma/prisma.module';
 
 @Module({
-    imports: [PrismaModule],
-    controllers: [CategoriesController, BrandsController],
-    providers: [CategoriesService, BrandsService, PricingService],
-    exports: [PricingService, CategoriesService, BrandsService],
+  imports: [PrismaModule],
+  controllers: [CategoriesController, BrandsController],
+  providers: [CategoriesService, BrandsService, PricingService],
+  exports: [PricingService, CategoriesService, BrandsService],
 })
-export class CatalogueModule { }
+export class CatalogueModule {}

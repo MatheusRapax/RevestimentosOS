@@ -8,10 +8,9 @@ import { StockModule } from '../stock/stock.module';
 import { StockReservationsModule } from '../stock-reservations/stock-reservations.module';
 
 @Module({
-    imports: [StockModule, StockReservationsModule],
-    controllers: [QuoteTemplatesController, QuotesController],
-    providers: [QuotesService, QuotePdfService, QuoteTemplatesService],
-    exports: [QuotesService, QuoteTemplatesService],
+  imports: [StockModule, StockReservationsModule],
+  controllers: [QuoteTemplatesController, QuotesController],
+  providers: [QuotesService, QuotePdfService, QuoteTemplatesService],
+  exports: [QuotesService, QuoteTemplatesService],
 })
-export class QuotesModule { }
-
+export class QuotesModule {}

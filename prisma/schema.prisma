@@ -574,7 +574,7 @@ model StockLot {
   orderItems     OrderItem[]
   reservations   StockReservation[]
 
-  @@unique([clinicId, lotNumber])
+  @@unique([clinicId, productId, lotNumber])
   @@index([clinicId])
   @@index([productId])
   @@index([expirationDate])

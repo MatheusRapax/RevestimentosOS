@@ -3,31 +3,31 @@ import { Type } from 'class-transformer';
 import { StockMovementType } from '@prisma/client';
 
 export class ListStockMovementsDto {
-    @IsOptional()
-    @IsString()
-    productId?: string;
+  @IsOptional()
+  @IsString()
+  productId?: string;
 
-    @IsOptional()
-    @IsEnum(StockMovementType)
-    type?: StockMovementType;
+  @IsOptional()
+  @IsEnum(StockMovementType)
+  type?: StockMovementType;
 
-    @IsOptional()
-    @Type(() => Date)
-    startDate?: Date;
+  @IsOptional()
+  @Type(() => Date)
+  startDate?: Date;
 
-    @IsOptional()
-    @Type(() => Date)
-    endDate?: Date;
+  @IsOptional()
+  @Type(() => Date)
+  endDate?: Date;
 
-    @IsOptional()
-    @Type(() => Number)
-    @IsNumber()
-    @Min(1)
-    page?: number = 1;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  page?: number = 1;
 
-    @IsOptional()
-    @Type(() => Number)
-    @IsNumber()
-    @Min(1)
-    limit?: number = 20;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  limit?: number = 20;
 }

@@ -8,13 +8,13 @@ import { HeaderForm } from './components/header-form';
 import { FiscalTotalsForm } from './components/fiscal-totals-form';
 import { ItemsGrid } from './components/items-grid';
 import { useStockEntries, CreateEntryData } from '@/hooks/useStockEntries';
-import { ArrowLeft, CheckCircle, AlertTriangle, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, AlertTriangle, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { NFeItem } from '@/lib/nfe-parser';
 import Link from 'next/link';
 
 export default function NewEntryPage() {
     const router = useRouter();
-    const { createDraft, getEntry, currentEntry, addItem, removeItem, updateEntry, confirmEntry, deleteEntry, error, isLoading } = useStockEntries();
+    const { createDraft, getEntry, currentEntry, addItem, removeItem, updateItem, updateEntry, confirmEntry, deleteEntry, error, isLoading } = useStockEntries();
 
     // Local state for the draft logic if needed, but hook handles currentEntry mostly? 
     // Wait, useStockEntries hook manages 'currentEntry' via getEntry.
@@ -22,6 +22,7 @@ export default function NewEntryPage() {
 
     const [draftId, setDraftId] = useState<string | null>(null);
     const [draftData, setDraftData] = useState<CreateEntryData | null>(null);
+    const [showFiscalData, setShowFiscalData] = useState(false);
     const [pendingXmlItems, setPendingXmlItems] = useState<NFeItem[]>([]);
 
     const handleCreateDraft = async (data: CreateEntryData) => {
@@ -154,16 +155,24 @@ export default function NewEntryPage() {
                     </Card>
 
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Completar Dados Fiscais</CardTitle>
+                        <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setShowFiscalData(!showFiscalData)}>
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-lg">Dados Fiscais (Opcional)</CardTitle>
+                                <Button variant="ghost" size="sm">
+                                    {showFiscalData ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
+                                    {showFiscalData ? 'Ocultar' : 'Mostrar'}
+                                </Button>
+                            </div>
                         </CardHeader>
-                        <CardContent>
-                            <FiscalTotalsForm
-                                entryId={draftId}
-                                initialData={currentEntry}
-                                onUpdate={handleUpdateEntry}
-                            />
-                        </CardContent>
+                        {showFiscalData && (
+                            <CardContent>
+                                <FiscalTotalsForm
+                                    entryId={draftId}
+                                    initialData={currentEntry}
+                                    onUpdate={handleUpdateEntry}
+                                />
+                            </CardContent>
+                        )}
                     </Card>
 
                     <Card>
@@ -175,6 +184,7 @@ export default function NewEntryPage() {
                                 items={currentEntry?.items || []}
                                 onAdd={(data) => addItem(draftId, data)}
                                 onRemove={(itemId) => removeItem(draftId, itemId)}
+                                onUpdate={(itemId, data) => updateItem(draftId, itemId, data)}
                                 isLoading={isLoading}
                                 pendingItems={pendingXmlItems}
                                 onResolvePending={handleResolvePending}

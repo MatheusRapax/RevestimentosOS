@@ -4,8 +4,8 @@ import { SchedulingController } from './scheduling.controller';
 import { AuditModule } from '../../core/audit/audit.module';
 
 @Module({
-    imports: [AuditModule],
-    controllers: [SchedulingController],
-    providers: [SchedulingService],
+  imports: [AuditModule],
+  controllers: [SchedulingController],
+  providers: [SchedulingService],
 })
-export class SchedulingModule { }
+export class SchedulingModule {}

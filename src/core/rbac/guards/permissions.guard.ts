@@ -1,8 +1,8 @@
 import {
-    Injectable,
-    CanActivate,
-    ExecutionContext,
-    ForbiddenException,
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -33,84 +33,87 @@ import { Permission } from '../permissions';
  */
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-    constructor(
-        private reflector: Reflector,
-        private prisma: PrismaService,
-    ) { }
+  constructor(
+    private reflector: Reflector,
+    private prisma: PrismaService,
+  ) {}
 
-    async canActivate(context: ExecutionContext): Promise<boolean> {
-        // 1. Get required permissions from route metadata
-        const requiredPermissions = this.reflector.getAllAndOverride<Permission[]>(
-            PERMISSIONS_KEY,
-            [context.getHandler(), context.getClass()],
-        );
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    // 1. Get required permissions from route metadata
+    const requiredPermissions = this.reflector.getAllAndOverride<Permission[]>(
+      PERMISSIONS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
-        // If no permissions required, allow access
-        if (!requiredPermissions || requiredPermissions.length === 0) {
-            return true;
-        }
-
-        // 2. Extract request data
-        const request = context.switchToHttp().getRequest();
-
-        // SUPER ADMIN BYPASS
-        if (request.user?.isSuperAdmin) {
-            // console.log('🦸‍♂️ SuperAdmin detected. Bypassing permission check.');
-            return true;
-        }
-
-        const userId = request.user?.id;
-        const clinicId = request.clinicId; // Set by TenantGuard
-
-        if (!userId || !clinicId) {
-            throw new ForbiddenException(
-                'Authentication and clinic context required',
-            );
-        }
-
-        // 3. Fetch user's role in current clinic
-        const clinicUser = await this.prisma.clinicUser.findFirst({
-            where: {
-                userId,
-                clinicId,
-                active: true, // Only active users
-            },
-            include: {
-                role: {
-                    include: {
-                        rolePermissions: {
-                            include: {
-                                permission: true,
-                            },
-                        },
-                    },
-                },
-            },
-        });
-
-        if (!clinicUser) {
-            throw new ForbiddenException('User has no role in this clinic');
-        }
-
-
-        // 4. Extract user's permissions
-        const userPermissions = clinicUser.role.rolePermissions.map(
-            (rp) => rp.permission.key,
-        );
-
-        // 5. Check if user has ALL required permissions
-        const hasAllPermissions = requiredPermissions.every((permission) =>
-            userPermissions.includes(permission),
-        );
-
-        if (!hasAllPermissions) {
-            const missing = requiredPermissions.filter(p => !userPermissions.includes(p));
-            console.error(`❌ PermissionsGuard: User ${userId} (Role: ${clinicUser.role.key}) missing permissions: ${missing.join(', ')}`);
-            throw new ForbiddenException(
-                `Missing permissions: ${missing.join(', ')}`,
-            );
-        }
-
-        return true;
+    // If no permissions required, allow access
+    if (!requiredPermissions || requiredPermissions.length === 0) {
+      return true;
     }
+
+    // 2. Extract request data
+    const request = context.switchToHttp().getRequest();
+
+    // SUPER ADMIN BYPASS
+    if (request.user?.isSuperAdmin) {
+      // console.log('🦸‍♂️ SuperAdmin detected. Bypassing permission check.');
+      return true;
+    }
+
+    const userId = request.user?.id;
+    const clinicId = request.clinicId; // Set by TenantGuard
+
+    if (!userId || !clinicId) {
+      throw new ForbiddenException(
+        'Authentication and clinic context required',
+      );
+    }
+
+    // 3. Fetch user's role in current clinic
+    const clinicUser = await this.prisma.clinicUser.findFirst({
+      where: {
+        userId,
+        clinicId,
+        active: true, // Only active users
+      },
+      include: {
+        role: {
+          include: {
+            rolePermissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!clinicUser) {
+      throw new ForbiddenException('User has no role in this clinic');
+    }
+
+    // 4. Extract user's permissions
+    const userPermissions = clinicUser.role.rolePermissions.map(
+      (rp) => rp.permission.key,
+    );
+
+    // 5. Check if user has ALL required permissions
+    const hasAllPermissions = requiredPermissions.every((permission) =>
+      userPermissions.includes(permission),
+    );
+
+    if (!hasAllPermissions) {
+      const missing = requiredPermissions.filter(
+        (p) => !userPermissions.includes(p),
+      );
+      console.error(
+        `❌ PermissionsGuard: User ${userId} (Role: ${clinicUser.role.key}) missing permissions: ${missing.join(', ')}`,
+      );
+      throw new ForbiddenException(
+        `Missing permissions: ${missing.join(', ')}`,
+      );
+    }
+
+    return true;
+  }
 }

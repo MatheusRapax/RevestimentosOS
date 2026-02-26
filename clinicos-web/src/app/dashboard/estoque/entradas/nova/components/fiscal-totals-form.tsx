@@ -108,7 +108,7 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate, readOnly }: F
         if (!formData.series) newErrors.series = 'Campo obrigatório';
         if (!formData.operationNature) newErrors.operationNature = 'Campo obrigatório';
         if (!formData.emissionDate) newErrors.emissionDate = 'Campo obrigatório';
-        if (!formData.totalProductsValueCents) newErrors.totalProductsValueCents = 'Campo obrigatório';
+        if (!formData.totalProductsValueCents && formData.totalProductsValueCents !== 0) newErrors.totalProductsValueCents = 'O valor total calculado dos produtos não pode ser vazio. Adicione itens.';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -261,16 +261,15 @@ export function FiscalTotalsForm({ entryId, initialData, onUpdate, readOnly }: F
 
                         <div className="space-y-2">
                             <Label className="flex items-center gap-1">
-                                Total Produtos <span className="text-red-500">*</span>
+                                Total Bruto dos Produtos (Calculado)
                             </Label>
                             <Input
-                                type="number"
-                                value={formatCurrency(formData.totalProductsValueCents)}
-                                onChange={e => handleChange('totalProductsValueCents', parseCurrency(e.target.value))}
-                                className={errors.totalProductsValueCents ? 'border-red-500' : ''}
-                                disabled={readOnly}
+                                type="text"
+                                value={initialData?.totalValue ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(initialData.totalValue) : 'R$ 0,00'}
+                                disabled={true}
+                                className="bg-muted"
+                                title="Este valor é a soma do custo total (Qtd x Custo Unitário) dos itens da entrada."
                             />
-                            {errors.totalProductsValueCents && <span className="text-xs text-red-500">{errors.totalProductsValueCents}</span>}
                         </div>
                         <div className="space-y-2">
                             <Label>Valor Frete</Label>

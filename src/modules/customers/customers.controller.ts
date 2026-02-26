@@ -1,14 +1,14 @@
 import {
-    Controller,
-    Get,
-    Post,
-    Body,
-    Patch,
-    Param,
-    Delete,
-    Query,
-    UseGuards,
-    Request,
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
@@ -27,45 +27,45 @@ import { RequireModules } from '../../core/auth/decorators/module.decorator';
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleGuard)
 @RequireModules('SALES')
 export class CustomersController {
-    constructor(private readonly customersService: CustomersService) { }
+  constructor(private readonly customersService: CustomersService) {}
 
-    @Post()
-    @Permissions(PERMISSIONS.CUSTOMER_CREATE)
-    create(@Request() req: any, @Body() createCustomerDto: CreateCustomerDto) {
-        return this.customersService.create(req.clinicId, createCustomerDto);
-    }
+  @Post()
+  @Permissions(PERMISSIONS.CUSTOMER_CREATE)
+  create(@Request() req: any, @Body() createCustomerDto: CreateCustomerDto) {
+    return this.customersService.create(req.clinicId, createCustomerDto);
+  }
 
-    @Get()
-    @Permissions(PERMISSIONS.CUSTOMER_READ)
-    findAll(@Request() req: any, @Query() filters: ListCustomerDto) {
-        return this.customersService.findAll(req.clinicId, filters);
-    }
+  @Get()
+  @Permissions(PERMISSIONS.CUSTOMER_READ)
+  findAll(@Request() req: any, @Query() filters: ListCustomerDto) {
+    return this.customersService.findAll(req.clinicId, filters);
+  }
 
-    @Get(':id')
-    @Permissions(PERMISSIONS.CUSTOMER_READ)
-    findOne(@Request() req: any, @Param('id') id: string) {
-        return this.customersService.findOne(id, req.clinicId);
-    }
+  @Get(':id')
+  @Permissions(PERMISSIONS.CUSTOMER_READ)
+  findOne(@Request() req: any, @Param('id') id: string) {
+    return this.customersService.findOne(id, req.clinicId);
+  }
 
-    @Get(':id/summary')
-    @Permissions(PERMISSIONS.CUSTOMER_READ)
-    getSummary(@Request() req: any, @Param('id') id: string) {
-        return this.customersService.getCustomerSummary(id, req.clinicId);
-    }
+  @Get(':id/summary')
+  @Permissions(PERMISSIONS.CUSTOMER_READ)
+  getSummary(@Request() req: any, @Param('id') id: string) {
+    return this.customersService.getCustomerSummary(id, req.clinicId);
+  }
 
-    @Patch(':id')
-    @Permissions(PERMISSIONS.CUSTOMER_UPDATE)
-    update(
-        @Request() req: any,
-        @Param('id') id: string,
-        @Body() updateCustomerDto: UpdateCustomerDto,
-    ) {
-        return this.customersService.update(id, req.clinicId, updateCustomerDto);
-    }
+  @Patch(':id')
+  @Permissions(PERMISSIONS.CUSTOMER_UPDATE)
+  update(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() updateCustomerDto: UpdateCustomerDto,
+  ) {
+    return this.customersService.update(id, req.clinicId, updateCustomerDto);
+  }
 
-    @Delete(':id')
-    @Permissions(PERMISSIONS.CUSTOMER_DELETE)
-    remove(@Request() req: any, @Param('id') id: string) {
-        return this.customersService.softDelete(id, req.clinicId);
-    }
+  @Delete(':id')
+  @Permissions(PERMISSIONS.CUSTOMER_DELETE)
+  remove(@Request() req: any, @Param('id') id: string) {
+    return this.customersService.softDelete(id, req.clinicId);
+  }
 }

@@ -1,13 +1,13 @@
 import {
-    Controller,
-    Post,
-    Get,
-    Patch,
-    Body,
-    Param,
-    UseGuards,
-    Request,
-    ForbiddenException,
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Body,
+  Param,
+  UseGuards,
+  Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ClinicsService } from './clinics.service';
 import { CreateClinicDto } from './dto/create-clinic.dto';
@@ -20,116 +20,118 @@ import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 @Controller('clinics')
 @UseGuards(JwtAuthGuard)
 export class ClinicsController {
-    constructor(private clinicsService: ClinicsService) { }
+  constructor(private clinicsService: ClinicsService) {}
 
-    @Post()
-    async createClinic(@Body() createClinicDto: CreateClinicDto, @Request() req: any) {
-        return this.clinicsService.createClinic(createClinicDto, req.user.id);
+  @Post()
+  async createClinic(
+    @Body() createClinicDto: CreateClinicDto,
+    @Request() req: any,
+  ) {
+    return this.clinicsService.createClinic(createClinicDto, req.user.id);
+  }
+
+  @Get('my')
+  async getMyClinics(@Request() req: any) {
+    return this.clinicsService.getUserClinics(req.user.id);
+  }
+
+  @Get('context')
+  async getContext(@Request() req: any) {
+    const clinicId = req.clinicId;
+
+    if (!clinicId) {
+      throw new ForbiddenException(
+        'Nenhuma clínica selecionada. Use o header X-Clinic-Id',
+      );
     }
 
-    @Get('my')
-    async getMyClinics(@Request() req: any) {
-        return this.clinicsService.getUserClinics(req.user.id);
+    // Validar acesso do usuário à clínica
+    const hasAccess = await this.clinicsService.validateUserClinicAccess(
+      req.user.id,
+      clinicId,
+    );
+
+    if (!hasAccess) {
+      throw new ForbiddenException('Você não tem acesso a esta clínica');
     }
 
-    @Get('context')
-    async getContext(@Request() req: any) {
-        const clinicId = req.clinicId;
+    const clinic = await this.clinicsService.getClinicById(clinicId);
 
-        if (!clinicId) {
-            throw new ForbiddenException(
-                'Nenhuma clínica selecionada. Use o header X-Clinic-Id',
-            );
-        }
+    return {
+      userId: req.user.id,
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      clinicSlug: clinic.slug,
+    };
+  }
 
-        // Validar acesso do usuário à clínica
-        const hasAccess = await this.clinicsService.validateUserClinicAccess(
-            req.user.id,
-            clinicId,
-        );
+  // DEPRECATED: Use GET /professionals instead
+  // @Get('users')
+  // async getClinicUsers(@Request() req: any) {
+  //     const userClinics = await this.clinicsService.getUserClinics(req.user.id);
+  //     if (!userClinics || userClinics.length === 0) {
+  //         return [];
+  //     }
+  //     const clinicId = userClinics[0].id;
+  //     return this.clinicsService.getClinicUsers(clinicId);
+  // }
 
-        if (!hasAccess) {
-            throw new ForbiddenException('Você não tem acesso a esta clínica');
-        }
+  @Get('admin-only')
+  @UseGuards(PermissionsGuard)
+  @Permissions(PERMISSIONS.CLINIC_SETTINGS_MANAGE)
+  async adminOnly(@Request() req: any) {
+    return {
+      message: 'Acesso permitido! Você é um administrador.',
+      userId: req.user.id,
+      clinicId: req.clinicId,
+    };
+  }
 
-        const clinic = await this.clinicsService.getClinicById(clinicId);
+  @Get('reception-only')
+  @UseGuards(PermissionsGuard)
+  @Permissions(PERMISSIONS.APPOINTMENT_CREATE)
+  async receptionOnly(@Request() req: any) {
+    return {
+      message: 'Acesso permitido! Você pode criar agendamentos.',
+      userId: req.user.id,
+      clinicId: req.clinicId,
+    };
+  }
 
-        return {
-            userId: req.user.id,
-            clinicId: clinic.id,
-            clinicName: clinic.name,
-            clinicSlug: clinic.slug,
-        };
+  @Patch(':id')
+  @UseGuards(TenantGuard, PermissionsGuard)
+  @Permissions(PERMISSIONS.CATALOGUE_SETTINGS)
+  async updateClinic(
+    @Param('id') id: string,
+    @Body() updateClinicDto: any,
+    @Request() req: any,
+  ) {
+    // Validar se usuário tem acesso à essa clínica
+    const hasAccess = await this.clinicsService.validateUserClinicAccess(
+      req.user.id,
+      id,
+    );
+
+    if (!hasAccess) {
+      throw new ForbiddenException('Acesso negado a esta clínica');
     }
 
-    // DEPRECATED: Use GET /professionals instead
-    // @Get('users')
-    // async getClinicUsers(@Request() req: any) {
-    //     const userClinics = await this.clinicsService.getUserClinics(req.user.id);
-    //     if (!userClinics || userClinics.length === 0) {
-    //         return [];
-    //     }
-    //     const clinicId = userClinics[0].id;
-    //     return this.clinicsService.getClinicUsers(clinicId);
-    // }
+    return this.clinicsService.updateClinic(id, updateClinicDto);
+  }
 
-    @Get('admin-only')
-    @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.CLINIC_SETTINGS_MANAGE)
-    async adminOnly(@Request() req: any) {
-        return {
-            message: 'Acesso permitido! Você é um administrador.',
-            userId: req.user.id,
-            clinicId: req.clinicId,
-        };
+  @Get(':id')
+  @UseGuards(TenantGuard, PermissionsGuard)
+  @Permissions(PERMISSIONS.CATALOGUE_SETTINGS)
+  async getClinic(@Param('id') id: string, @Request() req: any) {
+    const hasAccess = await this.clinicsService.validateUserClinicAccess(
+      req.user.id,
+      id,
+    );
+
+    if (!hasAccess) {
+      throw new ForbiddenException('Acesso negado a esta clínica');
     }
 
-    @Get('reception-only')
-    @UseGuards(PermissionsGuard)
-    @Permissions(PERMISSIONS.APPOINTMENT_CREATE)
-    async receptionOnly(@Request() req: any) {
-        return {
-            message: 'Acesso permitido! Você pode criar agendamentos.',
-            userId: req.user.id,
-            clinicId: req.clinicId,
-        };
-    }
-
-    @Patch(':id')
-    @UseGuards(TenantGuard, PermissionsGuard)
-    @Permissions(PERMISSIONS.CATALOGUE_SETTINGS)
-    async updateClinic(
-        @Param('id') id: string,
-        @Body() updateClinicDto: any,
-        @Request() req: any,
-    ) {
-        // Validar se usuário tem acesso à essa clínica
-        const hasAccess = await this.clinicsService.validateUserClinicAccess(
-            req.user.id,
-            id,
-        );
-
-        if (!hasAccess) {
-            throw new ForbiddenException('Acesso negado a esta clínica');
-        }
-
-        return this.clinicsService.updateClinic(id, updateClinicDto);
-    }
-
-    @Get(':id')
-    @UseGuards(TenantGuard, PermissionsGuard)
-    @Permissions(PERMISSIONS.CATALOGUE_SETTINGS)
-    async getClinic(@Param('id') id: string, @Request() req: any) {
-        const hasAccess = await this.clinicsService.validateUserClinicAccess(
-            req.user.id,
-            id,
-        );
-
-        if (!hasAccess) {
-            throw new ForbiddenException('Acesso negado a esta clínica');
-        }
-
-        return this.clinicsService.getClinicById(id);
-    }
+    return this.clinicsService.getClinicById(id);
+  }
 }
-

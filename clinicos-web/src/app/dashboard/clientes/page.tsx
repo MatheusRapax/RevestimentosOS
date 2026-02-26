@@ -59,8 +59,6 @@ const emptyForm = {
     city: '',
     state: '',
     zipCode: '',
-    state: '',
-    zipCode: '',
     birthDate: '',
     architectId: '',
 };
@@ -151,7 +149,6 @@ export default function ClientesPage() {
             address: customer.address || '',
             city: customer.city || '',
             state: customer.state || '',
-            zipCode: customer.zipCode || '',
             zipCode: customer.zipCode || '',
             birthDate: customer.birthDate ? new Date(customer.birthDate).toLocaleDateString('pt-BR') : '',
             architectId: customer.architectId || '',

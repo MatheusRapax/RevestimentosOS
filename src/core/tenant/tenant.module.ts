@@ -3,7 +3,7 @@ import { TenantService } from './tenant.service';
 
 @Global()
 @Module({
-    providers: [TenantService],
-    exports: [TenantService],
+  providers: [TenantService],
+  exports: [TenantService],
 })
-export class TenantModule { }
+export class TenantModule {}

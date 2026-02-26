@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FiscalTotalsForm } from '../nova/components/fiscal-totals-form';
 import { ItemsGrid } from '../nova/components/items-grid';
 import { useStockEntries } from '@/hooks/useStockEntries';
-import { ArrowLeft, CheckCircle, AlertTriangle, Loader2, Upload, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, AlertTriangle, Loader2, Upload, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -22,8 +22,9 @@ interface EditEntryPageProps {
 export default function EditEntryPage({ params }: EditEntryPageProps) {
     const { id } = use(params);
     const router = useRouter();
-    const { getEntry, currentEntry, addItem, removeItem, updateEntry, confirmEntry, deleteEntry, error, isLoading } = useStockEntries();
+    const { currentEntry, getEntry, confirmEntry, updateEntry, addItem, updateItem, removeItem, deleteEntry, isLoading, error } = useStockEntries();
     const [isInitializing, setIsInitializing] = useState(true);
+    const [showFiscalData, setShowFiscalData] = useState(false);
     const [pendingXmlItems, setPendingXmlItems] = useState<NFeItem[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -278,17 +279,25 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
             </Card>
 
             <Card>
-                <CardHeader>
-                    <CardTitle>Completar Dados Fiscais</CardTitle>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setShowFiscalData(!showFiscalData)}>
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">Dados Fiscais (Opcional)</CardTitle>
+                        <Button variant="ghost" size="sm">
+                            {showFiscalData ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
+                            {showFiscalData ? 'Ocultar' : 'Mostrar'}
+                        </Button>
+                    </div>
                 </CardHeader>
-                <CardContent>
-                    <FiscalTotalsForm
-                        entryId={currentEntry.id}
-                        initialData={currentEntry}
-                        onUpdate={handleUpdateEntry}
-                        readOnly={currentEntry.status !== 'DRAFT'}
-                    />
-                </CardContent>
+                {showFiscalData && (
+                    <CardContent>
+                        <FiscalTotalsForm
+                            entryId={currentEntry.id}
+                            initialData={currentEntry}
+                            onUpdate={handleUpdateEntry}
+                            readOnly={currentEntry.status !== 'DRAFT'}
+                        />
+                    </CardContent>
+                )}
             </Card>
 
             <Card>
@@ -300,6 +309,7 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                         items={currentEntry.items || []}
                         onAdd={(data) => addItem(currentEntry.id, data)}
                         onRemove={(itemId) => removeItem(currentEntry.id, itemId)}
+                        onUpdate={(itemId, data) => updateItem(currentEntry.id, itemId, data)}
                         isLoading={isLoading}
                         pendingItems={pendingXmlItems}
                         onResolvePending={(index) => {

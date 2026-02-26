@@ -5,8 +5,8 @@ import { RolesController } from './roles.controller';
 import { PrismaModule } from '../../core/prisma/prisma.module';
 
 @Module({
-    imports: [PrismaModule],
-    controllers: [AdminController, RolesController],
-    providers: [AdminService],
+  imports: [PrismaModule],
+  controllers: [AdminController, RolesController],
+  providers: [AdminService],
 })
-export class AdminModule { }
+export class AdminModule {}

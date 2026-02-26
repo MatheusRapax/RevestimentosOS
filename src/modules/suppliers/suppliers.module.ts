@@ -4,9 +4,9 @@ import { SuppliersService } from './suppliers.service';
 import { PrismaModule } from 'src/core/prisma/prisma.module';
 
 @Module({
-    imports: [PrismaModule],
-    controllers: [SuppliersController],
-    providers: [SuppliersService],
-    exports: [SuppliersService],
+  imports: [PrismaModule],
+  controllers: [SuppliersController],
+  providers: [SuppliersService],
+  exports: [SuppliersService],
 })
-export class SuppliersModule { }
+export class SuppliersModule {}

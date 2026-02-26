@@ -1,121 +1,121 @@
 import {
-    IsString,
-    IsOptional,
-    IsNumber,
-    Min,
-    MaxLength,
-    IsInt,
-    IsBoolean,
+  IsString,
+  IsOptional,
+  IsNumber,
+  Min,
+  MaxLength,
+  IsInt,
+  IsBoolean,
 } from 'class-validator';
 
 export class CreateProductDto {
-    @IsString()
-    @MaxLength(255)
-    name: string;
+  @IsString()
+  @MaxLength(255)
+  name: string;
 
-    @IsOptional()
-    @IsString()
-    @MaxLength(500)
-    description?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
 
-    @IsOptional()
-    @IsString()
-    @MaxLength(50)
-    unit?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  unit?: string;
 
-    @IsOptional()
-    @IsString()
-    @MaxLength(100)
-    sku?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  sku?: string;
 
-    @IsOptional()
-    @IsString()
-    @MaxLength(100)
-    barcode?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  barcode?: string;
 
-    @IsOptional()
-    @IsNumber()
-    @Min(0)
-    minStock?: number;
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minStock?: number;
 
-    // Product classification
-    @IsOptional()
-    @IsString()
-    @MaxLength(50)
-    format?: string;
+  // Product classification
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  format?: string;
 
-    @IsOptional()
-    @IsString()
-    @MaxLength(100)
-    line?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  line?: string;
 
-    @IsOptional()
-    @IsString()
-    @MaxLength(100)
-    usage?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  usage?: string;
 
-    // Packaging information
-    @IsOptional()
-    @IsNumber()
-    @Min(0.0001)
-    boxCoverage?: number;
+  // Packaging information
+  @IsOptional()
+  @IsNumber()
+  @Min(0.0001)
+  boxCoverage?: number;
 
-    @IsOptional()
-    @IsInt()
-    @Min(0)
-    piecesPerBox?: number;
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  piecesPerBox?: number;
 
-    @IsOptional()
-    @IsNumber()
-    @Min(0)
-    boxWeight?: number;
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  boxWeight?: number;
 
-    @IsOptional()
-    @IsInt()
-    @Min(0)
-    palletBoxes?: number;
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  palletBoxes?: number;
 
-    @IsOptional()
-    @IsNumber()
-    @Min(0)
-    palletWeight?: number;
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  palletWeight?: number;
 
-    @IsOptional()
-    @IsNumber()
-    @Min(0)
-    palletCoverage?: number;
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  palletCoverage?: number;
 
-    // Pricing
-    @IsOptional()
-    @IsInt()
-    @Min(0)
-    costCents?: number;
+  // Pricing
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  costCents?: number;
 
-    @IsOptional()
-    @IsInt()
-    @Min(0)
-    priceCents?: number;
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  priceCents?: number;
 
-    // Dynamic Pricing
-    @IsOptional()
-    @IsString()
-    categoryId?: string;
+  // Dynamic Pricing
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
 
-    @IsOptional()
-    @IsString()
-    brandId?: string;
+  @IsOptional()
+  @IsString()
+  brandId?: string;
 
-    @IsOptional()
-    @IsNumber()
-    markup?: number;
+  @IsOptional()
+  @IsNumber()
+  markup?: number;
 
-    @IsOptional()
-    @IsBoolean()
-    manualPrice?: boolean;
+  @IsOptional()
+  @IsBoolean()
+  manualPrice?: boolean;
 
-    // Supplier reference
-    @IsOptional()
-    @IsString()
-    @MaxLength(100)
-    supplierCode?: string;
+  // Supplier reference
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  supplierCode?: string;
 }

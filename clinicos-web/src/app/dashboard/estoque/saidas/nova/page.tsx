@@ -12,7 +12,7 @@ import Link from 'next/link';
 
 export default function NewExitPage() {
     const router = useRouter();
-    const { createDraft, currentExit, addItem, removeItem, confirmExit, error, isLoading } = useStockExits();
+    const { createDraft, currentExit, addItem, updateItem, removeItem, confirmExit, error, isLoading } = useStockExits();
 
     const [draftId, setDraftId] = useState<string | null>(null);
     const [draftData, setDraftData] = useState<CreateExitData | null>(null);
@@ -105,6 +105,7 @@ export default function NewExitPage() {
                                 items={currentExit?.items || []}
                                 onAdd={(data) => addItem(draftId, data)}
                                 onRemove={(itemId) => removeItem(draftId, itemId)}
+                                onUpdate={(itemId, data) => updateItem(draftId, itemId, data)}
                                 isLoading={isLoading}
                             />
 

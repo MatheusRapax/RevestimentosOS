@@ -17,21 +17,30 @@ interface ExitItemsGridProps {
     onRemove: (itemId: string) => Promise<void>;
     isLoading: boolean;
     readOnly?: boolean;
+    onUpdate?: (itemId: string, data: Partial<AddExitItemData>) => Promise<void>;
 }
 
 interface Product {
     id: string;
     name: string;
     unit?: string;
+    boxCoverage?: number;
+    piecesPerBox?: number;
     // We could add availableStock here if backend returned it, useful for validation
 }
 
-export function ExitItemsGrid({ items, onAdd, onRemove, isLoading, readOnly }: ExitItemsGridProps) {
+export function ExitItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, onUpdate }: ExitItemsGridProps) {
     const [products, setProducts] = useState<Product[]>([]);
     const [open, setOpen] = useState(false);
     const [productId, setProductId] = useState('');
     const [quantity, setQuantity] = useState('');
     const [lotId, setLotId] = useState('');
+
+    // Edit state
+    const [editingItemId, setEditingItemId] = useState<string | null>(null);
+    const [editQuantity, setEditQuantity] = useState('');
+    const [editLotId, setEditLotId] = useState('');
+    const [isUpdating, setIsUpdating] = useState(false);
 
     useEffect(() => {
         fetchProducts();
@@ -61,6 +70,30 @@ export function ExitItemsGrid({ items, onAdd, onRemove, isLoading, readOnly }: E
         setLotId('');
     };
 
+    const handleEditClick = (item: StockExitItem) => {
+        setEditingItemId(item.id);
+        setEditQuantity(String(item.quantity));
+        setEditLotId(item.lotId || '');
+    };
+
+    const handleCancelEdit = () => {
+        setEditingItemId(null);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingItemId || !onUpdate) return;
+        try {
+            setIsUpdating(true);
+            await onUpdate(editingItemId, {
+                quantity: parseFloat(editQuantity),
+                lotId: editLotId || undefined
+            });
+            setEditingItemId(null);
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
     const selectedProduct = products.find(p => p.id === productId);
 
     return (
@@ -85,7 +118,7 @@ export function ExitItemsGrid({ items, onAdd, onRemove, isLoading, readOnly }: E
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-[300px] p-0" align="start">
+                            <PopoverContent className="w-[300px] p-0 pointer-events-auto" align="start">
                                 <Command>
                                     <CommandInput placeholder="Buscar produto..." />
                                     <CommandList>
@@ -99,6 +132,7 @@ export function ExitItemsGrid({ items, onAdd, onRemove, isLoading, readOnly }: E
                                                         setProductId(product.id === productId ? "" : product.id);
                                                         setOpen(false);
                                                     }}
+                                                    className="cursor-pointer data-[disabled]:pointer-events-auto data-[disabled]:opacity-100"
                                                 >
                                                     <Check
                                                         className={cn(
@@ -124,6 +158,11 @@ export function ExitItemsGrid({ items, onAdd, onRemove, isLoading, readOnly }: E
                             value={quantity}
                             onChange={e => setQuantity(e.target.value)}
                         />
+                        {selectedProduct?.boxCoverage && quantity && (
+                            <p className="text-[10px] text-muted-foreground pt-1">
+                                {(parseFloat(quantity) * selectedProduct.boxCoverage).toFixed(2)} m²
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-1">
@@ -171,23 +210,84 @@ export function ExitItemsGrid({ items, onAdd, onRemove, isLoading, readOnly }: E
                                     <TableCell className="font-medium">{item.product.name}</TableCell>
                                     <TableCell>
                                         <div className="flex flex-col text-xs">
-                                            <span className="text-muted-foreground">{item.lotId || 'Automático (FIFO)'}</span>
+                                            {editingItemId === item.id ? (
+                                                <Input
+                                                    value={editLotId}
+                                                    onChange={e => setEditLotId(e.target.value)}
+                                                    className="h-8 w-32 text-xs"
+                                                    placeholder="Automático (FIFO)"
+                                                />
+                                            ) : (
+                                                <span className="text-muted-foreground">{item.lotId || 'Automático (FIFO)'}</span>
+                                            )}
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        {item.quantity} {item.product.unit}
+                                        <div className="flex flex-col">
+                                            {editingItemId === item.id ? (
+                                                <Input
+                                                    type="number"
+                                                    value={editQuantity}
+                                                    onChange={e => setEditQuantity(e.target.value)}
+                                                    className="h-8 w-20 text-xs"
+                                                />
+                                            ) : (
+                                                <span>
+                                                    {item.quantity} {item.product.unit}
+                                                </span>
+                                            )}
+                                            {item.product.boxCoverage && (
+                                                <span className="text-[10px] text-muted-foreground">
+                                                    {((editingItemId === item.id ? parseFloat(editQuantity || '0') : item.quantity) * item.product.boxCoverage).toFixed(2)} m²
+                                                </span>
+                                            )}
+                                        </div>
                                     </TableCell>
                                     {!readOnly && (
                                         <TableCell>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-red-500"
-                                                onClick={() => onRemove(item.id)}
-                                                disabled={isLoading}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            {editingItemId === item.id ? (
+                                                <div className="flex items-center gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                        onClick={handleSaveEdit}
+                                                        disabled={isUpdating || !editQuantity}
+                                                    >
+                                                        <Check className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground"
+                                                        onClick={handleCancelEdit}
+                                                        disabled={isUpdating}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 text-xs underline"
+                                                        onClick={() => handleEditClick(item)}
+                                                        disabled={isLoading || isUpdating || editingItemId !== null}
+                                                    >
+                                                        Editar
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-red-500"
+                                                        onClick={() => onRemove(item.id)}
+                                                        disabled={isLoading || isUpdating || editingItemId !== null}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </TableCell>
                                     )}
                                 </TableRow>

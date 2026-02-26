@@ -9,13 +9,13 @@ import { ReportService } from './report.service';
 import { AuditModule } from '../../core/audit/audit.module';
 
 @Module({
-    imports: [
-        AuditModule,
-        MulterModule.register({
-            storage: memoryStorage(),
-        }),
-    ],
-    controllers: [EncountersController, AttachmentsController],
-    providers: [EncountersService, AttachmentsService, ReportService],
+  imports: [
+    AuditModule,
+    MulterModule.register({
+      storage: memoryStorage(),
+    }),
+  ],
+  controllers: [EncountersController, AttachmentsController],
+  providers: [EncountersService, AttachmentsService, ReportService],
 })
-export class EncountersModule { }
+export class EncountersModule {}

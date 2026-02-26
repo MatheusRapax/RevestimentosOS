@@ -2,7 +2,7 @@ import { Module, Global } from '@nestjs/common';
 
 @Global()
 @Module({
-    providers: [],
-    exports: [],
+  providers: [],
+  exports: [],
 })
-export class RbacModule { }
+export class RbacModule {}

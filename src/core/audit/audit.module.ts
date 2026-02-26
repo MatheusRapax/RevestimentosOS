@@ -5,8 +5,8 @@ import { AuditInterceptor } from './audit.interceptor';
 
 @Global()
 @Module({
-    controllers: [AuditController],
-    providers: [AuditService, AuditInterceptor],
-    exports: [AuditService, AuditInterceptor],
+  controllers: [AuditController],
+  providers: [AuditService, AuditInterceptor],
+  exports: [AuditService, AuditInterceptor],
 })
-export class AuditModule { }
+export class AuditModule {}

@@ -14,9 +14,28 @@ import { ProductImportController } from './product-import.controller';
 import { StockAllocationService } from './services/stock-allocation.service';
 
 @Module({
-    imports: [AuditModule],
-    controllers: [StockController, StockEntryController, StockExitController, ProductImportController],
-    providers: [StockService, StockConsumptionService, StockEntryService, StockExitService, ExcelService, ProductImportService, StockAllocationService],
-    exports: [StockService, StockConsumptionService, StockEntryService, StockExitService, StockAllocationService],
+  imports: [AuditModule],
+  controllers: [
+    StockController,
+    StockEntryController,
+    StockExitController,
+    ProductImportController,
+  ],
+  providers: [
+    StockService,
+    StockConsumptionService,
+    StockEntryService,
+    StockExitService,
+    ExcelService,
+    ProductImportService,
+    StockAllocationService,
+  ],
+  exports: [
+    StockService,
+    StockConsumptionService,
+    StockEntryService,
+    StockExitService,
+    StockAllocationService,
+  ],
 })
-export class StockModule { }
+export class StockModule {}
