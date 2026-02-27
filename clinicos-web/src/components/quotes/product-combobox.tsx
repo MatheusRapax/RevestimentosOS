@@ -24,6 +24,7 @@ interface Product {
     sku?: string;
     boxCoverage?: number;
     priceCents?: number;
+    promotionalPriceCents?: number;
 }
 
 interface ProductComboboxProps {
@@ -91,12 +92,30 @@ export function ProductCombobox({
                                             value === product.id ? "opacity-100" : "opacity-0"
                                         )}
                                     />
-                                    <div className="flex flex-col">
+                                    <div className="flex flex-col flex-1">
                                         <span>{product.name}</span>
                                         {product.boxCoverage && (
-                                            <span className="text-xs text-muted-foreground">
+                                            <span className="text-xs text-muted-foreground mt-0.5">
                                                 {product.boxCoverage} m²/cx
                                             </span>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col items-end text-sm ml-4">
+                                        {product.promotionalPriceCents ? (
+                                            <>
+                                                <span className="text-xs text-muted-foreground line-through">
+                                                    {(product.priceCents! / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                </span>
+                                                <span className="font-semibold text-green-600 dark:text-green-400">
+                                                    {(product.promotionalPriceCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                </span>
+                                            </>
+                                        ) : product.priceCents ? (
+                                            <span className="font-medium text-gray-900 dark:text-gray-100">
+                                                {(product.priceCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground">Preço n/a</span>
                                         )}
                                     </div>
                                 </CommandItem>

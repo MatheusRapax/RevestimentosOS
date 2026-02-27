@@ -18,7 +18,7 @@ export class StockService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-  ) {}
+  ) { }
 
   // ========== PRODUCT MANAGEMENT ==========
 
@@ -89,6 +89,9 @@ export class StockService {
         },
         category: true,
         brand: true,
+        promotions: {
+          include: { promotion: true }
+        }
       },
       orderBy: { name: 'asc' },
     });
@@ -138,9 +141,30 @@ export class StockService {
         displayPriceCents = Math.round(price);
       }
 
+      // Promotional Price Logic
+      let promotionalPriceCents = null;
+      let activePromotion = null;
+      const now = new Date();
+      if (product.promotions && product.promotions.length > 0) {
+        // Find the most advantageous ACTIVE promotion
+        const validPromos = product.promotions
+          .map((p: any) => p.promotion)
+          .filter((p: any) => p.isActive && p.startDate <= now && p.endDate >= now);
+
+        if (validPromos.length > 0) {
+          validPromos.sort((a: any, b: any) => b.discountPercent - a.discountPercent);
+          activePromotion = validPromos[0];
+          if (displayPriceCents !== null && activePromotion) {
+            promotionalPriceCents = Math.round(displayPriceCents * (1 - activePromotion.discountPercent / 100));
+          }
+        }
+      }
+
       return {
         ...product,
         priceCents: displayPriceCents,
+        promotionalPriceCents,
+        activePromotion,
         totalStock,
         totalReserved,
         availableStock: totalStock - totalReserved,
@@ -180,6 +204,9 @@ export class StockService {
           },
           category: true,
           brand: true,
+          promotions: {
+            include: { promotion: true }
+          }
         },
       }),
       this.prisma.clinic.findUnique({
@@ -219,9 +246,30 @@ export class StockService {
       displayPriceCents = Math.round(price);
     }
 
+    // Promotional Price Logic
+    let promotionalPriceCents = null;
+    let activePromotion = null;
+    const now = new Date();
+    if (product.promotions && product.promotions.length > 0) {
+      // Find the most advantageous ACTIVE promotion
+      const validPromos = product.promotions
+        .map((p: any) => p.promotion)
+        .filter((p: any) => p.isActive && p.startDate <= now && p.endDate >= now);
+
+      if (validPromos.length > 0) {
+        validPromos.sort((a: any, b: any) => b.discountPercent - a.discountPercent);
+        activePromotion = validPromos[0];
+        if (displayPriceCents !== null && activePromotion) {
+          promotionalPriceCents = Math.round(displayPriceCents * (1 - activePromotion.discountPercent / 100));
+        }
+      }
+    }
+
     return {
       ...product,
       priceCents: displayPriceCents,
+      promotionalPriceCents,
+      activePromotion,
       totalStock,
       totalReserved,
       availableStock: totalStock - totalReserved,

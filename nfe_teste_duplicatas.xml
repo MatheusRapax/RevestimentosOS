@@ -1,0 +1,287 @@
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+<infNFe versao="4.00" Id="NFe21260201807998000101550010009998881727189005">
+<ide>
+<cUF>21</cUF>
+<cNF>72718900</cNF>
+<natOp>Venda de mercadoria adquirida ou recebida de terceiros</natOp>
+<mod>55</mod>
+<serie>1</serie>
+<nNF>999888</nNF>
+<dhEmi>2026-02-09T19:42:13-03:00</dhEmi>
+<dhSaiEnt>2026-02-09T19:42:13-03:00</dhSaiEnt>
+<tpNF>1</tpNF>
+<idDest>1</idDest>
+<cMunFG>2111300</cMunFG>
+<tpImp>1</tpImp>
+<tpEmis>1</tpEmis>
+<cDV>5</cDV>
+<tpAmb>1</tpAmb>
+<finNFe>1</finNFe>
+<indFinal>1</indFinal>
+<indPres>1</indPres>
+<procEmi>0</procEmi>
+<verProc>BrERP Stable</verProc>
+</ide>
+<emit>
+<CNPJ>01807998000101</CNPJ>
+<xNome>REVEST COMERCIO E SERVICOS LTDA</xNome>
+<xFant>REVEST COMERCIO E SERVICOS LTDA</xFant>
+<enderEmit>
+<xLgr>Avenida Jeronimo de Albuquerque Maranhao</xLgr>
+<nro>1000</nro>
+<xBairro>Angelim</xBairro>
+<cMun>2111300</cMun>
+<xMun>Sao Luis</xMun>
+<UF>MA</UF>
+<CEP>65060641</CEP>
+<cPais>1058</cPais>
+<xPais>Brasil</xPais>
+<fone>9832463104</fone>
+</enderEmit>
+<IE>121558231</IE>
+<IM>7454007</IM>
+<CNAE>1081302</CNAE>
+<CRT>3</CRT>
+</emit>
+<dest>
+<CNPJ>42580788000100</CNPJ>
+<xNome>KRF ACABAMENTOS LTDA</xNome>
+<enderDest>
+<xLgr>AV DA PRAIA</xLgr>
+<nro>SN</nro>
+<xCpl>Q15 LOTE Y1</xCpl>
+<xBairro>RECREIO DO ARACAGY</xBairro>
+<cMun>2111201</cMun>
+<xMun>Sao Jose de Ribamar</xMun>
+<UF>MA</UF>
+<CEP>65110000</CEP>
+<cPais>1058</cPais>
+<xPais>Brasil</xPais>
+<fone>98985531589</fone>
+</enderDest>
+<indIEDest>1</indIEDest>
+<IE>127075453</IE>
+<email>mosaicacabamentos@gmail.com</email>
+</dest>
+<entrega>
+<CNPJ>42580788000100</CNPJ>
+<xNome>KRF ACABAMENTOS LTDA</xNome>
+<xLgr>Rua jose candito de moras</xLgr>
+<nro>7</nro>
+<xCpl>ao lado do restaurante cozinha da gigi</xCpl>
+<xBairro>Vila Vicente Fialho cohama</xBairro>
+<cMun>2111300</cMun>
+<xMun>Sao Luis</xMun>
+<UF>MA</UF>
+<CEP>65070000</CEP>
+<cPais>1058</cPais>
+<xPais>Brasil</xPais>
+<fone>98988693806</fone>
+<IE>127075453</IE>
+</entrega>
+<det nItem="1">
+<prod>
+<cProd>34678</cProd>
+<cEAN>7898657652207</cEAN>
+<xProd>PISO VIN NOBILE 2MM 17.78X121.92 FAIA CX/3.90M2</xProd>
+<NCM>39181000</NCM>
+<CFOP>5102</CFOP>
+<uCom>CX</uCom>
+<qCom>8.0000</qCom>
+<vUnCom>304.5300000000</vUnCom>
+<vProd>2436.24</vProd>
+<cEANTrib>7898657652207</cEANTrib>
+<uTrib>CX</uTrib>
+<qTrib>8.0000</qTrib>
+<vUnTrib>304.5300000000</vUnTrib>
+<vDesc>414.16</vDesc>
+<indTot>1</indTot>
+</prod>
+<imposto>
+<vTotTrib>0.00</vTotTrib>
+<ICMS>
+<ICMS20>
+<orig>0</orig>
+<CST>20</CST>
+<modBC>3</modBC>
+<pRedBC>47.83</pRedBC>
+<vBC>1054.92</vBC>
+<pICMS>23.00</pICMS>
+<vICMS>242.63</vICMS>
+</ICMS20>
+</ICMS>
+<IPI>
+<cEnq>999</cEnq>
+<IPINT>
+<CST>53</CST>
+</IPINT>
+</IPI>
+<PIS>
+<PISAliq>
+<CST>01</CST>
+<vBC>1779.45</vBC>
+<pPIS>1.65</pPIS>
+<vPIS>29.36</vPIS>
+</PISAliq>
+</PIS>
+<COFINS>
+<COFINSAliq>
+<CST>01</CST>
+<vBC>1779.45</vBC>
+<pCOFINS>7.60</pCOFINS>
+<vCOFINS>135.24</vCOFINS>
+</COFINSAliq>
+</COFINS>
+<IBSCBS>
+<CST>000</CST>
+<cClassTrib>000001</cClassTrib>
+<gIBSCBS>
+<vBC>1614.85</vBC>
+<gIBSUF>
+<pIBSUF>0.10</pIBSUF>
+<vIBSUF>1.61</vIBSUF>
+</gIBSUF>
+<gIBSMun>
+<pIBSMun>0.00</pIBSMun>
+<vIBSMun>0.00</vIBSMun>
+</gIBSMun>
+<vIBS>1.61</vIBS>
+<gCBS>
+<pCBS>0.90</pCBS>
+<vCBS>14.53</vCBS>
+</gCBS>
+</gIBSCBS>
+</IBSCBS>
+</imposto>
+</det>
+<total>
+<ICMSTot>
+<vBC>1054.92</vBC>
+<vICMS>242.63</vICMS>
+<vICMSDeson>0.00</vICMSDeson>
+<vFCP>0.00</vFCP>
+<vBCST>0.00</vBCST>
+<vST>0.00</vST>
+<vFCPST>0.00</vFCPST>
+<vFCPSTRet>0.00</vFCPSTRet>
+<vProd>2436.24</vProd>
+<vFrete>0.00</vFrete>
+<vSeg>0.00</vSeg>
+<vDesc>414.16</vDesc>
+<vII>0.00</vII>
+<vIPI>0.00</vIPI>
+<vIPIDevol>0.00</vIPIDevol>
+<vPIS>29.36</vPIS>
+<vCOFINS>135.24</vCOFINS>
+<vOutro>0.00</vOutro>
+<vNF>2022.08</vNF>
+<vTotTrib>0.00</vTotTrib>
+</ICMSTot>
+<IBSCBSTot>
+<vBCIBSCBS>1614.85</vBCIBSCBS>
+<gIBS>
+<gIBSUF>
+<vDif>0.00</vDif>
+<vDevTrib>0.00</vDevTrib>
+<vIBSUF>1.61</vIBSUF>
+</gIBSUF>
+<gIBSMun>
+<vDif>0.00</vDif>
+<vDevTrib>0.00</vDevTrib>
+<vIBSMun>0.00</vIBSMun>
+</gIBSMun>
+<vIBS>1.61</vIBS>
+<vCredPres>0.00</vCredPres>
+<vCredPresCondSus>0.00</vCredPresCondSus>
+</gIBS>
+<gCBS>
+<vDif>0.00</vDif>
+<vDevTrib>0.00</vDevTrib>
+<vCBS>14.53</vCBS>
+<vCredPres>0.00</vCredPres>
+<vCredPresCondSus>0.00</vCredPresCondSus>
+</gCBS>
+</IBSCBSTot>
+<vNFTot>2038.22</vNFTot>
+</total>
+<transp>
+<modFrete>3</modFrete>
+<transporta>
+<CNPJ>01807998000101</CNPJ>
+<xNome>REVEST COMERCIO E SERVICOS LTDA</xNome>
+</transporta>
+<vol>
+<pesoL>107.952</pesoL>
+<pesoB>107.952</pesoB>
+</vol>
+</transp>
+<cobr>
+<fat>
+<nFat>999888</nFat>
+<vOrig>2022.08</vOrig>
+<vLiq>2022.08</vLiq>
+</fat>
+<dup>
+<nDup>001</nDup>
+<dVenc>2026-03-09</dVenc>
+<vDup>1011.04</vDup>
+</dup>
+<dup>
+<nDup>002</nDup>
+<dVenc>2026-04-09</dVenc>
+<vDup>1011.04</vDup>
+</dup>
+</cobr>
+<pag>
+<detPag>
+<indPag>0</indPag>
+<tPag>99</tPag>
+<xPag>tPag nao informado ou aplicavel</xPag>
+<vPag>2022.08</vPag>
+</detPag>
+</pag>
+<infAdic>
+<infCpl>Pedido: 392159; REDUCAO NA BASE DE CALCULO DO ICMS, CONF. RICMS-MA/2003, ANEXO 1.5, ART. 8o, 6o</infCpl>
+</infAdic>
+<infRespTec>
+<CNPJ>13823508000131</CNPJ>
+<xContato>devCoffee Sistemas de Gestão Empresarial</xContato>
+<email>contato@devcoffee.com.br</email>
+<fone>1935552618</fone>
+</infRespTec>
+</infNFe>
+<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+<SignedInfo>
+<CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+<SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
+<Reference URI="#NFe21260201807998000101550010009998881727189005">
+<Transforms>
+<Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+<Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+</Transforms>
+<DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
+<DigestValue>5bjQEo2suckCEbd+p+8zyDIiVgo=</DigestValue>
+</Reference>
+</SignedInfo>
+<SignatureValue>iiXfSTySMUJfg1bsrOUyMtlIoouPcq9Au10DCHW64yPN0aZaGb722paK2KYigroRV97dgsn4RyLSzovtIxkUC+xjYplKIigzQ08adG5Ny8/NrdtA0hO52Rh/nqGuj0MN6dEtLa9vidrioLOqGx0+C3aNBnEjX8aXKe4o6o3WOscd3WfO4Lpwt0/oO1HfS6lJ7/UAAhkMLV7BGgLxWnTaz7HFBq8rLVH3DN1fYHygYMx5fvVhVi+JpozpDvT9LkqnBu5TTx16liqnYP0B/rfew8oP4ZVkiCC+agzN/WOWE/gKjmnTAlLraIw8C7tFtujSDUpxwCkrp24KJXl14wkjfw==</SignatureValue>
+<KeyInfo>
+<X509Data>
+<X509Certificate>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</X509Certificate>
+</X509Data>
+</KeyInfo>
+</Signature>
+</NFe>
+<protNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+<infProt Id="ID421260005223896">
+<tpAmb>1</tpAmb>
+<verAplic>SVAN_5.10.21</verAplic>
+<chNFe>21260201807998000101550010009998881727189005</chNFe>
+<dhRecbto>2026-02-09T19:47:03-03:00</dhRecbto>
+<nProt>421260005223896</nProt>
+<digVal>5bjQEo2suckCEbd+p+8zyDIiVgo=</digVal>
+<cStat>100</cStat>
+<xMotivo>Autorizado o uso da NF-e</xMotivo>
+</infProt>
+</protNFe>
+</nfeProc>

@@ -64,7 +64,6 @@ enum PaymentMethod {
   TRANSFER
 }
 
-
 enum OrderStatus {
   CRIADO
   RASCUNHO
@@ -80,7 +79,6 @@ enum OrderStatus {
   ENTREGUE
   CANCELADO
 }
-
 
 // Sales Module Enums
 enum SaleType {
@@ -141,32 +139,31 @@ model User {
 
 // Clinic model for multi-tenant support
 model Clinic {
-  id                       String                     @id @default(uuid())
-  name                     String
-  slug                     String                     @unique
-  isActive                 Boolean                    @default(true)
-  logoUrl                  String?                    // URL do logo da loja
-  modules                  String[]                   @default([]) // Módulos ativos: SALES, FINANCE, STOCK, etc.
-  globalMarkup             Float                      @default(40.0) // Markup global padrão para precificação
-  createdAt                DateTime                   @default(now())
-  updatedAt                DateTime                   @updatedAt
-  clinicUsers              ClinicUser[]
-  patients                 Patient[]
-  appointments             Appointment[]
-  encounters               Encounter[]
-  records                  RecordEntry[]
-  procedures               ProcedurePerformed[]
-  consumables              ConsumableUsage[]
-  auditLogs                AuditLog[]
-  products                 Product[]
-  stockLots                StockLot[]
-  stockMovements           StockMovement[]
-  encounterNotes           EncounterNote[]
-  encounterAttachments     EncounterAttachment[]
-  scheduleBlocks           ScheduleBlock[]
-  fiscalDocuments          FiscalDocument[]
-  fiscalConfig             ClinicFiscalConfig?
-  
+  id                   String                @id @default(uuid())
+  name                 String
+  slug                 String                @unique
+  isActive             Boolean               @default(true)
+  logoUrl              String? // URL do logo da loja
+  modules              String[]              @default([]) // Módulos ativos: SALES, FINANCE, STOCK, etc.
+  globalMarkup         Float                 @default(40.0) // Markup global padrão para precificação
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  clinicUsers          ClinicUser[]
+  patients             Patient[]
+  appointments         Appointment[]
+  encounters           Encounter[]
+  records              RecordEntry[]
+  procedures           ProcedurePerformed[]
+  consumables          ConsumableUsage[]
+  auditLogs            AuditLog[]
+  products             Product[]
+  stockLots            StockLot[]
+  stockMovements       StockMovement[]
+  encounterNotes       EncounterNote[]
+  encounterAttachments EncounterAttachment[]
+  scheduleBlocks       ScheduleBlock[]
+  fiscalDocuments      FiscalDocument[]
+  fiscalConfig         ClinicFiscalConfig?
 
   categories               Category[]
   brands                   Brand[]
@@ -183,17 +180,18 @@ model Clinic {
   stockExits               StockExit[]
 
   // Sales Module Relations
-  customers       Customer[]
-  architects      Architect[]
-  quotes          Quote[]
-  orders          Order[]
-  purchaseOrders  PurchaseOrder[]
+  customers         Customer[]
+  architects        Architect[]
+  quotes            Quote[]
+  orders            Order[]
+  purchaseOrders    PurchaseOrder[]
   stockReservations StockReservation[]
-  deliveries      Delivery[]
-  invoices        Invoice[]
-  expenses        Expense[]
-  suppliers       Supplier[]
-  quoteTemplates  QuoteTemplate[]
+  deliveries        Delivery[]
+  invoices          Invoice[]
+  expenses          Expense[]
+  suppliers         Supplier[]
+  quoteTemplates    QuoteTemplate[]
+  promotions        Promotion[]
 }
 
 // Clinic working hours per day of week
@@ -463,38 +461,37 @@ model Product {
   // Campos de Precificação Dinâmica (Markup)
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
-  
-  brandId    String?
-  brand      Brand?    @relation(fields: [brandId], references: [id])
-  
-  markup      Float?   // Markup específico do produto (override)
-  manualPrice Boolean  @default(false) // Se true, ignora o motor de precificação
 
+  brandId String?
+  brand   Brand?  @relation(fields: [brandId], references: [id])
+
+  markup      Float? // Markup específico do produto (override)
+  manualPrice Boolean @default(false) // Se true, ignora o motor de precificação
 
   // Campos Fiscais (Webmania)
-  ncm           String? // Nomenclatura Comum do Mercosul (8 digits)
-  cest          String? // Código Especificador da Substituição Tributária
-  origin        Int?    // Origem da Mercadoria (0, 1, 2...)
-  mva           Float?  // Margem de Valor Agregado (%)
-  taxClass      String? // Classe de Imposto (Webmania ID)
+  ncm      String? // Nomenclatura Comum do Mercosul (8 digits)
+  cest     String? // Código Especificador da Substituição Tributária
+  origin   Int? // Origem da Mercadoria (0, 1, 2...)
+  mva      Float? // Margem de Valor Agregado (%)
+  taxClass String? // Classe de Imposto (Webmania ID)
 
   // Campos Dimensionais para Revestimentos
-  saleType     SaleType @default(UNIT) // Tipo de venda: unidade, área ou ambos
-  boxCoverage  Float? // m² cobertos por caixa (ex: 1.44)
-  piecesPerBox Int? // peças por caixa (ex: 8)
-  boxWeight    Float? // peso da caixa em kg
-  palletBoxes  Int? // caixas por palete
-  palletWeight Float? // peso do palete em kg
+  saleType       SaleType @default(UNIT) // Tipo de venda: unidade, área ou ambos
+  boxCoverage    Float? // m² cobertos por caixa (ex: 1.44)
+  piecesPerBox   Int? // peças por caixa (ex: 8)
+  boxWeight      Float? // peso da caixa em kg
+  palletBoxes    Int? // caixas por palete
+  palletWeight   Float? // peso do palete em kg
   palletCoverage Float? // m² cobertos por palete
 
   // Campos de Padronização e Importação (Phase 7)
-  supplierId    String? 
-  supplier      Supplier? @relation(fields: [supplierId], references: [id])
-  
-  format        String? // ex: "60x60", "30x90"
-  usage         String? // ex: "Piso", "Parede", "Externo"
-  line          String? // ex: "Mármore", "Concreto", "Madeira"
-  supplierCode  String? // Código de referência do fornecedor (Ref.)
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+
+  format       String? // ex: "60x60", "30x90"
+  usage        String? // ex: "Piso", "Parede", "Externo"
+  line         String? // ex: "Mármore", "Concreto", "Madeira"
+  supplierCode String? // Código de referência do fornecedor (Ref.)
 
   clinic               Clinic                @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   lots                 StockLot[]
@@ -507,6 +504,7 @@ model Product {
   orderItems           OrderItem[]
   purchaseOrderItems   PurchaseOrderItem[]
   stockReservations    StockReservation[]
+  promotions           PromotionProduct[]
 
   @@index([supplierId])
   @@index([clinicId])
@@ -517,14 +515,14 @@ model Product {
 
 // Business: Category model (Categoria de Produto)
 model Category {
-  id            String   @id @default(uuid())
+  id            String @id @default(uuid())
   clinicId      String
   name          String
-  defaultMarkup Float?   // Markup padrão da categoria (ex: 30.0)
-  
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  defaultMarkup Float? // Markup padrão da categoria (ex: 30.0)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   clinic   Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   products Product[]
@@ -535,14 +533,14 @@ model Category {
 
 // Business: Brand model (Marca de Produto)
 model Brand {
-  id            String   @id @default(uuid())
+  id            String @id @default(uuid())
   clinicId      String
   name          String
-  defaultMarkup Float?   // Markup padrão da marca (ex: 30.0)
-  
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  defaultMarkup Float? // Markup padrão da marca (ex: 30.0)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   clinic   Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   products Product[]
@@ -553,21 +551,21 @@ model Brand {
 
 // Business: StockLot model (Lotes de estoque com validade)
 model StockLot {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   clinicId       String
   productId      String
   lotNumber      String
   quantity       Float
   expirationDate DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @default(now()) @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
 
   // Campos para Revestimentos (Tonalidade e Calibre)
   shade   String? // Tonalidade (ex: "A1", "B2")
   caliber String? // Calibre (ex: "9mm", "10mm")
 
-  clinic         Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  clinic         Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  product        Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
   movements      StockMovement[]
   stockExitItems StockExitItem[]
   quoteItems     QuoteItem[]
@@ -583,34 +581,34 @@ model StockLot {
 
 // Business: StockReservation model (Reserva de Estoque)
 model StockReservation {
-  id        String   @id @default(uuid())
-  clinicId  String
-  
-  orderId   String?
+  id       String @id @default(uuid())
+  clinicId String
+
+  orderId     String?
   orderItemId String?
-  quoteId   String?
-  lotId     String
-  productId String?
-  
-  type      ReservationType @default(ORCAMENTO)
+  quoteId     String?
+  lotId       String
+  productId   String?
+
+  type      ReservationType   @default(ORCAMENTO)
   quantity  Int
   status    ReservationStatus @default(ACTIVE)
   expiresAt DateTime
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  clinic    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  order     Order?   @relation(fields: [orderId], references: [id])
+
+  clinic    Clinic     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  order     Order?     @relation(fields: [orderId], references: [id])
   orderItem OrderItem? @relation(fields: [orderItemId], references: [id])
-  quote     Quote?   @relation(fields: [quoteId], references: [id])
-  
+  quote     Quote?     @relation(fields: [quoteId], references: [id])
+
   quoteItemId String?
   quoteItem   QuoteItem? @relation(fields: [quoteItemId], references: [id])
 
-  lot       StockLot @relation(fields: [lotId], references: [id])
-  product   Product?  @relation(fields: [productId], references: [id])
-  
+  lot     StockLot @relation(fields: [lotId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+
   @@index([clinicId])
   @@index([orderId])
   @@index([orderItemId])
@@ -630,21 +628,21 @@ model StockMovement {
   reason    String?
   createdAt DateTime          @default(now())
 
-  clinic  Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  product Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  clinic  Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  product Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   lot     StockLot? @relation(fields: [lotId], references: [id], onDelete: SetNull)
 
   // Retail Context Links (NEW)
-  orderId          String? // Link to Sales Order
-  purchaseOrderId  String? // Link to Purchase Order
-  stockEntryId     String? // Link to Stock Entry document
-  stockEntry       StockEntry? @relation(fields: [stockEntryId], references: [id])
-  stockExitId      String? // Link to Stock Exit document
-  stockExit        StockExit? @relation(fields: [stockExitId], references: [id])
+  orderId         String? // Link to Sales Order
+  purchaseOrderId String? // Link to Purchase Order
+  stockEntryId    String? // Link to Stock Entry document
+  stockEntry      StockEntry? @relation(fields: [stockEntryId], references: [id])
+  stockExitId     String? // Link to Stock Exit document
+  stockExit       StockExit?  @relation(fields: [stockExitId], references: [id])
 
   // Legacy Clinical Link (DEPRECATED - Keep for backward compatibility)
-  encounterId     String? // Link to patient encounter
-  encounter       Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  encounterId String? // Link to patient encounter
+  encounter   Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
 
   // Metadata fields
   invoiceNumber   String? // Nota Fiscal
@@ -679,10 +677,10 @@ model StockEntry {
   purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
 
   // --- Fiscal Identifiers ---
-  accessKey       String?   @unique // Chave de acesso 44 dígitos
-  operationNature String?   // Natureza da Operação
-  protocol        String?   // Protocolo de Autorização
-  model           String?   @default("55") // Modelo (55=NF-e)
+  accessKey       String? @unique // Chave de acesso 44 dígitos
+  operationNature String? // Natureza da Operação
+  protocol        String? // Protocolo de Autorização
+  model           String? @default("55") // Modelo (55=NF-e)
 
   // --- Fiscal Totals (All in Cents) ---
   calculationBaseICMS     Int? @default(0)
@@ -697,17 +695,17 @@ model StockEntry {
   totalIPIValueCents      Int? @default(0) // Valor Total do IPI
 
   // --- Transport / Logistics ---
-  freightType     Int?    // 0=Remetente(CIF), 1=Destinatário(FOB), 9=Sem Frete
+  freightType     Int? // 0=Remetente(CIF), 1=Destinatário(FOB), 9=Sem Frete
   carrierName     String? // Nome do Transportador
   carrierDocument String? // CPF/CNPJ do Transportador
   carrierPlate    String? // Placa do Veículo
   carrierState    String? // UF do Veículo
-  
+
   // --- Volumes ---
-  volumeQuantity  Int?    // Quantidade de volumes
-  volumeSpecies   String? // Espécie (Caixas, Paletes)
-  grossWeight     Float?  // Peso Bruto (kg)
-  netWeight       Float?  // Peso Líquido (kg)
+  volumeQuantity Int? // Quantidade de volumes
+  volumeSpecies  String? // Espécie (Caixas, Paletes)
+  grossWeight    Float? // Peso Bruto (kg)
+  netWeight      Float? // Peso Líquido (kg)
 
   emissionDate DateTime?
   arrivalDate  DateTime  @default(now())
@@ -720,9 +718,12 @@ model StockEntry {
   confirmedAt DateTime?
   confirmedBy String? // User ID
 
-  clinic Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  clinic         Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   items          StockEntryItem[]
   stockMovements StockMovement[]
+  expenses       Expense[]
+
+  installmentsData Json? // Temporarily holds parsed installments from NFe XML until confirmation
 
   @@index([clinicId])
   @@index([status])
@@ -738,20 +739,20 @@ model StockEntryItem {
   totalCost Float? // quantity * unitCost (legacy float)
 
   // --- Fiscal Classification ---
-  ncm     String? // Nomenclatura Comum do Mercosul
-  cfop    String? // Código Fiscal de Operações e Prestações (e.g. 5102, 1102)
-  cst     String? // Código de Situação Tributária
-  
+  ncm  String? // Nomenclatura Comum do Mercosul
+  cfop String? // Código Fiscal de Operações e Prestações (e.g. 5102, 1102)
+  cst  String? // Código de Situação Tributária
+
   // --- Item Values ---
-  discountValueCents Int? @default(0)
-  freightValueCents  Int? @default(0)
+  discountValueCents  Int? @default(0)
+  freightValueCents   Int? @default(0)
   insuranceValueCents Int? @default(0)
-  
+
   // --- Tax Values per Item ---
-  valueICMS     Int? @default(0)
-  rateICMS      Float? @default(0)
-  valueIPI      Int? @default(0)
-  rateIPI       Float? @default(0)
+  valueICMS Int?   @default(0)
+  rateICMS  Float? @default(0)
+  valueIPI  Int?   @default(0)
+  rateIPI   Float? @default(0)
 
   lotNumber      String?
   expirationDate DateTime?
@@ -784,7 +785,7 @@ model StockExit {
   updatedAt   DateTime  @updatedAt
   confirmedAt DateTime?
 
-  clinic Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  clinic         Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   items          StockExitItem[]
   stockMovements StockMovement[]
 
@@ -1019,11 +1020,11 @@ model PatientAccount {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  clinic       Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  patient      Patient?      @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  customerId   String?       @unique
-  customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  clinic  Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  customerId String?   @unique
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   transactions Transaction[]
 
@@ -1132,7 +1133,7 @@ model Customer {
   clinic Clinic  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   quotes Quote[]
   orders Order[]
-  
+
   // Finance
   patientAccount PatientAccount?
   transactions   Transaction[]
@@ -1146,7 +1147,7 @@ model Customer {
 
 // Business: Architect model (Arquiteto/Indicador parceiro)
 model Architect {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   clinicId       String
   name           String
   email          String?
@@ -1155,9 +1156,9 @@ model Architect {
   birthDate      DateTime?
   commissionRate Float? // Percentual de comissão (ex: 3.0 = 3%)
   notes          String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   clinic    Clinic     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   customers Customer[]
@@ -1171,7 +1172,7 @@ model Architect {
 model QuoteTemplate {
   id        String  @id @default(uuid())
   clinicId  String
-  name      String  // Nome do template (ex: "Padrão", "Promocional")
+  name      String // Nome do template (ex: "Padrão", "Promocional")
   isDefault Boolean @default(false)
 
   // Dados da Empresa (Header)
@@ -1199,8 +1200,8 @@ model QuoteTemplate {
   defaultDeliveryDays String? // Ex: "7dd", "15 dias úteis"
 
   // Personalização Visual
-  primaryColor       String @default("#000000")
-  accentColor        String @default("#4CAF50")
+  primaryColor       String  @default("#000000")
+  accentColor        String  @default("#4CAF50")
   showSignatureLines Boolean @default(true)
   showBankDetails    Boolean @default(true)
   showTerms          Boolean @default(true)
@@ -1237,11 +1238,12 @@ model Quote {
   approvedAt DateTime?
 
   // Valores
-  subtotalCents   Int    @default(0)
-  discountCents   Int    @default(0) // Desconto total em centavos
-  discountPercent Float? // OU desconto em %
-  deliveryFee     Int    @default(0) // Taxa de entrega em centavos
-  totalCents      Int    @default(0)
+  subtotalCents       Int    @default(0)
+  discountCents       Int    @default(0) // Desconto total em centavos
+  discountPercent     Float? // OU desconto em %
+  globalMarginPercent Float? // Margem de perda global em %
+  deliveryFee         Int    @default(0) // Taxa de entrega em centavos
+  totalCents          Int    @default(0)
 
   notes         String? // Observações (vão no PDF)
   internalNotes String? // Notas internas (não vão no PDF)
@@ -1249,9 +1251,9 @@ model Quote {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clinic Clinic      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  items  QuoteItem[]
-  order  Order? // Pedido gerado (se convertido)
+  clinic            Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  items             QuoteItem[]
+  order             Order? // Pedido gerado (se convertido)
   stockReservations StockReservation[]
 
   @@unique([clinicId, number])
@@ -1268,9 +1270,11 @@ model QuoteItem {
   productId String
 
   // Quantidades (lógica dimensional)
-  inputArea     Float? // Área informada pelo usuário (m²)
-  quantityBoxes Int // Quantidade de caixas (calculada ou manual)
-  resultingArea Float? // Área real (caixas * boxCoverage)
+  inputArea      Float? // Área informada pelo usuário (m²)
+  marginPercent  Float? // Margem de perda específica deste item (%)
+  areaWithMargin Float? // Área calculada após aplicar a margem: inputArea * (1 + marginPercent/100)
+  quantityBoxes  Int // Quantidade de caixas (calculada ou manual)
+  resultingArea  Float? // Área real (caixas * boxCoverage)
 
   // Preços
   unitPriceCents  Int // Preço por m² ou por caixa
@@ -1286,8 +1290,8 @@ model QuoteItem {
 
   createdAt DateTime @default(now())
 
-  quote   Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  quote        Quote              @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product      Product            @relation(fields: [productId], references: [id])
   reservations StockReservation[]
 
   @@index([quoteId])
@@ -1295,14 +1299,14 @@ model QuoteItem {
 }
 
 enum FulfillmentStatus {
-  PENDING             // Aguardando processamento
-  AWAITING_STOCK      // Aguardando chegada de material (Backorder/Cross-docking)
-  AWAITING_PICKING    // Estoque disponível, aguardando separação
-  IN_PICKING          // Em separação
-  READY_FOR_PICKUP    // Separado e aguardando retirada
-  OUT_FOR_DELIVERY    // Saiu para entrega
-  DELIVERED           // Entregue ao cliente
-  RETURNED            // Devolvido
+  PENDING // Aguardando processamento
+  AWAITING_STOCK // Aguardando chegada de material (Backorder/Cross-docking)
+  AWAITING_PICKING // Estoque disponível, aguardando separação
+  IN_PICKING // Em separação
+  READY_FOR_PICKUP // Separado e aguardando retirada
+  OUT_FOR_DELIVERY // Saiu para entrega
+  DELIVERED // Entregue ao cliente
+  RETURNED // Devolvido
   PARTIALLY_FULFILLED // Parcialmente atendido
 }
 
@@ -1337,8 +1341,8 @@ model Order {
   deliveryAddress String?
   deliveryDate    DateTime?
   deliveredAt     DateTime?
-  
-  delivery        Delivery?
+
+  delivery Delivery?
 
   notes String?
 
@@ -1346,18 +1350,18 @@ model Order {
   updatedAt   DateTime  @updatedAt
   confirmedAt DateTime?
 
-  clinic         Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  items          OrderItem[]
-  invoices       Invoice[]
-  purchaseOrders PurchaseOrder[]
+  clinic            Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  items             OrderItem[]
+  invoices          Invoice[]
+  purchaseOrders    PurchaseOrder[]
   stockReservations StockReservation[]
+  fiscalDocuments   FiscalDocument[]
 
   @@unique([clinicId, number])
   @@index([clinicId])
   @@index([clinicId, status])
   @@index([customerId])
   @@index([sellerId])
-  fiscalDocuments FiscalDocument[]
 }
 
 // Business: OrderItem model (Item do Pedido)
@@ -1367,9 +1371,11 @@ model OrderItem {
   productId String
 
   // Quantidades (copiadas do QuoteItem ou inseridas manualmente)
-  inputArea     Float? // Área original (m²)
-  quantityBoxes Int // Quantidade de caixas
-  resultingArea Float? // Área real (caixas * boxCoverage)
+  inputArea      Float? // Área original (m²)
+  marginPercent  Float? // Margem de perda
+  areaWithMargin Float? // Área com perda
+  quantityBoxes  Int // Quantidade de caixas
+  resultingArea  Float? // Área real (caixas * boxCoverage)
 
   // Preços
   unitPriceCents Int
@@ -1385,11 +1391,10 @@ model OrderItem {
 
   createdAt DateTime @default(now())
 
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
-  lot     StockLot? @relation(fields: [lotId], references: [id])
+  order        Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product      Product            @relation(fields: [productId], references: [id])
+  lot          StockLot?          @relation(fields: [lotId], references: [id])
   reservations StockReservation[]
-
 
   @@index([orderId])
   @@index([productId])
@@ -1440,7 +1445,7 @@ model PurchaseOrder {
 
   // Fornecedor
   supplierId    String?
-  supplierName  String   // Mantido para compatibilidade/histórico
+  supplierName  String // Mantido para compatibilidade/histórico
   supplierCnpj  String?
   supplierEmail String?
   supplierPhone String?
@@ -1458,7 +1463,7 @@ model PurchaseOrder {
   // Datas
   expectedDate DateTime? // Data prevista de entrega
   receivedAt   DateTime?
-  
+
   // NFe relacionada
   nfeNumber String?
   nfeKey    String? // Chave de acesso da NFe
@@ -1468,12 +1473,12 @@ model PurchaseOrder {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clinic     Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  supplier   Supplier?           @relation(fields: [supplierId], references: [id])
-  salesOrder Order?              @relation(fields: [salesOrderId], references: [id])
+  clinic       Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  supplier     Supplier?           @relation(fields: [supplierId], references: [id])
+  salesOrder   Order?              @relation(fields: [salesOrderId], references: [id])
   stockEntries StockEntry[]
-  items      PurchaseOrderItem[]
-  expenses   Expense[]
+  items        PurchaseOrderItem[]
+  expenses     Expense[]
 
   @@unique([clinicId, number])
   @@index([clinicId])
@@ -1498,30 +1503,32 @@ enum ExpenseStatus {
 }
 
 model Expense {
-  id              String        @id @default(uuid())
-  clinicId        String
-  
-  description     String
-  amountCents     Int
-  dueDate         DateTime
-  paidAt          DateTime?
-  
-  status          ExpenseStatus @default(PENDING)
-  type            ExpenseType   @default(OPERATIONAL)
-  
+  id       String @id @default(uuid())
+  clinicId String
+
+  description String
+  amountCents Int
+  dueDate     DateTime
+  paidAt      DateTime?
+
+  status ExpenseStatus @default(PENDING)
+  type   ExpenseType   @default(OPERATIONAL)
+
   // Optional Links
   purchaseOrderId String?
   purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
-  
+  stockEntryId    String?
+  stockEntry      StockEntry?    @relation(fields: [stockEntryId], references: [id])
+
   // Boleto Data
-  barCode         String?
-  recipientName   String?
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  
-  clinic          Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  
+  barCode       String?
+  recipientName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
   @@index([clinicId])
   @@index([clinicId, status])
   @@index([clinicId, dueDate])
@@ -1529,17 +1536,17 @@ model Expense {
 
 // Business: PurchaseOrderItem model (Item do Pedido de Compra)
 model PurchaseOrderItem {
-  id              String @id @default(uuid())
+  id              String  @id @default(uuid())
   purchaseOrderId String
   productId       String?
 
   // Dados do produto (podem não existir no sistema ainda)
-  productCode  String
-  productName  String
-  quantityOrdered Int
-  quantityReceived Int @default(0)
-  unitPriceCents  Int
-  totalCents      Int
+  productCode      String
+  productName      String
+  quantityOrdered  Int
+  quantityReceived Int    @default(0)
+  unitPriceCents   Int
+  totalCents       Int
 
   // Lote criado ao receber
   lotId String?
@@ -1558,12 +1565,12 @@ model PurchaseOrderItem {
 // =====================================================
 
 enum DeliveryStatus {
-  PENDING     // Pendente de agendamento
-  SCHEDULED   // Agendado
-  IN_TRANSIT  // Em trânsito
-  DELIVERED   // Entregue
-  FAILED      // Tentativa falhou
-  CANCELED    // Cancelado
+  PENDING // Pendente de agendamento
+  SCHEDULED // Agendado
+  IN_TRANSIT // Em trânsito
+  DELIVERED // Entregue
+  FAILED // Tentativa falhou
+  CANCELED // Cancelado
 }
 
 enum InvoiceStatus {
@@ -1574,26 +1581,26 @@ enum InvoiceStatus {
 }
 
 model Delivery {
-  id        String   @id @default(uuid())
-  clinicId  String
-  
-  orderId   String   @unique
-  order     Order    @relation(fields: [orderId], references: [id])
-  
+  id       String @id @default(uuid())
+  clinicId String
+
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id])
+
   status        DeliveryStatus @default(PENDING)
   scheduledDate DateTime?
-  
-  driverName    String?
-  vehiclePlate  String?
-  trackingCode  String?
-  
-  notes         String?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  clinic        Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  
+
+  driverName   String?
+  vehiclePlate String?
+  trackingCode String?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
   @@index([clinicId])
   @@index([orderId])
   @@index([status])
@@ -1601,58 +1608,57 @@ model Delivery {
 
 // Payment: Invoice model (Boletos)
 model Invoice {
-  id              String   @id @default(uuid())
-  clinicId        String
-  
-  orderId         String
-  order           Order    @relation(fields: [orderId], references: [id])
-  
-  // Boleto Data
-  amountCents     Int
-  dueDate         DateTime
-  status          InvoiceStatus @default(PENDING) 
-  
-  // External Provider (Future Integration)
-  provider        String?  // 'ASAAS', 'IUGU', etc.
-  externalId      String?  // ID in the provider
-  pdfUrl          String?  // URL to download PDF
-  barCode         String?  // Linha digitável
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  paidAt          DateTime?
+  id       String @id @default(uuid())
+  clinicId String
 
-  clinic          Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  // Boleto Data
+  amountCents Int
+  dueDate     DateTime
+  status      InvoiceStatus @default(PENDING)
+
+  // External Provider (Future Integration)
+  provider   String? // 'ASAAS', 'IUGU', etc.
+  externalId String? // ID in the provider
+  pdfUrl     String? // URL to download PDF
+  barCode    String? // Linha digitável
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  paidAt    DateTime?
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 
   @@index([clinicId])
   @@index([orderId])
 }
 
-
 // Fiscal: FiscalDocument model (NF-e/NFC-e)
 model FiscalDocument {
-  id            String   @id @default(uuid())
-  clinicId      String
-  orderId       String?  // Optional link to Sales Order
-  
-  uuid          String?  @unique // Webmania UUID
-  status        FiscalStatus @default(DRAFT) // DRAFT, PROCESSING, APPROVED, REJECTED, CANCELLED
-  type          FiscalType // NFE, NFCE
-  
-  serie         String?
-  number        String?
-  key           String?  // Chave de Acesso (44 chars)
-  
-  xmlUrl        String?
-  danfeUrl      String?
-  
-  errorMessage  String?  @db.Text
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  clinic        Clinic   @relation(fields: [clinicId], references: [id])
-  order         Order?   @relation(fields: [orderId], references: [id])
+  id       String  @id @default(uuid())
+  clinicId String
+  orderId  String? // Optional link to Sales Order
+
+  uuid   String?      @unique // Webmania UUID
+  status FiscalStatus @default(DRAFT) // DRAFT, PROCESSING, APPROVED, REJECTED, CANCELLED
+  type   FiscalType // NFE, NFCE
+
+  serie  String?
+  number String?
+  key    String? // Chave de Acesso (44 chars)
+
+  xmlUrl   String?
+  danfeUrl String?
+
+  errorMessage String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id])
+  order  Order? @relation(fields: [orderId], references: [id])
 
   @@index([clinicId])
   @@index([orderId])
@@ -1662,15 +1668,15 @@ model FiscalDocument {
 
 // Fiscal: ClinicFiscalConfig model (Webmania Credentials)
 model ClinicFiscalConfig {
-  id             String @id @default(uuid())
-  clinicId       String @unique
-  
+  id       String @id @default(uuid())
+  clinicId String @unique
+
   // Credentials (Optional - Fallback to Env Vars)
-  consumerKey    String?
-  consumerSecret String?
-  accessToken    String?
+  consumerKey       String?
+  consumerSecret    String?
+  accessToken       String?
   accessTokenSecret String?
-  
+
   // Business Rules / Defaults
   environment             String  @default("2") // 1=Production, 2=Homologation
   defaultNaturezaOperacao String  @default("Venda de mercadoria")
@@ -1678,8 +1684,8 @@ model ClinicFiscalConfig {
   defaultNcm              String?
   defaultCest             String?
   defaultOrigin           Int?    @default(0) // 0=Nacional, etc.
-  
-  clinic         Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 }
 
 enum FiscalStatus {
@@ -1694,4 +1700,37 @@ enum FiscalStatus {
 enum FiscalType {
   NFE
   NFCE
+}
+
+// Business: Promotion model (Campanhas Promocionais)
+model Promotion {
+  id              String             @id @default(uuid())
+  clinicId        String
+  name            String
+  description     String?
+  discountPercent Float              // Desconto em porcentagem
+  startDate       DateTime
+  endDate         DateTime
+  isActive        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  clinic          Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  products        PromotionProduct[]
+
+  @@index([clinicId])
+  @@index([isActive])
+}
+
+// Business: PromotionProduct (Produtos vinculados a campanhas)
+model PromotionProduct {
+  promotionId String
+  productId   String
+
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([promotionId, productId])
+  @@index([promotionId])
+  @@index([productId])
 }

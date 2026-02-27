@@ -18,7 +18,7 @@ export class QuotesService {
     private prisma: PrismaService,
     private stockService: StockService,
     private stockReservationsService: StockReservationsService,
-  ) {}
+  ) { }
 
   /**
    * Calcula a quantidade de caixas necessárias para cobrir uma área.
@@ -39,9 +39,12 @@ export class QuotesService {
   async processQuoteItem(
     clinicId: string,
     item: CreateQuoteItemDto,
+    globalMarginPercent?: number,
   ): Promise<{
     productId: string;
     inputArea: number | null;
+    marginPercent: number | null;
+    areaWithMargin: number | null;
     quantityBoxes: number;
     resultingArea: number | null;
     unitPriceCents: number;
@@ -62,8 +65,10 @@ export class QuotesService {
     let quantityBoxes: number;
     let inputArea: number | null = null;
     let resultingArea: number | null = null;
+    let marginPercent: number | null = null;
+    let areaWithMargin: number | null = null;
 
-    // Se informou área, calcula caixas
+    // Se informou área, calcula caixas com base na margem
     if (item.inputArea && item.inputArea > 0) {
       if (!product.boxCoverage || product.boxCoverage <= 0) {
         throw new BadRequestException(
@@ -71,8 +76,17 @@ export class QuotesService {
         );
       }
       inputArea = item.inputArea;
+
+      // Aplicar margem de perda (item > global)
+      marginPercent = item.marginPercent ?? globalMarginPercent ?? null;
+      if (marginPercent && marginPercent > 0) {
+        areaWithMargin = inputArea * (1 + marginPercent / 100);
+      } else {
+        areaWithMargin = inputArea;
+      }
+
       quantityBoxes = this.calculateBoxesFromArea(
-        inputArea,
+        areaWithMargin,
         product.boxCoverage,
       );
       resultingArea = quantityBoxes * product.boxCoverage;
@@ -101,6 +115,8 @@ export class QuotesService {
     return {
       productId: item.productId,
       inputArea,
+      marginPercent,
+      areaWithMargin,
       quantityBoxes,
       resultingArea,
       unitPriceCents: item.unitPriceCents,
@@ -126,7 +142,9 @@ export class QuotesService {
 
     // Processa todos os items
     const processedItems = await Promise.all(
-      createQuoteDto.items.map((item) => this.processQuoteItem(clinicId, item)),
+      createQuoteDto.items.map((item) =>
+        this.processQuoteItem(clinicId, item, createQuoteDto.globalMarginPercent),
+      ),
     );
 
     // Calcula subtotal
@@ -161,6 +179,7 @@ export class QuotesService {
         subtotalCents,
         discountCents,
         discountPercent: createQuoteDto.discountPercent,
+        globalMarginPercent: createQuoteDto.globalMarginPercent,
         deliveryFee,
         totalCents,
         notes: createQuoteDto.notes,
@@ -284,7 +303,7 @@ export class QuotesService {
     const globalStatus = allAvailable
       ? 'FULL'
       : anyPartial ||
-          itemsWithAvailability.some((i) => i.status === 'AVAILABLE')
+        itemsWithAvailability.some((i) => i.status === 'AVAILABLE')
         ? 'PARTIAL'
         : 'NONE';
 
@@ -398,6 +417,8 @@ export class QuotesService {
             create: quote.items.map((item) => ({
               productId: item.productId,
               inputArea: item.inputArea,
+              marginPercent: item.marginPercent,
+              areaWithMargin: item.areaWithMargin,
               quantityBoxes: item.quantityBoxes,
               resultingArea: item.resultingArea,
               unitPriceCents: item.unitPriceCents,
@@ -637,7 +658,11 @@ export class QuotesService {
       );
     }
 
-    const processedItem = await this.processQuoteItem(clinicId, dto);
+    const processedItem = await this.processQuoteItem(
+      clinicId,
+      dto,
+      quote.globalMarginPercent ?? undefined,
+    );
 
     await this.prisma.quote.update({
       where: { id },
@@ -645,6 +670,8 @@ export class QuotesService {
         items: {
           create: {
             ...processedItem,
+            marginPercent: processedItem.marginPercent ?? undefined,
+            areaWithMargin: processedItem.areaWithMargin ?? undefined,
             // Ensure optional nulls are handled
             preferredLotId: processedItem.preferredLotId ?? undefined,
             notes: processedItem.notes ?? undefined,
@@ -719,6 +746,7 @@ export class QuotesService {
     const inputForCalc: CreateQuoteItemDto = {
       productId: currentItem.productId,
       inputArea: dto.inputArea ?? currentItem.inputArea ?? undefined,
+      marginPercent: dto.marginPercent ?? currentItem.marginPercent ?? undefined,
       quantityBoxes: dto.quantityBoxes ?? currentItem.quantityBoxes,
       unitPriceCents: dto.unitPriceCents ?? currentItem.unitPriceCents,
       discountCents: dto.discountCents ?? currentItem.discountCents,
@@ -729,7 +757,11 @@ export class QuotesService {
       notes: dto.notes ?? currentItem.notes ?? undefined,
     };
 
-    const processed = await this.processQuoteItem(clinicId, inputForCalc);
+    const processed = await this.processQuoteItem(
+      clinicId,
+      inputForCalc,
+      quote.globalMarginPercent ?? undefined,
+    );
 
     // SYNC RESERVATIONS
     // If quantity decreased, we might need to release some reserved stock
@@ -778,6 +810,8 @@ export class QuotesService {
       where: { id: itemId },
       data: {
         inputArea: processed.inputArea,
+        marginPercent: processed.marginPercent,
+        areaWithMargin: processed.areaWithMargin,
         quantityBoxes: processed.quantityBoxes,
         resultingArea: processed.resultingArea,
         unitPriceCents: processed.unitPriceCents,

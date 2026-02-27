@@ -44,6 +44,11 @@ async function main() {
         { key: 'order.create', description: 'Criar pedidos' },
         { key: 'order.update', description: 'Atualizar pedidos' },
         { key: 'order.cancel', description: 'Cancelar pedidos' },
+        // Promotion (NEW - Sales)
+        { key: 'promotion.read', description: 'Visualizar promoções' },
+        { key: 'promotion.create', description: 'Criar promoções' },
+        { key: 'promotion.update', description: 'Atualizar promoções' },
+        { key: 'promotion.delete', description: 'Deletar promoções' },
         // Delivery (NEW - Sales)
         { key: 'delivery.read', description: 'Visualizar entregas' },
         { key: 'delivery.create', description: 'Agendar entregas' },
@@ -206,6 +211,7 @@ async function main() {
         'architect.read',
         'quote.read', 'quote.create', 'quote.update',
         'order.read', 'order.create',
+        'promotion.read',
         'delivery.read', 'delivery.create', 'delivery.update',
         'product.read', 'stock.view', // Catalog + Balances
         'clinic.read',
@@ -227,6 +233,7 @@ async function main() {
         'customer.delete', 'architect.create', 'architect.update', 'architect.delete',
         'quote.delete', 'quote.convert',
         'order.update', 'order.cancel',
+        'promotion.create', 'promotion.update', 'promotion.delete',
         'product.create', 'product.update', // Manage Catalog
         'supplier.create', 'supplier.update', 'supplier.delete', // Manage Suppliers
         'catalogue.settings', // Manage Catalogue Settings (Markup)

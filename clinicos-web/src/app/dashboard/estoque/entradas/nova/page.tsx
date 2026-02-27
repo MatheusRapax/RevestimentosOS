@@ -10,6 +10,7 @@ import { ItemsGrid } from './components/items-grid';
 import { useStockEntries, CreateEntryData } from '@/hooks/useStockEntries';
 import { ArrowLeft, CheckCircle, AlertTriangle, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { NFeItem } from '@/lib/nfe-parser';
+import { InstallmentsList } from './components/installments-list';
 import Link from 'next/link';
 
 export default function NewEntryPage() {
@@ -174,6 +175,18 @@ export default function NewEntryPage() {
                             </CardContent>
                         )}
                     </Card>
+
+                    {/* Faturas / Duplicatas */}
+                    {currentEntry?.installmentsData && Array.isArray(currentEntry.installmentsData) && currentEntry.installmentsData.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">Faturas / Duplicatas</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <InstallmentsList installments={currentEntry.installmentsData} />
+                            </CardContent>
+                        </Card>
+                    )}
 
                     <Card>
                         <CardHeader>

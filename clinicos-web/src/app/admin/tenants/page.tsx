@@ -36,6 +36,7 @@ const AVAILABLE_MODULES = [
     { id: 'FINANCE', label: 'Financeiro' },
     { id: 'ARCHITECTS', label: 'Arquitetos' },
     { id: 'DELIVERIES', label: 'Entregas' },
+    { id: 'PROMOTIONS', label: 'Promoções' },
     { id: 'FISCAL', label: 'Fiscal (NF-e/NFC-e)' },
     { id: 'ADMIN', label: 'Administrativo (Usuários, Config)' },
 ];
@@ -50,7 +51,7 @@ export default function TenantsPage() {
     const [formData, setFormData] = useState<CreateTenantData>({
         name: '',
         slug: '',
-        modules: ['SALES', 'STOCK', 'FINANCE', 'PURCHASES'], // Defaults
+        modules: ['SALES', 'STOCK', 'FINANCE', 'PURCHASES', 'PROMOTIONS'], // Defaults
         logoUrl: '',
         isActive: true,
     });

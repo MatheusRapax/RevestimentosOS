@@ -19,7 +19,7 @@ export class FinanceService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-  ) {}
+  ) { }
 
   /**
    * Get or create patient/customer account
@@ -157,8 +157,8 @@ export class FinanceService {
             _sum: { amountCents: true },
             where: {
               clinicId,
-              dueDate: { gte: startDate, lte: endDate },
-              status: { not: ExpenseStatus.CANCELLED },
+              paidAt: { gte: startDate, lte: endDate },
+              status: ExpenseStatus.PAID,
             },
           })
           .catch((e) => {
@@ -210,8 +210,8 @@ export class FinanceService {
             _sum: { amountCents: true },
             where: {
               clinicId,
-              dueDate: { gte: prevStartDate, lte: prevEndDate },
-              status: { not: ExpenseStatus.CANCELLED },
+              paidAt: { gte: prevStartDate, lte: prevEndDate },
+              status: ExpenseStatus.PAID,
             },
           })
           .catch((e) => {

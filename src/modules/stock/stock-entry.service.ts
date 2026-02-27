@@ -8,7 +8,7 @@ import { CreateStockEntryDto } from './dto/create-stock-entry.dto';
 import { AddStockEntryItemDto } from './dto/add-stock-entry-item.dto';
 import { UpdateStockEntryDto } from './dto/update-stock-entry.dto';
 import { UpdateStockEntryItemDto } from './dto/update-stock-entry-item.dto';
-import { EntryStatus, StockMovementType, EntryType } from '@prisma/client';
+import { Prisma, EntryStatus, StockMovementType, EntryType } from '@prisma/client';
 
 import { StockAllocationService } from './services/stock-allocation.service';
 
@@ -17,7 +17,7 @@ export class StockEntryService {
   constructor(
     private prisma: PrismaService,
     private stockAllocationService: StockAllocationService,
-  ) {}
+  ) { }
 
   async createDraft(
     clinicId: string,
@@ -101,6 +101,7 @@ export class StockEntryService {
           volumeSpecies: dto.volumeSpecies,
           grossWeight: dto.grossWeight,
           netWeight: dto.netWeight,
+          installmentsData: dto.installments ? (dto.installments as Prisma.JsonArray) : Prisma.JsonNull,
         },
       });
     }
@@ -144,11 +145,11 @@ export class StockEntryService {
         carrierPlate: dto.carrierPlate,
         carrierState: dto.carrierState,
 
-        // --- Volumes ---
         volumeQuantity: dto.volumeQuantity,
         volumeSpecies: dto.volumeSpecies,
         grossWeight: dto.grossWeight,
         netWeight: dto.netWeight,
+        installmentsData: dto.installments ? (dto.installments as any) : Prisma.JsonNull,
       },
     });
   }
@@ -200,11 +201,13 @@ export class StockEntryService {
         carrierPlate: dto.carrierPlate,
         carrierState: dto.carrierState,
 
-        // --- Volumes ---
         volumeQuantity: dto.volumeQuantity,
         volumeSpecies: dto.volumeSpecies,
         grossWeight: dto.grossWeight,
         netWeight: dto.netWeight,
+        ...(dto.installments !== undefined && {
+          installmentsData: dto.installments ? (dto.installments as any) : Prisma.JsonNull,
+        }),
       },
     });
   }
@@ -565,6 +568,29 @@ export class StockEntryService {
             receivedAt: new Date(),
           },
         });
+      }
+
+      // 4. Create Accounts Payable (Expenses) from Installments if any
+      if (entry.installmentsData && Array.isArray(entry.installmentsData)) {
+        for (const installment of entry.installmentsData as any[]) {
+          // Parse or validate the values
+          const dVenc = installment.dueDate ? new Date(installment.dueDate) : new Date();
+          const val = typeof installment.value === 'number' ? installment.value : parseFloat(installment.value || '0');
+          if (val > 0) {
+            await tx.expense.create({
+              data: {
+                clinicId,
+                description: `NFe ${entry.invoiceNumber || entry.id} - Parc. ${installment.number || '01'}`,
+                amountCents: Math.round(val * 100),
+                dueDate: dVenc,
+                status: 'PENDING',
+                type: 'SUPPLIER',
+                stockEntryId: entry.id,
+                purchaseOrderId: entry.purchaseOrderId || null,
+              },
+            });
+          }
+        }
       }
 
       return confirmedEntry;

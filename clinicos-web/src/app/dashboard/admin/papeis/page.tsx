@@ -137,6 +137,7 @@ export default function RolesPage() {
         audit: 'Auditoria',
         finance: 'Financeiro',
         professional: 'Profissionais',
+        promotion: 'Promoções',
         other: 'Outros',
     };
 

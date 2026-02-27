@@ -34,6 +34,7 @@ import { CatalogueModule } from './modules/catalogue/catalogue.module';
 
 import { join } from 'path';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { PromotionsModule } from './modules/promotions/promotions.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
     PurchaseOrdersModule,
     StockReservationsModule,
     FiscalModule,
+    PromotionsModule,
   ],
   controllers: [],
   providers: [],

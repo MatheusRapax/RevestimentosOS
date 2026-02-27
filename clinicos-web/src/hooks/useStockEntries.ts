@@ -69,10 +69,12 @@ export interface StockEntry {
     carrierState?: string;
 
     // Volumes
-    volumeQuantity?: number;
     volumeSpecies?: string;
     grossWeight?: number;
     netWeight?: number;
+
+    // XML Installments
+    installmentsData?: any[];
 }
 
 export interface CreateEntryData {
@@ -114,6 +116,9 @@ export interface CreateEntryData {
     volumeSpecies?: string;
     grossWeight?: number;
     netWeight?: number;
+
+    // XML Installments
+    installments?: any[];
 }
 
 export interface AddItemData {

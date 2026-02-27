@@ -17,12 +17,15 @@ import {
     UserCog,
     ArrowLeftRight,
     Upload,
-    FileCode
+    FileCode,
+    Percent,
+    Search,
+    ClipboardList
 } from 'lucide-react';
 
 // Modules for a flooring/tile store ERP - synced with sidebar
 const modules = [
-    // Vendas
+    // Comercial
     {
         href: '/dashboard/clientes',
         label: 'Clientes',
@@ -48,17 +51,23 @@ const modules = [
         color: 'bg-purple-500',
     },
     {
-        href: '/dashboard/entregas',
-        label: 'Entregas',
-        icon: Truck,
-        color: 'bg-orange-500',
+        href: '/dashboard/vendas/promocoes',
+        label: 'Promoções',
+        icon: Percent,
+        color: 'bg-pink-500',
     },
-    // Estoque
+    // Estoque & Logística
     {
-        href: '/dashboard/estoque',
-        label: 'Estoque',
+        href: '/dashboard/estoque/produtos',
+        label: 'Produtos',
         icon: Package,
         color: 'bg-amber-500',
+    },
+    {
+        href: '/dashboard/estoque',
+        label: 'Visão Geral',
+        icon: Search,
+        color: 'bg-amber-600',
     },
     {
         href: '/dashboard/estoque/movimentacoes',
@@ -66,10 +75,22 @@ const modules = [
         icon: ArrowLeftRight,
         color: 'bg-teal-500',
     },
+    {
+        href: '/dashboard/entregas',
+        label: 'Expedição',
+        icon: Truck,
+        color: 'bg-orange-500',
+    },
     // Compras
     {
+        href: '/dashboard/fornecedores',
+        label: 'Fornecedores',
+        icon: Building2,
+        color: 'bg-rose-600',
+    },
+    {
         href: '/dashboard/compras',
-        label: 'Compras',
+        label: 'Pedidos Compra',
         icon: Receipt,
         color: 'bg-rose-500',
     },
@@ -88,17 +109,23 @@ const modules = [
     },
     {
         href: '/dashboard/financeiro/vendedores',
-        label: 'Por Vendedor',
+        label: 'Comissão Vend.',
         icon: BarChart3,
         color: 'bg-sky-500',
     },
     {
         href: '/dashboard/financeiro/arquitetos',
-        label: 'Comissões',
+        label: 'Comissão Arq.',
         icon: Building2,
         color: 'bg-violet-500',
     },
     // Admin
+    {
+        href: '/dashboard/admin/catalogo',
+        label: 'Conf. Catálogo',
+        icon: ClipboardList,
+        color: 'bg-slate-700',
+    },
     {
         href: '/dashboard/admin/usuarios',
         label: 'Usuários',

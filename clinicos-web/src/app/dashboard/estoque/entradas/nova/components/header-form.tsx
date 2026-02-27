@@ -38,6 +38,7 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
     // XML Data Store (Hidden)
     const [xmlTotals, setXmlTotals] = useState<any>(null);
     const [xmlTransport, setXmlTransport] = useState<any>(null);
+    const [xmlInstallments, setXmlInstallments] = useState<any[]>([]);
 
     const [isLoadingXML, setIsLoadingXML] = useState(false);
 
@@ -63,6 +64,9 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
 
             if (data.totals) setXmlTotals(data.totals);
             if (data.transport) setXmlTransport(data.transport);
+            if (data.installments && data.installments.length > 0) {
+                setXmlInstallments(data.installments);
+            }
 
             // Pass items up if prop exists
             if (onXmlImported && data.items.length > 0) {
@@ -124,6 +128,9 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
             volumeSpecies: xmlTransport?.volSpecies,
             grossWeight: xmlTransport?.volGrossWeight,
             netWeight: xmlTransport?.volNetWeight,
+
+            // Installments
+            installments: xmlInstallments.length > 0 ? xmlInstallments : undefined,
         });
     };
 

@@ -16,9 +16,11 @@ import {
     ShoppingCart,
     DollarSign,
     Truck,
-    ChevronLeft,
     ChevronRight,
+    ChevronLeft,
     LucideIcon,
+    Percent,
+    Search,
 } from 'lucide-react';
 import {
     Popover,
@@ -26,41 +28,35 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 
-// Menu sections organized by area - Adapted for Revestimentos
+// Menu sections organized by business area
 const menuSections = [
     {
-        title: 'Cadastros',
-        icon: Users,
+        title: 'Comercial',
+        icon: ShoppingCart,
         items: [
             { href: '/dashboard/clientes', label: 'Clientes', icon: Users, module: 'SALES' },
             { href: '/dashboard/arquitetos', label: 'Arquitetos', icon: Building2, module: 'ARCHITECTS' },
-            { href: '/dashboard/fornecedores', label: 'Fornecedores', icon: Building2, module: 'PURCHASES' },
-            { href: '/dashboard/estoque/produtos', label: 'Produtos', icon: Package, module: 'STOCK' },
-            { href: '/dashboard/admin/catalogo', label: 'Catálogo', icon: ClipboardList, module: 'STOCK' },
+            { href: '/dashboard/orcamentos', label: 'Orçamentos', icon: FileText, module: 'SALES' },
+            { href: '/dashboard/pedidos', label: 'Pedidos', icon: ShoppingCart, module: 'SALES' },
+            { href: '/dashboard/vendas/promocoes', label: 'Promoções', icon: Percent, module: 'PROMOTIONS' },
         ],
     },
     {
-        title: 'Vendas',
-        icon: ShoppingCart,
+        title: 'Estoque & Logística',
+        icon: Package,
         items: [
-            { href: '/dashboard/orcamentos', label: 'Orçamentos', icon: FileText, module: 'SALES' },
-            { href: '/dashboard/pedidos', label: 'Pedidos', icon: ShoppingCart, module: 'SALES' },
-            { href: '/dashboard/entregas', label: 'Entregas', icon: Truck, module: 'DELIVERIES' },
+            { href: '/dashboard/estoque/produtos', label: 'Produtos', icon: Package, module: 'STOCK' },
+            { href: '/dashboard/estoque', label: 'Visão Geral', icon: Search, module: 'STOCK' },
+            { href: '/dashboard/estoque/movimentacoes', label: 'Movimentações', icon: ArrowLeftRight, module: 'STOCK' },
+            { href: '/dashboard/entregas', label: 'Expedição / Entregas', icon: Truck, module: 'DELIVERIES' },
         ],
     },
     {
         title: 'Compras',
         icon: ClipboardList,
         items: [
+            { href: '/dashboard/fornecedores', label: 'Fornecedores', icon: Building2, module: 'PURCHASES' },
             { href: '/dashboard/compras', label: 'Pedidos de Compra', icon: ShoppingCart, module: 'PURCHASES' },
-        ],
-    },
-    {
-        title: 'Estoque',
-        icon: Package,
-        items: [
-            { href: '/dashboard/estoque', label: 'Visão Geral', icon: Package, module: 'STOCK' },
-            { href: '/dashboard/estoque/movimentacoes', label: 'Movimentações', icon: ArrowLeftRight, module: 'STOCK' },
         ],
     },
     {
@@ -69,7 +65,7 @@ const menuSections = [
         items: [
             { href: '/dashboard/financeiro', label: 'Visão Geral', icon: DollarSign, module: 'FINANCE' },
             { href: '/dashboard/financeiro/contas-a-pagar', label: 'Contas a Pagar', icon: ClipboardList, module: 'FINANCE' },
-            { href: '/dashboard/financeiro/vendedores', label: 'Por Vendedor', icon: Users, module: 'FINANCE' },
+            { href: '/dashboard/financeiro/vendedores', label: 'Comissões Vendedores', icon: Users, module: 'FINANCE' },
             { href: '/dashboard/financeiro/arquitetos', label: 'Comissões Arquitetos', icon: Building2, module: 'FINANCE' },
         ],
     },
@@ -77,6 +73,7 @@ const menuSections = [
         title: 'Administração',
         icon: Shield,
         items: [
+            { href: '/dashboard/admin/catalogo', label: 'Config. de Catálogo', icon: ClipboardList, module: 'STOCK' },
             { href: '/dashboard/admin/usuarios', label: 'Usuários', icon: Users, module: 'ADMIN' },
             { href: '/dashboard/admin/papeis', label: 'Papéis e Acessos', icon: Shield, module: 'ADMIN' },
             { href: '/dashboard/configuracoes/templates', label: 'Templates', icon: FileText, module: 'ADMIN' },
@@ -170,6 +167,7 @@ export default function Sidebar() {
         const exactMatchRoutes = [
             '/dashboard/estoque',
             '/dashboard/atendimentos',
+            '/dashboard/financeiro',
         ];
 
         if (exactMatchRoutes.includes(href)) {

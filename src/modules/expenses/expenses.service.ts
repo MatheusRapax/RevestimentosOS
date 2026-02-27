@@ -7,7 +7,7 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 
 @Injectable()
 export class ExpensesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async createExpense(
     clinicId: string,
@@ -64,6 +64,15 @@ export class ExpensesService {
     const expenses = await this.prisma.expense.findMany({
       where: whereClause,
       orderBy: { dueDate: 'asc' },
+      include: {
+        stockEntry: true,
+        purchaseOrder: {
+          include: {
+            items: true,
+            supplier: true,
+          },
+        },
+      },
     });
 
     // Check for overdue expenses dynamically
@@ -99,28 +108,41 @@ export class ExpensesService {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    const expenses = await this.prisma.expense.findMany({
+    // Fetch all unpaid expenses globally (no date filter)
+    const activeExpenses = await this.prisma.expense.findMany({
       where: {
         clinicId,
-        dueDate: {
+        status: { in: ['PENDING', 'OVERDUE'] },
+      },
+    });
+
+    // Fetch paid expenses ONLY for the current month
+    const paidThisMonth = await this.prisma.expense.findMany({
+      where: {
+        clinicId,
+        status: 'PAID',
+        paidAt: {
           gte: startOfMonth,
           lte: endOfMonth,
         },
       },
     });
 
-    const totalPending = expenses
-      .filter((e) => e.status === 'PENDING' || e.status === 'OVERDUE')
+    const totalPending = activeExpenses
+      .filter((e) => e.status === 'PENDING' && new Date(e.dueDate) >= now)
       .reduce((sum, e) => sum + e.amountCents, 0);
 
-    const totalPaid = expenses
-      .filter((e) => e.status === 'PAID')
+    const totalOverdue = activeExpenses
+      .filter((e) => e.status === 'OVERDUE' || (e.status === 'PENDING' && new Date(e.dueDate) < now))
       .reduce((sum, e) => sum + e.amountCents, 0);
+
+    const totalPaid = paidThisMonth.reduce((sum, e) => sum + e.amountCents, 0);
 
     return {
       totalPending,
+      totalOverdue,
       totalPaid,
-      count: expenses.length,
+      count: activeExpenses.length + paidThisMonth.length,
     };
   }
 }

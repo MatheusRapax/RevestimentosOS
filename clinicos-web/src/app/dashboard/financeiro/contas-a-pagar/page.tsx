@@ -11,10 +11,12 @@ import {
     Clock,
     Plus,
     Filter,
-    X
+    X,
+    Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import ExpenseDetailsModal from './components/expense-details-modal';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
     PENDING: { label: 'A Vencer', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
@@ -39,11 +41,14 @@ function formatCurrency(cents: number): string {
 
 function formatDate(dateStr: string): string {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('pt-BR');
+    // Use UTC to prevent timezone shifts for absolute dates
+    const date = new Date(dateStr);
+    return new Date(date.getTime() + date.getTimezoneOffset() * 60000).toLocaleDateString('pt-BR');
 }
 
 function getDaysUntilDue(dueDate: string): number {
-    const due = new Date(dueDate);
+    const d = new Date(dueDate);
+    const due = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     due.setHours(0, 0, 0, 0);
@@ -54,6 +59,7 @@ export default function ContasAPagarPage() {
     const queryClient = useQueryClient();
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [showModal, setShowModal] = useState(false);
+    const [selectedExpense, setSelectedExpense] = useState<any>(null);
     const [formData, setFormData] = useState({
         description: '',
         amountCents: 0,
@@ -112,9 +118,9 @@ export default function ContasAPagarPage() {
 
     // Group expenses by status
     const groupedExpenses = {
-        overdue: expenses.filter((e: any) => e.status === 'OVERDUE'),
-        pending: expenses.filter((e: any) => e.status === 'PENDING'),
-        paid: expenses.filter((e: any) => e.status === 'PAID'),
+        overdue: metrics?.totalOverdue || 0,
+        pending: metrics?.totalPending || 0,
+        paid: metrics?.totalPaid || 0,
     };
 
     return (
@@ -141,7 +147,7 @@ export default function ContasAPagarPage() {
                         <div>
                             <p className="text-sm text-red-600">Total Vencido</p>
                             <p className="text-2xl font-bold text-red-700">
-                                {formatCurrency(groupedExpenses.overdue.reduce((sum: number, e: any) => sum + e.amountCents, 0))}
+                                {formatCurrency(groupedExpenses.overdue)}
                             </p>
                         </div>
                     </div>
@@ -154,7 +160,7 @@ export default function ContasAPagarPage() {
                         <div>
                             <p className="text-sm text-yellow-600">Total Pendente</p>
                             <p className="text-2xl font-bold text-yellow-700">
-                                {formatCurrency(metrics?.totalPending || 0)}
+                                {formatCurrency(groupedExpenses.pending)}
                             </p>
                         </div>
                     </div>
@@ -167,7 +173,7 @@ export default function ContasAPagarPage() {
                         <div>
                             <p className="text-sm text-green-600">Pago (Este Mês)</p>
                             <p className="text-2xl font-bold text-green-700">
-                                {formatCurrency(metrics?.totalPaid || 0)}
+                                {formatCurrency(groupedExpenses.paid)}
                             </p>
                         </div>
                     </div>
@@ -175,18 +181,35 @@ export default function ContasAPagarPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-gray-400" />
-                <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+            <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2">
+                <Button
+                    variant={statusFilter === 'all' ? 'default' : 'outline'}
+                    onClick={() => setStatusFilter('all')}
+                    className="rounded-full"
                 >
-                    <option value="all">Todos os Status</option>
-                    <option value="PENDING">A Vencer</option>
-                    <option value="OVERDUE">Vencidos</option>
-                    <option value="PAID">Pagos</option>
-                </select>
+                    Todos os Status
+                </Button>
+                <Button
+                    variant={statusFilter === 'PENDING' ? 'default' : 'outline'}
+                    onClick={() => setStatusFilter('PENDING')}
+                    className="rounded-full"
+                >
+                    A Vencer
+                </Button>
+                <Button
+                    variant={statusFilter === 'OVERDUE' ? 'default' : 'outline'}
+                    onClick={() => setStatusFilter('OVERDUE')}
+                    className="rounded-full"
+                >
+                    Vencidos
+                </Button>
+                <Button
+                    variant={statusFilter === 'PAID' ? 'default' : 'outline'}
+                    onClick={() => setStatusFilter('PAID')}
+                    className="rounded-full"
+                >
+                    Pagos
+                </Button>
             </div>
 
             {/* Expenses List */}
@@ -252,17 +275,27 @@ export default function ContasAPagarPage() {
                                             </p>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            {expense.status !== 'PAID' && (
+                                            <div className="flex justify-end gap-2">
                                                 <Button
-                                                    variant="outline"
+                                                    variant="ghost"
                                                     size="sm"
-                                                    onClick={() => payMutation.mutate(expense.id)}
-                                                    disabled={payMutation.isPending}
+                                                    onClick={() => setSelectedExpense(expense)}
+                                                    className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                                                 >
-                                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                                    Pagar
+                                                    <Eye className="h-4 w-4" />
                                                 </Button>
-                                            )}
+                                                {expense.status !== 'PAID' && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => payMutation.mutate(expense.id)}
+                                                        disabled={payMutation.isPending}
+                                                    >
+                                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                                        Pagar
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 );
@@ -362,6 +395,17 @@ export default function ContasAPagarPage() {
                         </div>
                     </div>
                 </div>
+            )}
+            {/* Details Modal */}
+            {selectedExpense && (
+                <ExpenseDetailsModal
+                    expense={selectedExpense}
+                    onClose={() => setSelectedExpense(null)}
+                    onPay={() => {
+                        payMutation.mutate(selectedExpense.id);
+                        setSelectedExpense(null);
+                    }}
+                />
             )}
         </div>
     );

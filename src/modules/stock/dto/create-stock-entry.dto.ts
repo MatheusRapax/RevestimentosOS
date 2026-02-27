@@ -4,8 +4,25 @@ import {
   IsDateString,
   IsEnum,
   IsNumber,
+  IsArray,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { EntryType } from '@prisma/client';
+
+export class InstallmentDto {
+  @IsString()
+  @IsOptional()
+  number?: string;
+
+  @IsString()
+  @IsOptional()
+  dueDate?: string;
+
+  @IsNumber()
+  @IsOptional()
+  value?: number;
+}
 
 export class CreateStockEntryDto {
   @IsEnum(EntryType)
@@ -135,4 +152,10 @@ export class CreateStockEntryDto {
   @IsNumber()
   @IsOptional()
   netWeight?: number;
+
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => InstallmentDto)
+  installments?: InstallmentDto[];
 }

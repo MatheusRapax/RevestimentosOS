@@ -42,6 +42,12 @@ export class CreateQuoteItemDto {
   @Min(0)
   discountPercent?: number;
 
+  // Margem de perda por item (opcional)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  marginPercent?: number;
+
   // Lote preferido (opcional)
   @IsOptional()
   @IsString()
@@ -74,6 +80,12 @@ export class CreateQuoteDto {
   @IsNumber()
   @Min(0)
   discountPercent?: number;
+
+  // Margem de perda global
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  globalMarginPercent?: number;
 
   // Taxa de entrega (aceita ambos os nomes para compatibilidade)
   @IsOptional()

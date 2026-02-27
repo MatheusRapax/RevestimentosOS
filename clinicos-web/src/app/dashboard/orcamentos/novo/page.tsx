@@ -64,6 +64,7 @@ interface QuoteItem {
     quantityBoxes: number;
     resultingArea: number;
     unitPriceCents: number;
+    marginPercent: number;
     discountPercent: number;
     discountCents: number;
     totalCents: number;
@@ -85,6 +86,8 @@ export default function NovoOrcamentoPage() {
     const [architectId, setArchitectId] = useState('');
     const [notes, setNotes] = useState('');
     const [deliveryFeeCents, setDeliveryFeeCents] = useState(0);
+    const [globalMarginPercent, setGlobalMarginPercent] = useState(0);
+    const [globalDiscountPercent, setGlobalDiscountPercent] = useState(0);
     const [items, setItems] = useState<QuoteItem[]>([]);
 
     // Calculated totals
@@ -112,16 +115,23 @@ export default function NovoOrcamentoPage() {
         fetchData();
     }, []);
 
-    // Calculate totals whenever items change
+    // Calculate totals whenever items change or global discounts change
     useEffect(() => {
         const sub = items.reduce((acc, item) => acc + (item.unitPriceCents * item.quantityBoxes), 0);
-        const disc = items.reduce((acc, item) => acc + item.discountCents, 0);
-        const tot = sub - disc + deliveryFeeCents;
+        const itemDisc = items.reduce((acc, item) => acc + item.discountCents, 0);
+        const subtotalAfterItemDiscounts = sub - itemDisc;
 
-        setSubtotal(sub);
-        setTotalDiscount(disc);
+        let headerDiscount = 0;
+        if (globalDiscountPercent > 0) {
+            headerDiscount = Math.round(subtotalAfterItemDiscounts * (globalDiscountPercent / 100));
+        }
+
+        const tot = subtotalAfterItemDiscounts - headerDiscount + deliveryFeeCents;
+
+        setSubtotal(subtotalAfterItemDiscounts);
+        setTotalDiscount(itemDisc + headerDiscount);
         setTotal(tot);
-    }, [items, deliveryFeeCents]);
+    }, [items, deliveryFeeCents, globalDiscountPercent]);
 
     // m² → boxes calculation (critical logic)
     const calculateBoxesFromArea = useCallback((area: number, boxCoverage: number): number => {
@@ -133,6 +143,31 @@ export default function NovoOrcamentoPage() {
         return boxes * (boxCoverage || 0);
     }, []);
 
+    // Recalculate boxes if global margin changes
+    useEffect(() => {
+        setItems(currentItems => currentItems.map(item => {
+            if (item.inputArea > 0 && item.product?.boxCoverage) {
+                const marginToUse = item.marginPercent || globalMarginPercent || 0;
+                const areaWithMargin = item.inputArea * (1 + marginToUse / 100);
+                const boxes = calculateBoxesFromArea(areaWithMargin, item.product.boxCoverage);
+                const resArea = calculateResultingArea(boxes, item.product.boxCoverage);
+
+                // Recalculate values if boxes changed
+                const sub = item.unitPriceCents * boxes;
+                const disc = Math.round(sub * (item.discountPercent / 100));
+
+                return {
+                    ...item,
+                    quantityBoxes: boxes,
+                    resultingArea: resArea,
+                    discountCents: disc,
+                    totalCents: sub - disc
+                };
+            }
+            return item;
+        }));
+    }, [globalMarginPercent, calculateBoxesFromArea, calculateResultingArea]);
+
     // Add new item
     const addItem = () => {
         setItems([
@@ -143,6 +178,7 @@ export default function NovoOrcamentoPage() {
                 quantityBoxes: 0,
                 resultingArea: 0,
                 unitPriceCents: 0,
+                marginPercent: 0,
                 discountPercent: 0,
                 discountCents: 0,
                 totalCents: 0,
@@ -169,14 +205,20 @@ export default function NovoOrcamentoPage() {
 
             // Recalculate if area was already set
             if (item.inputArea > 0 && product?.boxCoverage) {
-                item.quantityBoxes = calculateBoxesFromArea(item.inputArea, product.boxCoverage);
+                const marginToUse = item.marginPercent || globalMarginPercent || 0;
+                const areaWithMargin = item.inputArea * (1 + marginToUse / 100);
+                item.quantityBoxes = calculateBoxesFromArea(areaWithMargin, product.boxCoverage);
                 item.resultingArea = calculateResultingArea(item.quantityBoxes, product.boxCoverage);
             }
-        } else if (field === 'inputArea') {
-            item.inputArea = Number(value);
+        } else if (field === 'inputArea' || field === 'marginPercent') {
+            if (field === 'inputArea') item.inputArea = Number(value);
+            if (field === 'marginPercent') item.marginPercent = Number(value);
+
             const product = item.product;
             if (product?.boxCoverage) {
-                item.quantityBoxes = calculateBoxesFromArea(item.inputArea, product.boxCoverage);
+                const marginToUse = item.marginPercent || globalMarginPercent || 0;
+                const areaWithMargin = item.inputArea * (1 + marginToUse / 100);
+                item.quantityBoxes = calculateBoxesFromArea(areaWithMargin, product.boxCoverage);
                 item.resultingArea = calculateResultingArea(item.quantityBoxes, product.boxCoverage);
             }
         } else if (field === 'quantityBoxes') {
@@ -267,9 +309,12 @@ export default function NovoOrcamentoPage() {
                 architectId: architectId && architectId !== 'none' ? architectId : undefined,
                 notes: notes || undefined,
                 deliveryFeeCents,
+                globalMarginPercent: globalMarginPercent || undefined,
+                discountPercent: globalDiscountPercent || undefined,
                 items: items.map(item => ({
                     productId: item.productId,
                     inputArea: item.inputArea || undefined,
+                    marginPercent: item.marginPercent || undefined,
                     quantityBoxes: item.inputArea ? undefined : item.quantityBoxes,
                     unitPriceCents: item.unitPriceCents,
                     discountPercent: item.discountPercent || undefined,
@@ -346,6 +391,37 @@ export default function NovoOrcamentoPage() {
                                 ))}
                             </SelectContent>
                         </Select>
+                    </div>
+                </div>
+            </Card>
+
+            {/* Global Pricing & Margins */}
+            <Card className="p-6">
+                <h2 className="text-lg font-semibold mb-4">Ajustes Globais</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label>Margem de Perda Global (%)</Label>
+                        <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={globalMarginPercent || ''}
+                            onChange={(e) => setGlobalMarginPercent(Number(e.target.value))}
+                            placeholder="Ex: 10"
+                        />
+                        <p className="text-xs text-gray-500">Adiciona metros extras automaticamente nos cálculos de caixas.</p>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Desconto Global (%)</Label>
+                        <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={globalDiscountPercent || ''}
+                            onChange={(e) => setGlobalDiscountPercent(Number(e.target.value))}
+                            placeholder="Ex: 5"
+                        />
+                        <p className="text-xs text-gray-500">Aplicado sobre o subtotal de todos os itens.</p>
                     </div>
                 </div>
             </Card>
@@ -436,6 +512,24 @@ export default function NovoOrcamentoPage() {
                                             value={item.inputArea || ''}
                                             onChange={(e) =>
                                                 updateItem(index, 'inputArea', e.target.value)
+                                            }
+                                            disabled={!item.product?.boxCoverage}
+                                        />
+                                    </div>
+
+                                    {/* Margin */}
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-1">
+                                            Margem de Perda (%)
+                                        </Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            placeholder={globalMarginPercent ? `Global (${globalMarginPercent}%)` : "0"}
+                                            value={item.marginPercent || ''}
+                                            onChange={(e) =>
+                                                updateItem(index, 'marginPercent', e.target.value)
                                             }
                                             disabled={!item.product?.boxCoverage}
                                         />

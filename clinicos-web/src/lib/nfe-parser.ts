@@ -39,6 +39,13 @@ export interface NFeData {
         volNetWeight?: number;
         volGrossWeight?: number;
     };
+    installments: NFeInstallment[];
+}
+
+export interface NFeInstallment {
+    number: string;
+    dueDate: string; // YYYY-MM-DD
+    value: number;
 }
 
 export interface NFeItem {
@@ -166,6 +173,26 @@ export async function parseNFeXML(file: File): Promise<NFeData> {
                     };
                 }
 
+                // --- Installments Data (<cobr><dup>) ---
+                const cobr = xmlDoc.getElementsByTagName("cobr")[0];
+                const installments: NFeInstallment[] = [];
+                if (cobr) {
+                    const dups = cobr.getElementsByTagName("dup");
+                    for (let i = 0; i < dups.length; i++) {
+                        const dup = dups[i];
+                        const nDup = getTagValue(dup, "nDup");
+                        const dVenc = getTagValue(dup, "dVenc");
+                        const vDup = parseFloat(getTagValue(dup, "vDup") || "0");
+                        if (nDup && dVenc) {
+                            installments.push({
+                                number: nDup,
+                                dueDate: dVenc,
+                                value: vDup
+                            });
+                        }
+                    }
+                }
+
                 // --- Items Data ---
                 const dets = xmlDoc.getElementsByTagName("det");
                 const items: NFeItem[] = [];
@@ -215,7 +242,8 @@ export async function parseNFeXML(file: File): Promise<NFeData> {
                     items,
                     totalValue,
                     totals,
-                    transport
+                    transport,
+                    installments
                 });
 
             } catch (error) {

@@ -17,7 +17,7 @@ export class OrdersService {
     private financeService: FinanceService,
     private stockAllocationService: StockAllocationService,
     private stockExitService: StockExitService,
-  ) {}
+  ) { }
 
   async findAll(
     clinicId: string,
@@ -250,16 +250,18 @@ export class OrdersService {
     }
 
     // 5. Stock Exit Automation (Outside Transaction)
-    // When order is marked ready for delivery or skips directly to delivered, auto-create and confirm a stock exit
-    const isNowReady =
-      status === OrderStatus.PRONTO_PARA_ENTREGA &&
-      previousStatus !== OrderStatus.PRONTO_PARA_ENTREGA;
-    const isSkippingToDelivered =
-      status === OrderStatus.ENTREGUE &&
-      previousStatus !== OrderStatus.ENTREGUE &&
-      previousStatus !== OrderStatus.PRONTO_PARA_ENTREGA;
+    // When order is marked ready for delivery, out for delivery, or delivered
+    const stockExitTriggerStatuses: OrderStatus[] = [
+      OrderStatus.PRONTO_PARA_ENTREGA,
+      OrderStatus.SAIU_PARA_ENTREGA,
+      OrderStatus.ENTREGUE,
+    ];
 
-    if (isNowReady || isSkippingToDelivered) {
+    const shouldTriggerStockExit =
+      stockExitTriggerStatuses.includes(status) &&
+      !stockExitTriggerStatuses.includes(previousStatus as OrderStatus);
+
+    if (shouldTriggerStockExit) {
       try {
         const exitDraft = await this.stockExitService.createFromOrder(
           clinicId,

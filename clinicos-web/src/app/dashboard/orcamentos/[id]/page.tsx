@@ -51,8 +51,9 @@ interface QuoteItem {
         boxCoverage?: number;
     };
     inputArea?: number;
-    quantityBoxes: number;
     resultingArea?: number;
+    marginPercent?: number;
+    areaWithMargin?: number;
     unitPriceCents: number;
     discountCents: number;
     totalCents: number;
@@ -87,14 +88,10 @@ interface Quote {
         id: string;
         name: string;
     };
-    seller: {
-        id: string;
-        name: string;
-    };
-    validUntil?: string;
     subtotalCents: number;
     discountCents: number;
     discountPercent?: number;
+    globalMarginPercent?: number;
     deliveryFee: number;
     totalCents: number;
     notes?: string;
@@ -492,6 +489,12 @@ export default function QuoteDetailPage() {
                                 <span>{formatDate(quote.validUntil)}</span>
                             </div>
                         )}
+                        {quote.globalMarginPercent ? (
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Margem Global:</span>
+                                <span>{quote.globalMarginPercent}%</span>
+                            </div>
+                        ) : null}
                         {quote.sentAt && (
                             <div className="flex justify-between">
                                 <span className="text-gray-600">Enviado em:</span>
@@ -522,6 +525,7 @@ export default function QuoteDetailPage() {
                             <tr>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Área (m²)</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Perda (%)</th>
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Caixas</th>
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Preço Unit.</th>
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Desconto</th>
@@ -545,6 +549,9 @@ export default function QuoteDetailPage() {
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                         {item.resultingArea?.toFixed(2) || item.inputArea?.toFixed(2) || '-'}
+                                    </td>
+                                    <td className="px-4 py-3 text-right text-gray-500">
+                                        {item.marginPercent ? `${item.marginPercent}%` : '-'}
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                         {item.quantityBoxes}
