@@ -79,6 +79,8 @@ export default function OrdersPage() {
     const [isEditingDelivery, setIsEditingDelivery] = useState(false);
     const [deliveryEditDate, setDeliveryEditDate] = useState('');
     const [isEmitting, setIsEmitting] = useState(false);
+    const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
+    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('PIX');
 
     const handleEmitFiscal = async () => {
         if (!displayOrder?.id) return;
@@ -158,15 +160,16 @@ export default function OrdersPage() {
 
     // Update Order Status Mutation
     const updateStatusMutation = useMutation({
-        mutationFn: async (newStatus: string) => {
-            await api.patch(`/orders/${selectedOrder.id}/status`, { status: newStatus });
+        mutationFn: async ({ status, paymentMethod }: { status: string, paymentMethod?: string }) => {
+            await api.patch(`/orders/${selectedOrder.id}/status`, { status, paymentMethod });
         },
-        onSuccess: () => {
+        onSuccess: (data, variables) => {
             toast.success('Status atualizado com sucesso!');
             queryClient.invalidateQueries({ queryKey: ['orders'] });
             // Update selected order locally
-            setSelectedOrder((prev: any) => prev ? { ...prev, status: updateStatusMutation.variables } : null);
+            setSelectedOrder((prev: any) => prev ? { ...prev, status: variables.status } : null);
             refetchDetails();
+            setIsConfirmingPayment(false);
         },
         onError: () => toast.error('Erro ao atualizar status')
     });
@@ -828,7 +831,7 @@ export default function OrdersPage() {
                             <div className="flex gap-3 pt-4">
                                 {displayOrder.status === 'CRIADO' && (
                                     <button
-                                        onClick={() => updateStatusMutation.mutate('PAGO')}
+                                        onClick={() => setIsConfirmingPayment(true)}
                                         disabled={updateStatusMutation.isPending}
                                         className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                                     >
@@ -837,7 +840,7 @@ export default function OrdersPage() {
                                 )}
                                 {displayOrder.status === 'PAGO' && (
                                     <button
-                                        onClick={() => updateStatusMutation.mutate('AGUARDANDO_MATERIAL')}
+                                        onClick={() => updateStatusMutation.mutate({ status: 'AGUARDANDO_MATERIAL' })}
                                         disabled={updateStatusMutation.isPending}
                                         className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
                                     >
@@ -846,7 +849,7 @@ export default function OrdersPage() {
                                 )}
                                 {(displayOrder.status === 'AGUARDANDO_MATERIAL' || displayOrder.status === 'PAGO') && (
                                     <button
-                                        onClick={() => updateStatusMutation.mutate('PRONTO_PARA_ENTREGA')}
+                                        onClick={() => updateStatusMutation.mutate({ status: 'PRONTO_PARA_ENTREGA' })}
                                         disabled={updateStatusMutation.isPending}
                                         className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                                     >
@@ -864,7 +867,7 @@ export default function OrdersPage() {
                                             Ir para Entregas
                                         </button>
                                         <button
-                                            onClick={() => updateStatusMutation.mutate('ENTREGUE')}
+                                            onClick={() => updateStatusMutation.mutate({ status: 'ENTREGUE' })}
                                             disabled={updateStatusMutation.isPending}
                                             className="flex-1 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-900 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                                             title="Finalizar pedido como retirado pelo cliente na loja"
@@ -911,12 +914,61 @@ export default function OrdersPage() {
                                     <FileText className="h-4 w-4 mr-2" />
                                     Imprimir Romaneio
                                 </Button>
+                                {displayOrder.status !== 'CRIADO' && displayOrder.status !== 'RASCUNHO' && (
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => window.open(`/dashboard/pedidos/${displayOrder.id}/recibo`, '_blank')}
+                                        className="flex-1 border-gray-300 hover:bg-gray-50 text-gray-700"
+                                    >
+                                        <Receipt className="h-4 w-4 mr-2" />
+                                        Imprimir Recibo
+                                    </Button>
+                                )}
                                 <button
                                     onClick={() => setSelectedOrder(null)}
                                     className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                                 >
                                     Fechar
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Payment Confirmation Modal */}
+            {isConfirmingPayment && selectedOrder && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Confirmar Pagamento</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Método de Pagamento Principal
+                                </label>
+                                <select
+                                    value={selectedPaymentMethod}
+                                    onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                                    className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3"
+                                >
+                                    <option value="PIX">PIX</option>
+                                    <option value="CREDIT_CARD">Cartão de Crédito</option>
+                                    <option value="DEBIT_CARD">Cartão de Débito</option>
+                                    <option value="CASH">Dinheiro</option>
+                                    <option value="BOLETO">Boleto</option>
+                                </select>
+                            </div>
+                            <div className="pt-4 flex justify-end gap-2 text-sm">
+                                <Button variant="outline" onClick={() => setIsConfirmingPayment(false)}>
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    onClick={() => updateStatusMutation.mutate({ status: 'PAGO', paymentMethod: selectedPaymentMethod })}
+                                    disabled={updateStatusMutation.isPending}
+                                    className="bg-blue-600 text-white hover:bg-blue-700"
+                                >
+                                    {updateStatusMutation.isPending ? 'Confirmando...' : 'Confirmar Pagamento'}
+                                </Button>
                             </div>
                         </div>
                     </div>

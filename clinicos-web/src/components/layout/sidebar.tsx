@@ -21,6 +21,7 @@ import {
     LucideIcon,
     Percent,
     Search,
+    Settings,
 } from 'lucide-react';
 import {
     Popover,
@@ -73,6 +74,7 @@ const menuSections = [
         title: 'Administração',
         icon: Shield,
         items: [
+            { href: '/dashboard/admin/configuracoes', label: 'Configurações Globais', icon: Settings, module: 'ADMIN' },
             { href: '/dashboard/admin/catalogo', label: 'Config. de Catálogo', icon: ClipboardList, module: 'STOCK' },
             { href: '/dashboard/admin/usuarios', label: 'Usuários', icon: Users, module: 'ADMIN' },
             { href: '/dashboard/admin/papeis', label: 'Papéis e Acessos', icon: Shield, module: 'ADMIN' },

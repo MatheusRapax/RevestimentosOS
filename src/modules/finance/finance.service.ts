@@ -19,7 +19,7 @@ export class FinanceService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-  ) { }
+  ) {}
 
   /**
    * Get or create patient/customer account

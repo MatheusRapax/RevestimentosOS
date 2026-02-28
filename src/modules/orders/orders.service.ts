@@ -5,7 +5,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { FinanceService } from '../finance/finance.service';
-import { OrderStatus, PurchaseOrderStatus } from '@prisma/client';
+import {
+  OrderStatus,
+  PurchaseOrderStatus,
+  PaymentMethod,
+} from '@prisma/client';
 
 import { StockAllocationService } from '../stock/services/stock-allocation.service';
 import { StockExitService } from '../stock/stock-exit.service';
@@ -17,7 +21,7 @@ export class OrdersService {
     private financeService: FinanceService,
     private stockAllocationService: StockAllocationService,
     private stockExitService: StockExitService,
-  ) { }
+  ) {}
 
   async findAll(
     clinicId: string,
@@ -126,9 +130,11 @@ export class OrdersService {
     id: string,
     status: OrderStatus,
     userId?: string,
+    paymentMethod?: PaymentMethod,
   ) {
     const updateData: any = { status };
 
+    // ... truncated by tool instructions, keeping same body till auto-payment
     if (status === OrderStatus.SAIU_PARA_ENTREGA) {
       updateData.fulfillmentStatus = 'OUT_FOR_DELIVERY';
     } else if (status === OrderStatus.PRONTO_PARA_ENTREGA) {
@@ -180,7 +186,6 @@ export class OrdersService {
 
     // Transaction to handle cancellations and finance integration
     let result;
-    // Transaction to handle cancellations and finance integration
     try {
       result = await this.prisma.$transaction(async (tx) => {
         const currentOrder = await tx.order.findUnique({
@@ -210,13 +215,14 @@ export class OrdersService {
           currentOrder.status !== OrderStatus.PAGO
         ) {
           const desc = `Pagamento Pedido #${currentOrder.number}`;
+          const methodToUse = paymentMethod || 'CASH';
 
           if (currentOrder.totalCents > 0) {
             await this.financeService.registerPayment(
               clinicId,
               null,
               currentOrder.totalCents,
-              'CASH',
+              methodToUse,
               desc,
               1,
               userId,

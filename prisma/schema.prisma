@@ -170,6 +170,7 @@ model Clinic {
   workingHours             ClinicWorkingHours[]
   notices                  Notice[]
   dashboardConfigs         UserDashboardConfig[]
+  storeSettings            StoreSettings?
   specialties              Specialty[]
   professionalWorkingHours ProfessionalWorkingHours[]
   procedureCatalog         Procedure[]
@@ -1734,3 +1735,16 @@ model PromotionProduct {
   @@index([promotionId])
   @@index([productId])
 }
+
+// System Settings for the Clinic/Store (e.g. delivery fee, default margins)
+model StoreSettings {
+  id                 String   @id @default(uuid())
+  clinicId           String   @unique
+  defaultDeliveryFee Int      @default(0) // cents
+  
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  clinic             Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+}
+

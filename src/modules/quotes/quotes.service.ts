@@ -18,7 +18,7 @@ export class QuotesService {
     private prisma: PrismaService,
     private stockService: StockService,
     private stockReservationsService: StockReservationsService,
-  ) { }
+  ) {}
 
   /**
    * Calcula a quantidade de caixas necessárias para cobrir uma área.
@@ -143,7 +143,11 @@ export class QuotesService {
     // Processa todos os items
     const processedItems = await Promise.all(
       createQuoteDto.items.map((item) =>
-        this.processQuoteItem(clinicId, item, createQuoteDto.globalMarginPercent),
+        this.processQuoteItem(
+          clinicId,
+          item,
+          createQuoteDto.globalMarginPercent,
+        ),
       ),
     );
 
@@ -303,7 +307,7 @@ export class QuotesService {
     const globalStatus = allAvailable
       ? 'FULL'
       : anyPartial ||
-        itemsWithAvailability.some((i) => i.status === 'AVAILABLE')
+          itemsWithAvailability.some((i) => i.status === 'AVAILABLE')
         ? 'PARTIAL'
         : 'NONE';
 
@@ -746,7 +750,8 @@ export class QuotesService {
     const inputForCalc: CreateQuoteItemDto = {
       productId: currentItem.productId,
       inputArea: dto.inputArea ?? currentItem.inputArea ?? undefined,
-      marginPercent: dto.marginPercent ?? currentItem.marginPercent ?? undefined,
+      marginPercent:
+        dto.marginPercent ?? currentItem.marginPercent ?? undefined,
       quantityBoxes: dto.quantityBoxes ?? currentItem.quantityBoxes,
       unitPriceCents: dto.unitPriceCents ?? currentItem.unitPriceCents,
       discountCents: dto.discountCents ?? currentItem.discountCents,

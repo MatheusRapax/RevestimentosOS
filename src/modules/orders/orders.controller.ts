@@ -11,7 +11,7 @@ import {
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, PaymentMethod } from '@prisma/client';
 
 interface AuthRequest extends Request {
   clinicId: string;
@@ -51,17 +51,15 @@ export class OrdersController {
     @Request() req: AuthRequest,
     @Param('id') id: string,
     @Body('status') status: string,
+    @Body('paymentMethod') paymentMethod?: PaymentMethod,
   ) {
-    // req.user has { userId: string } or structure depends on JWT strategy.
-    // Based on previous files, req.user usually IS the payload or object with id.
-    // Let's assume req.user.id or req.user.userId based on AuthRequest interface above: user: { userId: string }
-    // BUT wait, AuthRequest line 18 says: user: { userId: string };
     const userId = req.user?.userId;
     return this.ordersService.updateStatus(
       req.clinicId,
       id,
       status as OrderStatus,
       userId,
+      paymentMethod,
     );
   }
 

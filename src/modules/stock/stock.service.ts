@@ -18,7 +18,7 @@ export class StockService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-  ) { }
+  ) {}
 
   // ========== PRODUCT MANAGEMENT ==========
 
@@ -90,8 +90,8 @@ export class StockService {
         category: true,
         brand: true,
         promotions: {
-          include: { promotion: true }
-        }
+          include: { promotion: true },
+        },
       },
       orderBy: { name: 'asc' },
     });
@@ -149,13 +149,19 @@ export class StockService {
         // Find the most advantageous ACTIVE promotion
         const validPromos = product.promotions
           .map((p: any) => p.promotion)
-          .filter((p: any) => p.isActive && p.startDate <= now && p.endDate >= now);
+          .filter(
+            (p: any) => p.isActive && p.startDate <= now && p.endDate >= now,
+          );
 
         if (validPromos.length > 0) {
-          validPromos.sort((a: any, b: any) => b.discountPercent - a.discountPercent);
+          validPromos.sort(
+            (a: any, b: any) => b.discountPercent - a.discountPercent,
+          );
           activePromotion = validPromos[0];
           if (displayPriceCents !== null && activePromotion) {
-            promotionalPriceCents = Math.round(displayPriceCents * (1 - activePromotion.discountPercent / 100));
+            promotionalPriceCents = Math.round(
+              displayPriceCents * (1 - activePromotion.discountPercent / 100),
+            );
           }
         }
       }
@@ -205,8 +211,8 @@ export class StockService {
           category: true,
           brand: true,
           promotions: {
-            include: { promotion: true }
-          }
+            include: { promotion: true },
+          },
         },
       }),
       this.prisma.clinic.findUnique({
@@ -254,13 +260,19 @@ export class StockService {
       // Find the most advantageous ACTIVE promotion
       const validPromos = product.promotions
         .map((p: any) => p.promotion)
-        .filter((p: any) => p.isActive && p.startDate <= now && p.endDate >= now);
+        .filter(
+          (p: any) => p.isActive && p.startDate <= now && p.endDate >= now,
+        );
 
       if (validPromos.length > 0) {
-        validPromos.sort((a: any, b: any) => b.discountPercent - a.discountPercent);
+        validPromos.sort(
+          (a: any, b: any) => b.discountPercent - a.discountPercent,
+        );
         activePromotion = validPromos[0];
         if (displayPriceCents !== null && activePromotion) {
-          promotionalPriceCents = Math.round(displayPriceCents * (1 - activePromotion.discountPercent / 100));
+          promotionalPriceCents = Math.round(
+            displayPriceCents * (1 - activePromotion.discountPercent / 100),
+          );
         }
       }
     }

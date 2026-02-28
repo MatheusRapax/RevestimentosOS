@@ -99,14 +99,19 @@ export default function NovoOrcamentoPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [customersRes, architectsRes, productsRes] = await Promise.all([
+                const [customersRes, architectsRes, productsRes, settingsRes] = await Promise.all([
                     api.get('/customers'),
                     api.get('/architects'),
                     api.get('/stock/products'),
+                    api.get('/settings').catch(() => ({ data: { defaultDeliveryFee: 0 } })),
                 ]);
                 setCustomers(customersRes.data);
                 setArchitects(architectsRes.data);
                 setProducts(productsRes.data);
+
+                if (settingsRes.data?.defaultDeliveryFee) {
+                    setDeliveryFeeCents(settingsRes.data.defaultDeliveryFee);
+                }
             } catch (err) {
                 console.error('Error loading data:', err);
                 setError('Erro ao carregar dados');

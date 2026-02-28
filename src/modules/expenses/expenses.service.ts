@@ -7,7 +7,7 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 
 @Injectable()
 export class ExpensesService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async createExpense(
     clinicId: string,
@@ -133,7 +133,11 @@ export class ExpensesService {
       .reduce((sum, e) => sum + e.amountCents, 0);
 
     const totalOverdue = activeExpenses
-      .filter((e) => e.status === 'OVERDUE' || (e.status === 'PENDING' && new Date(e.dueDate) < now))
+      .filter(
+        (e) =>
+          e.status === 'OVERDUE' ||
+          (e.status === 'PENDING' && new Date(e.dueDate) < now),
+      )
       .reduce((sum, e) => sum + e.amountCents, 0);
 
     const totalPaid = paidThisMonth.reduce((sum, e) => sum + e.amountCents, 0);
