@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Package, Search, AlertTriangle, CheckCircle, XCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Package, Search, AlertTriangle, CheckCircle, XCircle, ArrowUpDown, ArrowUp, ArrowDown, BadgePercent } from 'lucide-react';
 import { ProductDetailsSheet } from './components/ProductDetailsSheet';
 
 interface ProductWithStock {
@@ -22,6 +22,7 @@ interface ProductWithStock {
     totalReserved?: number;
     availableStock?: number;
     isActive: boolean;
+    activePromotion?: any;
 }
 
 type FilterType = 'all' | 'in_stock' | 'low_stock' | 'out_of_stock';
@@ -324,7 +325,14 @@ export default function EstoquePage() {
                                             }`}
                                     >
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {product.name}
+                                            <div className="flex items-center gap-2">
+                                                <span>{product.name}</span>
+                                                {product.activePromotion && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800 uppercase tracking-wider" title={`${product.activePromotion.name} (-${product.activePromotion.discountPercent}%)`}>
+                                                        <BadgePercent className="h-3 w-3" /> Promo
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {product.sku || '-'}

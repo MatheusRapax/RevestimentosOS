@@ -15,17 +15,11 @@ import {
     FileText,
     Building2,
     Calendar,
-    MoreHorizontal
+    Trash2
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from 'sonner';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import {
     AlertDialog,
@@ -66,16 +60,11 @@ export default function PurchaseOrdersPage() {
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [alertConfig, setAlertConfig] = useState<{
-        isOpen: boolean;
-        title: string;
-        description: string;
-        action: () => void;
-    }>({
+
+    // Delete Modal State
+    const [deleteConfig, setDeleteConfig] = useState<{ isOpen: boolean; orderId: string | null }>({
         isOpen: false,
-        title: '',
-        description: '',
-        action: () => { },
+        orderId: null,
     });
 
     // Fetch Orders
@@ -87,16 +76,17 @@ export default function PurchaseOrdersPage() {
         }
     });
 
-    // Update Status Mutation
-    const updateStatusMutation = useMutation({
-        mutationFn: async ({ id, status }: { id: string, status: string }) => {
-            await api.patch(`/purchase-orders/${id}/status`, { status });
+    // Delete Mutation
+    const deleteOrderMutation = useMutation({
+        mutationFn: async (id: string) => {
+            await api.delete(`/purchase-orders/${id}`);
         },
         onSuccess: () => {
-            toast.success('Status atualizado com sucesso!');
+            toast.success('Rascunho excluído com sucesso!');
             queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+            setDeleteConfig({ isOpen: false, orderId: null });
         },
-        onError: () => toast.error('Erro ao atualizar status')
+        onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao excluir rascunho')
     });
 
     const filteredOrders = orders.filter((order) => {
@@ -106,15 +96,6 @@ export default function PurchaseOrdersPage() {
         const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
-
-    const handleStatusChange = (id: string, newStatus: string) => {
-        setAlertConfig({
-            isOpen: true,
-            title: 'Confirmar alteração de status',
-            description: `Deseja alterar o status para "${statusConfig[newStatus as keyof typeof statusConfig]?.label}"?`,
-            action: () => updateStatusMutation.mutate({ id, status: newStatus })
-        });
-    };
 
     const formatCurrency = (cents: number) => {
         return new Intl.NumberFormat('pt-BR', {
@@ -315,39 +296,17 @@ export default function PurchaseOrdersPage() {
                                                     className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                                                     title="Ver detalhes"
                                                 >
-                                                    <Eye className="h-5 w-5 text-gray-600" />
+                                                    <Eye className="h-4 w-4 text-gray-600" />
                                                 </button>
-
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => router.push(`/dashboard/compras/${order.id}`)}>
-                                                            Ver Detalhes
-                                                        </DropdownMenuItem>
-                                                        {order.status === 'DRAFT' && (
-                                                            <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'SENT')}>
-                                                                Marcar como Enviado
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                        {order.status === 'SENT' && (
-                                                            <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'CONFIRMED')}>
-                                                                Marcar como Confirmado
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                        {['DRAFT', 'SENT', 'CONFIRMED'].includes(order.status) && (
-                                                            <DropdownMenuItem
-                                                                onClick={() => handleStatusChange(order.id, 'CANCELLED')}
-                                                                className="text-red-600 focus:text-red-600"
-                                                            >
-                                                                Cancelar Pedido
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
+                                                {order.status === 'DRAFT' && (
+                                                    <button
+                                                        onClick={() => setDeleteConfig({ isOpen: true, orderId: order.id })}
+                                                        className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors"
+                                                        title="Excluir rascunho"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -364,20 +323,26 @@ export default function PurchaseOrdersPage() {
                     </div>
                 )}
             </div>
-            {/* Alert Dialog */}
-            <AlertDialog open={alertConfig.isOpen} onOpenChange={(open) => setAlertConfig(prev => ({ ...prev, isOpen: open }))}>
+
+            {/* Delete Modal */}
+            <AlertDialog open={deleteConfig.isOpen} onOpenChange={(open) => setDeleteConfig(prev => ({ ...prev, isOpen: open }))}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>{alertConfig.title}</AlertDialogTitle>
-                        <AlertDialogDescription>{alertConfig.description}</AlertDialogDescription>
+                        <AlertDialogTitle>Excluir Pedido de Compra</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Tem certeza que deseja excluir permanentemente este rascunho de pedido de compra? Esta ação não pode ser desfeita.
+                        </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => {
-                            alertConfig.action();
-                            setAlertConfig(prev => ({ ...prev, isOpen: false }));
-                        }}>
-                            Confirmar
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (deleteConfig.orderId) deleteOrderMutation.mutate(deleteConfig.orderId);
+                            }}
+                            className="bg-red-600 hover:bg-red-700"
+                            disabled={deleteOrderMutation.isPending}
+                        >
+                            {deleteOrderMutation.isPending ? 'Excluindo...' : 'Excluir Rascunho'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

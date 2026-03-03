@@ -208,6 +208,20 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                         </Button>
                     </div>
                 )}
+                {currentEntry.status !== 'DRAFT' && (
+                    <div className="ml-auto">
+                        <Link href={`/dashboard/estoque/ocorrencias/nova?type=RECEBIMENTO&supplierId=${currentEntry.supplierId}`}>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                            >
+                                <AlertTriangle className="h-4 w-4 mr-2" />
+                                Relatar Avaria
+                            </Button>
+                        </Link>
+                    </div>
+                )}
             </div>
 
             {error && (

@@ -22,12 +22,6 @@ import {
     X
 } from 'lucide-react';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
     AlertDialog,
     AlertDialogAction,
     AlertDialogCancel,
@@ -249,16 +243,38 @@ export default function PurchaseOrderDetailsPage() {
                         </Button>
                     )}
 
-                    {/* Receive/Stock Entry Button */}
-                    {['CONFIRMED', 'SENT', 'PARTIAL'].includes(order.status) && (
+                    {order.status === 'DRAFT' && (
                         <Button
                             variant="default"
-                            className="bg-emerald-600 hover:bg-emerald-700"
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                            onClick={() => handleStatusChange('SENT')}
+                        >
+                            <Truck className="mr-2 h-4 w-4" />
+                            Marcar como Enviado
+                        </Button>
+                    )}
+
+                    {order.status === 'SENT' && (
+                        <Button
+                            variant="default"
+                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                            onClick={() => handleStatusChange('CONFIRMED')}
+                        >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Marcar como Confirmado
+                        </Button>
+                    )}
+
+                    {/* Receive/Stock Entry Button */}
+                    {['CONFIRMED', 'PARTIAL'].includes(order.status) && (
+                        <Button
+                            variant="default"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
                             onClick={() => handleReceiveOrder()}
                             disabled={isReceiving}
                         >
                             <Package className="mr-2 h-4 w-4" />
-                            {isReceiving ? 'Gerando...' : 'Dar Entrada (Receber)'}
+                            {isReceiving ? 'Gerando...' : 'Dar Entrada (Estoque)'}
                         </Button>
                     )}
 
@@ -280,33 +296,16 @@ export default function PurchaseOrderDetailsPage() {
                         )
                     )}
 
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline">
-                                Ações <MoreHorizontal className="ml-2 h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            {order.status === 'DRAFT' && (
-                                <DropdownMenuItem onClick={() => handleStatusChange('SENT')}>
-                                    Marcar como Enviado
-                                </DropdownMenuItem>
-                            )}
-                            {order.status === 'SENT' && (
-                                <DropdownMenuItem onClick={() => handleStatusChange('CONFIRMED')}>
-                                    Marcar como Confirmado
-                                </DropdownMenuItem>
-                            )}
-                            {['DRAFT', 'SENT', 'CONFIRMED'].includes(order.status) && (
-                                <DropdownMenuItem
-                                    onClick={() => handleStatusChange('CANCELLED')}
-                                    className="text-red-600 focus:text-red-600"
-                                >
-                                    Cancelar Pedido
-                                </DropdownMenuItem>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    {['DRAFT', 'SENT', 'CONFIRMED'].includes(order.status) && (
+                        <Button
+                            variant="outline"
+                            className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
+                            onClick={() => handleStatusChange('CANCELLED')}
+                        >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Cancelar Pedido
+                        </Button>
+                    )}
                 </div>
             </div>
 

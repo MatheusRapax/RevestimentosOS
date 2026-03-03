@@ -22,7 +22,8 @@ import {
     CreditCard,
 
     Edit,
-    Receipt
+    Receipt,
+    AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -37,6 +38,8 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.E
     AGUARDANDO_CHEGADA: { label: 'Aguardando Chegada', color: 'bg-indigo-100 text-indigo-800', icon: Truck },
     AGUARDANDO_MATERIAL: { label: 'Aguardando Material', color: 'bg-orange-100 text-orange-800', icon: Package },
     EM_SEPARACAO: { label: 'Em Separação', color: 'bg-blue-50 text-blue-600', icon: Package },
+    MATERIAL_RECEBIDO: { label: 'Material Recebido', color: 'bg-blue-100 text-blue-800', icon: Package },
+    AGUARDANDO_REPOSICAO: { label: 'Aguard. Reposição', color: 'bg-red-100 text-red-800', icon: AlertTriangle },
     PRONTO_PARA_RETIRA: { label: 'Pronto p/ Retirada', color: 'bg-green-100 text-green-800', icon: CheckCircle },
     PRONTO_PARA_ENTREGA: { label: 'Pronto p/ Entrega', color: 'bg-green-100 text-green-800', icon: CheckCircle },
     SAIU_PARA_ENTREGA: { label: 'Saiu p/ Entrega', color: 'bg-purple-100 text-purple-800', icon: Truck },
@@ -171,7 +174,10 @@ export default function OrdersPage() {
             refetchDetails();
             setIsConfirmingPayment(false);
         },
-        onError: () => toast.error('Erro ao atualizar status')
+        onError: (error: any) => {
+            const msg = error.response?.data?.message || 'Erro ao atualizar status';
+            toast.error(msg);
+        }
     });
 
     // Update Delivery Mutation
@@ -185,7 +191,10 @@ export default function OrdersPage() {
             refetchDetails();
             setIsEditingDelivery(false);
         },
-        onError: () => toast.error('Erro ao atualizar data de entrega')
+        onError: (error: any) => {
+            const msg = error.response?.data?.message || 'Erro ao atualizar data de entrega';
+            toast.error(msg);
+        }
     });
 
     // Fiscal Emission Mutation
@@ -847,7 +856,7 @@ export default function OrdersPage() {
                                         {updateStatusMutation.isPending ? 'Processando...' : 'Aguardar Material'}
                                     </button>
                                 )}
-                                {(displayOrder.status === 'AGUARDANDO_MATERIAL' || displayOrder.status === 'PAGO') && (
+                                {(displayOrder.status === 'AGUARDANDO_MATERIAL' || displayOrder.status === 'PAGO' || displayOrder.status === 'MATERIAL_RECEBIDO') && (
                                     <button
                                         onClick={() => updateStatusMutation.mutate({ status: 'PRONTO_PARA_ENTREGA' })}
                                         disabled={updateStatusMutation.isPending}
@@ -915,15 +924,26 @@ export default function OrdersPage() {
                                     Imprimir Romaneio
                                 </Button>
                                 {displayOrder.status !== 'CRIADO' && displayOrder.status !== 'RASCUNHO' && (
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => window.open(`/dashboard/pedidos/${displayOrder.id}/recibo`, '_blank')}
-                                        className="flex-1 border-gray-300 hover:bg-gray-50 text-gray-700"
-                                    >
-                                        <Receipt className="h-4 w-4 mr-2" />
-                                        Imprimir Recibo
-                                    </Button>
+                                    <>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => window.open(`/dashboard/pedidos/${displayOrder.id}/recibo`, '_blank')}
+                                            className="flex-1 border-gray-300 hover:bg-gray-50 text-gray-700"
+                                        >
+                                            <Receipt className="h-4 w-4 mr-2" />
+                                            Imprimir Recibo
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => window.open(`/dashboard/estoque/ocorrencias/nova?type=ENTREGA&orderId=${displayOrder.id}`, '_blank')}
+                                            className="flex-1 border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                                        >
+                                            <AlertTriangle className="h-4 w-4 mr-2" />
+                                            Relatar Avaria
+                                        </Button>
+                                    </>
                                 )}
+
                                 <button
                                     onClick={() => setSelectedOrder(null)}
                                     className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"

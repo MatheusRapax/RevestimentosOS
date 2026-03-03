@@ -6,12 +6,18 @@ import {
   MaxLength,
   IsInt,
   IsBoolean,
+  IsEnum,
 } from 'class-validator';
+import { SaleType } from '@prisma/client';
 
 export class CreateProductDto {
   @IsString()
   @MaxLength(255)
   name: string;
+
+  @IsOptional()
+  @IsEnum(SaleType)
+  saleType?: SaleType;
 
   @IsOptional()
   @IsString()
@@ -113,9 +119,12 @@ export class CreateProductDto {
   @IsBoolean()
   manualPrice?: boolean;
 
-  // Supplier reference
   @IsOptional()
   @IsString()
   @MaxLength(100)
   supplierCode?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isAdhoc?: boolean;
 }

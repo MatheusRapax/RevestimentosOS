@@ -38,6 +38,7 @@ const AVAILABLE_MODULES = [
     { id: 'DELIVERIES', label: 'Entregas' },
     { id: 'PROMOTIONS', label: 'Promoções' },
     { id: 'FISCAL', label: 'Fiscal (NF-e/NFC-e)' },
+    { id: 'RMA', label: 'Gestão de Avarias (RMA)' },
     { id: 'ADMIN', label: 'Administrativo (Usuários, Config)' },
 ];
 

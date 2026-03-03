@@ -18,7 +18,7 @@ export class StockService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-  ) {}
+  ) { }
 
   // ========== PRODUCT MANAGEMENT ==========
 
@@ -32,7 +32,16 @@ export class StockService {
         sku: dto.sku,
         barcode: dto.barcode,
         minStock: dto.minStock || 0,
+        format: dto.format,
+        line: dto.line,
+        usage: dto.usage,
+        saleType: dto.saleType,
         boxCoverage: dto.boxCoverage,
+        piecesPerBox: dto.piecesPerBox,
+        boxWeight: dto.boxWeight,
+        palletBoxes: dto.palletBoxes,
+        palletWeight: dto.palletWeight,
+        palletCoverage: dto.palletCoverage,
         costCents: dto.costCents,
         priceCents: dto.priceCents,
         supplierCode: dto.supplierCode,
@@ -40,6 +49,7 @@ export class StockService {
         brandId: dto.brandId,
         markup: dto.markup,
         manualPrice: dto.manualPrice,
+        isAdhoc: dto.isAdhoc || false,
       },
     });
 
@@ -57,7 +67,7 @@ export class StockService {
 
   async listProducts(
     clinicId: string,
-    filters?: { search?: string; isActive?: boolean },
+    filters?: { search?: string; isActive?: boolean; includeAdhoc?: boolean },
   ) {
     console.log(
       `[StockService] listProducts called with clinicId=${clinicId}, filters=${JSON.stringify(filters)}`,
@@ -69,6 +79,11 @@ export class StockService {
       where.isActive = filters.isActive;
     } else {
       where.isActive = true; // Default: show only active
+    }
+
+    // Default to hiding ad-hoc products
+    if (!filters?.includeAdhoc) {
+      where.isAdhoc = false;
     }
 
     if (filters?.search) {

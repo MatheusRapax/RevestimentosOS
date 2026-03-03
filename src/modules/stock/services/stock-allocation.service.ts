@@ -10,7 +10,7 @@ export class StockAllocationService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-  ) {}
+  ) { }
 
   /**
    * Automatically attempts to allocate stock for a given order.
@@ -140,12 +140,19 @@ export class StockAllocationService {
       data: { fulfillmentStatus: newStatus },
     });
 
-    if (order.status === OrderStatus.PAGO) {
+    const eligibleStatuses: OrderStatus[] = [
+      OrderStatus.PAGO,
+      OrderStatus.AGUARDANDO_CHEGADA,
+      OrderStatus.AGUARDANDO_COMPRA,
+      OrderStatus.AGUARDANDO_MATERIAL,
+    ];
+
+    if (eligibleStatuses.includes(order.status as OrderStatus)) {
       let nextOrderStatus: OrderStatus | undefined;
 
       if (newStatus === FulfillmentStatus.IN_PICKING) {
-        // Scenario A: Full Stock
-        nextOrderStatus = OrderStatus.EM_SEPARACAO;
+        // Scenario A: Full Stock (Materials arrived and are allocated)
+        nextOrderStatus = OrderStatus.MATERIAL_RECEBIDO;
       } else {
         // Scenario B/C: Insufficient Stock
         // Check if there are linked Purchase Orders
@@ -157,7 +164,6 @@ export class StockAllocationService {
 
         if (hasActivePO) {
           // Scenario B: Waiting for Arrival
-          // Verify if AGUARDANDO_CHEGADA exists in enum, fallback to AGUARDANDO_MATERIAL
           nextOrderStatus = 'AGUARDANDO_CHEGADA' as OrderStatus;
         } else {
           // Scenario C: Need to Buy
@@ -165,7 +171,7 @@ export class StockAllocationService {
         }
       }
 
-      if (nextOrderStatus) {
+      if (nextOrderStatus && nextOrderStatus !== order.status) {
         await this.prisma.order.update({
           where: { id: orderId },
           data: { status: nextOrderStatus },

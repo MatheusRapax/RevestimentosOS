@@ -66,6 +66,7 @@ interface Product {
     costCents?: number;
     priceCents?: number;
     supplierCode?: string;
+    isAdhoc?: boolean;
 }
 
 export default function ProdutosPage() {
@@ -74,6 +75,7 @@ export default function ProdutosPage() {
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [showAdhoc, setShowAdhoc] = useState(false);
 
     // Create dialog
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -144,7 +146,9 @@ export default function ProdutosPage() {
         try {
             setIsLoading(true);
             setError('');
-            const response = await api.get('/stock');
+            const response = await api.get('/stock/products', {
+                params: { includeAdhoc: showAdhoc }
+            });
             setProducts(response.data);
         } catch (err: any) {
             console.error('Error fetching products:', err);
@@ -156,7 +160,7 @@ export default function ProdutosPage() {
 
     useEffect(() => {
         fetchProducts();
-    }, []);
+    }, [showAdhoc]);
 
     // Auto-dismiss success message
     useEffect(() => {
@@ -315,6 +319,14 @@ export default function ProdutosPage() {
                         Remover {selectedIds.size} selecionado(s)
                     </Button>
                 )}
+
+                <div className="flex items-center space-x-2 border rounded-md px-3 py-1.5 h-9">
+                    <Checkbox id="show-adhoc" checked={showAdhoc} onCheckedChange={(checked) => setShowAdhoc(!!checked)} />
+                    <Label htmlFor="show-adhoc" className="cursor-pointer text-sm font-medium whitespace-nowrap">
+                        Ver Avulsos
+                    </Label>
+                </div>
+
                 {/* Column Visibility Popover */}
                 <Popover>
                     <PopoverTrigger asChild>
@@ -394,7 +406,14 @@ export default function ProdutosPage() {
                                         </td>
                                         {COLUMN_DEFINITIONS.filter(col => visibleColumns.has(col.key)).map(col => (
                                             <td key={col.key} className={`px-4 py-3 whitespace-nowrap text-sm ${col.key === 'name' ? 'font-medium text-gray-900' : 'text-gray-500'}`}>
-                                                {formatCellValue(product, col.key)}
+                                                <div className="flex items-center gap-2">
+                                                    {formatCellValue(product, col.key)}
+                                                    {col.key === 'name' && product.isAdhoc && (
+                                                        <span className="inline-flex items-center px-2 border border-amber-200 bg-amber-50 text-amber-700 text-xs rounded-full font-medium">
+                                                            Avulso
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                         ))}
                                         <td className="px-3 py-3 text-center">

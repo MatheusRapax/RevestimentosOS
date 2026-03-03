@@ -16,11 +16,20 @@ import {
     Receipt,
     UserCog,
     ArrowLeftRight,
-    Upload,
-    FileCode,
     Percent,
     Search,
-    ClipboardList
+    ClipboardList,
+    // New differentiated icons:
+    PenTool,
+    LayoutDashboard,
+    AlertTriangle,
+    Factory,
+    CreditCard,
+    Wallet,
+    Landmark,
+    Tags,
+    Activity,
+    Settings,
 } from 'lucide-react';
 
 // Modules for a flooring/tile store ERP - synced with sidebar
@@ -35,7 +44,7 @@ const modules = [
     {
         href: '/dashboard/arquitetos',
         label: 'Arquitetos',
-        icon: Building2,
+        icon: PenTool,
         color: 'bg-indigo-500',
     },
     {
@@ -58,16 +67,16 @@ const modules = [
     },
     // Estoque & Logística
     {
+        href: '/dashboard/estoque',
+        label: 'Visão Geral (Estoque)',
+        icon: LayoutDashboard,
+        color: 'bg-amber-600',
+    },
+    {
         href: '/dashboard/estoque/produtos',
         label: 'Produtos',
         icon: Package,
         color: 'bg-amber-500',
-    },
-    {
-        href: '/dashboard/estoque',
-        label: 'Visão Geral',
-        icon: Search,
-        color: 'bg-amber-600',
     },
     {
         href: '/dashboard/estoque/movimentacoes',
@@ -76,8 +85,14 @@ const modules = [
         color: 'bg-teal-500',
     },
     {
+        href: '/dashboard/estoque/ocorrencias',
+        label: 'Avarias (RMA)',
+        icon: AlertTriangle,
+        color: 'bg-red-500',
+    },
+    {
         href: '/dashboard/entregas',
-        label: 'Expedição',
+        label: 'Expedição / Entregas',
         icon: Truck,
         color: 'bg-orange-500',
     },
@@ -85,51 +100,57 @@ const modules = [
     {
         href: '/dashboard/fornecedores',
         label: 'Fornecedores',
-        icon: Building2,
+        icon: Factory,
         color: 'bg-rose-600',
     },
     {
         href: '/dashboard/compras',
         label: 'Pedidos Compra',
-        icon: Receipt,
+        icon: ShoppingCart,
         color: 'bg-rose-500',
     },
     // Financeiro
     {
         href: '/dashboard/financeiro',
-        label: 'Financeiro',
+        label: 'Visão Geral (Financeiro)',
         icon: DollarSign,
         color: 'bg-emerald-500',
     },
     {
         href: '/dashboard/financeiro/contas-a-pagar',
         label: 'Contas a Pagar',
-        icon: Receipt,
-        color: 'bg-red-500',
+        icon: CreditCard,
+        color: 'bg-red-400',
     },
     {
         href: '/dashboard/financeiro/vendedores',
         label: 'Comissão Vend.',
-        icon: BarChart3,
+        icon: Wallet,
         color: 'bg-sky-500',
     },
     {
         href: '/dashboard/financeiro/arquitetos',
         label: 'Comissão Arq.',
-        icon: Building2,
+        icon: Landmark,
         color: 'bg-violet-500',
     },
     // Admin
     {
+        href: '/dashboard/admin/configuracoes',
+        label: 'Config. Globais',
+        icon: Settings,
+        color: 'bg-slate-800',
+    },
+    {
         href: '/dashboard/admin/catalogo',
         label: 'Conf. Catálogo',
-        icon: ClipboardList,
+        icon: Tags,
         color: 'bg-slate-700',
     },
     {
         href: '/dashboard/admin/usuarios',
         label: 'Usuários',
-        icon: UserCog,
+        icon: Users,
         color: 'bg-slate-600',
     },
     {
@@ -139,9 +160,15 @@ const modules = [
         color: 'bg-gray-600',
     },
     {
+        href: '/dashboard/configuracoes/templates',
+        label: 'Templates',
+        icon: FileText,
+        color: 'bg-slate-500',
+    },
+    {
         href: '/dashboard/admin/auditoria',
         label: 'Auditoria',
-        icon: Shield,
+        icon: Activity,
         color: 'bg-zinc-600',
     },
 ];

@@ -23,10 +23,12 @@ import {
     AlertTriangle,
     Check,
     Boxes,
+    BadgePercent,
 } from 'lucide-react';
 import Link from 'next/link';
 import { StockLotSelector } from '@/components/stock/StockLotSelector';
 import { ProductCombobox } from '@/components/quotes/product-combobox';
+import { AdHocProductModal } from '@/components/products/ad-hoc-product-modal';
 
 interface Customer {
     id: string;
@@ -44,6 +46,8 @@ interface Product {
     name: string;
     sku?: string;
     priceCents?: number;
+    promotionalPriceCents?: number;
+    activePromotion?: any;
     boxCoverage?: number;
     piecesPerBox?: number;
     unit?: string;
@@ -64,7 +68,7 @@ interface QuoteItem {
     quantityBoxes: number;
     resultingArea: number;
     unitPriceCents: number;
-    marginPercent: number;
+    marginPercent?: number | ''; // Allows distinguishing explicit 0 from unset
     discountPercent: number;
     discountCents: number;
     totalCents: number;
@@ -89,6 +93,9 @@ export default function NovoOrcamentoPage() {
     const [globalMarginPercent, setGlobalMarginPercent] = useState(0);
     const [globalDiscountPercent, setGlobalDiscountPercent] = useState(0);
     const [items, setItems] = useState<QuoteItem[]>([]);
+
+    // Computed state
+    const [isAdhocModalOpen, setIsAdhocModalOpen] = useState(false);
 
     // Calculated totals
     const [subtotal, setSubtotal] = useState(0);
@@ -152,7 +159,7 @@ export default function NovoOrcamentoPage() {
     useEffect(() => {
         setItems(currentItems => currentItems.map(item => {
             if (item.inputArea > 0 && item.product?.boxCoverage) {
-                const marginToUse = item.marginPercent || globalMarginPercent || 0;
+                const marginToUse = typeof item.marginPercent === 'number' ? item.marginPercent : (globalMarginPercent || 0);
                 const areaWithMargin = item.inputArea * (1 + marginToUse / 100);
                 const boxes = calculateBoxesFromArea(areaWithMargin, item.product.boxCoverage);
                 const resArea = calculateResultingArea(boxes, item.product.boxCoverage);
@@ -183,7 +190,7 @@ export default function NovoOrcamentoPage() {
                 quantityBoxes: 0,
                 resultingArea: 0,
                 unitPriceCents: 0,
-                marginPercent: 0,
+                marginPercent: '',
                 discountPercent: 0,
                 discountCents: 0,
                 totalCents: 0,
@@ -205,7 +212,7 @@ export default function NovoOrcamentoPage() {
             const product = products.find(p => p.id === value);
             item.productId = value;
             item.product = product;
-            item.unitPriceCents = product?.priceCents || 0;
+            item.unitPriceCents = product?.promotionalPriceCents ?? product?.priceCents ?? 0;
             item.preferredLotId = undefined;
 
             // Recalculate if area was already set
@@ -217,11 +224,11 @@ export default function NovoOrcamentoPage() {
             }
         } else if (field === 'inputArea' || field === 'marginPercent') {
             if (field === 'inputArea') item.inputArea = Number(value);
-            if (field === 'marginPercent') item.marginPercent = Number(value);
+            if (field === 'marginPercent') item.marginPercent = value === '' ? '' : Number(value);
 
             const product = item.product;
             if (product?.boxCoverage) {
-                const marginToUse = item.marginPercent || globalMarginPercent || 0;
+                const marginToUse = typeof item.marginPercent === 'number' ? item.marginPercent : (globalMarginPercent || 0);
                 const areaWithMargin = item.inputArea * (1 + marginToUse / 100);
                 item.quantityBoxes = calculateBoxesFromArea(areaWithMargin, product.boxCoverage);
                 item.resultingArea = calculateResultingArea(item.quantityBoxes, product.boxCoverage);
@@ -241,8 +248,9 @@ export default function NovoOrcamentoPage() {
             (item as any)[field] = value;
         }
 
-        // Recalculate item total
+        // Recalculate item total based on current quantity and discount
         const itemSubtotal = item.unitPriceCents * item.quantityBoxes;
+        item.discountCents = Math.round(itemSubtotal * ((item.discountPercent || 0) / 100));
         item.totalCents = itemSubtotal - item.discountCents;
 
         newItems[index] = item;
@@ -319,7 +327,7 @@ export default function NovoOrcamentoPage() {
                 items: items.map(item => ({
                     productId: item.productId,
                     inputArea: item.inputArea || undefined,
-                    marginPercent: item.marginPercent || undefined,
+                    marginPercent: typeof item.marginPercent === 'number' ? item.marginPercent : undefined,
                     quantityBoxes: item.inputArea ? undefined : item.quantityBoxes,
                     unitPriceCents: item.unitPriceCents,
                     discountPercent: item.discountPercent || undefined,
@@ -476,7 +484,17 @@ export default function NovoOrcamentoPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     {/* Product Select */}
                                     <div className="md:col-span-2 space-y-2">
-                                        <Label>Produto</Label>
+                                        <div className="flex items-center justify-between">
+                                            <Label>Produto</Label>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-6 px-2 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                                                onClick={() => setIsAdhocModalOpen(true)}
+                                            >
+                                                + Produto Avulso
+                                            </Button>
+                                        </div>
                                         <ProductCombobox
                                             products={products}
                                             value={item.productId}
@@ -488,6 +506,14 @@ export default function NovoOrcamentoPage() {
                                                 {item.product.piecesPerBox &&
                                                     ` • ${item.product.piecesPerBox} peças/caixa`}
                                             </p>
+                                        )}
+                                        {item.product?.activePromotion && (
+                                            <div className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-sm rounded-md border border-green-200">
+                                                <BadgePercent className="h-4 w-4" />
+                                                <span className="font-medium">
+                                                    Promoção {item.product.activePromotion.name} ({item.product.activePromotion.discountPercent}% OFF)
+                                                </span>
+                                            </div>
                                         )}
                                     </div>
 
@@ -532,7 +558,7 @@ export default function NovoOrcamentoPage() {
                                             min="0"
                                             max="100"
                                             placeholder={globalMarginPercent ? `Global (${globalMarginPercent}%)` : "0"}
-                                            value={item.marginPercent || ''}
+                                            value={item.marginPercent === '' ? '' : item.marginPercent}
                                             onChange={(e) =>
                                                 updateItem(index, 'marginPercent', e.target.value)
                                             }
@@ -575,13 +601,29 @@ export default function NovoOrcamentoPage() {
                                             <p className="font-medium">
                                                 {item.resultingArea.toFixed(2)} m²
                                             </p>
-                                            {item.inputArea > 0 &&
-                                                item.resultingArea > item.inputArea && (
-                                                    <p className="text-xs text-amber-600">
-                                                        +{(item.resultingArea - item.inputArea).toFixed(2)}{' '}
-                                                        m² extra
-                                                    </p>
-                                                )}
+                                            {item.inputArea > 0 && item.resultingArea > item.inputArea && (() => {
+                                                const marginToUse = typeof item.marginPercent === 'number' ? item.marginPercent : (globalMarginPercent || 0);
+                                                const marginArea = item.inputArea * (marginToUse / 100);
+                                                const roundingArea = item.resultingArea - (item.inputArea + marginArea);
+
+                                                return (
+                                                    <div className="text-xs flex flex-col mt-1.5 p-1.5 bg-amber-50 dark:bg-amber-950/30 rounded border border-amber-100 dark:border-amber-900">
+                                                        <span className="font-semibold text-amber-800 dark:text-amber-500 mb-0.5 whitespace-nowrap">
+                                                            Sobra: +{(item.resultingArea - item.inputArea).toFixed(2)} m²
+                                                        </span>
+                                                        {marginArea > 0 && (
+                                                            <span className="text-amber-700/80 dark:text-amber-400/80 whitespace-nowrap">
+                                                                • +{marginArea.toFixed(2)} m² (Margem {marginToUse}%)
+                                                            </span>
+                                                        )}
+                                                        {roundingArea > 0.001 && (
+                                                            <span className="text-amber-700/80 dark:text-amber-400/80 whitespace-nowrap">
+                                                                • +{roundingArea.toFixed(2)} m² (Arred. p/ Caixa)
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                         <div>
                                             <Label className="text-xs text-gray-500">
@@ -703,6 +745,43 @@ export default function NovoOrcamentoPage() {
                     </div>
                 </div>
             </Card>
+
+            <AdHocProductModal
+                isOpen={isAdhocModalOpen}
+                onClose={() => setIsAdhocModalOpen(false)}
+                onSuccess={(newProduct) => {
+                    // Refresh products list to include the adhoc one just created temporarily in the context
+                    setProducts(prev => [...prev, newProduct]);
+
+                    const price = newProduct.promotionalPriceCents || newProduct.priceCents || 0;
+
+                    if (items.length > 0 && !items[items.length - 1].productId) {
+                        // Update the last empty item directly
+                        const newItems = [...items];
+                        newItems[newItems.length - 1] = {
+                            ...newItems[newItems.length - 1],
+                            productId: newProduct.id,
+                            product: newProduct,
+                            unitPriceCents: price,
+                        };
+                        setItems(newItems);
+                    } else {
+                        // Create a new item
+                        setItems([...items, {
+                            productId: newProduct.id,
+                            product: newProduct,
+                            inputArea: 0,
+                            quantityBoxes: 0,
+                            resultingArea: 0,
+                            unitPriceCents: price,
+                            marginPercent: '',
+                            discountPercent: 0,
+                            discountCents: 0,
+                            totalCents: 0,
+                        }]);
+                    }
+                }}
+            />
         </div>
     );
 }

@@ -54,6 +54,7 @@ interface QuoteItem {
     resultingArea?: number;
     marginPercent?: number;
     areaWithMargin?: number;
+    quantityBoxes: number;
     unitPriceCents: number;
     discountCents: number;
     totalCents: number;
@@ -84,6 +85,10 @@ interface Quote {
         phone?: string;
         email?: string;
     };
+    seller: {
+        id: string;
+        name: string;
+    };
     architect?: {
         id: string;
         name: string;
@@ -99,6 +104,7 @@ interface Quote {
     items: QuoteItem[];
     createdAt: string;
     updatedAt: string;
+    validUntil?: string;
     sentAt?: string;
     approvedAt?: string;
 }
@@ -548,7 +554,23 @@ export default function QuoteDetailPage() {
                                         </div>
                                     </td>
                                     <td className="px-4 py-3 text-right">
-                                        {item.resultingArea?.toFixed(2) || item.inputArea?.toFixed(2) || '-'}
+                                        <div className="font-medium">{item.resultingArea?.toFixed(2) || item.inputArea?.toFixed(2) || '-'}</div>
+                                        {item.inputArea && item.resultingArea && item.resultingArea > item.inputArea ? (
+                                            <div className="text-[10px] text-amber-600 mt-1 flex flex-col items-end whitespace-nowrap">
+                                                {(() => {
+                                                    const marginToUse = typeof item.marginPercent === 'number' ? item.marginPercent : (quote.globalMarginPercent || 0);
+                                                    const marginArea = item.inputArea * (marginToUse / 100);
+                                                    const roundingArea = item.resultingArea - (item.inputArea + marginArea);
+                                                    return (
+                                                        <>
+                                                            <span className="font-semibold">+{(item.resultingArea - item.inputArea).toFixed(2)}m² Total</span>
+                                                            {marginArea > 0 && <span>+{marginArea.toFixed(2)}m² (Margem)</span>}
+                                                            {roundingArea > 0.001 && <span>+{roundingArea.toFixed(2)}m² (Arred.)</span>}
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                        ) : null}
                                     </td>
                                     <td className="px-4 py-3 text-right text-gray-500">
                                         {item.marginPercent ? `${item.marginPercent}%` : '-'}

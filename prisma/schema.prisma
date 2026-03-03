@@ -71,6 +71,8 @@ enum OrderStatus {
   PAGO
   AGUARDANDO_COMPRA
   AGUARDANDO_CHEGADA
+  AGUARDANDO_REPOSICAO
+  MATERIAL_RECEBIDO
   AGUARDANDO_MATERIAL // Deprecated
   EM_SEPARACAO
   PRONTO_PARA_RETIRA
@@ -179,6 +181,7 @@ model Clinic {
   payments                 Payment[]
   stockEntries             StockEntry[]
   stockExits               StockExit[]
+  occurrences              Occurrence[]
 
   // Sales Module Relations
   customers         Customer[]
@@ -441,6 +444,7 @@ enum StockMovementType {
   IN
   OUT
   ADJUST
+  AVARIA
 }
 
 // Business: Product model (Produtos para estoque)
@@ -468,6 +472,7 @@ model Product {
 
   markup      Float? // Markup específico do produto (override)
   manualPrice Boolean @default(false) // Se true, ignora o motor de precificação
+  isAdhoc     Boolean @default(false) // Se true, é um produto criado avulso para um orçamento específico
 
   // Campos Fiscais (Webmania)
   ncm      String? // Nomenclatura Comum do Mercosul (8 digits)
@@ -505,6 +510,7 @@ model Product {
   orderItems           OrderItem[]
   purchaseOrderItems   PurchaseOrderItem[]
   stockReservations    StockReservation[]
+  occurrenceItems      OccurrenceItem[]
   promotions           PromotionProduct[]
 
   @@index([supplierId])
@@ -572,6 +578,7 @@ model StockLot {
   quoteItems     QuoteItem[]
   orderItems     OrderItem[]
   reservations   StockReservation[]
+  occurrenceItems OccurrenceItem[]
 
   @@unique([clinicId, productId, lotNumber])
   @@index([clinicId])
@@ -640,6 +647,8 @@ model StockMovement {
   stockEntry      StockEntry? @relation(fields: [stockEntryId], references: [id])
   stockExitId     String? // Link to Stock Exit document
   stockExit       StockExit?  @relation(fields: [stockExitId], references: [id])
+  occurrenceId    String? // Link to Occurrence document
+  occurrence      Occurrence? @relation(fields: [occurrenceId], references: [id])
 
   // Legacy Clinical Link (DEPRECATED - Keep for backward compatibility)
   encounterId String? // Link to patient encounter
@@ -660,6 +669,7 @@ model StockMovement {
   @@index([purchaseOrderId])
   @@index([stockEntryId])
   @@index([stockExitId])
+  @@index([occurrenceId])
 }
 
 // Business: StockEntry (Entrada de Nota/Estoque)
@@ -723,6 +733,7 @@ model StockEntry {
   items          StockEntryItem[]
   stockMovements StockMovement[]
   expenses       Expense[]
+  occurrences    Occurrence[]
 
   installmentsData Json? // Temporarily holds parsed installments from NFe XML until confirmation
 
@@ -1134,6 +1145,7 @@ model Customer {
   clinic Clinic  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   quotes Quote[]
   orders Order[]
+  occurrences Occurrence[]
 
   // Finance
   patientAccount PatientAccount?
@@ -1357,6 +1369,7 @@ model Order {
   purchaseOrders    PurchaseOrder[]
   stockReservations StockReservation[]
   fiscalDocuments   FiscalDocument[]
+  occurrences       Occurrence[]
 
   @@unique([clinicId, number])
   @@index([clinicId])
@@ -1433,6 +1446,7 @@ model Supplier {
   clinic         Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   purchaseOrders PurchaseOrder[]
   products       Product[]
+  occurrences    Occurrence[]
 
   @@unique([clinicId, cnpj])
   @@index([clinicId])
@@ -1480,6 +1494,7 @@ model PurchaseOrder {
   stockEntries StockEntry[]
   items        PurchaseOrderItem[]
   expenses     Expense[]
+  occurrences  Occurrence[]
 
   @@unique([clinicId, number])
   @@index([clinicId])
@@ -1748,3 +1763,74 @@ model StoreSettings {
   clinic             Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 }
 
+// Business: Occurrence (RMA / Gestão de Avarias)
+enum OccurrenceType {
+  RECEBIMENTO // Avaria na chegada do fornecedor
+  ENTREGA // Quebrou durante Rota para o Cliente
+  DEFEITO // Defeito de Fabricação relatado pelo cliente pós-entrega
+}
+
+enum OccurrenceStatus {
+  RASCUNHO // Apenas relatado, não afetou estoque
+  REPORTADO // Estoque baixado como perda temporária, aguardando ação
+  AGUARDANDO_FORNECEDOR // Aguardando reposição ou crédito
+  RESOLVIDO // Recebido reposição física ou reposição enviada ao cliente
+  REEMBOLSADO // Crédito financeiro recebido
+  CANCELADO
+}
+
+model Occurrence {
+  id           String           @id @default(uuid())
+  clinicId     String
+  number       Int              @default(autoincrement()) // Ex: RMA-0012 a ser formatado no frontend
+  type         OccurrenceType
+  status       OccurrenceStatus @default(RASCUNHO)
+  
+  // Relacionamentos Opcionais dependendo do tipo da Ocorrência
+  supplierId      String?
+  customerId      String?
+  orderId         String? // Pedido de Venda
+  purchaseOrderId String? // Pedido de Compra
+  stockEntryId    String?
+
+  notes        String?          @db.Text
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  clinic        Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  supplier      Supplier?        @relation(fields: [supplierId], references: [id])
+  customer      Customer?        @relation(fields: [customerId], references: [id])
+  order         Order?           @relation(fields: [orderId], references: [id])
+  purchaseOrder PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id])
+  stockEntry    StockEntry?      @relation(fields: [stockEntryId], references: [id])
+  items         OccurrenceItem[]
+  stockMovements StockMovement[]
+
+  @@index([clinicId])
+  @@index([supplierId])
+  @@index([customerId])
+  @@index([orderId])
+  @@index([purchaseOrderId])
+  @@index([stockEntryId])
+}
+
+model OccurrenceItem {
+  id           String      @id @default(uuid())
+  occurrenceId String
+  productId    String
+  lotId        String?
+  
+  quantity     Float
+  unitType     String      @default("CAIXA") // "CAIXA" ou "UNIDADE"
+  reason       String?     @db.Text
+  
+  createdAt    DateTime    @default(now())
+
+  occurrence   Occurrence  @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  product      Product     @relation(fields: [productId], references: [id])
+  lot          StockLot?   @relation(fields: [lotId], references: [id])
+
+  @@index([occurrenceId])
+  @@index([productId])
+  @@index([lotId])
+}

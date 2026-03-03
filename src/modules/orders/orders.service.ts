@@ -21,7 +21,7 @@ export class OrdersService {
     private financeService: FinanceService,
     private stockAllocationService: StockAllocationService,
     private stockExitService: StockExitService,
-  ) {}
+  ) { }
 
   async findAll(
     clinicId: string,
@@ -182,6 +182,27 @@ export class OrdersService {
           `Existe um Pedido de Compra (#${pendingPO.number}) vinculado pendente de recebimento completo.`,
         );
       }
+
+      // Check if all items are fully reserved in physical stock
+      const checkItems = await this.prisma.orderItem.findMany({
+        where: { orderId: id },
+        include: {
+          product: true,
+          reservations: { where: { status: 'ACTIVE' } }
+        }
+      });
+
+      const unfulfilledItems = checkItems.filter(item => {
+        const reservedQty = item.reservations.reduce((sum, res) => sum + res.quantity, 0);
+        return reservedQty < item.quantityBoxes;
+      });
+
+      if (unfulfilledItems.length > 0) {
+        const names = unfulfilledItems.map(i => i.product.name).join(', ');
+        throw new BadRequestException(
+          `Não é possível marcar como Pronto. Os seguintes itens não possuem estoque reservado suficiente: ${names}`,
+        );
+      }
     }
 
     // Transaction to handle cancellations and finance integration
@@ -256,10 +277,8 @@ export class OrdersService {
     }
 
     // 5. Stock Exit Automation (Outside Transaction)
-    // When order is marked ready for delivery, out for delivery, or delivered
+    // When order is marked as delivered
     const stockExitTriggerStatuses: OrderStatus[] = [
-      OrderStatus.PRONTO_PARA_ENTREGA,
-      OrderStatus.SAIU_PARA_ENTREGA,
       OrderStatus.ENTREGUE,
     ];
 
@@ -357,7 +376,7 @@ export class OrdersService {
           where: { clinicId, status: OrderStatus.CRIADO },
         }),
         this.prisma.order.count({
-          where: { clinicId, status: OrderStatus.AGUARDANDO_MATERIAL },
+          where: { clinicId, status: { in: [OrderStatus.AGUARDANDO_MATERIAL, OrderStatus.AGUARDANDO_CHEGADA, OrderStatus.MATERIAL_RECEBIDO] } },
         }),
         this.prisma.order.count({
           where: { clinicId, status: OrderStatus.PRONTO_PARA_ENTREGA },

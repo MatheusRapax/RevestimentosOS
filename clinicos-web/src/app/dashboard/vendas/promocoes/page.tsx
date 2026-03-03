@@ -11,6 +11,7 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
 import { format } from 'date-fns';
@@ -108,6 +109,12 @@ export default function PromocoesPage() {
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
+                                                <Link href={`/dashboard/vendas/promocoes/${promo.id}`}>
+                                                    <DropdownMenuItem className="cursor-pointer">
+                                                        <Edit2 className="w-4 h-4 mr-2" /> Editar
+                                                    </DropdownMenuItem>
+                                                </Link>
+                                                <DropdownMenuSeparator />
                                                 <DropdownMenuItem onClick={() => {
                                                     if (confirm('Tem certeza que deseja excluir esta campanha?')) {
                                                         deletePromotion(promo.id);

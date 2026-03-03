@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth';
 import { ArrowLeft, Printer, ShoppingBag, MapPin, User, Calendar, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -32,15 +33,22 @@ function translatePaymentMethod(method?: string) {
     }
 }
 
-export default function ReceiptPage({ params }: { params: { id: string } }) {
+export default function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = React.use(params);
     const router = useRouter();
+    const { user, activeClinic } = useAuth();
+
+    // Find the current clinic based on activeClinic ID
+    const currentClinic = user?.clinics?.find(c => c.id === activeClinic);
+    const storeName = currentClinic?.name || 'Loja Não Identificada';
+
     const [order, setOrder] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchOrder = async () => {
             try {
-                const res = await api.get(`/orders/${params.id}`);
+                const res = await api.get(`/orders/${id}`);
                 setOrder(res.data);
             } catch (error) {
                 console.error('Error fetching order:', error);
@@ -49,7 +57,7 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
             }
         };
         fetchOrder();
-    }, [params.id]);
+    }, [id]);
 
     const handlePrint = () => {
         window.print();
@@ -95,9 +103,9 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
                             <ShoppingBag className="h-6 w-6" />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-black tracking-tight text-gray-900 uppercase">MOA Revestimentos</h1>
+                            <h1 className="text-2xl font-black tracking-tight text-gray-900 uppercase">{storeName}</h1>
                             <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
-                                <MapPin className="h-3 w-3" /> Av. Exemplo Comercial, 1000 - Centro
+                                <MapPin className="h-3 w-3" /> Endereço não cadastrado
                             </p>
                         </div>
                     </div>
@@ -201,14 +209,14 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
                     </div>
                     <div className="flex-1 text-center">
                         <div className="border-t border-gray-400 w-full mx-auto mb-2"></div>
-                        <p className="font-medium text-gray-900 uppercase">MOA Revestimentos</p>
+                        <p className="font-medium text-gray-900 uppercase">{storeName}</p>
                         <p className="text-xs">Assinatura do Vendedor / Caixa</p>
                     </div>
                 </div>
 
                 <div className="mt-8 text-center text-xs text-gray-400 print:mt-auto">
                     <p>Este documento não possui valor fiscal.</p>
-                    <p>Gerado em {new Date().toLocaleString('pt-BR')} pelo sistema Clínicos Web.</p>
+                    <p>Gerado em {new Date().toLocaleString('pt-BR')} pelo sistema MOA Nexus.</p>
                 </div>
             </div>
 

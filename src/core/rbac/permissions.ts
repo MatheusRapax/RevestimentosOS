@@ -144,6 +144,10 @@ export const PERMISSIONS = {
   DELIVERY_READ: 'delivery.read',
   DELIVERY_UPDATE: 'delivery.update',
 
+  // RMA - Occurrences
+  RMA_READ: 'rma.read',
+  RMA_MANAGE: 'rma.manage',
+
   // Purchase Orders (Compras)
   PURCHASE_ORDER_CREATE: 'purchase.create',
   PURCHASE_ORDER_READ: 'purchase.read',

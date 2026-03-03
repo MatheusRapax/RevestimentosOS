@@ -83,6 +83,10 @@ async function main() {
         // Stock Operations (Estoque Físico)
         { key: 'stock.view', description: 'Visualizar saldos de estoque' },
         { key: 'stock.adjust', description: 'Realizar ajustes de estoque' },
+
+        // RMA Operations
+        { key: 'rma.read', description: 'Visualizar avarias e devoluções' },
+        { key: 'rma.manage', description: 'Gerenciar avarias e devoluções' },
         // { key: 'stock.read', description: 'Visualizar estoque' }, // DEPRECATED
         // { key: 'stock.create', description: 'Criar itens de estoque' }, // DEPRECATED
         // { key: 'stock.update', description: 'Atualizar itens de estoque' }, // DEPRECATED
@@ -214,6 +218,7 @@ async function main() {
         'promotion.read',
         'delivery.read', 'delivery.create', 'delivery.update',
         'product.read', 'stock.view', // Catalog + Balances
+        'rma.read',
         'clinic.read',
     ];
     for (const key of sellerPermKeys) {
@@ -240,6 +245,7 @@ async function main() {
         'category.create', 'category.update', 'category.delete', // Manage Categories
         'brand.create', 'brand.update', 'brand.delete', // Manage Brands
         'stock.adjust', // Manage Stock
+        'rma.read', 'rma.manage', // Manage RMA
         'finance.read', 'finance.charge', 'finance.payment',
         'fiscal.view', 'fiscal.emit', 'fiscal.cancel', // Fiscal Access
         'user.read', 'audit.read',
@@ -263,6 +269,7 @@ async function main() {
         'category.read', 'category.create', 'category.update', // Category management
         'brand.read', 'brand.create', 'brand.update', // Brand management
         'stock.view', 'stock.adjust', // Stock management
+        'rma.read', 'rma.manage', // Manage RMA
         'stock.create', 'stock.read', 'stock.update', // Legacy/Safety
         'clinic.read'
     ];
@@ -284,437 +291,211 @@ async function main() {
     // =========================================
     const hashedPassword = await bcrypt.hash('123456', 10);
 
-    /* 
-    // DEMO DATA COMMENTED FOR PRODUCTION/TESTING RESET
+    // =========================================
+    // 4. CREATE STORE (CLINIC)
+    // =========================================
     const store = await prisma.clinic.upsert({
-        where: { slug: 'revestimentos-demo' },
-        update: {},
+        where: { slug: 'mosaic-teste' },
+        update: {
+            modules: ['APPOINTMENTS', 'STOCK', 'FINANCE', 'SALES', 'ARCHITECTS', 'PROMOTIONS', 'DELIVERIES', 'PURCHASES', 'ADMIN', 'RMA']
+        },
         create: {
-            name: 'Revestimentos Demo',
-            slug: 'revestimentos-demo',
+            name: 'Mosaic Teste',
+            slug: 'mosaic-teste',
             isActive: true,
+            modules: ['APPOINTMENTS', 'STOCK', 'FINANCE', 'SALES', 'ARCHITECTS', 'PROMOTIONS', 'DELIVERIES', 'PURCHASES', 'ADMIN', 'RMA']
         },
     });
     console.log(`✅ Created store: ${store.name} (ID: ${store.id})`);
 
     // =========================================
-    // 5. CREATE DEMO USERS
+    // 5. CREATE ADMIN USER
     // =========================================
     const adminUser = await prisma.user.upsert({
-        where: { email: 'admin@revestimentos.com' },
+        where: { email: 'admin@admin.com' },
         update: { password: hashedPassword },
         create: {
-            email: 'admin@revestimentos.com',
+            email: 'admin@admin.com',
             password: hashedPassword,
-            name: 'Administrador',
+            name: 'Administrador Mosaic',
             isActive: true,
         },
     });
 
-    const sellerUser = await prisma.user.upsert({
-        where: { email: 'vendedor@revestimentos.com' },
-        update: { password: hashedPassword },
-        create: {
-            email: 'vendedor@revestimentos.com',
-            password: hashedPassword,
-            name: 'Carlos Vendedor',
-            isActive: true,
-        },
-    });
-
-    const managerUser = await prisma.user.upsert({
-        where: { email: 'gerente@revestimentos.com' },
-        update: { password: hashedPassword },
-        create: {
-            email: 'gerente@revestimentos.com',
-            password: hashedPassword,
-            name: 'Maria Gerente',
-            isActive: true,
-        },
-    });
-
-    console.log('✅ Created users: admin, vendedor, gerente');
-
-    // Link users to store with roles
+    // Link user to store with ADMIN role
     await prisma.clinicUser.upsert({
         where: { clinicId_userId: { clinicId: store.id, userId: adminUser.id } },
         update: {},
         create: { clinicId: store.id, userId: adminUser.id, roleId: adminRole.id, active: true },
     });
-
-    await prisma.clinicUser.upsert({
-        where: { clinicId_userId: { clinicId: store.id, userId: sellerUser.id } },
-        update: {},
-        create: { clinicId: store.id, userId: sellerUser.id, roleId: sellerRole.id, active: true },
-    });
-
-    await prisma.clinicUser.upsert({
-        where: { clinicId_userId: { clinicId: store.id, userId: managerUser.id } },
-        update: {},
-        create: { clinicId: store.id, userId: managerUser.id, roleId: managerRole.id, active: true },
-    });
-
-    console.log('✅ Linked users to store with roles');
+    console.log('✅ Created user admin@admin.com and linked to store');
 
     // =========================================
-    // 6. CREATE DEMO PRODUCTS (Revestimentos)
+    // 6. CREATE 3 ARCHITECTS
     // =========================================
-    const products = [
+    const architectsData = [
         {
-            name: 'Porcelanato Carrara 60x60',
-            description: 'Porcelanato polido tipo mármore Carrara',
-            unit: 'caixa',
-            sku: 'PRC-CARRARA-60',
-            saleType: SaleType.AREA,
-            boxCoverage: 1.44,
-            piecesPerBox: 4,
-            boxWeight: 28.5,
-            palletBoxes: 40,
-            costCents: 8900,
-            priceCents: 15900,
-            minStock: 20,
-        },
-        {
-            name: 'Piso Laminado Carvalho',
-            description: 'Piso laminado cor carvalho natural 8mm',
-            unit: 'caixa',
-            sku: 'LAM-CARV-8MM',
-            saleType: SaleType.AREA,
-            boxCoverage: 2.36,
-            piecesPerBox: 8,
-            boxWeight: 12.0,
-            palletBoxes: 50,
-            costCents: 4500,
-            priceCents: 8900,
-            minStock: 30,
-        },
-        {
-            name: 'Rejunte Epóxi Branco 1kg',
-            description: 'Rejunte epóxi para áreas molhadas',
-            unit: 'unidade',
-            sku: 'REJ-EPOX-BCO',
-            saleType: SaleType.UNIT,
-            costCents: 4500,
-            priceCents: 7900,
-            minStock: 50,
-        },
-        {
-            name: 'Argamassa AC-III 20kg',
-            description: 'Argamassa para piso sobre piso',
-            unit: 'saco',
-            sku: 'ARG-AC3-20',
-            saleType: SaleType.UNIT,
-            costCents: 3500,
-            priceCents: 5900,
-            minStock: 100,
-        },
-        {
-            name: 'Cerâmica Subway White 7,5x15',
-            description: 'Cerâmica tipo subway branca brilhante',
-            unit: 'caixa',
-            sku: 'CER-SUBWAY-W',
-            saleType: SaleType.AREA,
-            boxCoverage: 0.9,
-            piecesPerBox: 80,
-            boxWeight: 15.0,
-            palletBoxes: 60,
-            costCents: 3200,
-            priceCents: 5900,
-            minStock: 40,
-        },
-        {
-            name: 'Porcelanato Madeira Nogueira 20x120',
-            description: 'Porcelanato retificado tipo madeira',
-            unit: 'caixa',
-            sku: 'PRC-MAD-NOG',
-            saleType: SaleType.AREA,
-            boxCoverage: 1.2,
-            piecesPerBox: 5,
-            boxWeight: 32.0,
-            palletBoxes: 35,
-            costCents: 9900,
-            priceCents: 17900,
-            minStock: 25,
-        },
-    ];
-
-    for (const prod of products) {
-        await prisma.product.upsert({
-            where: { id: `${store.id}-${prod.sku}` },
-            update: prod,
-            create: {
-                id: `${store.id}-${prod.sku}`,
-                clinicId: store.id,
-                ...prod,
-                isActive: true,
-            },
-        });
-    }
-    console.log(`✅ Created ${products.length} demo products`);
-
-    // =========================================
-    // 7. CREATE DEMO STOCK LOTS
-    // =========================================
-    const porcelanatoCarrara = await prisma.product.findFirst({
-        where: { sku: 'PRC-CARRARA-60', clinicId: store.id },
-    });
-
-    if (porcelanatoCarrara) {
-        await prisma.stockLot.upsert({
-            where: { id: `lot-carrara-a1-9mm` },
-            update: {},
-            create: {
-                id: `lot-carrara-a1-9mm`,
-                clinicId: store.id,
-                productId: porcelanatoCarrara.id,
-                lotNumber: 'LOT-2026-001',
-                quantity: 150,
-                shade: 'A1',
-                caliber: '9mm',
-                expirationDate: new Date('2030-12-31'),
-            },
-        });
-
-        await prisma.stockLot.upsert({
-            where: { id: `lot-carrara-b2-9mm` },
-            update: {},
-            create: {
-                id: `lot-carrara-b2-9mm`,
-                clinicId: store.id,
-                productId: porcelanatoCarrara.id,
-                lotNumber: 'LOT-2026-002',
-                quantity: 80,
-                shade: 'B2',
-                caliber: '9mm',
-                expirationDate: new Date('2030-12-31'),
-            },
-        });
-    }
-    console.log('✅ Created demo stock lots with shade/caliber');
-
-    // =========================================
-    // 8. CREATE DEMO ARCHITECTS
-    // =========================================
-    const architect1 = await prisma.architect.upsert({
-        where: { id: `${store.id}-arq-patricia` },
-        update: {},
-        create: {
-            id: `${store.id}-arq-patricia`,
-            clinicId: store.id,
-            name: 'Patricia Silva',
-            email: 'patricia@arquitetura.com',
-            phone: '11 99999-1111',
-            document: '123.456.789-00',
+            id: `${store.id}-arq-001`,
+            name: 'Ana Lúcia Arquitetura',
+            email: 'ana@arquitetura.com.br',
+            phone: '11 91111-1111',
+            document: '111.111.111-11',
             commissionRate: 5.0,
             isActive: true,
         },
-    });
-
-    const architect2 = await prisma.architect.upsert({
-        where: { id: `${store.id}-arq-roberto` },
-        update: {},
-        create: {
-            id: `${store.id}-arq-roberto`,
-            clinicId: store.id,
-            name: 'Roberto Costa Arquitetura',
-            email: 'roberto@rcaarquitetura.com.br',
-            phone: '11 98888-2222',
-            document: '987.654.321-00',
-            commissionRate: 3.0,
+        {
+            id: `${store.id}-arq-002`,
+            name: 'Beto Costa Studio',
+            email: 'beto@studio.com',
+            phone: '11 92222-2222',
+            document: '222.222.222-22',
+            commissionRate: 4.0,
             isActive: true,
         },
-    });
-    console.log('✅ Created 2 demo architects');
+        {
+            id: `${store.id}-arq-003`,
+            name: 'Camila Design de Interiores',
+            email: 'camila@design.com',
+            phone: '11 93333-3333',
+            document: '333.333.333-33',
+            commissionRate: 6.0,
+            isActive: true,
+        }
+    ];
+
+    for (const arq of architectsData) {
+        await prisma.architect.upsert({
+            where: { id: arq.id },
+            update: arq,
+            create: { ...arq, clinicId: store.id },
+        });
+    }
+    console.log(`✅ Created ${architectsData.length} architects`);
 
     // =========================================
-    // 9. CREATE DEMO CUSTOMERS
+    // 7. CREATE 3 CUSTOMERS
     // =========================================
-    const customer1 = await prisma.customer.upsert({
-        where: { id: `${store.id}-cli-maria` },
-        update: {},
-        create: {
-            id: `${store.id}-cli-maria`,
-            clinicId: store.id,
+    const customersData = [
+        {
+            id: `${store.id}-cli-001`,
             type: CustomerType.PF,
-            name: 'Maria Oliveira',
-            email: 'maria.oliveira@email.com',
-            phone: '11 97777-3333',
-            document: '111.222.333-44',
-            address: 'Rua das Flores, 123',
+            name: 'João Pedro Silva',
+            email: 'joaopedro@email.com',
+            phone: '11 94444-4444',
+            document: '444.444.444-44',
+            address: 'Rua das Flores, 100',
+            addressNumber: '100',
             city: 'São Paulo',
             state: 'SP',
-            zipCode: '01234-567',
-            architectId: architect1.id,
+            zipCode: '01400-000',
+            architectId: architectsData[0].id,
             isActive: true,
         },
-    });
-
-    const customer2 = await prisma.customer.upsert({
-        where: { id: `${store.id}-cli-construtora` },
-        update: {},
-        create: {
-            id: `${store.id}-cli-construtora`,
-            clinicId: store.id,
+        {
+            id: `${store.id}-cli-002`,
             type: CustomerType.PJ,
-            name: 'Construtora ABC Ltda',
-            email: 'compras@construtorabc.com.br',
-            phone: '11 3333-4444',
-            document: '12.345.678/0001-99',
+            name: 'Construtora Horizonte',
+            email: 'compras@horizonte.com.br',
+            phone: '11 5555-5555',
+            document: '55.555.555/0001-55',
             stateRegistration: '123.456.789.000',
-            address: 'Av. Industrial, 1000',
+            address: 'Av. Paulista, 1000',
+            addressNumber: '1000',
+            city: 'São Paulo',
+            state: 'SP',
+            zipCode: '01310-000',
+            creditLimitCents: 10000000, // R$ 100.000,00
+            isActive: true,
+        },
+        {
+            id: `${store.id}-cli-003`,
+            type: CustomerType.PF,
+            name: 'Maria Clara Souza',
+            email: 'mariaclara@email.com',
+            phone: '11 96666-6666',
+            document: '666.666.666-66',
+            address: 'Rua Augusta, 500',
+            addressNumber: '500',
+            city: 'São Paulo',
+            state: 'SP',
+            zipCode: '01305-000',
+            architectId: architectsData[1].id,
+            isActive: true,
+        }
+    ];
+
+    for (const cli of customersData) {
+        await prisma.customer.upsert({
+            where: { id: cli.id },
+            update: cli,
+            create: { ...cli, clinicId: store.id },
+        });
+    }
+    console.log(`✅ Created ${customersData.length} customers`);
+
+    // =========================================
+    // 8. CREATE 3 SUPPLIERS
+    // =========================================
+    const suppliersData = [
+        {
+            id: `${store.id}-sup-001`,
+            name: 'Cerâmica XYZ Brasil',
+            cnpj: '77.777.777/0001-77',
+            email: 'contato@ceramicaxyz.com.br',
+            phone: '19 3333-3333',
+            address: 'Rodovia Anhanguera, km 150',
+            city: 'Rio Claro',
+            state: 'SP',
+            isActive: true,
+        },
+        {
+            id: `${store.id}-sup-002`,
+            name: 'Tintas e Tintas S/A',
+            cnpj: '88.888.888/0001-88',
+            email: 'vendas@tintaspremium.com.br',
+            phone: '11 3888-8888',
+            address: 'Av. das Indústrias, 500',
             city: 'Guarulhos',
             state: 'SP',
-            zipCode: '07000-000',
-            creditLimitCents: 5000000, // R$ 50.000,00
             isActive: true,
         },
-    });
-
-    const customer3 = await prisma.customer.upsert({
-        where: { id: `${store.id}-cli-joao` },
-        update: {},
-        create: {
-            id: `${store.id}-cli-joao`,
-            clinicId: store.id,
-            type: CustomerType.PF,
-            name: 'João Santos',
-            email: 'joao.santos@gmail.com',
-            phone: '11 96666-5555',
-            document: '555.666.777-88',
-            address: 'Rua Principal, 456',
-            city: 'São Paulo',
+        {
+            id: `${store.id}-sup-003`,
+            name: 'Distribuidora de Argamassas Forte',
+            cnpj: '99.999.999/0001-99',
+            email: 'pedidos@argamassasforte.com',
+            phone: '15 3999-9999',
+            address: 'Estrada Velha, 200',
+            city: 'Sorocaba',
             state: 'SP',
-            zipCode: '04567-890',
             isActive: true,
-        },
-    });
-    console.log('✅ Created 3 demo customers (2 PF, 1 PJ)');
+        }
+    ];
 
-    // =========================================
-    // 10. CREATE DEMO QUOTES
-    // =========================================
-    if (porcelanatoCarrara) {
-        const quote1 = await prisma.quote.upsert({
-            where: { id: `${store.id}-quote-001` },
-            update: {},
-            create: {
-                id: `${store.id}-quote-001`,
-                clinicId: store.id,
-                number: 1,
-                customerId: customer1.id,
-                architectId: architect1.id,
-                sellerId: sellerUser.id,
-                status: QuoteStatus.AGUARDANDO_APROVACAO,
-                validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-                sentAt: new Date(),
-                subtotalCents: 318000,
-                discountCents: 0,
-                deliveryFee: 15000,
-                totalCents: 333000,
-                notes: 'Orçamento para reforma do banheiro - Porcelanato Carrara',
-            },
+    for (const sup of suppliersData) {
+        await prisma.supplier.upsert({
+            where: { id: sup.id },
+            update: sup,
+            create: { ...sup, clinicId: store.id },
         });
-
-        await prisma.quoteItem.upsert({
-            where: { id: `${store.id}-quoteitem-001` },
-            update: {},
-            create: {
-                id: `${store.id}-quoteitem-001`,
-                quoteId: quote1.id,
-                productId: porcelanatoCarrara.id,
-                inputArea: 28.8,
-                quantityBoxes: 20,
-                resultingArea: 28.8,
-                unitPriceCents: 15900,
-                discountCents: 0,
-                totalCents: 318000,
-                notes: 'Banheiro social + banheiro suíte',
-            },
-        });
-
-        const quote2 = await prisma.quote.upsert({
-            where: { id: `${store.id}-quote-002` },
-            update: {},
-            create: {
-                id: `${store.id}-quote-002`,
-                clinicId: store.id,
-                number: 2,
-                customerId: customer2.id,
-                sellerId: sellerUser.id,
-                status: QuoteStatus.EM_ORCAMENTO,
-                validUntil: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
-                subtotalCents: 1590000,
-                discountCents: 79500,
-                deliveryFee: 0,
-                totalCents: 1510500,
-                notes: 'Obra comercial - 100 caixas com desconto de 5%',
-                internalNotes: 'Cliente grande, dar prioridade na entrega',
-            },
-        });
-        console.log('✅ Created 2 demo quotes with items');
     }
-
-    // =========================================
-    // 11. CREATE DEMO ORDER
-    // =========================================
-    if (porcelanatoCarrara) {
-        const order1 = await prisma.order.upsert({
-            where: { id: `${store.id}-order-001` },
-            update: {},
-            create: {
-                id: `${store.id}-order-001`,
-                clinicId: store.id,
-                number: 1,
-                customerId: customer3.id,
-                sellerId: sellerUser.id,
-                status: OrderStatus.PAGO,
-                subtotalCents: 79500,
-                discountCents: 0,
-                deliveryFee: 8000,
-                totalCents: 87500,
-                deliveryAddress: 'Rua Principal, 456 - São Paulo, SP',
-                deliveryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-                confirmedAt: new Date(),
-                notes: 'Entrega no período da manhã',
-            },
-        });
-
-        await prisma.orderItem.upsert({
-            where: { id: `${store.id}-orderitem-001` },
-            update: {},
-            create: {
-                id: `${store.id}-orderitem-001`,
-                orderId: order1.id,
-                productId: porcelanatoCarrara.id,
-                quantityBoxes: 5,
-                resultingArea: 7.2,
-                unitPriceCents: 15900,
-                discountCents: 0,
-                totalCents: 79500,
-            },
-        });
-        console.log('✅ Created 1 demo order with items');
-    }
-    */
+    console.log(`✅ Created ${suppliersData.length} suppliers`);
 
     // =========================================
     // SUMMARY
     // =========================================
     console.log('\n🎉 Seed completed successfully!');
-    // console.log('\n📋 CREDENCIAIS DE TESTE:');
-    // console.log('────────────────────────────────────');
-    // console.log('| Email                          | Senha  | Papel       |');
-    // console.log('|--------------------------------|--------|-------------|');
-    // console.log('| admin@revestimentos.com        | 123456 | Admin       |');
-    // console.log('| vendedor@revestimentos.com     | 123456 | Vendedor    |');
-    // console.log('| gerente@revestimentos.com      | 123456 | Gerente     |');
-    // console.log('────────────────────────────────────');
-    // console.log(`\n🏪 Loja ID: ${store.id}`);
-    // console.log(`📦 Produtos: 6`);
-    // console.log(`👥 Clientes: 3`);
-    // console.log(`🏛️ Arquitetos: 2`);
-    // console.log(`📄 Orçamentos: 2`);
-    // console.log(`📦 Pedidos: 1`);
+    console.log('\n📋 CREDENCIAIS DE TESTE:');
+    console.log('────────────────────────────────────');
+    console.log('| Email                          | Senha  | Papel       |');
+    console.log('|--------------------------------|--------|-------------|');
+    console.log('| admin@admin.com                | 123456 | Administrador|');
+    console.log('| superadmin@revestimentos.com   | 123456 | Super Admin |');
+    console.log('────────────────────────────────────');
+    console.log(`\n🏪 Loja ID: ${store.id} (Mosaic Teste)`);
+    console.log(`👥 Clientes: 3`);
+    console.log(`🏛️ Arquitetos: 3`);
+    console.log(`🏭 Fornecedores: 3`);
 
     // =========================================
     // 12. CREATE SUPER ADMIN

@@ -22,7 +22,7 @@ import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 @Controller('stock/exits')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class StockExitController {
-  constructor(private readonly service: StockExitService) {}
+  constructor(private readonly service: StockExitService) { }
 
   @Post()
   create(@Request() req: any, @Body() dto: CreateStockExitDto) {
@@ -35,8 +35,17 @@ export class StockExitController {
   }
 
   @Get()
-  findAll(@Request() req: any, @Query('page') page: number) {
-    return this.service.listExits(req.clinicId, page ? Number(page) : 1);
+  findAll(
+    @Request() req: any,
+    @Query('page') page: number,
+    @Query('status') status?: string,
+  ) {
+    return this.service.listExits(
+      req.clinicId,
+      page ? Number(page) : 1,
+      20,
+      status,
+    );
   }
 
   @Get(':id')

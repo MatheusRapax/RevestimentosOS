@@ -26,7 +26,7 @@ export class UpdateStockExitItemDto {
 
 @Injectable()
 export class StockExitService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async createDraft(clinicId: string, dto: CreateStockExitDto, userId: string) {
     return this.prisma.stockExit.create({
@@ -188,17 +188,23 @@ export class StockExitService {
     return exit;
   }
 
-  async listExits(clinicId: string, page = 1, limit = 20) {
+  async listExits(clinicId: string, page = 1, limit = 20, status?: string) {
     const skip = (page - 1) * limit;
+    const where: any = { clinicId };
+
+    if (status) {
+      where.status = status;
+    }
+
     const [data, total] = await this.prisma.$transaction([
       this.prisma.stockExit.findMany({
-        where: { clinicId },
+        where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
         include: { _count: { select: { items: true } } },
       }),
-      this.prisma.stockExit.count({ where: { clinicId } }),
+      this.prisma.stockExit.count({ where }),
     ]);
 
     return {
