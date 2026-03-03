@@ -10,4 +10,9 @@ export class HealthController {
       service: 'MOA NEXUS API',
     };
   }
+
+  @Get('sentry-debug')
+  getError() {
+    throw new Error('Sentry Backend Test Error!');
+  }
 }

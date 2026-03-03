@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
+import * as Sentry from '@sentry/nextjs';
 import WidgetsBoard from '@/components/dashboard/WidgetsBoard';
+import { Button } from '@/components/ui/button';
 import {
     Users,
     Package,
@@ -179,13 +181,33 @@ export default function DashboardPage() {
     return (
         <div className="h-full flex flex-col">
             {/* Header compacto */}
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900">
-                    Olá, {user?.name?.split(' ')[0] || 'Usuário'}! 👋
-                </h1>
-                <p className="text-sm text-gray-500">
-                    Selecione um módulo para começar
-                </p>
+            <div className="mb-6 flex justify-between items-center">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">
+                        Olá, {user?.name?.split(' ')[0] || 'Usuário'}! 👋
+                    </h1>
+                    <p className="text-sm text-gray-500">
+                        Selecione um módulo para começar
+                    </p>
+                </div>
+                <div>
+                    {/* Sentry Test Button */}
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                            try {
+                                Sentry.metrics.count('test_counter', 1);
+                                throw new Error('This is your first error!');
+                            } catch (e) {
+                                Sentry.captureException(e);
+                                throw e;
+                            }
+                        }}
+                    >
+                        Testar Sentry
+                    </Button>
+                </div>
             </div>
 
             {/* Grid compacto - todos os módulos visíveis */}
