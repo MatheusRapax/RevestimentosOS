@@ -2,9 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
-import * as Sentry from '@sentry/nextjs';
 import WidgetsBoard from '@/components/dashboard/WidgetsBoard';
-import { Button } from '@/components/ui/button';
 import {
     Users,
     Package,
@@ -189,24 +187,6 @@ export default function DashboardPage() {
                     <p className="text-sm text-gray-500">
                         Selecione um módulo para começar
                     </p>
-                </div>
-                <div>
-                    {/* Sentry Test Button */}
-                    <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                            try {
-                                Sentry.metrics.count('test_counter', 1);
-                                throw new Error('This is your first error!');
-                            } catch (e) {
-                                Sentry.captureException(e);
-                                throw e;
-                            }
-                        }}
-                    >
-                        Testar Sentry
-                    </Button>
                 </div>
             </div>
 

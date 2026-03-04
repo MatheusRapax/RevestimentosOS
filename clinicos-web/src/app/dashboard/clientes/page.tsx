@@ -178,7 +178,7 @@ export default function ClientesPage() {
             };
 
             if (editingCustomer) {
-                await api.put(`/customers/${editingCustomer.id}`, payload);
+                await api.patch(`/customers/${editingCustomer.id}`, payload);
                 setSuccessMessage('Cliente atualizado com sucesso!');
             } else {
                 await api.post('/customers', payload);

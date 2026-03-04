@@ -36,7 +36,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        console.log('AuthContext: Initializing...');
 
         // Load from localStorage (only on client)
         if (typeof window !== 'undefined') {
@@ -44,29 +43,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const clinicId = localStorage.getItem('clinicId');
             const userData = localStorage.getItem('user');
 
-            console.log('AuthContext: localStorage data:', {
-                hasToken: !!token,
-                hasUser: !!userData,
-                clinicId
-            });
-
             if (token && userData) {
                 try {
                     const parsedUser = JSON.parse(userData);
                     setUser(parsedUser);
                     setActiveClinicState(clinicId);
-                    console.log('AuthContext: User loaded from localStorage', parsedUser);
                 } catch (error) {
                     console.error('Error parsing user data:', error);
                     localStorage.clear();
                 }
-            } else {
-                console.log('AuthContext: No user in localStorage');
             }
         }
 
         setIsLoading(false);
-        console.log('AuthContext: Initialization complete, isLoading set to false');
     }, []);
 
     const setActiveClinic = (clinicId: string) => {
@@ -77,11 +66,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const login = async (email: string, password: string) => {
-        console.log('AuthContext: login called', { email });
-
         try {
             const response = await api.post('/auth/login', { email, password });
-            console.log('AuthContext: login response', response.data);
 
             // Backend returns: { access_token, user, clinics }
             const { access_token, user: userData, clinics } = response.data;
@@ -95,19 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (typeof window !== 'undefined') {
                 localStorage.setItem('token', access_token);
                 localStorage.setItem('user', JSON.stringify(userWithClinics));
-                console.log('AuthContext: saved to localStorage', {
-                    token: access_token.substring(0, 20) + '...',
-                    user: userWithClinics
-                });
             }
             setUser(userWithClinics);
 
             // If only one clinic, set it automatically
             if (clinics && clinics.length === 1) {
-                console.log('AuthContext: auto-selecting single clinic', clinics[0]);
                 setActiveClinic(clinics[0].id);
-            } else {
-                console.log('AuthContext: user has', clinics?.length || 0, 'clinics');
             }
 
             return userWithClinics;

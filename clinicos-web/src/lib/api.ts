@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+const isServer = typeof window === 'undefined';
+
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://api.moa.software',
+    // If running on Next.js Server (SSR), talk directly via Docker network.
+    // If running on the user's browser, fetch `/api` via NGINX Proxy.
+    baseURL: isServer ? (process.env.INTERNAL_API_URL || 'http://backend:3000') : '/api',
 });
 
 // Request interceptor
@@ -11,14 +15,6 @@ api.interceptors.request.use((config) => {
         const token = localStorage.getItem('token');
         const clinicId = localStorage.getItem('clinicId');
 
-        console.log('🔵 API Request Interceptor:', {
-            url: config.url,
-            method: config.method,
-            hasToken: !!token,
-            clinicId: clinicId,
-            headers: config.headers
-        });
-
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -26,21 +22,14 @@ api.interceptors.request.use((config) => {
         // Add clinic header
         if (clinicId) {
             config.headers['X-Clinic-Id'] = clinicId;
-            console.log('✅ X-Clinic-Id header added:', clinicId);
-        } else {
-            console.warn('⚠️ No clinicId in localStorage!');
         }
-
-        console.log('📤 Final headers:', config.headers);
     }
 
     return config;
 });
 
-// Response interceptor
 api.interceptors.response.use(
     (response) => {
-        console.log('✅ API Response:', response.status, response.config.url);
         return response;
     },
     (error) => {

@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseNFeXML, NFeItem } from '@/lib/nfe-parser';
+import { InstallmentsList } from '../nova/components/installments-list';
 
 interface EditEntryPageProps {
     params: Promise<{
@@ -124,6 +125,9 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                 volumeSpecies: nfeData.transport.volSpecies,
                 grossWeight: nfeData.transport.volGrossWeight,
                 netWeight: nfeData.transport.volNetWeight,
+
+                // Installments (Faturas / Duplicatas)
+                installments: nfeData.installments && nfeData.installments.length > 0 ? nfeData.installments : undefined,
             };
 
             await updateEntry(id, updateData);
@@ -313,6 +317,18 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                     </CardContent>
                 )}
             </Card>
+
+            {/* Faturas / Duplicatas */}
+            {currentEntry?.installmentsData && Array.isArray(currentEntry.installmentsData) && currentEntry.installmentsData.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Faturas / Duplicatas</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <InstallmentsList installments={currentEntry.installmentsData} />
+                    </CardContent>
+                </Card>
+            )}
 
             <Card>
                 <CardHeader>

@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: revestimentos-db-prod
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: revestimentos
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # NestJS Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: revestimentos-backend-prod
+    restart: always
+    env_file:
+      - .env
+    environment:
+      # Override the DB URL to point to the production container name
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/revestimentos?schema=public
+      NODE_ENV: production
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "npx prisma migrate deploy && npx prisma generate && npm run build && npm run start:prod"
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./clinicos-web
+      dockerfile: Dockerfile
+    container_name: revestimentos-frontend-prod
+    restart: always
+    env_file:
+      - ./clinicos-web/.env.local
+    environment:
+      # In production, the browser will call the API through NGINX at the same domain/IP under /api
+      # But SSR calls from Next.js server to NestJS server should use the internal docker network
+      NEXT_PUBLIC_API_URL: /api
+      INTERNAL_API_URL: http://backend:3000
+      NODE_ENV: production
+    depends_on:
+      - backend
+    command: sh -c "npm run build && npm start"
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: revestimentos-nginx-prod
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  postgres_data_prod:
