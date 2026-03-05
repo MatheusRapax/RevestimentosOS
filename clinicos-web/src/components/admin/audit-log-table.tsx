@@ -7,6 +7,9 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { AuditActionBadge } from './audit-action-badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Search } from 'lucide-react';
 
 interface AuditLog {
     id: string;
@@ -14,6 +17,7 @@ interface AuditLog {
     entity: string;
     entityId: string | null;
     message: string | null;
+    details?: any;
     createdAt: string;
     user?: {
         id: string;
@@ -96,6 +100,7 @@ export function AuditLogTable({ logs, loading }: AuditLogTableProps) {
                         <TableHead>Entidade</TableHead>
                         <TableHead>Usuário</TableHead>
                         <TableHead>Mensagem</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -111,6 +116,25 @@ export function AuditLogTable({ logs, loading }: AuditLogTableProps) {
                             <TableCell>{log.user?.name || 'Sistema'}</TableCell>
                             <TableCell className="max-w-xs truncate">
                                 {formatMessage(log.message)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                                {log.details && Object.keys(log.details).length > 0 && (
+                                    <Dialog>
+                                        <DialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" title="Ver Detalhes">
+                                                <Search className="h-4 w-4" />
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="max-w-md">
+                                            <DialogHeader>
+                                                <DialogTitle>Detalhes da Ação</DialogTitle>
+                                            </DialogHeader>
+                                            <div className="bg-slate-950 text-slate-50 p-4 rounded-md overflow-x-auto text-xs font-mono">
+                                                <pre>{JSON.stringify(log.details, null, 2)}</pre>
+                                            </div>
+                                        </DialogContent>
+                                    </Dialog>
+                                )}
                             </TableCell>
                         </TableRow>
                     ))}

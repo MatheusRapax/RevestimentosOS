@@ -11,7 +11,7 @@ import { AuditAction } from '@prisma/client';
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
-  constructor(private auditService: AuditService) {}
+  constructor(private auditService: AuditService) { }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
@@ -63,6 +63,9 @@ export class AuditInterceptor implements NestInterceptor {
         params: request.params,
       });
 
+      // Generate a user-friendly message based on the entity and details
+      const message = this.generateFriendlyMessage(action, entity, request.body);
+
       console.log(
         `[Audit Debug] Action: ${action}, Entity: ${entity}, Body Keys: ${Object.keys(request.body || {})}, Details:`,
         JSON.stringify(details),
@@ -74,6 +77,7 @@ export class AuditInterceptor implements NestInterceptor {
         action,
         entity,
         entityId,
+        message,
         details,
         ip: request.ip || request.connection?.remoteAddress,
         userAgent: request.headers['user-agent'],
@@ -141,6 +145,34 @@ export class AuditInterceptor implements NestInterceptor {
     }
 
     return undefined;
+  }
+
+  private generateFriendlyMessage(action: AuditAction, entity: string, body: any): string | undefined {
+    if (!body || typeof body !== 'object' || Object.keys(body).length === 0) {
+      if (action === AuditAction.DELETE) return `Excluiu registro de ${entity}`;
+      if (action === AuditAction.VIEW) return `Visualizou registro de ${entity}`;
+      return undefined;
+    }
+
+    const keys = Object.keys(body).filter((k) => k !== 'password' && k !== 'token');
+
+    if (keys.length === 0) return undefined;
+
+    // Special cases for better UX
+    if (entity === 'Clinic' && keys.includes('globalMarkup')) {
+      return `Atualizou Configurações Gerais de Preço (Markup)`;
+    }
+
+    if (entity === 'Auth' && action === AuditAction.LOGIN) {
+      return `Sessão iniciada`;
+    }
+
+    // Generic fallback for Creates/Updates
+    const actionVerb = action === AuditAction.CREATE ? 'Criou' : 'Atualizou';
+    const fields = keys.slice(0, 3).join(', ');
+    const more = keys.length > 3 ? ` e mais ${keys.length - 3}` : '';
+
+    return `${actionVerb} ${entity} (Campos: ${fields}${more})`;
   }
 
   private shouldSkipAudit(url: string, action: AuditAction): boolean {
