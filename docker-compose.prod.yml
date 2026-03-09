@@ -17,6 +17,8 @@ services:
       PORT: 3000
     command: >
       sh -c "npx prisma migrate deploy && npx prisma db seed && npm run build && npm run start:prod"
+    networks:
+      - coolify
 
   # Next.js Frontend
   frontend:
@@ -36,3 +38,9 @@ services:
     depends_on:
       - backend
     command: sh -c "npm run build && npm start"
+    networks:
+      - coolify
+
+networks:
+  coolify:
+    external: true
