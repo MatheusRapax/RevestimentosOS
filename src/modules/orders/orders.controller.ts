@@ -7,7 +7,9 @@ import {
   Query,
   UseGuards,
   Request,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
@@ -25,7 +27,7 @@ import { RequireModules } from '../../core/auth/decorators/module.decorator';
 @UseGuards(JwtAuthGuard, TenantGuard, ModuleGuard)
 @RequireModules('SALES')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(private readonly ordersService: OrdersService) { }
 
   @Get()
   async findAll(
@@ -39,6 +41,28 @@ export class OrdersController {
   @Get('stats')
   async getStats(@Request() req: AuthRequest) {
     return this.ordersService.getStats(req.clinicId);
+  }
+
+  @Get('export/excel')
+  async exportExcel(
+    @Request() req: AuthRequest,
+    @Res() res: Response,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const buffer = await this.ordersService.exportToExcel(
+      req.clinicId,
+      startDate,
+      endDate,
+    );
+
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="faturamento.xlsx"',
+    });
+
+    res.send(buffer);
   }
 
   @Get(':id')

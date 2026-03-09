@@ -13,6 +13,7 @@ import {
 
 import { StockAllocationService } from '../stock/services/stock-allocation.service';
 import { StockExitService } from '../stock/stock-exit.service';
+import * as xlsx from 'xlsx';
 
 @Injectable()
 export class OrdersService {
@@ -469,5 +470,78 @@ export class OrdersService {
     });
 
     return result;
+  }
+
+  async exportToExcel(clinicId: string, startDate?: string, endDate?: string) {
+    const dateFilter: any = {};
+    if (startDate) dateFilter.gte = new Date(startDate);
+    if (endDate) dateFilter.lte = new Date(endDate);
+
+    const orders = await this.prisma.order.findMany({
+      where: {
+        clinicId,
+        createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+        status: { notIn: [OrderStatus.CANCELADO, OrderStatus.RASCUNHO] },
+      },
+      include: {
+        customer: { select: { name: true, document: true } },
+        seller: { select: { name: true } },
+        items: {
+          include: {
+            product: { select: { name: true, sku: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Formatting data for Excel flat structure
+    const data = orders.map((order) => {
+      // Create a string of items summarizing product and quantity
+      const itemsSummary = order.items
+        .map((item) => `${item.quantityBoxes}x ${item.product.name}`)
+        .join(' | ');
+
+      return {
+        'Nº Pedido': order.number,
+        'Data Criação': order.createdAt.toLocaleDateString('pt-BR'),
+        'Status Atual': order.status,
+        Cliente: order.customer.name,
+        'CPF/CNPJ': order.customer.document || '-',
+        Vendedor: order.seller?.name || 'Sem vendedor',
+        Subtotal: order.subtotalCents / 100,
+        Desconto: order.discountCents / 100,
+        Frete: order.deliveryFee / 100,
+        'Total (R$)': order.totalCents / 100,
+        'Qtd. Itens': order.items.length,
+        'Resumo Produtos': itemsSummary,
+      };
+    });
+
+    // Se não houver dados, criar pelo menos o cabeçalho
+    if (data.length === 0) {
+      data.push({
+        'Nº Pedido': '-',
+        'Data Criação': '-',
+        'Status Atual': '-',
+        Cliente: 'Nenhum pedido encontrado no período',
+        'CPF/CNPJ': '-',
+        Vendedor: '-',
+        Subtotal: 0,
+        Desconto: 0,
+        Frete: 0,
+        'Total (R$)': 0,
+        'Qtd. Itens': 0,
+        'Resumo Produtos': '-',
+      } as any);
+    }
+
+    const worksheet = xlsx.utils.json_to_sheet(data);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Faturamento');
+
+    // Return buffer
+    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    return buffer as Buffer;
   }
 }

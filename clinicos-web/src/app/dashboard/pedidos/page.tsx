@@ -103,6 +103,14 @@ export default function OrdersPage() {
         }
     };
 
+    const handleExportExcel = () => {
+        // Obter os filtros atuais se quiser passar para a URL 
+        // Mas por padrão, exportar os dados do mês atual ou base
+        const query = new URLSearchParams();
+        // future proofing: if there was a start/end date filter in the UI, we would pass it here
+        window.open(`/api/orders/export/excel?${query.toString()}`, '_blank');
+    };
+
     useEffect(() => {
         const id = searchParams.get('id');
         if (id && !selectedOrder) {
@@ -255,6 +263,12 @@ export default function OrdersPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
                     <p className="text-gray-500">Gerencie os pedidos de venda</p>
+                </div>
+                <div className="flex gap-3">
+                    <Button onClick={handleExportExcel} variant="outline" className="gap-2">
+                        <Download className="w-4 h-4" />
+                        Exportar Excel
+                    </Button>
                 </div>
             </div>
 

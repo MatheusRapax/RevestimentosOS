@@ -23,7 +23,7 @@ import { RequireModules } from '../../core/auth/decorators/module.decorator';
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleGuard)
 @RequireModules('FINANCE')
 export class FinanceController {
-  constructor(private readonly financeService: FinanceService) {}
+  constructor(private readonly financeService: FinanceService) { }
 
   /**
    * GET /finance/patients/:patientId/account
@@ -159,6 +159,24 @@ export class FinanceController {
   @Permissions(PERMISSIONS.FINANCE_READ)
   listPayments(@Request() req: any, @Param('patientId') patientId: string) {
     return this.financeService.listPayments(req.clinicId, patientId);
+  }
+
+  // =====================================================
+  // FINANCIAL REPORTS
+  // =====================================================
+
+  @Get('reports/revenue')
+  @Permissions(PERMISSIONS.FINANCE_READ)
+  async getRevenueReport(
+    @Request() req: any,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.financeService.getRevenueReport(
+      req.clinicId,
+      startDate,
+      endDate,
+    );
   }
 
   // =====================================================

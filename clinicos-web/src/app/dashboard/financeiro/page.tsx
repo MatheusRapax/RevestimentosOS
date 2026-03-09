@@ -23,7 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MonthYearPicker } from './components/month-year-picker';
-
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 
 export default function FinanceiroPage() {
@@ -36,6 +36,21 @@ export default function FinanceiroPage() {
                 params: {
                     month: currentDate.getMonth() + 1,
                     year: currentDate.getFullYear()
+                }
+            });
+            return response.data;
+        }
+    });
+
+    const { data: revenueData, isLoading: isLoadingRevenue } = useQuery({
+        queryKey: ['revenue-report', currentDate.getMonth(), currentDate.getFullYear()],
+        queryFn: async () => {
+            const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0); // Last day of month
+            const response = await api.get('/finance/reports/revenue', {
+                params: {
+                    startDate: startDate.toISOString(),
+                    endDate: endDate.toISOString()
                 }
             });
             return response.data;
@@ -125,170 +140,251 @@ export default function FinanceiroPage() {
                 </div>
             </div>
 
-            {/* Main Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl border p-5 shadow-sm">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-sm text-gray-500">Faturamento</p>
-                            <p className="text-2xl font-bold mt-1">{formatCurrency(dashboardData.currentMonth.revenue)}</p>
-                        </div>
-                        <div className={`flex items-center gap-1 text-sm ${revenueChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {revenueChange >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                            {Math.abs(revenueChange)}%
-                        </div>
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-blue-500 rounded-full" style={{ width: '70%' }}></div>
-                        </div>
-                    </div>
-                </div>
+            <Tabs defaultValue="dashboard" className="w-full">
+                <TabsList className="mb-4">
+                    <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+                    <TabsTrigger value="receitas">Receitas Financeiras</TabsTrigger>
+                </TabsList>
 
-                <div className="bg-white rounded-xl border p-5 shadow-sm">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-sm text-gray-500">Lucro Bruto</p>
-                            <p className="text-2xl font-bold mt-1 text-green-600">{formatCurrency(dashboardData.currentMonth.profit)}</p>
-                        </div>
-                        <div className={`flex items-center gap-1 text-sm ${profitChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {profitChange >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                            {Math.abs(profitChange)}%
-                        </div>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-2">
-                        Margem: {dashboardData.currentMonth.revenue > 0 ? ((dashboardData.currentMonth.profit / dashboardData.currentMonth.revenue) * 100).toFixed(1) : '0.0'}%
-                    </p>
-                </div>
-
-                <div className="bg-white rounded-xl border p-5 shadow-sm">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-sm text-gray-500">Pedidos</p>
-                            <p className="text-2xl font-bold mt-1">{dashboardData.currentMonth.ordersCount}</p>
-                        </div>
-                        <div className={`flex items-center gap-1 text-sm ${ordersChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {ordersChange >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                            {Math.abs(ordersChange)}%
-                        </div>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-2">
-                        Ticket Médio: {formatCurrency(dashboardData.currentMonth.averageTicket)}
-                    </p>
-                </div>
-
-                <div className="bg-white rounded-xl border p-5 shadow-sm">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-sm text-gray-500">Taxa de Conversão</p>
-                            <p className="text-2xl font-bold mt-1">{dashboardData.currentMonth.conversionRate}%</p>
-                        </div>
-                        <FileText className="h-5 w-5 text-purple-500" />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-2">
-                        {dashboardData.currentMonth.ordersCount} de {dashboardData.currentMonth.quotesCount} orçamentos
-                    </p>
-                </div>
-            </div>
-
-            {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Revenue Trend */}
-                <div className="bg-white rounded-xl border p-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="font-semibold flex items-center gap-2">
-                            <BarChart3 className="h-5 w-5 text-blue-500" />
-                            Faturamento Mensal
-                        </h3>
-                    </div>
-                    <div className="flex items-end gap-3 h-48">
-                        {dashboardData.monthlyTrend.map((month: any) => (
-                            <div key={month.month} className="flex-1 flex flex-col items-center gap-2">
-                                <div
-                                    className="w-full bg-blue-500 rounded-t-lg transition-all hover:bg-blue-600 relative group"
-                                    style={{ height: `${maxRevenue > 0 ? (month.revenue / maxRevenue) * 100 : 0}%`, minHeight: '4px' }}
-                                >
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
-                                        {formatCurrency(month.revenue)}
-                                    </div>
+                <TabsContent value="dashboard" className="space-y-6">
+                    {/* Main Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="bg-white rounded-xl border p-5 shadow-sm">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="text-sm text-gray-500">Faturamento</p>
+                                    <p className="text-2xl font-bold mt-1">{formatCurrency(dashboardData.currentMonth.revenue)}</p>
                                 </div>
-                                <span className="text-xs text-gray-500">{month.month}</span>
+                                <div className={`flex items-center gap-1 text-sm ${revenueChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {revenueChange >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                                    {Math.abs(revenueChange)}%
+                                </div>
                             </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Top Products */}
-                <div className="bg-white rounded-xl border p-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="font-semibold flex items-center gap-2">
-                            <Package className="h-5 w-5 text-green-500" />
-                            Produtos Mais Vendidos (Ult. 3 meses)
-                        </h3>
-                    </div>
-                    <div className="space-y-4">
-                        {dashboardData.topProducts.length === 0 ? (
-                            <div className="text-center text-gray-400 py-8">Nenhum produto vendido no período.</div>
-                        ) : (
-                            dashboardData.topProducts.map((product: any, idx: number) => (
-                                <div key={idx} className="flex items-center gap-3">
-                                    <span className="text-sm font-medium text-gray-400 w-6">#{idx + 1}</span>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate" title={product.name}>{product.name}</p>
-                                        <p className="text-xs text-gray-400">{product.sold} caixas</p>
-                                    </div>
-                                    <span className="text-sm font-semibold">{formatCurrency(product.revenue)}</span>
+                            <div className="mt-2 flex items-center gap-2">
+                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-blue-500 rounded-full" style={{ width: '70%' }}></div>
                                 </div>
-                            ))
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl border p-5 shadow-sm">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="text-sm text-gray-500">Lucro Bruto</p>
+                                    <p className="text-2xl font-bold mt-1 text-green-600">{formatCurrency(dashboardData.currentMonth.profit)}</p>
+                                </div>
+                                <div className={`flex items-center gap-1 text-sm ${profitChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {profitChange >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                                    {Math.abs(profitChange)}%
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2">
+                                Margem: {dashboardData.currentMonth.revenue > 0 ? ((dashboardData.currentMonth.profit / dashboardData.currentMonth.revenue) * 100).toFixed(1) : '0.0'}%
+                            </p>
+                        </div>
+
+                        <div className="bg-white rounded-xl border p-5 shadow-sm">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="text-sm text-gray-500">Pedidos</p>
+                                    <p className="text-2xl font-bold mt-1">{dashboardData.currentMonth.ordersCount}</p>
+                                </div>
+                                <div className={`flex items-center gap-1 text-sm ${ordersChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {ordersChange >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                                    {Math.abs(ordersChange)}%
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2">
+                                Ticket Médio: {formatCurrency(dashboardData.currentMonth.averageTicket)}
+                            </p>
+                        </div>
+
+                        <div className="bg-white rounded-xl border p-5 shadow-sm">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="text-sm text-gray-500">Taxa de Conversão</p>
+                                    <p className="text-2xl font-bold mt-1">{dashboardData.currentMonth.conversionRate}%</p>
+                                </div>
+                                <FileText className="h-5 w-5 text-purple-500" />
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2">
+                                {dashboardData.currentMonth.ordersCount} de {dashboardData.currentMonth.quotesCount} orçamentos
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Charts Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Revenue Trend */}
+                        <div className="bg-white rounded-xl border p-6 shadow-sm">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="font-semibold flex items-center gap-2">
+                                    <BarChart3 className="h-5 w-5 text-blue-500" />
+                                    Faturamento Mensal
+                                </h3>
+                            </div>
+                            <div className="flex items-end gap-3 h-48">
+                                {dashboardData.monthlyTrend.map((month: any) => (
+                                    <div key={month.month} className="flex-1 flex flex-col items-center gap-2">
+                                        <div
+                                            className="w-full bg-blue-500 rounded-t-lg transition-all hover:bg-blue-600 relative group"
+                                            style={{ height: `${maxRevenue > 0 ? (month.revenue / maxRevenue) * 100 : 0}%`, minHeight: '4px' }}
+                                        >
+                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
+                                                {formatCurrency(month.revenue)}
+                                            </div>
+                                        </div>
+                                        <span className="text-xs text-gray-500">{month.month}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Top Products */}
+                        <div className="bg-white rounded-xl border p-6 shadow-sm">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="font-semibold flex items-center gap-2">
+                                    <Package className="h-5 w-5 text-green-500" />
+                                    Produtos Mais Vendidos (Ult. 3 meses)
+                                </h3>
+                            </div>
+                            <div className="space-y-4">
+                                {dashboardData.topProducts.length === 0 ? (
+                                    <div className="text-center text-gray-400 py-8">Nenhum produto vendido no período.</div>
+                                ) : (
+                                    dashboardData.topProducts.map((product: any, idx: number) => (
+                                        <div key={idx} className="flex items-center gap-3">
+                                            <span className="text-sm font-medium text-gray-400 w-6">#{idx + 1}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium truncate" title={product.name}>{product.name}</p>
+                                                <p className="text-xs text-gray-400">{product.sold} caixas</p>
+                                            </div>
+                                            <span className="text-sm font-semibold">{formatCurrency(product.revenue)}</span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Recent Orders */}
+                    <div className="bg-white rounded-xl border overflow-hidden shadow-sm">
+                        <div className="p-4 border-b flex items-center justify-between">
+                            <h3 className="font-semibold flex items-center gap-2">
+                                <ShoppingCart className="h-5 w-5 text-blue-500" />
+                                Pedidos Recentes
+                            </h3>
+                            <a href="/dashboard/pedidos" className="text-sm text-blue-600 hover:underline">
+                                Ver todos
+                            </a>
+                        </div>
+                        <div className="divide-y">
+                            {dashboardData.recentOrders.length === 0 ? (
+                                <div className="text-center text-gray-400 py-8">Nenhum pedido recente.</div>
+                            ) : (
+                                dashboardData.recentOrders.map((order: any) => (
+                                    <div key={order.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-gray-100 rounded-lg">
+                                                <Users className="h-4 w-4 text-gray-600" />
+                                            </div>
+                                            <div>
+                                                <p className="font-medium">{order.customer}</p>
+                                                <p className="text-sm text-gray-500">{new Date(order.date).toLocaleDateString('pt-BR')}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-semibold">{formatCurrency(order.total)}</p>
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${order.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
+                                                order.status === 'IN_SEPARATION' ? 'bg-yellow-100 text-yellow-700' :
+                                                    order.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-700' :
+                                                        'bg-gray-100 text-gray-700'
+                                                }`}>
+                                                {order.status === 'DELIVERED' ? 'Entregue' :
+                                                    order.status === 'IN_SEPARATION' ? 'Separando' :
+                                                        order.status === 'CONFIRMED' ? 'Confirmado' :
+                                                            order.status === 'PENDING' ? 'Pendente' : order.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="receitas" className="space-y-6">
+                    <div className="bg-white rounded-xl border p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="font-semibold flex items-center gap-2 text-lg">
+                                <DollarSign className="h-5 w-5 text-green-500" />
+                                Resumo de Entradas (Pagamentos Compensados)
+                            </h3>
+                        </div>
+
+                        {isLoadingRevenue ? (
+                            <div className="text-center py-8">Carregando dados de receita...</div>
+                        ) : (
+                            <div className="space-y-8">
+                                {/* Summary by Method */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                    {revenueData?.summary?.byMethod.map((item: any) => (
+                                        <div key={item.method} className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex flex-col items-center justify-center text-center">
+                                            <p className="text-sm text-gray-500 mb-1">{item.method}</p>
+                                            <p className="text-xl font-bold text-gray-900">{formatCurrency(item.totalCents)}</p>
+                                        </div>
+                                    ))}
+                                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex flex-col items-center justify-center text-center">
+                                        <p className="text-sm text-green-700 font-medium mb-1">Total Entradas</p>
+                                        <p className="text-2xl font-bold text-green-800">{formatCurrency(revenueData?.summary?.totalCents || 0)}</p>
+                                    </div>
+                                </div>
+
+                                {/* Transactions Table */}
+                                <div>
+                                    <h4 className="font-medium text-gray-900 mb-4 border-b pb-2">Histórico Financeiro do Mês</h4>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-gray-50 text-gray-600 border-b">
+                                                <tr>
+                                                    <th className="px-4 py-3 font-medium">Data</th>
+                                                    <th className="px-4 py-3 font-medium">Paciente / Cliente</th>
+                                                    <th className="px-4 py-3 font-medium">Método</th>
+                                                    <th className="px-4 py-3 font-medium">Descrição</th>
+                                                    <th className="px-4 py-3 text-right font-medium">Valor</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y">
+                                                {revenueData?.transactions?.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={5} className="px-4 py-8 text-center text-gray-500">Nenhuma receita encontrada neste período.</td>
+                                                    </tr>
+                                                ) : (
+                                                    revenueData?.transactions?.map((t: any) => (
+                                                        <tr key={t.id} className="hover:bg-gray-50">
+                                                            <td className="px-4 py-3 whitespace-nowrap text-gray-600">{new Date(t.date).toLocaleString('pt-BR')}</td>
+                                                            <td className="px-4 py-3 font-medium">{t.patientName}</td>
+                                                            <td className="px-4 py-3">
+                                                                <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium">
+                                                                    {t.method}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-gray-600">{t.description || '-'}</td>
+                                                            <td className="px-4 py-3 text-right font-semibold text-green-600">
+                                                                +{formatCurrency(t.amountCents)}
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </div>
-                </div>
-            </div>
-
-            {/* Recent Orders */}
-            <div className="bg-white rounded-xl border overflow-hidden shadow-sm">
-                <div className="p-4 border-b flex items-center justify-between">
-                    <h3 className="font-semibold flex items-center gap-2">
-                        <ShoppingCart className="h-5 w-5 text-blue-500" />
-                        Pedidos Recentes
-                    </h3>
-                    <a href="/dashboard/pedidos" className="text-sm text-blue-600 hover:underline">
-                        Ver todos
-                    </a>
-                </div>
-                <div className="divide-y">
-                    {dashboardData.recentOrders.length === 0 ? (
-                        <div className="text-center text-gray-400 py-8">Nenhum pedido recente.</div>
-                    ) : (
-                        dashboardData.recentOrders.map((order: any) => (
-                            <div key={order.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
-                                        <Users className="h-4 w-4 text-gray-600" />
-                                    </div>
-                                    <div>
-                                        <p className="font-medium">{order.customer}</p>
-                                        <p className="text-sm text-gray-500">{new Date(order.date).toLocaleDateString('pt-BR')}</p>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <p className="font-semibold">{formatCurrency(order.total)}</p>
-                                    <span className={`text-xs px-2 py-0.5 rounded-full ${order.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
-                                        order.status === 'IN_SEPARATION' ? 'bg-yellow-100 text-yellow-700' :
-                                            order.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-700' :
-                                                'bg-gray-100 text-gray-700'
-                                        }`}>
-                                        {order.status === 'DELIVERED' ? 'Entregue' :
-                                            order.status === 'IN_SEPARATION' ? 'Separando' :
-                                                order.status === 'CONFIRMED' ? 'Confirmado' :
-                                                    order.status === 'PENDING' ? 'Pendente' : order.status}
-                                    </span>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

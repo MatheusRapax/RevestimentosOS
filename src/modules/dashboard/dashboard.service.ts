@@ -16,7 +16,7 @@ export type WidgetType = (typeof WIDGET_TYPES)[number];
 
 @Injectable()
 export class DashboardService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   // Get user's dashboard config for a clinic
   async getConfig(userId: string, clinicId: string) {
@@ -267,7 +267,7 @@ export class DashboardService {
       where: {
         clinicId,
         createdAt: { gte: today, lt: tomorrow },
-        status: { not: OrderStatus.CANCELADO },
+        status: { notIn: [OrderStatus.CANCELADO, OrderStatus.RASCUNHO] },
       },
       select: { totalCents: true },
     });
@@ -338,7 +338,7 @@ export class DashboardService {
           sellerId: seller.id,
           createdAt:
             Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
-          status: { not: OrderStatus.CANCELADO },
+          status: { notIn: [OrderStatus.CANCELADO, OrderStatus.RASCUNHO] },
         },
         select: { totalCents: true },
       });
@@ -428,7 +428,7 @@ export class DashboardService {
                 clinicId,
                 createdAt:
                   Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
-                status: { not: OrderStatus.CANCELADO },
+                status: { notIn: [OrderStatus.CANCELADO, OrderStatus.RASCUNHO] },
               },
               select: { totalCents: true },
             },

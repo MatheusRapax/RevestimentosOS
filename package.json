@@ -35,8 +35,6 @@
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/serve-static": "^4.0.2",
     "@prisma/client": "^5.22.0",
-    "@sentry/node": "^10.42.0",
-    "@sentry/profiling-node": "^10.42.0",
     "@types/bcrypt": "^6.0.0",
     "@types/pdfkit": "^0.17.4",
     "axios": "^1.13.5",

@@ -19,7 +19,7 @@ export class FinanceService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-  ) {}
+  ) { }
 
   /**
    * Get or create patient/customer account
@@ -722,5 +722,66 @@ export class FinanceService {
     });
 
     return updated;
+  }
+
+  // =====================================================
+  // FINANCIAL REPORTS
+  // =====================================================
+
+  async getRevenueReport(
+    clinicId: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    const dateFilter: any = {};
+    if (startDate) dateFilter.gte = new Date(startDate);
+    if (endDate) dateFilter.lte = new Date(endDate);
+
+    // Get all transactions of type PAYMENT
+    const payments = await this.prisma.transaction.findMany({
+      where: {
+        clinicId,
+        type: TransactionType.PAYMENT,
+        createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+      },
+      include: {
+        payment: true, // includes the method (PIX, CREDIT_CARD, etc)
+        patient: { select: { name: true, document: true } },
+        encounter: { select: { date: true, id: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Aggregate by payment method
+    const methodTotals: Record<string, number> = {};
+    let totalRevenue = 0;
+
+    payments.forEach((t) => {
+      const method = t.payment?.method || 'OUTROS';
+      if (!methodTotals[method]) methodTotals[method] = 0;
+      methodTotals[method] += t.amountCents;
+      totalRevenue += t.amountCents;
+    });
+
+    return {
+      summary: {
+        totalCents: totalRevenue,
+        byMethod: Object.entries(methodTotals).map(([method, total]) => ({
+          method,
+          totalCents: total,
+        })),
+        count: payments.length,
+      },
+      transactions: payments.map((t) => ({
+        id: t.id,
+        date: t.createdAt,
+        amountCents: t.amountCents,
+        description: t.description,
+        method: t.payment?.method || 'OUTROS',
+        patientName: t.patient?.name || 'Não identificado',
+        encounterId: t.encounterId,
+        encounterDate: t.encounter?.date,
+      })),
+    };
   }
 }
