@@ -20,8 +20,10 @@ services:
     networks:
       - coolify
     labels:
+      - "coolify.managed=true"
       - "traefik.enable=true"
-      - "traefik.http.services.revestimentos-backend-prod.loadbalancer.server.port=3000"
+      - "traefik.http.routers.backend.rule=Host(`${BACKEND_FQDN}`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
 
   # Next.js Frontend
   frontend:
@@ -44,8 +46,10 @@ services:
     networks:
       - coolify
     labels:
+      - "coolify.managed=true"
       - "traefik.enable=true"
-      - "traefik.http.services.revestimentos-frontend-prod.loadbalancer.server.port=3001"
+      - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_FQDN}`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3001"
 
 networks:
   coolify:
