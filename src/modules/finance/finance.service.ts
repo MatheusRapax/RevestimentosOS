@@ -11,6 +11,7 @@ import {
   OrderStatus,
   QuoteStatus,
   ExpenseStatus,
+  ExpenseType,
 } from '@prisma/client';
 import { startOfMonth, endOfMonth, subMonths, format, subDays } from 'date-fns';
 
@@ -783,5 +784,47 @@ export class FinanceService {
         encounterDate: t.encounter?.date,
       })),
     };
+  }
+
+  // =====================================================
+  // SERVICE INVOICES (NFS-E)
+  // =====================================================
+
+  async listServiceInvoices(
+    clinicId: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    const dateFilter: any = {};
+    if (startDate) dateFilter.gte = new Date(startDate);
+    if (endDate) dateFilter.lte = new Date(endDate);
+
+    return this.prisma.expense.findMany({
+      where: {
+        clinicId,
+        isServiceInvoice: true,
+        createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createServiceInvoice(clinicId: string, data: any) {
+    return this.prisma.expense.create({
+      data: {
+        clinicId,
+        description: data.description || 'Nota de Serviço',
+        amountCents: data.amountCents,
+        dueDate: data.dueDate ? new Date(data.dueDate) : new Date(),
+        status: data.status || ExpenseStatus.PENDING,
+        type: ExpenseType.OPERATIONAL,
+        isServiceInvoice: true,
+        invoiceNumber: data.invoiceNumber,
+        providerDocument: data.providerDocument,
+        providerName: data.providerName,
+        issueDate: data.issueDate ? new Date(data.issueDate) : undefined,
+        documentUrl: data.documentUrl,
+      },
+    });
   }
 }

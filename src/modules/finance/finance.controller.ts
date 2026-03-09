@@ -180,6 +180,30 @@ export class FinanceController {
   }
 
   // =====================================================
+  // SERVICE INVOICES (NFS-E)
+  // =====================================================
+
+  @Get('service-invoices')
+  @Permissions(PERMISSIONS.FINANCE_READ)
+  async getServiceInvoices(
+    @Request() req: any,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.financeService.listServiceInvoices(
+      req.clinicId,
+      startDate,
+      endDate,
+    );
+  }
+
+  @Post('service-invoices')
+  @Permissions(PERMISSIONS.FINANCE_PAYMENT)
+  async createServiceInvoice(@Request() req: any, @Body() data: any) {
+    return this.financeService.createServiceInvoice(req.clinicId, data);
+  }
+
+  // =====================================================
   // BOLETOS / INVOICES (ERP Revestimentos)
   // =====================================================
 

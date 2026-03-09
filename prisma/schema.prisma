@@ -1540,6 +1540,14 @@ model Expense {
   barCode       String?
   recipientName String?
 
+  // Módulo de Notas de Serviços Tomados
+  isServiceInvoice Boolean   @default(false)
+  invoiceNumber    String?   // Número da Nota
+  providerDocument String?   // CNPJ/CPF do prestador de serviço
+  providerName     String?   // Razão Social do prestador (pode mapear com recipientName)
+  issueDate        DateTime? // Data de emissão da nota
+  documentUrl      String?   // Link externo ou caminho do upload do PDF/XML
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

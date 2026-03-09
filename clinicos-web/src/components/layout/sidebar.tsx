@@ -78,6 +78,7 @@ const menuSections = [
         items: [
             { href: '/dashboard/financeiro', label: 'Visão Geral', icon: DollarSign, module: 'FINANCE' },
             { href: '/dashboard/financeiro/contas-a-pagar', label: 'Contas a Pagar', icon: CreditCard, module: 'FINANCE' },
+            { href: '/dashboard/financeiro/notas-servico', label: 'Notas de Serviço', icon: Landmark, module: 'FINANCE' },
             { href: '/dashboard/financeiro/vendedores', label: 'Comissões Vendedores', icon: Wallet, module: 'FINANCE' },
             { href: '/dashboard/financeiro/arquitetos', label: 'Comissões Arquitetos', icon: Landmark, module: 'FINANCE' },
         ],
