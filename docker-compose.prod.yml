@@ -19,8 +19,9 @@ services:
       sh -c "npx prisma migrate deploy && npx prisma db seed && npm run build && npm run start:prod"
     networks:
       - coolify
-    expose:
-      - "3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.revestimentos-backend-prod.loadbalancer.server.port=3000"
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://localhost:3000/health", "||", "exit", "1" ]
       interval: 30s
@@ -48,8 +49,9 @@ services:
     command: sh -c "npm run build && npm start"
     networks:
       - coolify
-    expose:
-      - "3001"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.revestimentos-frontend-prod.loadbalancer.server.port=3001"
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://localhost:3001/api/health", "||", "exit", "1" ]
       interval: 30s
