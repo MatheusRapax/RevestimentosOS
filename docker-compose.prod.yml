@@ -19,6 +19,9 @@ services:
       sh -c "npx prisma migrate deploy && npx prisma db seed && npm run build && npm run start:prod"
     networks:
       - coolify
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.revestimentos-backend-prod.loadbalancer.server.port=3000"
 
   # Next.js Frontend
   frontend:
@@ -40,6 +43,9 @@ services:
     command: sh -c "npm run build && npm start"
     networks:
       - coolify
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.revestimentos-frontend-prod.loadbalancer.server.port=3000"
 
 networks:
   coolify:
