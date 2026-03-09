@@ -18,7 +18,7 @@ export class StockService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-  ) { }
+  ) {}
 
   // ========== PRODUCT MANAGEMENT ==========
 

@@ -26,7 +26,7 @@ export class UpdateStockExitItemDto {
 
 @Injectable()
 export class StockExitService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async createDraft(clinicId: string, dto: CreateStockExitDto, userId: string) {
     return this.prisma.stockExit.create({

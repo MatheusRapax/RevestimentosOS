@@ -10,7 +10,7 @@ export class StockAllocationService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-  ) { }
+  ) {}
 
   /**
    * Automatically attempts to allocate stock for a given order.

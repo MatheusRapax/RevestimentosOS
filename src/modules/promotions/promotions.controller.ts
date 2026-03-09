@@ -24,7 +24,7 @@ import { PERMISSIONS } from '../../core/rbac/permissions';
 @RequireModules('PROMOTIONS')
 @Controller('promotions')
 export class PromotionsController {
-  constructor(private readonly promotionsService: PromotionsService) { }
+  constructor(private readonly promotionsService: PromotionsService) {}
 
   @Permissions(PERMISSIONS.PROMOTION_CREATE)
   @Post()
@@ -57,11 +57,7 @@ export class PromotionsController {
     @Param('id') id: string,
     @Body() updatePromotionDto: UpdatePromotionDto,
   ) {
-    return this.promotionsService.update(
-      req.clinicId,
-      id,
-      updatePromotionDto,
-    );
+    return this.promotionsService.update(req.clinicId, id, updatePromotionDto);
   }
 
   @Permissions(PERMISSIONS.PROMOTION_DELETE)

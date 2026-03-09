@@ -22,7 +22,7 @@ export class OrdersService {
     private financeService: FinanceService,
     private stockAllocationService: StockAllocationService,
     private stockExitService: StockExitService,
-  ) { }
+  ) {}
 
   async findAll(
     clinicId: string,
@@ -189,17 +189,20 @@ export class OrdersService {
         where: { orderId: id },
         include: {
           product: true,
-          reservations: { where: { status: 'ACTIVE' } }
-        }
+          reservations: { where: { status: 'ACTIVE' } },
+        },
       });
 
-      const unfulfilledItems = checkItems.filter(item => {
-        const reservedQty = item.reservations.reduce((sum, res) => sum + res.quantity, 0);
+      const unfulfilledItems = checkItems.filter((item) => {
+        const reservedQty = item.reservations.reduce(
+          (sum, res) => sum + res.quantity,
+          0,
+        );
         return reservedQty < item.quantityBoxes;
       });
 
       if (unfulfilledItems.length > 0) {
-        const names = unfulfilledItems.map(i => i.product.name).join(', ');
+        const names = unfulfilledItems.map((i) => i.product.name).join(', ');
         throw new BadRequestException(
           `Não é possível marcar como Pronto. Os seguintes itens não possuem estoque reservado suficiente: ${names}`,
         );
@@ -279,9 +282,7 @@ export class OrdersService {
 
     // 5. Stock Exit Automation (Outside Transaction)
     // When order is marked as delivered
-    const stockExitTriggerStatuses: OrderStatus[] = [
-      OrderStatus.ENTREGUE,
-    ];
+    const stockExitTriggerStatuses: OrderStatus[] = [OrderStatus.ENTREGUE];
 
     const shouldTriggerStockExit =
       stockExitTriggerStatuses.includes(status) &&
@@ -377,7 +378,16 @@ export class OrdersService {
           where: { clinicId, status: OrderStatus.CRIADO },
         }),
         this.prisma.order.count({
-          where: { clinicId, status: { in: [OrderStatus.AGUARDANDO_MATERIAL, OrderStatus.AGUARDANDO_CHEGADA, OrderStatus.MATERIAL_RECEBIDO] } },
+          where: {
+            clinicId,
+            status: {
+              in: [
+                OrderStatus.AGUARDANDO_MATERIAL,
+                OrderStatus.AGUARDANDO_CHEGADA,
+                OrderStatus.MATERIAL_RECEBIDO,
+              ],
+            },
+          },
         }),
         this.prisma.order.count({
           where: { clinicId, status: OrderStatus.PRONTO_PARA_ENTREGA },

@@ -22,7 +22,7 @@ import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 @Controller('stock/exits')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class StockExitController {
-  constructor(private readonly service: StockExitService) { }
+  constructor(private readonly service: StockExitService) {}
 
   @Post()
   create(@Request() req: any, @Body() dto: CreateStockExitDto) {

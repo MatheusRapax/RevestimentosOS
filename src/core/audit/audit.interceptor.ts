@@ -11,7 +11,7 @@ import { AuditAction } from '@prisma/client';
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
-  constructor(private auditService: AuditService) { }
+  constructor(private auditService: AuditService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
@@ -64,7 +64,11 @@ export class AuditInterceptor implements NestInterceptor {
       });
 
       // Generate a user-friendly message based on the entity and details
-      const message = this.generateFriendlyMessage(action, entity, request.body);
+      const message = this.generateFriendlyMessage(
+        action,
+        entity,
+        request.body,
+      );
 
       console.log(
         `[Audit Debug] Action: ${action}, Entity: ${entity}, Body Keys: ${Object.keys(request.body || {})}, Details:`,
@@ -147,14 +151,21 @@ export class AuditInterceptor implements NestInterceptor {
     return undefined;
   }
 
-  private generateFriendlyMessage(action: AuditAction, entity: string, body: any): string | undefined {
+  private generateFriendlyMessage(
+    action: AuditAction,
+    entity: string,
+    body: any,
+  ): string | undefined {
     if (!body || typeof body !== 'object' || Object.keys(body).length === 0) {
       if (action === AuditAction.DELETE) return `Excluiu registro de ${entity}`;
-      if (action === AuditAction.VIEW) return `Visualizou registro de ${entity}`;
+      if (action === AuditAction.VIEW)
+        return `Visualizou registro de ${entity}`;
       return undefined;
     }
 
-    const keys = Object.keys(body).filter((k) => k !== 'password' && k !== 'token');
+    const keys = Object.keys(body).filter(
+      (k) => k !== 'password' && k !== 'token',
+    );
 
     if (keys.length === 0) return undefined;
 

@@ -5,7 +5,7 @@ import { UpdatePromotionDto } from './dto/update-promotion.dto';
 
 @Injectable()
 export class PromotionsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(clinicId: string, dto: CreatePromotionDto) {
     const { productIds, ...data } = dto;
@@ -14,8 +14,16 @@ export class PromotionsService {
       data: {
         ...data,
         clinicId,
-        startDate: (() => { const d = new Date(data.startDate); d.setUTCHours(0, 0, 0, 0); return d; })(),
-        endDate: (() => { const d = new Date(data.endDate); d.setUTCHours(23, 59, 59, 999); return d; })(),
+        startDate: (() => {
+          const d = new Date(data.startDate);
+          d.setUTCHours(0, 0, 0, 0);
+          return d;
+        })(),
+        endDate: (() => {
+          const d = new Date(data.endDate);
+          d.setUTCHours(23, 59, 59, 999);
+          return d;
+        })(),
         products: {
           create: productIds.map((productId) => ({
             productId,
@@ -94,8 +102,20 @@ export class PromotionsService {
       where: { id },
       data: {
         ...data,
-        startDate: data.startDate ? (() => { const d = new Date(data.startDate); d.setUTCHours(0, 0, 0, 0); return d; })() : undefined,
-        endDate: data.endDate ? (() => { const d = new Date(data.endDate); d.setUTCHours(23, 59, 59, 999); return d; })() : undefined,
+        startDate: data.startDate
+          ? (() => {
+              const d = new Date(data.startDate);
+              d.setUTCHours(0, 0, 0, 0);
+              return d;
+            })()
+          : undefined,
+        endDate: data.endDate
+          ? (() => {
+              const d = new Date(data.endDate);
+              d.setUTCHours(23, 59, 59, 999);
+              return d;
+            })()
+          : undefined,
         ...(productIds && {
           products: {
             create: productIds.map((productId: string) => ({

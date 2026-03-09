@@ -5,9 +5,9 @@ import { PrismaModule } from '../../core/prisma/prisma.module';
 import { StockModule } from '../stock/stock.module';
 
 @Module({
-    imports: [PrismaModule, StockModule],
-    controllers: [OccurrencesController],
-    providers: [OccurrencesService],
-    exports: [OccurrencesService],
+  imports: [PrismaModule, StockModule],
+  controllers: [OccurrencesController],
+  providers: [OccurrencesService],
+  exports: [OccurrencesService],
 })
-export class OccurrencesModule { }
+export class OccurrencesModule {}

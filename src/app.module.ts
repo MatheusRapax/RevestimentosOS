@@ -83,4 +83,4 @@ import { OccurrencesModule } from './modules/occurrences/occurrences.module';
   controllers: [],
   providers: [],
 })
-export class AppModule { }
+export class AppModule {}

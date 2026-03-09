@@ -23,7 +23,7 @@ import { RequireModules } from '../../core/auth/decorators/module.decorator';
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleGuard)
 @RequireModules('FINANCE')
 export class FinanceController {
-  constructor(private readonly financeService: FinanceService) { }
+  constructor(private readonly financeService: FinanceService) {}
 
   /**
    * GET /finance/patients/:patientId/account

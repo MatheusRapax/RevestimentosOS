@@ -27,7 +27,7 @@ import { RequireModules } from '../../core/auth/decorators/module.decorator';
 @UseGuards(JwtAuthGuard, TenantGuard, ModuleGuard)
 @RequireModules('SALES')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) { }
+  constructor(private readonly ordersService: OrdersService) {}
 
   @Get()
   async findAll(
