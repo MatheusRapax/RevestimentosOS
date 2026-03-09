@@ -45,7 +45,7 @@ services:
       - coolify
     labels:
       - "traefik.enable=true"
-      - "traefik.http.services.revestimentos-frontend-prod.loadbalancer.server.port=3000"
+      - "traefik.http.services.revestimentos-frontend-prod.loadbalancer.server.port=3001"
 
 networks:
   coolify:
