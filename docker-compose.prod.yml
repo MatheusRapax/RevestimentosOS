@@ -19,6 +19,8 @@ services:
       sh -c "npx prisma migrate deploy && npm run start:prod"
     networks:
       - coolify
+    volumes:
+      - uploads_data:/app/uploads
     labels:
       - "traefik.http.services.revestimentos-backend-prod.loadbalancer.server.port=3000"
     healthcheck:
@@ -60,3 +62,6 @@ services:
 networks:
   coolify:
     external: true
+
+volumes:
+  uploads_data:
