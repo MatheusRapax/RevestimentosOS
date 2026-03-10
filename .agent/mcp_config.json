@@ -15,10 +15,19 @@
                 "shadcn@latest",
                 "mcp"
             ]
+        },
+        "coolify": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@masonator/coolify-mcp"
+            ],
+            "env": {
+                "COOLIFY_API_URL": "https://coolify.MUDE_AQUI/api/v1",
+                "COOLIFY_API_TOKEN": "API_TOKEN_AQUI"
+            }
         }
         //other mcp servers
     }
 }
-
 // setup mcp server in  ~/.gemini\antigravity\mcp_config.json
-
