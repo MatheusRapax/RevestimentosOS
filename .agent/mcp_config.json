@@ -24,7 +24,7 @@
             ],
             "env": {
                 "COOLIFY_API_URL": "https://coolify.MUDE_AQUI/api/v1",
-                "COOLIFY_API_TOKEN": "API_TOKEN_AQUI"
+                "COOLIFY_ACCESS_TOKEN": "API_TOKEN_AQUI"
             }
         }
         //other mcp servers

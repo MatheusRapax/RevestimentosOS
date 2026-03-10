@@ -45,7 +45,7 @@ services:
       NODE_ENV: production
     depends_on:
       - backend
-    command: sh -c "npm start"
+    command: sh -c "npm run build && npm start"
     networks:
       - coolify
     labels:
