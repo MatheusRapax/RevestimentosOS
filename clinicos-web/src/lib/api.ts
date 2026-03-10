@@ -48,11 +48,18 @@ api.interceptors.response.use(
         }
 
         if (error.response?.status === 401) {
-            if (typeof window !== 'undefined') {
+            // Se o erro de 401 vier da PRÓPRIA rota de login (senha errada), NÃO redireciona,
+            // pois o usuário já está na tela de login e queremos mostrar o erro a ele.
+            const isLoginRequest = error.config?.url?.includes('/auth/login');
+
+            if (!isLoginRequest && typeof window !== 'undefined') {
                 localStorage.removeItem('token');
                 localStorage.removeItem('clinicId');
                 localStorage.removeItem('user');
-                window.location.href = '/login';
+                // Adiciona pathname check para não ficar em loop
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
+                }
             }
         }
         return Promise.reject(error);
