@@ -1,9 +1,0 @@
-fix(access): implement comprehensive ModuleGuard protection and optimize stock routes
-
-- Implemented `ModuleGuard` across all major nested Next.js layouts to enforce RBAC permissions and module availability directly at the feature level.
-- Created missing `layout.tsx` files for Admin sub-routes (Especialidades, Procedimentos, Professionals) ensuring they are protected by `specialty.read`, `procedure.read`, and `PROFESSIONAL_READ`.
-- Removed parent directory layouts that were previously blocking child routes with overly broad permissions (e.g. `estoque/layout.tsx`).
-- Refactored `Sidebar` and `DashboardPage` conditional rendering: Module icons are now always visible if the store has the module enabled. If a user lacks permission, clicking the icon will trigger the new "Access Restricted" popup rather than hiding the icon completely.
-- Fixed duplicated route prefixing in `StockController` API (e.g. removed redundant `stock/in` inside `@Controller('stock')` preventing 404s).
-- Optimized the RMA (Occurrences) frontend to fetch product lots using the corrected and lightweight `/stock/product/:id` endpoint instead of the heavier products list endpoint.
-- Populated the authentication context with `role` and `permissions` arrays to ensure the frontend `useAuth` hook always has up-to-date access definitions.
