@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Package, Search, AlertTriangle, CheckCircle, XCircle, ArrowUpDown, ArrowUp, ArrowDown, BadgePercent } from 'lucide-react';
 import { ProductDetailsSheet } from './components/ProductDetailsSheet';
+import { ModuleGuard } from '@/components/auth/module-guard';
 
 interface ProductWithStock {
     id: string;
@@ -183,188 +184,194 @@ export default function EstoquePage() {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-lg text-gray-600">Carregando estoque...</div>
-            </div>
+            <ModuleGuard module="STOCK" permissions="stock.view">
+                <div className="flex items-center justify-center h-64">
+                    <div className="text-lg text-gray-600">Carregando estoque...</div>
+                </div>
+            </ModuleGuard>
         );
     }
 
     if (error) {
         return (
-            <div className="rounded-lg bg-red-50 p-4">
-                <p className="text-red-600">{error}</p>
-                <Button onClick={fetchStock} className="mt-4" variant="outline">
-                    Tentar novamente
-                </Button>
-            </div>
+            <ModuleGuard module="STOCK" permissions="stock.view">
+                <div className="rounded-lg bg-red-50 p-4">
+                    <p className="text-red-600">{error}</p>
+                    <Button onClick={fetchStock} className="mt-4" variant="outline">
+                        Tentar novamente
+                    </Button>
+                </div>
+            </ModuleGuard>
         );
     }
 
     return (
-        <div className="h-full flex flex-col space-y-4">
-            <div>
-                <h1 className="text-3xl font-bold text-gray-900">Estoque</h1>
-                <p className="text-gray-600 mt-1">Visão geral do estoque disponível</p>
-            </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                            <Package className="h-6 w-6 text-blue-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Total de Produtos</p>
-                            <p className="text-2xl font-bold text-gray-900">{totalProducts}</p>
-                        </div>
-                    </div>
-                </Card>
-
-                <Card className="p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-yellow-100 rounded-lg">
-                            <AlertTriangle className="h-6 w-6 text-yellow-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Estoque Baixo</p>
-                            <p className="text-2xl font-bold text-yellow-600">{lowStockCount}</p>
-                        </div>
-                    </div>
-                </Card>
-
-                <Card className="p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-red-100 rounded-lg">
-                            <XCircle className="h-6 w-6 text-red-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Sem Disponibilidade</p>
-                            <p className="text-2xl font-bold text-red-600">{outOfStockCount}</p>
-                        </div>
-                    </div>
-                </Card>
-            </div>
-
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                        placeholder="Buscar por nome ou SKU..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                    />
+        <ModuleGuard module="STOCK" permissions="stock.view">
+            <div className="h-full flex flex-col space-y-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Estoque</h1>
+                    <p className="text-gray-600 mt-1">Visão geral do estoque disponível</p>
                 </div>
 
-                <div className="flex gap-2">
-                    <Button
-                        variant={filter === 'all' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setFilter('all')}
-                    >
-                        Todos
-                    </Button>
-                    <Button
-                        variant={filter === 'low_stock' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setFilter('low_stock')}
-                        className={filter === 'low_stock' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}
-                    >
-                        Baixa Disp.
-                    </Button>
-                    <Button
-                        variant={filter === 'out_of_stock' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setFilter('out_of_stock')}
-                        className={filter === 'out_of_stock' ? 'bg-red-600 hover:bg-red-700' : ''}
-                    >
-                        Indisponível
-                    </Button>
-                </div>
-            </div>
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card className="p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                                <Package className="h-6 w-6 text-blue-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500">Total de Produtos</p>
+                                <p className="text-2xl font-bold text-gray-900">{totalProducts}</p>
+                            </div>
+                        </div>
+                    </Card>
 
-            {/* Stock Table */}
-            {filteredProducts.length === 0 ? (
-                <Card className="p-12 text-center">
-                    <div className="text-gray-400 mb-4">
-                        <Package className="h-16 w-16 mx-auto" />
+                    <Card className="p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-yellow-100 rounded-lg">
+                                <AlertTriangle className="h-6 w-6 text-yellow-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500">Estoque Baixo</p>
+                                <p className="text-2xl font-bold text-yellow-600">{lowStockCount}</p>
+                            </div>
+                        </div>
+                    </Card>
+
+                    <Card className="p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-red-100 rounded-lg">
+                                <XCircle className="h-6 w-6 text-red-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500">Sem Disponibilidade</p>
+                                <p className="text-2xl font-bold text-red-600">{outOfStockCount}</p>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-1 max-w-md">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                            placeholder="Buscar por nome ou SKU..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10"
+                        />
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        {searchTerm || filter !== 'all' ? 'Nenhum produto encontrado' : 'Nenhum produto no estoque'}
-                    </h3>
-                    <p className="text-gray-600">
-                        {searchTerm || filter !== 'all'
-                            ? 'Tente alterar os filtros de busca'
-                            : 'Cadastre produtos para começar'}
-                    </p>
-                </Card>
-            ) : (
-                <Card className="flex-1 flex flex-col min-h-0">
-                    <div className="overflow-auto flex-1">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b sticky top-0 z-10">
-                                <tr>
-                                    <SortableHeader label="Produto" columnKey="name" />
-                                    <SortableHeader label="SKU" columnKey="sku" />
-                                    <SortableHeader label="Formato" columnKey="format" />
-                                    <SortableHeader label="Físico" columnKey="totalStock" align="right" />
-                                    <SortableHeader label="Reservado" columnKey="totalReserved" align="right" />
-                                    <SortableHeader label="Disponível" columnKey="availableStock" align="right" />
-                                    <SortableHeader label="Status" columnKey="status" />
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {sortedProducts.map((product) => (
-                                    <tr
-                                        key={product.id}
-                                        onClick={() => handleRowClick(product.id)}
-                                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${getStockStatus(product) === 'out_of_stock' ? 'bg-red-50 hover:bg-red-100' :
-                                            getStockStatus(product) === 'low_stock' ? 'bg-yellow-50 hover:bg-yellow-100' : ''
-                                            }`}
-                                    >
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            <div className="flex items-center gap-2">
-                                                <span>{product.name}</span>
-                                                {product.activePromotion && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800 uppercase tracking-wider" title={`${product.activePromotion.name} (-${product.activePromotion.discountPercent}%)`}>
-                                                        <BadgePercent className="h-3 w-3" /> Promo
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {product.sku || '-'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {product.format || '-'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
-                                            {product.totalStock}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-orange-600 font-medium">
-                                            {product.totalReserved || 0}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">
-                                            {product.availableStock ?? product.totalStock}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {getStatusBadge(product)}
-                                        </td>
+
+                    <div className="flex gap-2">
+                        <Button
+                            variant={filter === 'all' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setFilter('all')}
+                        >
+                            Todos
+                        </Button>
+                        <Button
+                            variant={filter === 'low_stock' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setFilter('low_stock')}
+                            className={filter === 'low_stock' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}
+                        >
+                            Baixa Disp.
+                        </Button>
+                        <Button
+                            variant={filter === 'out_of_stock' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setFilter('out_of_stock')}
+                            className={filter === 'out_of_stock' ? 'bg-red-600 hover:bg-red-700' : ''}
+                        >
+                            Indisponível
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Stock Table */}
+                {filteredProducts.length === 0 ? (
+                    <Card className="p-12 text-center">
+                        <div className="text-gray-400 mb-4">
+                            <Package className="h-16 w-16 mx-auto" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                            {searchTerm || filter !== 'all' ? 'Nenhum produto encontrado' : 'Nenhum produto no estoque'}
+                        </h3>
+                        <p className="text-gray-600">
+                            {searchTerm || filter !== 'all'
+                                ? 'Tente alterar os filtros de busca'
+                                : 'Cadastre produtos para começar'}
+                        </p>
+                    </Card>
+                ) : (
+                    <Card className="flex-1 flex flex-col min-h-0">
+                        <div className="overflow-auto flex-1">
+                            <table className="w-full">
+                                <thead className="bg-gray-50 border-b sticky top-0 z-10">
+                                    <tr>
+                                        <SortableHeader label="Produto" columnKey="name" />
+                                        <SortableHeader label="SKU" columnKey="sku" />
+                                        <SortableHeader label="Formato" columnKey="format" />
+                                        <SortableHeader label="Físico" columnKey="totalStock" align="right" />
+                                        <SortableHeader label="Reservado" columnKey="totalReserved" align="right" />
+                                        <SortableHeader label="Disponível" columnKey="availableStock" align="right" />
+                                        <SortableHeader label="Status" columnKey="status" />
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </Card>
-            )}
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {sortedProducts.map((product) => (
+                                        <tr
+                                            key={product.id}
+                                            onClick={() => handleRowClick(product.id)}
+                                            className={`hover:bg-gray-50 cursor-pointer transition-colors ${getStockStatus(product) === 'out_of_stock' ? 'bg-red-50 hover:bg-red-100' :
+                                                getStockStatus(product) === 'low_stock' ? 'bg-yellow-50 hover:bg-yellow-100' : ''
+                                                }`}
+                                        >
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                <div className="flex items-center gap-2">
+                                                    <span>{product.name}</span>
+                                                    {product.activePromotion && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800 uppercase tracking-wider" title={`${product.activePromotion.name} (-${product.activePromotion.discountPercent}%)`}>
+                                                            <BadgePercent className="h-3 w-3" /> Promo
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {product.sku || '-'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {product.format || '-'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
+                                                {product.totalStock}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-orange-600 font-medium">
+                                                {product.totalReserved || 0}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">
+                                                {product.availableStock ?? product.totalStock}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {getStatusBadge(product)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+                )}
 
-            <ProductDetailsSheet
-                product={selectedProductDetails}
-                isOpen={isDetailsOpen}
-                onClose={() => setIsDetailsOpen(false)}
-            />
-        </div>
+                <ProductDetailsSheet
+                    product={selectedProductDetails}
+                    isOpen={isDetailsOpen}
+                    onClose={() => setIsDetailsOpen(false)}
+                />
+            </div>
+        </ModuleGuard>
     );
 }

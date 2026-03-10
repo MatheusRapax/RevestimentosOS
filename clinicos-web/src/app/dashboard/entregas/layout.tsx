@@ -3,5 +3,5 @@
 import { ModuleGuard } from '@/components/auth/module-guard';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-    return <ModuleGuard module="DELIVERIES">{children}</ModuleGuard>;
+    return <ModuleGuard module="DELIVERIES" permissions="delivery.read">{children}</ModuleGuard>;
 }

@@ -15,7 +15,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
     const { email, password, name } = registerDto;
@@ -149,10 +149,23 @@ export class AuthService {
             modules: true,
           },
         },
+        role: {
+          include: {
+            rolePermissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    return clinicUsers.map((cu) => cu.clinic);
+    return clinicUsers.map((cu) => ({
+      ...cu.clinic,
+      role: cu.role?.key,
+      permissions: cu.role?.rolePermissions.map((rp) => rp.permission.key) || [],
+    }));
   }
 
   private async generateToken(userId: string, email: string): Promise<string> {

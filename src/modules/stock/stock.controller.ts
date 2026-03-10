@@ -31,7 +31,7 @@ import { RequireModules } from '../../core/auth/decorators/module.decorator';
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleGuard)
 @RequireModules('STOCK')
 export class StockController {
-  constructor(private readonly stockService: StockService) {}
+  constructor(private readonly stockService: StockService) { }
 
   // ========== BASIC CRUD (for frontend) ==========
 
@@ -109,14 +109,14 @@ export class StockController {
 
   // ========== STOCK OPERATIONS ==========
 
-  @Post('stock/in')
+  @Post('in')
   @UseGuards(PermissionsGuard)
   @Permissions(PERMISSIONS.STOCK_ADJUST)
   addStock(@Body() addStockDto: AddStockDto, @Request() req: any) {
     return this.stockService.addStock(req.clinicId, addStockDto);
   }
 
-  @Post('stock/out')
+  @Post('out')
   @UseGuards(PermissionsGuard)
   @Permissions(PERMISSIONS.STOCK_ADJUST)
   removeStock(@Body() removeStockDto: RemoveStockDto, @Request() req: any) {
@@ -137,7 +137,7 @@ export class StockController {
     return this.stockService.listMovements(req.clinicId, query);
   }
 
-  @Get('stock/product/:productId')
+  @Get('product/:productId')
   @UseGuards(PermissionsGuard)
   @Permissions(PERMISSIONS.STOCK_VIEW)
   getProductStock(@Param('productId') productId: string, @Request() req: any) {
@@ -146,7 +146,7 @@ export class StockController {
 
   // ========== ALERTS ==========
 
-  @Get('stock/alerts')
+  @Get('alerts')
   @UseGuards(PermissionsGuard)
   @Permissions(PERMISSIONS.STOCK_VIEW)
   async getAlerts(@Request() req: any) {

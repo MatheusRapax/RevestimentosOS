@@ -46,53 +46,53 @@ const menuSections = [
         title: 'Comercial',
         icon: ShoppingBag,
         items: [
-            { href: '/dashboard/clientes', label: 'Clientes', icon: Users, module: 'SALES' },
-            { href: '/dashboard/arquitetos', label: 'Arquitetos', icon: PenTool, module: 'ARCHITECTS' },
-            { href: '/dashboard/orcamentos', label: 'Orçamentos', icon: FileText, module: 'SALES' },
-            { href: '/dashboard/pedidos', label: 'Pedidos', icon: ShoppingCart, module: 'SALES' },
-            { href: '/dashboard/vendas/promocoes', label: 'Promoções', icon: Percent, module: 'PROMOTIONS' },
+            { href: '/dashboard/clientes', label: 'Clientes', icon: Users, module: 'SALES', permission: 'customer.read' },
+            { href: '/dashboard/arquitetos', label: 'Arquitetos', icon: PenTool, module: 'ARCHITECTS', permission: 'architect.read' },
+            { href: '/dashboard/orcamentos', label: 'Orçamentos', icon: FileText, module: 'SALES', permission: 'quote.read' },
+            { href: '/dashboard/pedidos', label: 'Pedidos', icon: ShoppingCart, module: 'SALES', permission: 'order.read' },
+            { href: '/dashboard/vendas/promocoes', label: 'Promoções', icon: Percent, module: 'PROMOTIONS', permission: 'promotion.read' },
         ],
     },
     {
         title: 'Estoque & Logística',
         icon: Package,
         items: [
-            { href: '/dashboard/estoque', label: 'Visão Geral', icon: LayoutDashboard, module: 'STOCK' },
-            { href: '/dashboard/estoque/produtos', label: 'Produtos', icon: Package, module: 'STOCK' },
-            { href: '/dashboard/estoque/movimentacoes', label: 'Movimentações', icon: ArrowLeftRight, module: 'STOCK' },
-            { href: '/dashboard/estoque/ocorrencias', label: 'Avarias (RMA)', icon: AlertTriangle, module: 'RMA' },
-            { href: '/dashboard/entregas', label: 'Expedição / Entregas', icon: Truck, module: 'DELIVERIES' },
+            { href: '/dashboard/estoque', label: 'Visão Geral', icon: LayoutDashboard, module: 'STOCK', permission: 'stock.view' },
+            { href: '/dashboard/estoque/produtos', label: 'Produtos', icon: Package, module: 'STOCK', permission: 'product.read' },
+            { href: '/dashboard/estoque/movimentacoes', label: 'Movimentações', icon: ArrowLeftRight, module: 'STOCK', permission: 'stock.view' },
+            { href: '/dashboard/estoque/ocorrencias', label: 'Avarias (RMA)', icon: AlertTriangle, module: 'RMA', permission: 'rma.read' },
+            { href: '/dashboard/entregas', label: 'Expedição / Entregas', icon: Truck, module: 'DELIVERIES', permission: 'delivery.read' },
         ],
     },
     {
         title: 'Compras',
         icon: ClipboardList,
         items: [
-            { href: '/dashboard/fornecedores', label: 'Fornecedores', icon: Factory, module: 'PURCHASES' },
-            { href: '/dashboard/compras', label: 'Pedidos de Compra', icon: ShoppingCart, module: 'PURCHASES' },
+            { href: '/dashboard/fornecedores', label: 'Fornecedores', icon: Factory, module: 'PURCHASES', permission: 'supplier.read' },
+            { href: '/dashboard/compras', label: 'Pedidos de Compra', icon: ShoppingCart, module: 'PURCHASES', permission: 'purchase.read' },
         ],
     },
     {
         title: 'Financeiro',
         icon: DollarSign,
         items: [
-            { href: '/dashboard/financeiro', label: 'Visão Geral', icon: DollarSign, module: 'FINANCE' },
-            { href: '/dashboard/financeiro/contas-a-pagar', label: 'Contas a Pagar', icon: CreditCard, module: 'FINANCE' },
-            { href: '/dashboard/financeiro/notas-servico', label: 'Notas de Serviço', icon: Landmark, module: 'FINANCE' },
-            { href: '/dashboard/financeiro/vendedores', label: 'Comissões Vendedores', icon: Wallet, module: 'FINANCE' },
-            { href: '/dashboard/financeiro/arquitetos', label: 'Comissões Arquitetos', icon: Landmark, module: 'FINANCE' },
+            { href: '/dashboard/financeiro', label: 'Visão Geral', icon: DollarSign, module: 'FINANCE', permission: 'finance.read' },
+            { href: '/dashboard/financeiro/contas-a-pagar', label: 'Contas a Pagar', icon: CreditCard, module: 'FINANCE', permission: 'finance.read' },
+            { href: '/dashboard/financeiro/notas-servico', label: 'Notas de Serviço', icon: Landmark, module: 'FINANCE', permission: 'finance.read' },
+            { href: '/dashboard/financeiro/vendedores', label: 'Comissões Vendedores', icon: Wallet, module: 'FINANCE', permission: 'commission.report.read' },
+            { href: '/dashboard/financeiro/arquitetos', label: 'Comissões Arquitetos', icon: Landmark, module: 'FINANCE', permission: 'commission.report.read' },
         ],
     },
     {
         title: 'Administração',
         icon: Shield,
         items: [
-            { href: '/dashboard/admin/configuracoes', label: 'Configurações Globais', icon: Settings, module: 'ADMIN' },
-            { href: '/dashboard/admin/catalogo', label: 'Config. de Catálogo', icon: Tags, module: 'STOCK' },
-            { href: '/dashboard/admin/usuarios', label: 'Usuários', icon: Users, module: 'ADMIN' },
-            { href: '/dashboard/admin/papeis', label: 'Papéis e Acessos', icon: Shield, module: 'ADMIN' },
-            { href: '/dashboard/configuracoes/templates', label: 'Templates', icon: FileText, module: 'ADMIN' },
-            { href: '/dashboard/admin/auditoria', label: 'Auditoria', icon: Activity, module: 'ADMIN' },
+            { href: '/dashboard/admin/configuracoes', label: 'Configurações Globais', icon: Settings, module: 'ADMIN', permission: 'clinic.settings.manage' },
+            { href: '/dashboard/admin/catalogo', label: 'Config. de Catálogo', icon: Tags, module: 'STOCK', permission: 'catalogue.settings' },
+            { href: '/dashboard/admin/usuarios', label: 'Usuários', icon: Users, module: 'ADMIN', permission: 'role.manage' },
+            { href: '/dashboard/admin/papeis', label: 'Papéis e Acessos', icon: Shield, module: 'ADMIN', permission: 'role.read' },
+            { href: '/dashboard/configuracoes/templates', label: 'Templates', icon: FileText, module: 'ADMIN', permission: 'clinic.settings.manage' },
+            { href: '/dashboard/admin/auditoria', label: 'Auditoria', icon: Activity, module: 'ADMIN', permission: 'audit.read' },
         ],
     },
 ];
@@ -101,15 +101,19 @@ interface SectionPopoverProps {
     section: typeof menuSections[0];
     isActive: (href: string) => boolean;
     enabledModules: string[];
+    userPermissions: string[];
+    isSuperAdmin: boolean;
 }
 
-function SectionPopover({ section, isActive, enabledModules }: SectionPopoverProps) {
+function SectionPopover({ section, isActive, enabledModules, userPermissions, isSuperAdmin }: SectionPopoverProps) {
     const [open, setOpen] = useState(false);
     const Icon = section.icon;
 
     const filteredItems = section.items.filter(item => {
-        if (!item.module) return true;
-        return enabledModules.includes(item.module);
+        if (isSuperAdmin) return true;
+        if (item.module && !enabledModules.includes(item.module)) return false;
+        // Removed validation to allow the user to click the item and see the restricted pop-up
+        return true;
     });
 
     if (filteredItems.length === 0) return null;
@@ -169,12 +173,16 @@ export default function Sidebar() {
 
     const activeClinic = user?.clinics.find(c => c.id === activeClinicId);
     const enabledModules = (activeClinic as any)?.modules || [];
+    const userPermissions = (activeClinic as any)?.permissions || [];
+    const isSuperAdmin = user?.isSuperAdmin || false;
 
     const filteredMenuSections = menuSections.map(section => ({
         ...section,
         items: section.items.filter(item => {
-            if (!item.module) return true;
-            return enabledModules.includes(item.module);
+            if (isSuperAdmin) return true;
+            if (item.module && !enabledModules.includes(item.module)) return false;
+            // Removed: !userPermissions.includes(item.permission)
+            return true;
         })
     })).filter(section => section.items.length > 0);
 
@@ -233,6 +241,8 @@ export default function Sidebar() {
                                 section={section}
                                 isActive={isActive}
                                 enabledModules={enabledModules}
+                                userPermissions={userPermissions}
+                                isSuperAdmin={isSuperAdmin}
                             />
                         ))}
                     </div>

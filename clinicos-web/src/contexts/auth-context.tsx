@@ -9,6 +9,8 @@ interface Clinic {
     slug: string;
     modules?: string[]; // Enable optional modules
     logoUrl?: string | null;
+    role?: string;
+    permissions?: string[];
 }
 
 interface User {

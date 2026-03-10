@@ -103,12 +103,28 @@ export default function OrdersPage() {
         }
     };
 
-    const handleExportExcel = () => {
-        // Obter os filtros atuais se quiser passar para a URL 
-        // Mas por padrão, exportar os dados do mês atual ou base
-        const query = new URLSearchParams();
-        // future proofing: if there was a start/end date filter in the UI, we would pass it here
-        window.open(`/api/orders/export/excel?${query.toString()}`, '_blank');
+    const handleExportExcel = async () => {
+        try {
+            const query = new URLSearchParams();
+            const response = await api.get(`/orders/export/excel?${query.toString()}`, {
+                responseType: 'blob'
+            });
+
+            // Create blob link to download
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'pedidos.xlsx');
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Excel exportado com sucesso!');
+        } catch (error) {
+            console.error('Erro ao exportar excel:', error);
+            toast.error('Erro ao exportar arquivo Excel.');
+        }
     };
 
     useEffect(() => {
