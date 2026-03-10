@@ -21,7 +21,7 @@ import { CreateTenantDto, UpdateTenantDto } from './dto/tenant.dto';
 @Controller('admin')
 @UseGuards(JwtAuthGuard, SuperAdminGuard)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(private readonly adminService: AdminService) { }
 
   @Get('tenants')
   async getTenants() {
@@ -54,10 +54,9 @@ export class AdminController {
     }),
   )
   uploadLogo(@UploadedFile() file: any) {
-    // Return full URL assuming backend is on port 3001
-    // In production, this should be configured via env
-    const baseUrl = process.env.API_URL || 'http://localhost:3001';
-    return { url: `${baseUrl}/uploads/${file.filename}` };
+    // Retorna URL relativa com prefixo /api para ser roteada transparentemente
+    // pelo Next.js rewrites para o backend em qualquer ambiente.
+    return { url: `/api/uploads/${file.filename}` };
   }
 
   @Get('users')
