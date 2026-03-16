@@ -68,4 +68,37 @@ export class RolesService {
     // Return updated role
     return this.findOne(roleId);
   }
+
+  /**
+   * Create a new role
+   */
+  async create(data: { name: string; description?: string }) {
+    // Generate a unique key based on name
+    const baseKey = data.name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    let key = baseKey;
+    let counter = 1;
+
+    // Check if key exists and make it unique
+    while (await this.prisma.role.findUnique({ where: { key } })) {
+      key = `${baseKey}_${counter}`;
+      counter++;
+    }
+
+    const role = await this.prisma.role.create({
+      data: {
+        name: data.name,
+        key: key,
+        description: data.description,
+      },
+      include: {
+        rolePermissions: {
+          include: {
+            permission: true,
+          },
+        },
+      },
+    });
+
+    return role;
+  }
 }

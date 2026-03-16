@@ -136,8 +136,20 @@ async function main() {
         { key: 'specialty.delete', description: 'Deletar especialidades' },
         { key: 'role.read', description: 'Visualizar papéis e permissões' },
         { key: 'role.manage', description: 'Gerenciar permissões de papéis' },
+        { key: 'finance.read', description: 'Visualizar registros financeiros' },
         { key: 'finance.create', description: 'Criar registros financeiros' },
         { key: 'finance.update', description: 'Atualizar registros financeiros' },
+        { key: 'finance.charge', description: 'Realizar cobranças' },
+        { key: 'finance.payment', description: 'Realizar pagamentos' },
+        { key: 'commission.report.read', description: 'Visualizar comissões' },
+        
+        // User Admin Permissions
+        { key: 'user.read', description: 'Visualizar usuários' },
+        { key: 'user.create', description: 'Criar usuários' },
+        { key: 'user.update', description: 'Atualizar usuários' },
+        { key: 'user.delete', description: 'Remover usuários' },
+        { key: 'user.invite', description: 'Convidar usuários' },
+        { key: 'PROFESSIONAL_MANAGE', description: 'Gerenciar profissionais da loja' },
 
         // Fiscal (NF-e/NFC-e)
         { key: 'fiscal.config', description: 'Configurar Módulo Fiscal' },
@@ -247,14 +259,18 @@ async function main() {
         'promotion.create', 'promotion.update', 'promotion.delete',
         'product.create', 'product.update', // Manage Catalog
         'supplier.create', 'supplier.update', 'supplier.delete', // Manage Suppliers
+        // Manager Permissions
         'catalogue.settings', // Manage Catalogue Settings (Markup)
         'category.create', 'category.update', 'category.delete', // Manage Categories
         'brand.create', 'brand.update', 'brand.delete', // Manage Brands
         'stock.adjust', // Manage Stock
         'rma.read', 'rma.manage', // Manage RMA
         'finance.read', 'finance.charge', 'finance.payment',
+        'commission.report.read', // Read commissions
         'fiscal.view', 'fiscal.emit', 'fiscal.cancel', // Fiscal Access
-        'user.read', 'audit.read',
+        'user.read', 'user.create', 'user.update', 'user.delete', 'user.invite', 'PROFESSIONAL_MANAGE', // User management
+        'role.read', 'role.manage', // Roles management
+        'audit.read',
     ];
     for (const key of managerPermKeys) {
         const perm = permissionMap.get(key);

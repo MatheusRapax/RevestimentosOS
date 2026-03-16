@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Post, Param, Body, UseGuards } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
@@ -52,5 +52,15 @@ export class RolesController {
     @Body() body: { permissionIds: string[] },
   ) {
     return this.rolesService.updatePermissions(id, body.permissionIds);
+  }
+
+  /**
+   * POST /roles
+   * Create a new role
+   */
+  @Post()
+  @Permissions(PERMISSIONS.ROLE_MANAGE)
+  create(@Body() body: { name: string; description?: string }) {
+    return this.rolesService.create(body);
   }
 }

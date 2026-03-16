@@ -8,9 +8,11 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     Dialog,
+    DialogTrigger,
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
     DialogFooter,
 } from '@/components/ui/dialog';
 import {
@@ -108,7 +110,14 @@ export default function RolesPage() {
         }
     };
 
-    // Group permissions by category
+    // Add role modal state
+    const [isAddRoleModalOpen, setIsAddRoleModalOpen] = useState(false);
+    const [isAddingRole, setIsAddingRole] = useState(false);
+    const [newRoleForm, setNewRoleForm] = useState({
+        name: '',
+        description: '',
+    });
+
     const groupedPermissions = allPermissions.reduce((acc, perm) => {
         const category = perm.key.includes('.')
             ? perm.key.split('.')[0]
@@ -119,6 +128,32 @@ export default function RolesPage() {
         acc[category].push(perm);
         return acc;
     }, {} as Record<string, Permission[]>);
+
+    const handleAddRole = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        if (!newRoleForm.name) {
+            toast.error('O nome do papel é obrigatório.');
+            return;
+        }
+
+        setIsAddingRole(true);
+        try {
+            await api.post('/roles', {
+                name: newRoleForm.name,
+                description: newRoleForm.description,
+            });
+            
+            toast.success('Papel criado com sucesso!');
+            setIsAddRoleModalOpen(false);
+            setNewRoleForm({ name: '', description: '' });
+            await fetchData();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Erro ao criar papel');
+        } finally {
+            setIsAddingRole(false);
+        }
+    };
 
     const categoryNames: Record<string, string> = {
         appointment: 'Agendamentos',
@@ -160,7 +195,7 @@ export default function RolesPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                         <Shield className="h-6 w-6" />
@@ -168,6 +203,65 @@ export default function RolesPage() {
                     </h1>
                     <p className="text-gray-500">Gerencie as permissões de cada papel</p>
                 </div>
+
+                <Dialog open={isAddRoleModalOpen} onOpenChange={setIsAddRoleModalOpen}>
+                    <DialogTrigger asChild>
+                        <Button className="bg-blue-600 hover:bg-blue-700">
+                            Novo Papel
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <form onSubmit={handleAddRole}>
+                            <DialogHeader>
+                                <DialogTitle>Criar Novo Papel</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <div className="grid gap-2">
+                                    <label htmlFor="name" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Nome do Papel
+                                    </label>
+                                    <input
+                                        id="name"
+                                        type="text"
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        placeholder="Ex: Auxiliar Administrativo"
+                                        value={newRoleForm.name}
+                                        onChange={(e) => setNewRoleForm({ ...newRoleForm, name: e.target.value })}
+                                        disabled={isAddingRole}
+                                        required
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <label htmlFor="description" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Descrição (Opcional)
+                                    </label>
+                                    <input
+                                        id="description"
+                                        type="text"
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        placeholder="Breve descrição do acesso"
+                                        value={newRoleForm.description}
+                                        onChange={(e) => setNewRoleForm({ ...newRoleForm, description: e.target.value })}
+                                        disabled={isAddingRole}
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setIsAddRoleModalOpen(false)}
+                                    disabled={isAddingRole}
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button type="submit" disabled={isAddingRole} className="bg-blue-600 hover:bg-blue-700">
+                                    {isAddingRole ? 'Criando...' : 'Criar Papel'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
             </div>
 
             {success && (

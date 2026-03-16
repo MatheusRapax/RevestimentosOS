@@ -42,6 +42,14 @@ export class InviteProfessionalDto {
   @IsOptional()
   @IsString()
   color?: string;
+
+  @IsOptional()
+  @IsString()
+  roleId?: string;
+
+  @IsOptional()
+  @IsString()
+  password?: string;
 }
 
 // DTO for updating professional
@@ -206,9 +214,9 @@ export class ProfessionalsService {
         throw new ConflictException('Usuário já está vinculado a esta clínica');
       }
     } else {
-      // Create new user with temporary password
-      const tempPassword = Math.random().toString(36).slice(-8);
-      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      // Create new user with provided password or temporary one
+      const rawPassword = dto.password || Math.random().toString(36).slice(-8);
+      const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
       user = await this.prisma.user.create({
         data: {
@@ -220,13 +228,22 @@ export class ProfessionalsService {
       });
     }
 
-    // 2. Get PROFESSIONAL role
-    const professionalRole = await this.prisma.role.findUnique({
-      where: { key: 'PROFESSIONAL' },
-    });
-
-    if (!professionalRole) {
-      throw new NotFoundException('PROFESSIONAL role not found');
+    // 2. Get role
+    let role;
+    if (dto.roleId) {
+      role = await this.prisma.role.findUnique({
+        where: { id: dto.roleId },
+      });
+      if (!role) {
+        throw new NotFoundException('Role not found');
+      }
+    } else {
+      role = await this.prisma.role.findUnique({
+        where: { key: 'PROFESSIONAL' },
+      });
+      if (!role) {
+        throw new NotFoundException('PROFESSIONAL role not found');
+      }
     }
 
     // 3. Create ClinicUser with specialty and color
@@ -234,7 +251,7 @@ export class ProfessionalsService {
       data: {
         clinicId,
         userId: user.id,
-        roleId: professionalRole.id,
+        roleId: role.id,
         specialtyId: dto.specialtyId || null,
         color: dto.color || null,
         active: true,
@@ -242,6 +259,7 @@ export class ProfessionalsService {
       include: {
         user: { select: { id: true, name: true, email: true } },
         specialty: { select: { id: true, name: true } },
+        role: { select: { id: true, key: true, name: true } },
       },
     });
 
