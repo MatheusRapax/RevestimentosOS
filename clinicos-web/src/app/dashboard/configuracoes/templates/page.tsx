@@ -315,12 +315,44 @@ export default function TemplatesPage() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>URL da Logo</Label>
-                                    <Input
-                                        value={formData.companyLogo || ''}
-                                        onChange={(e) => updateField('companyLogo', e.target.value)}
-                                        placeholder="https://..."
-                                    />
+                                    <Label>Logo da Empresa</Label>
+                                    <div className="flex gap-2 items-center">
+                                         <Input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                if (!file) return;
+                                                
+                                                try {
+                                                    const uploadData = new FormData();
+                                                    uploadData.append('file', file);
+                                                    
+                                                    toast.loading('Fazendo upload da foto...', { id: 'upload-toast' });
+                                                    
+                                                    // Assuming a generic upload route exists like the admin one
+                                                    // Or base64 for simplicity in templates if there is no public storage route
+                                                    const reader = new FileReader();
+                                                    reader.readAsDataURL(file);
+                                                    reader.onload = () => {
+                                                        updateField('companyLogo', reader.result as string);
+                                                        toast.success('Upload concluído!', { id: 'upload-toast' });
+                                                    };
+                                                    reader.onerror = () => {
+                                                        toast.error('Erro ao ler arquivo', { id: 'upload-toast' });
+                                                    }
+                                                } catch (err) {
+                                                    toast.error('Erro no upload', { id: 'upload-toast' });
+                                                }
+                                            }}
+                                            className="flex-1"
+                                        />
+                                        {formData.companyLogo && (
+                                            <div className="h-10 w-16 border rounded bg-slate-50 flex items-center justify-center p-1">
+                                                <img src={formData.companyLogo} alt="Logo" className="max-h-full max-w-full object-contain" />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="space-y-2 col-span-2">
                                     <Label>Endereço</Label>
@@ -470,27 +502,56 @@ export default function TemplatesPage() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="space-y-4 pt-4">
-                                <div className="flex items-center justify-between">
-                                    <Label>Mostrar Linhas de Assinatura</Label>
-                                    <Switch
-                                        checked={formData.showSignatureLines ?? true}
-                                        onCheckedChange={(v) => updateField('showSignatureLines', v)}
-                                    />
+                            
+                            <div className="grid grid-cols-2 gap-8 pt-4">
+                                <div className="space-y-4">
+                                    <h4 className="font-semibold text-sm border-b pb-2">Rodapé do PDF</h4>
+                                    <div className="flex items-center justify-between">
+                                        <Label>Mostrar Linhas de Assinatura</Label>
+                                        <Switch
+                                            checked={formData.showSignatureLines ?? true}
+                                            onCheckedChange={(v) => updateField('showSignatureLines', v)}
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <Label>Mostrar Dados Bancários</Label>
+                                        <Switch
+                                            checked={formData.showBankDetails ?? true}
+                                            onCheckedChange={(v) => updateField('showBankDetails', v)}
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <Label>Mostrar Termos</Label>
+                                        <Switch
+                                            checked={formData.showTerms ?? true}
+                                            onCheckedChange={(v) => updateField('showTerms', v)}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <Label>Mostrar Dados Bancários</Label>
-                                    <Switch
-                                        checked={formData.showBankDetails ?? true}
-                                        onCheckedChange={(v) => updateField('showBankDetails', v)}
-                                    />
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <Label>Mostrar Termos e Condições</Label>
-                                    <Switch
-                                        checked={formData.showTerms ?? true}
-                                        onCheckedChange={(v) => updateField('showTerms', v)}
-                                    />
+                                
+                                <div className="space-y-4">
+                                    <h4 className="font-semibold text-sm border-b pb-2">Colunas da Tabela</h4>
+                                    <div className="flex items-center justify-between">
+                                        <Label>Mostrar Quantidade (Qtd)</Label>
+                                        <Switch
+                                            checked={formData.showQuantity ?? true}
+                                            onCheckedChange={(v) => updateField('showQuantity', v)}
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <Label>Mostrar Área (m²)</Label>
+                                        <Switch
+                                            checked={formData.showUnitArea ?? true}
+                                            onCheckedChange={(v) => updateField('showUnitArea', v)}
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <Label>Mostrar Preço Unitário</Label>
+                                        <Switch
+                                            checked={formData.showUnitPrice ?? true}
+                                            onCheckedChange={(v) => updateField('showUnitPrice', v)}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </TabsContent>

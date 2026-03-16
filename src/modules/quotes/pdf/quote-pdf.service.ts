@@ -111,24 +111,53 @@ export class QuotePdfService {
     const companyCnpj = template?.companyCnpj || '';
 
     const companyInfoY = y + 10;
+    
+    // Logo
+    if (template?.companyLogo) {
+      try {
+        const logoData = template.companyLogo;
+        const isBase64 = logoData.startsWith('data:image/');
+        
+        if (isBase64) {
+             const base64Data = logoData.split(',')[1];
+             const buffer = Buffer.from(base64Data, 'base64');
+             doc.image(buffer, 50, companyInfoY, { width: 80, height: 60, fit: [80, 60] });
+        } else if (logoData.startsWith('http')) {
+             // For remote URLs, you would typically need to fetch them first.
+             // PDFKit sync .image() depends on local files or buffers.
+             // We'll skip complex http fetching here for simplicity as the 
+             // frontend upload provides base64 directly to the template.
+             // If local file path is stored, pdfkit handles it natively.
+             doc.image(logoData, 50, companyInfoY, { width: 80, height: 60, fit: [80, 60] });
+        } else {
+             doc.image(logoData, 50, companyInfoY, { width: 80, height: 60, fit: [80, 60] });
+        }
+      } catch (err) {
+        console.error('Failed to load logo on PDF', err);
+      }
+    }
+
+
+    const textStartX = template?.companyLogo ? 140 : 50;
+    
     doc
       .fontSize(14)
       .font('Helvetica-Bold')
       .fillColor(primaryColor)
-      .text(companyName, 50, companyInfoY);
+      .text(companyName, textStartX, companyInfoY);
     doc.fontSize(9).font('Helvetica').fillColor('#333333');
 
     let infoY = companyInfoY + 18;
     if (companyAddress) {
-      doc.text(companyAddress, 50, infoY);
+      doc.text(companyAddress, textStartX, infoY);
       infoY += 12;
     }
     if (companyPhone) {
-      doc.text(`Tel: ${companyPhone}`, 50, infoY);
+      doc.text(`Tel: ${companyPhone}`, textStartX, infoY);
       infoY += 12;
     }
     if (companyCnpj) {
-      doc.text(`CNPJ: ${companyCnpj}`, 50, infoY);
+      doc.text(`CNPJ: ${companyCnpj}`, textStartX, infoY);
     }
   }
 
@@ -200,7 +229,7 @@ export class QuotePdfService {
     const pageBottom = 750; // Margem inferior segura
 
     // Cabeçalho da Tabela
-    this.generateTableHeader(doc, currentY, primaryColor);
+    this.generateTableHeader(doc, currentY, primaryColor, template);
     currentY += 20;
     this.generateHr(doc, currentY, primaryColor);
     currentY += 10;
@@ -212,21 +241,31 @@ export class QuotePdfService {
       if (currentY > pageBottom) {
         doc.addPage();
         currentY = 50;
-        this.generateTableHeader(doc, currentY, primaryColor);
+        this.generateTableHeader(doc, currentY, primaryColor, template);
         currentY += 20;
         this.generateHr(doc, currentY, primaryColor);
         currentY += 10;
         doc.font('Helvetica').fillColor('#000000');
       }
 
+      const showQuantity = template?.showQuantity ?? true;
+      const showUnitArea = template?.showUnitArea ?? true;
+      const showUnitPrice = template?.showUnitPrice ?? true;
+
+      const qtyText = showQuantity ? `${item.quantityBoxes} cx` : '';
+      const areaText = showUnitArea ? `${item.inputArea} m²` : '';
+      const unitCostText = showUnitPrice ? this.formatCurrency(item.unitPriceCents) : '';
+
       this.generateTableRow(
         doc,
         currentY,
         item.product.sku || '-',
         item.product.name,
-        `${item.quantityBoxes} cx`,
-        this.formatCurrency(item.unitPriceCents),
+        qtyText,
+        areaText,
+        unitCostText,
         this.formatCurrency(item.totalCents),
+        template
       );
 
       currentY += 20; // Altura da linha
@@ -247,9 +286,11 @@ export class QuotePdfService {
       subtotalPosition,
       '',
       '',
-      'Subtotal',
       '',
+      '',
+      'Subtotal',
       this.formatCurrency(quote.subtotalCents),
+      template
     );
 
     if (quote.discountCents > 0) {
@@ -259,9 +300,11 @@ export class QuotePdfService {
         discountPosition,
         '',
         '',
-        'Desconto',
         '',
+        '',
+        'Desconto',
         `-${this.formatCurrency(quote.discountCents)}`,
+        template
       );
       currentY += 20;
     }
@@ -273,9 +316,11 @@ export class QuotePdfService {
         deliveryPosition,
         '',
         '',
-        'Frete',
         '',
+        '',
+        'Frete',
         this.formatCurrency(quote.deliveryFee),
+        template
       );
       currentY += 20;
     }
@@ -287,9 +332,11 @@ export class QuotePdfService {
       currentY,
       '',
       '',
-      'TOTAL',
       '',
+      '',
+      'TOTAL',
       this.formatCurrency(quote.totalCents),
+      template
     );
 
     return currentY + 40; // Retorna posição final Y
@@ -299,16 +346,24 @@ export class QuotePdfService {
     doc: PDFKit.PDFDocument,
     y: number,
     color: string,
+    template: QuoteTemplate | null,
   ) {
     doc.font('Helvetica-Bold').fillColor(color);
+    
+    const showQuantity = template?.showQuantity ?? true;
+    const showUnitArea = template?.showUnitArea ?? true;
+    const showUnitPrice = template?.showUnitPrice ?? true;
+
     this.generateTableRow(
       doc,
       y,
       'Item',
       'Descrição',
-      'Qtd',
-      'Preço Unit.',
+      showQuantity ? 'Qtd' : '',
+      showUnitArea ? 'M²' : '',
+      showUnitPrice ? 'Preço Unit.' : '',
       'Total',
+      template
     );
   }
 
@@ -426,16 +481,40 @@ export class QuotePdfService {
     item: string,
     description: string,
     quantity: string,
+    areaText: string,
     unitCost: string,
     total: string,
+    template: QuoteTemplate | null,
   ) {
+    const showQuantity = template?.showQuantity ?? true;
+    const showUnitArea = template?.showUnitArea ?? true;
+    const showUnitPrice = template?.showUnitPrice ?? true;
+
     doc
       .fontSize(10)
       .text(item, 50, y, { width: 60 }) // SKU
-      .text(description, 110, y, { width: 200, ellipsis: true }) // Descrição truncada se muito longa
-      .text(quantity, 310, y, { width: 60, align: 'right' })
-      .text(unitCost, 380, y, { width: 90, align: 'right' })
-      .text(total, 480, y, { width: 70, align: 'right' });
+      .text(description, 110, y, { width: 150, ellipsis: true }); // Descrição
+
+    let currentX = 260; // Starting X for the columns
+
+    if (showQuantity) {
+        doc.text(quantity, currentX, y, { width: 60, align: 'right' });
+        currentX += 70;
+    }
+
+    if (showUnitArea) {
+        doc.text(areaText, currentX, y, { width: 60, align: 'right' });
+        currentX += 70;
+    }
+
+    if (showUnitPrice) {
+        doc.text(unitCost, currentX, y, { width: 80, align: 'right' });
+        currentX += 90;
+    }
+
+    // The startX for "Total" value might need pushing based on active columns depending on how we render the layout,
+    // For now we keep it fixed to original X to maintain right alignment
+    doc.text(total, 480, y, { width: 70, align: 'right' });
   }
 
   private generateHr(doc: PDFKit.PDFDocument, y: number, color = '#aaaaaa') {

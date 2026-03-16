@@ -1190,7 +1190,7 @@ model QuoteTemplate {
 
   // Dados da Empresa (Header)
   companyName    String?
-  companyLogo    String? // URL ou base64 da logo
+  companyLogo    String? // Caminho do arquivo ou URL (storage)
   companyPhone   String?
   companyEmail   String?
   companyAddress String?
@@ -1218,6 +1218,11 @@ model QuoteTemplate {
   showSignatureLines Boolean @default(true)
   showBankDetails    Boolean @default(true)
   showTerms          Boolean @default(true)
+  
+  // Opções de Tabela (Colunas)
+  showQuantity       Boolean @default(true) // Mostra "Qtd" ou "Caixas"
+  showUnitArea       Boolean @default(true) // Mostra "Área (m²)"
+  showUnitPrice      Boolean @default(true) // Mostra "Unit."
 
   // Rodapé
   footerText String? @db.Text

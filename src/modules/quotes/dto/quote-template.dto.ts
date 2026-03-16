@@ -99,6 +99,18 @@ export class CreateQuoteTemplateDto {
   @IsBoolean()
   showTerms?: boolean;
 
+  @IsOptional()
+  @IsBoolean()
+  showQuantity?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showUnitArea?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showUnitPrice?: boolean;
+
   // Rodapé
   @IsOptional()
   @IsString()

@@ -95,24 +95,33 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
         <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif', fontSize: '12px', minHeight: '297mm', width: '210mm', margin: '0 auto', boxSizing: 'border-box' }}>
             {/* Header */}
             <div className="flex justify-between items-start border-b pb-4 mb-4">
-                <div>
-                    <h1
-                        className="text-xl font-bold mb-1"
-                        style={{ color: template.primaryColor || '#000000' }}
-                    >
-                        {template.companyName || 'Nome da Empresa'}
-                    </h1>
-                    <p className="text-gray-600 text-xs">
-                        {template.companyAddress || 'Endereço da empresa'}
-                    </p>
-                    <p className="text-gray-600 text-xs">
-                        {template.companyPhone && `Tel: ${template.companyPhone}`}
-                        {template.companyPhone && template.companyEmail && ' | '}
-                        {template.companyEmail}
-                    </p>
-                    {template.companyCnpj && (
-                        <p className="text-gray-600 text-xs">CNPJ: {template.companyCnpj}</p>
+                <div className="flex gap-4 items-center">
+                    {template.companyLogo && (
+                        <img 
+                            src={template.companyLogo} 
+                            alt="Logo da Empresa" 
+                            className="max-h-16 max-w-32 object-contain"
+                        />
                     )}
+                    <div>
+                        <h1
+                            className="text-xl font-bold mb-1"
+                            style={{ color: template.primaryColor || '#000000' }}
+                        >
+                            {template.companyName || 'Nome da Empresa'}
+                        </h1>
+                        <p className="text-gray-600 text-xs">
+                            {template.companyAddress || 'Endereço da empresa'}
+                        </p>
+                        <p className="text-gray-600 text-xs">
+                            {template.companyPhone && `Tel: ${template.companyPhone}`}
+                            {template.companyPhone && template.companyEmail && ' | '}
+                            {template.companyEmail}
+                        </p>
+                        {template.companyCnpj && (
+                            <p className="text-gray-600 text-xs">CNPJ: {template.companyCnpj}</p>
+                        )}
+                    </div>
                 </div>
                 <div className="text-right">
                     <h2
@@ -148,9 +157,9 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                 <thead>
                     <tr style={{ backgroundColor: template.accentColor || '#4CAF50', color: 'white' }}>
                         <th className="p-2 text-left">Produto</th>
-                        <th className="p-2 text-center">Qtd</th>
-                        <th className="p-2 text-center">Área (m²)</th>
-                        <th className="p-2 text-right">Unit.</th>
+                        {template.showQuantity !== false && <th className="p-2 text-center">Qtd</th>}
+                        {template.showUnitArea !== false && <th className="p-2 text-center">Área (m²)</th>}
+                        {template.showUnitPrice !== false && <th className="p-2 text-right">Unit.</th>}
                         <th className="p-2 text-right">Total</th>
                     </tr>
                 </thead>
@@ -162,32 +171,52 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                                 <br />
                                 <span className="text-[10px] text-gray-500">{item.product.sku}</span>
                             </td>
-                            <td className="p-2 text-center">{item.quantityBoxes}</td>
-                            <td className="p-2 text-center">{item.resultingArea?.toFixed(2) || item.inputArea?.toFixed(2) || '-'}</td>
-                            <td className="p-2 text-right">{formatCurrency(item.unitPriceCents)}</td>
+                            {template.showQuantity !== false && <td className="p-2 text-center">{item.quantityBoxes}</td>}
+                            {template.showUnitArea !== false && <td className="p-2 text-center">{item.resultingArea?.toFixed(2) || item.inputArea?.toFixed(2) || '-'}</td>}
+                            {template.showUnitPrice !== false && <td className="p-2 text-right">{formatCurrency(item.unitPriceCents)}</td>}
                             <td className="p-2 text-right">{formatCurrency(item.totalCents)}</td>
                         </tr>
                     ))}
                 </tbody>
                 <tfoot>
                     <tr className="font-semibold border-t">
-                        <td colSpan={4} className="p-2 text-right">Subtotal:</td>
+                        <td colSpan={
+                            1 +
+                            (template.showQuantity !== false ? 1 : 0) +
+                            (template.showUnitArea !== false ? 1 : 0) +
+                            (template.showUnitPrice !== false ? 1 : 0)
+                        } className="p-2 text-right">Subtotal:</td>
                         <td className="p-2 text-right">{formatCurrency(data.subtotalCents)}</td>
                     </tr>
                     {data.discountCents > 0 && (
                         <tr className="text-red-600">
-                            <td colSpan={4} className="p-2 text-right">Desconto:</td>
+                            <td colSpan={
+                                1 +
+                                (template.showQuantity !== false ? 1 : 0) +
+                                (template.showUnitArea !== false ? 1 : 0) +
+                                (template.showUnitPrice !== false ? 1 : 0)
+                            } className="p-2 text-right">Desconto:</td>
                             <td className="p-2 text-right">-{formatCurrency(data.discountCents)}</td>
                         </tr>
                     )}
                     {data.deliveryFee > 0 && (
                         <tr>
-                            <td colSpan={4} className="p-2 text-right">Frete:</td>
+                            <td colSpan={
+                                1 +
+                                (template.showQuantity !== false ? 1 : 0) +
+                                (template.showUnitArea !== false ? 1 : 0) +
+                                (template.showUnitPrice !== false ? 1 : 0)
+                            } className="p-2 text-right">Frete:</td>
                             <td className="p-2 text-right">{formatCurrency(data.deliveryFee)}</td>
                         </tr>
                     )}
                     <tr className="font-bold text-lg border-t" style={{ color: template.primaryColor || '#000000' }}>
-                        <td colSpan={4} className="p-2 text-right">TOTAL:</td>
+                        <td colSpan={
+                            1 +
+                            (template.showQuantity !== false ? 1 : 0) +
+                            (template.showUnitArea !== false ? 1 : 0) +
+                            (template.showUnitPrice !== false ? 1 : 0)
+                        } className="p-2 text-right">TOTAL:</td>
                         <td className="p-2 text-right">{formatCurrency(data.totalCents)}</td>
                     </tr>
                 </tfoot>

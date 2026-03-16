@@ -33,6 +33,9 @@ export interface QuoteTemplate {
     showSignatureLines: boolean;
     showBankDetails: boolean;
     showTerms: boolean;
+    showQuantity: boolean;
+    showUnitArea: boolean;
+    showUnitPrice: boolean;
     footerText?: string;
     createdAt: string;
     updatedAt: string;
@@ -62,6 +65,9 @@ export interface CreateQuoteTemplateData {
     showSignatureLines?: boolean;
     showBankDetails?: boolean;
     showTerms?: boolean;
+    showQuantity?: boolean;
+    showUnitArea?: boolean;
+    showUnitPrice?: boolean;
     footerText?: string;
 }
 
