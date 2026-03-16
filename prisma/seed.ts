@@ -61,6 +61,12 @@ async function main() {
         { key: 'product.update', description: 'Atualizar produtos' },
         { key: 'product.delete', description: 'Excluir produtos' },
 
+        // Purchase Orders (Compras)
+        { key: 'purchase.read', description: 'Visualizar pedidos de compra' },
+        { key: 'purchase.create', description: 'Criar pedidos de compra' },
+        { key: 'purchase.update', description: 'Atualizar pedidos de compra' },
+        { key: 'purchase.cancel', description: 'Cancelar pedidos de compra' },
+
         // Suppliers
         { key: 'supplier.read', description: 'Visualizar fornecedores' },
         { key: 'supplier.create', description: 'Criar fornecedores' },
