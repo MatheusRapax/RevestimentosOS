@@ -92,7 +92,16 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
     const data = (quote as Quote) || sampleQuote;
 
     return (
-        <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif', fontSize: '12px', minHeight: '297mm', width: '210mm', margin: '0 auto', boxSizing: 'border-box' }}>
+        <div className="bg-white p-8 print:p-0 print:m-0 print:w-full print:h-auto" style={{ fontFamily: 'Arial, sans-serif', fontSize: '12px', minHeight: '297mm', width: '210mm', margin: '0 auto', boxSizing: 'border-box' }}>
+            {/* Force background colors to print */}
+            <style>{`
+                @media print {
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                }
+            `}</style>
             {/* Header */}
             <div className="flex justify-between items-start border-b pb-4 mb-4">
                 <div className="flex gap-4 items-center">

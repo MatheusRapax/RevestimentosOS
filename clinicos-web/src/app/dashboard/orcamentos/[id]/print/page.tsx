@@ -94,19 +94,30 @@ export default function QuotePrintPage() {
             <style jsx global>{`
                 @media print {
                     @page {
-                        margin: 0;
+                        margin: 0; /* Removes browser header/footers (url/date) */
                         size: auto;
+                    }
+                    body * {
+                        visibility: hidden;
+                    }
+                    .print-layout, .print-layout * {
+                        visibility: visible;
+                    }
+                    .print-layout {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        margin: 0;
+                        padding: 0;
                     }
                     body {
                         margin: 0;
                         padding: 0;
                         background: white;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
-                    .print-layout {
-                        padding: 0;
-                        margin: 0;
-                    }
-                    /* Hide browser default header/footer if possible, though mostly user setting */
                 }
                 @media screen {
                     .print-layout {

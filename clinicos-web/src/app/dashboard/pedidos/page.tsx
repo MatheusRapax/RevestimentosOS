@@ -816,10 +816,10 @@ export default function OrdersPage() {
                                         </h3>
                                         <Button
                                             onClick={() => generateInvoiceMutation.mutate()}
-                                            disabled={generateInvoiceMutation.isPending}
+                                            disabled={true}
                                             size="sm"
                                         >
-                                            {generateInvoiceMutation.isPending ? 'Gerando...' : 'Gerar Novo Boleto'}
+                                            Gerar Novo Boleto (Em breve)
                                         </Button>
                                     </div>
 
@@ -867,7 +867,7 @@ export default function OrdersPage() {
                             </div>
 
                             {/* Actions */}
-                            <div className="flex gap-3 pt-4">
+                            <div className="flex flex-wrap gap-3 pt-4">
                                 {displayOrder.status === 'CRIADO' && (
                                     <button
                                         onClick={() => setIsConfirmingPayment(true)}
@@ -963,14 +963,16 @@ export default function OrdersPage() {
                                             <Receipt className="h-4 w-4 mr-2" />
                                             Imprimir Recibo
                                         </Button>
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => window.open(`/dashboard/estoque/ocorrencias/nova?type=ENTREGA&orderId=${displayOrder.id}`, '_blank')}
-                                            className="flex-1 border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-                                        >
-                                            <AlertTriangle className="h-4 w-4 mr-2" />
-                                            Relatar Avaria
-                                        </Button>
+                                        {['MATERIAL_RECEBIDO', 'EM_SEPARACAO', 'PRONTO_PARA_RETIRA', 'PRONTO_PARA_ENTREGA', 'SAIU_PARA_ENTREGA', 'ENTREGUE', 'AGUARDANDO_REPOSICAO'].includes(displayOrder.status) && (
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => window.open(`/dashboard/estoque/ocorrencias/nova?type=ENTREGA&orderId=${displayOrder.id}`, '_blank')}
+                                                className="flex-1 border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                                            >
+                                                <AlertTriangle className="h-4 w-4 mr-2" />
+                                                Relatar Avaria
+                                            </Button>
+                                        )}
                                     </>
                                 )}
 
