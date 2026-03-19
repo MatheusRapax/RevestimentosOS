@@ -61,6 +61,12 @@ export const PERMISSIONS = {
   CATEGORY_UPDATE: 'category.update',
   CATEGORY_DELETE: 'category.delete',
 
+  // Environments (Ambientes)
+  ENVIRONMENT_CREATE: 'environment.create',
+  ENVIRONMENT_READ: 'environment.read',
+  ENVIRONMENT_UPDATE: 'environment.update',
+  ENVIRONMENT_DELETE: 'environment.delete',
+
   // Brands (Marcas)
   BRAND_CREATE: 'brand.create',
   BRAND_READ: 'brand.read',

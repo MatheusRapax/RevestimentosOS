@@ -50,6 +50,7 @@ export class QuotesService {
     unitPriceCents: number;
     discountCents: number;
     totalCents: number;
+    environmentId: string | null;
     preferredLotId: string | null;
     notes: string | null;
   }> {
@@ -122,6 +123,7 @@ export class QuotesService {
       unitPriceCents: item.unitPriceCents,
       discountCents,
       totalCents: Math.max(0, totalCents),
+      environmentId: item.environmentId || null,
       preferredLotId: item.preferredLotId || null,
       notes: item.notes || null,
     };
@@ -201,6 +203,7 @@ export class QuotesService {
             product: {
               select: { id: true, name: true, sku: true, boxCoverage: true },
             },
+            environment: true,
           },
         },
       },
@@ -221,7 +224,7 @@ export class QuotesService {
         customer: { select: { id: true, name: true } },
         architect: { select: { id: true, name: true } },
         seller: { select: { id: true, name: true } },
-        items: { select: { id: true, discountCents: true } },
+        items: { select: { id: true, discountCents: true, environment: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -248,7 +251,11 @@ export class QuotesService {
             preferredLot: {
               select: { id: true, lotNumber: true, shade: true, caliber: true },
             },
-            reservations: true,
+            reservations: {
+              where: { status: 'ACTIVE' },
+              select: { id: true, quantity: true, lotId: true, lot: true },
+            },
+            environment: true,
           },
         },
       },
@@ -428,6 +435,7 @@ export class QuotesService {
               unitPriceCents: item.unitPriceCents,
               discountCents: item.discountCents,
               totalCents: item.totalCents,
+              environmentId: item.environmentId,
               lotId: item.preferredLotId,
               notes: item.notes,
             })),
@@ -677,6 +685,7 @@ export class QuotesService {
             marginPercent: processedItem.marginPercent ?? undefined,
             areaWithMargin: processedItem.areaWithMargin ?? undefined,
             // Ensure optional nulls are handled
+            environmentId: processedItem.environmentId ?? undefined,
             preferredLotId: processedItem.preferredLotId ?? undefined,
             notes: processedItem.notes ?? undefined,
           },
@@ -757,6 +766,8 @@ export class QuotesService {
       discountCents: dto.discountCents ?? currentItem.discountCents,
       discountPercent:
         dto.discountPercent ?? currentItem.discountPercent ?? undefined,
+      environmentId:
+        dto.environmentId ?? currentItem.environmentId ?? undefined,
       preferredLotId:
         dto.preferredLotId ?? currentItem.preferredLotId ?? undefined,
       notes: dto.notes ?? currentItem.notes ?? undefined,

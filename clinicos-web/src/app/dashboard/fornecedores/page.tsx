@@ -31,9 +31,11 @@ import {
     Edit,
     Trash2,
     ToggleLeft,
-    ToggleRight
+    ToggleRight,
+    Loader2
 } from 'lucide-react';
 import { maskCNPJ, maskPhone, unmask } from '@/lib/masks';
+import { fetchCnpjInfo } from '@/lib/brasil-api';
 
 interface Supplier {
     id: string;
@@ -65,6 +67,29 @@ export default function FornecedoresPage() {
         state: '',
         notes: '',
     });
+
+    const [isFetchingCnpj, setIsFetchingCnpj] = useState(false);
+
+    const handleCnpjBlur = async (cnpj: string) => {
+        if (!cnpj || cnpj.replace(/\D/g, '').length !== 14) return;
+        setIsFetchingCnpj(true);
+        try {
+            const data = await fetchCnpjInfo(cnpj);
+            if (data) {
+                setFormData(prev => ({
+                    ...prev,
+                    name: data.razao_social || prev.name,
+                    address: data.logradouro ? `${data.logradouro}, ${data.numero}${data.complemento ? ` - ${data.complemento}` : ''}${data.bairro ? ` (${data.bairro})` : ''}` : prev.address,
+                    city: data.municipio || prev.city,
+                    state: data.uf || prev.state,
+                    phone: data.ddd_telefone_1 ? maskPhone(data.ddd_telefone_1) : prev.phone,
+                    email: data.email || prev.email,
+                }));
+            }
+        } finally {
+            setIsFetchingCnpj(false);
+        }
+    };
 
     // Fetch suppliers
     const { data: suppliers = [], isLoading } = useQuery({
@@ -362,12 +387,25 @@ export default function FornecedoresPage() {
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1">CNPJ</label>
-                            <Input
-                                value={formData.cnpj}
-                                onChange={(e) => setFormData({ ...formData, cnpj: maskCNPJ(e.target.value) })}
-                                placeholder="00.000.000/0000-00"
-                                maxLength={18}
-                            />
+                            <div className="relative">
+                                <Input
+                                    value={formData.cnpj}
+                                    onChange={(e) => setFormData({ ...formData, cnpj: maskCNPJ(e.target.value) })}
+                                    onBlur={() => handleCnpjBlur(formData.cnpj)}
+                                    placeholder="00.000.000/0000-00"
+                                    maxLength={18}
+                                    className="pr-10"
+                                />
+                                <button 
+                                    type="button"
+                                    onClick={() => handleCnpjBlur(formData.cnpj)}
+                                    disabled={isFetchingCnpj || formData.cnpj.replace(/\D/g, '').length !== 14}
+                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-primary transition-colors disabled:opacity-50"
+                                    title="Buscar CNPJ"
+                                >
+                                    {isFetchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                </button>
+                            </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>

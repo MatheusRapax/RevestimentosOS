@@ -20,7 +20,8 @@ import {
     Printer,
     Building2,
     Clock,
-    Download
+    Download,
+    Edit
 } from 'lucide-react';
 import {
     Dialog,
@@ -60,6 +61,10 @@ interface QuoteItem {
     totalCents: number;
     notes?: string;
     reservations?: { quantity: number }[];
+    environment?: {
+        id: string;
+        name: string;
+    };
 }
 
 interface AvailabilityItem {
@@ -408,10 +413,20 @@ export default function QuoteDetailPage() {
                     </Dialog>
 
                     {quote.status === 'EM_ORCAMENTO' && (
-                        <Button onClick={handleSendQuote} variant="outline" disabled={actionLoading === 'send'}>
-                            <Send className="mr-2 h-4 w-4" />
-                            {actionLoading === 'send' ? 'Enviando...' : 'Enviar ao Cliente'}
-                        </Button>
+                        <>
+                            <Button
+                                onClick={() => router.push(`/dashboard/orcamentos/${quote.id}/editar`)}
+                                variant="outline"
+                                className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200"
+                            >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Editar Orçamento
+                            </Button>
+                            <Button onClick={handleSendQuote} variant="outline" disabled={actionLoading === 'send'}>
+                                <Send className="mr-2 h-4 w-4" />
+                                {actionLoading === 'send' ? 'Enviando...' : 'Enviar ao Cliente'}
+                            </Button>
+                        </>
                     )}
 
 
@@ -530,6 +545,7 @@ export default function QuoteDetailPage() {
                         <thead className="bg-gray-50 border-b sticky top-0 z-10">
                             <tr>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ambiente</th>
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Área (m²)</th>
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Perda (%)</th>
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Caixas</th>
@@ -552,6 +568,15 @@ export default function QuoteDetailPage() {
                                                 {item.product.line && <span className="ml-1 text-gray-400">• {item.product.line}</span>}
                                             </p>
                                         </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-left">
+                                        {item.environment?.name ? (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                                                {item.environment.name}
+                                            </span>
+                                        ) : (
+                                            <span className="text-gray-400">-</span>
+                                        )}
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                         <div className="font-medium">{item.resultingArea?.toFixed(2) || item.inputArea?.toFixed(2) || '-'}</div>

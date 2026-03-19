@@ -80,6 +80,12 @@ async function main() {
         { key: 'category.update', description: 'Atualizar categorias' },
         { key: 'category.delete', description: 'Deletar categorias' },
 
+        // Environments
+        { key: 'environment.read', description: 'Visualizar ambientes' },
+        { key: 'environment.create', description: 'Criar ambientes' },
+        { key: 'environment.update', description: 'Atualizar ambientes' },
+        { key: 'environment.delete', description: 'Deletar ambientes' },
+
         // Brands
         { key: 'brand.read', description: 'Visualizar marcas' },
         { key: 'brand.create', description: 'Criar marcas' },
@@ -238,6 +244,7 @@ async function main() {
         'product.read', 'stock.view', // Catalog + Balances
         'rma.read',
         'clinic.read',
+        'environment.read', // Allow seller to fetch environments for quotes
     ];
     for (const key of sellerPermKeys) {
         const perm = permissionMap.get(key);
@@ -262,6 +269,7 @@ async function main() {
         // Manager Permissions
         'catalogue.settings', // Manage Catalogue Settings (Markup)
         'category.create', 'category.update', 'category.delete', // Manage Categories
+        'environment.create', 'environment.read', 'environment.update', 'environment.delete', // Manage Environments
         'brand.create', 'brand.update', 'brand.delete', // Manage Brands
         'stock.adjust', // Manage Stock
         'rma.read', 'rma.manage', // Manage RMA
@@ -289,6 +297,7 @@ async function main() {
         'catalogue.settings', // Manage Catalogue Settings
         'supplier.read', 'supplier.create', 'supplier.update', // Supplier management
         'category.read', 'category.create', 'category.update', // Category management
+        'environment.read', 'environment.create', 'environment.update', 'environment.delete', // Environment management
         'brand.read', 'brand.create', 'brand.update', // Brand management
         'stock.view', 'stock.adjust', // Stock management
         'rma.read', 'rma.manage', // Manage RMA

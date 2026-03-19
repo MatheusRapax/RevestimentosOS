@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -62,6 +62,7 @@ interface Product {
 }
 
 interface QuoteItem {
+    id?: string;
     productId: string;
     product?: Product;
     inputArea: number;
@@ -76,10 +77,14 @@ interface QuoteItem {
     environmentId?: string;
 }
 
-export default function NovoOrcamentoPage() {
+export default function EditOrcamentoPage() {
     const router = useRouter();
+    const params = useParams();
+    const quoteId = params.id as string;
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const originalItemsRef = useRef<QuoteItem[]>([]);
 
     // Data for selects
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -95,6 +100,7 @@ export default function NovoOrcamentoPage() {
     const [globalMarginPercent, setGlobalMarginPercent] = useState(0);
     const [globalDiscountPercent, setGlobalDiscountPercent] = useState(0);
     const [items, setItems] = useState<QuoteItem[]>([]);
+    const [validUntil, setValidUntil] = useState<Date>(new Date());
 
     // Computed state
     const [isAdhocModalOpen, setIsAdhocModalOpen] = useState(false);
@@ -123,16 +129,49 @@ export default function NovoOrcamentoPage() {
                     setEnvironments(environmentsRes.data.filter(e => e.isActive));
                 }
 
-                if (settingsRes.data?.defaultDeliveryFee) {
+                if (quoteId) {
+                    const quoteRes = await api.get(`/quotes/${quoteId}`);
+                    const quote = quoteRes.data;
+                    
+                    setCustomerId(quote.customerId);
+                    if (quote.architectId) setArchitectId(quote.architectId);
+                    setNotes(quote.notes || '');
+                    setDeliveryFeeCents(quote.deliveryFeeCents || 0);
+                    setGlobalDiscountPercent(quote.discountPercent || 0);
+                    if (quote.globalMarginPercent) setGlobalMarginPercent(quote.globalMarginPercent);
+                    if (quote.validUntil) setValidUntil(new Date(quote.validUntil));
+                    
+                    const mappedItems = quote.items.map((item: any) => ({
+                        id: item.id,
+                        productId: item.productId,
+                        product: item.product,
+                        inputArea: item.inputArea || 0,
+                        quantityBoxes: item.quantityBoxes,
+                        resultingArea: item.resultingArea,
+                        unitPriceCents: item.unitPriceCents,
+                        marginPercent: item.marginPercent ?? '',
+                        discountPercent: item.discountPercent || 0,
+                        discountCents: item.discountCents || 0,
+                        totalCents: item.totalCents || 0,
+                        preferredLotId: item.preferredLotId || undefined,
+                        environmentId: item.environmentId || undefined,
+                    }));
+                    
+                    setItems(mappedItems);
+                    originalItemsRef.current = mappedItems;
+                } else if (settingsRes.data?.defaultDeliveryFee) {
                     setDeliveryFeeCents(settingsRes.data.defaultDeliveryFee);
                 }
+                
+                setIsLoading(false);
             } catch (err) {
                 console.error('Error loading data:', err);
                 setError('Erro ao carregar dados');
+                setIsLoading(false);
             }
         };
         fetchData();
-    }, []);
+    }, [quoteId]);
 
     // Calculate totals whenever items change or global discounts change
     useEffect(() => {
@@ -312,7 +351,7 @@ export default function NovoOrcamentoPage() {
         }).format(cents / 100);
     };
 
-    const handleSubmit = async () => {
+    const handleUpdateQuote = async () => {
         if (!customerId) {
             setError('Selecione um cliente');
             return;
@@ -333,7 +372,27 @@ export default function NovoOrcamentoPage() {
                 deliveryFeeCents,
                 globalMarginPercent: globalMarginPercent || undefined,
                 discountPercent: globalDiscountPercent || undefined,
-                items: items.map(item => ({
+                validUntil: validUntil.toISOString(),
+            };
+
+            await api.patch(`/quotes/${quoteId}`, quoteData);
+
+            // Calculate diff for items
+            const originalIds = originalItemsRef.current.map(i => i.id).filter(Boolean);
+            const currentIds = items.map(i => i.id).filter(Boolean);
+
+            const itemsToDelete = originalIds.filter(id => !currentIds.includes(id));
+            const itemsToUpdate = items.filter(i => i.id);
+            const itemsToCreate = items.filter(i => !i.id);
+
+            // Delete
+            for (const id of itemsToDelete) {
+                await api.delete(`/quotes/${quoteId}/items/${id}`);
+            }
+
+            // Update
+            for (const item of itemsToUpdate) {
+                await api.patch(`/quotes/${quoteId}/items/${item.id}`, {
                     productId: item.productId,
                     inputArea: item.inputArea || undefined,
                     marginPercent: typeof item.marginPercent === 'number' ? item.marginPercent : undefined,
@@ -342,18 +401,64 @@ export default function NovoOrcamentoPage() {
                     discountPercent: item.discountPercent || undefined,
                     preferredLotId: item.preferredLotId || undefined,
                     environmentId: item.environmentId || undefined,
-                })),
-            };
+                });
+            }
 
-            await api.post('/quotes', quoteData);
-            router.push('/dashboard/orcamentos');
+            // Create
+            for (const item of itemsToCreate) {
+                await api.post(`/quotes/${quoteId}/items`, {
+                    productId: item.productId,
+                    inputArea: item.inputArea || undefined,
+                    marginPercent: typeof item.marginPercent === 'number' ? item.marginPercent : undefined,
+                    quantityBoxes: item.inputArea ? undefined : item.quantityBoxes,
+                    unitPriceCents: item.unitPriceCents,
+                    discountPercent: item.discountPercent || undefined,
+                    preferredLotId: item.preferredLotId || undefined,
+                    environmentId: item.environmentId || undefined,
+                });
+            }
+
+            router.push(`/dashboard/orcamentos/${quoteId}`);
         } catch (err: any) {
-            console.error('Error creating quote:', err);
-            setError(err.response?.data?.message || 'Erro ao criar orçamento');
+            console.error('Error updating quote:', err);
+            setError(err.response?.data?.message || 'Erro ao atualizar orçamento');
         } finally {
             setIsSubmitting(false);
         }
     };
+
+    if (isLoading) {
+        return <div className="p-8 text-center text-gray-500">Carregando orçamento...</div>;
+    }
+
+    if (error) {
+        return (
+            <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                    <Link href="/dashboard/orcamentos">
+                        <Button variant="ghost" size="sm">
+                            <ArrowLeft className="h-4 w-4 mr-1" />
+                            Voltar
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">Editar Orçamento</h1>
+                        <p className="text-gray-600 mt-1">Erro ao acessar o orçamento</p>
+                    </div>
+                </div>
+                <div className="rounded-lg bg-red-50 p-6 flex flex-col items-center gap-4 text-center">
+                    <AlertTriangle className="h-10 w-10 text-red-600" />
+                    <div>
+                        <h2 className="text-lg font-bold text-red-800">Acesso Negado ou Erro</h2>
+                        <p className="text-red-600 mt-2">{error}</p>
+                        <p className="text-sm text-red-500 mt-4">
+                            Você não possui as permissões necessárias para acessar este recurso ou o orçamento não existe.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -366,19 +471,12 @@ export default function NovoOrcamentoPage() {
                     </Button>
                 </Link>
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Novo Orçamento</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">Editar Orçamento</h1>
                     <p className="text-gray-600 mt-1">
-                        Crie um orçamento com cálculo automático de caixas
+                        Edite o orçamento e recalcule as quantidades
                     </p>
                 </div>
             </div>
-
-            {error && (
-                <div className="rounded-lg bg-red-50 p-4 flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-red-600" />
-                    <p className="text-red-600">{error}</p>
-                </div>
-            )}
 
             {/* Customer & Architect Selection */}
             <Card className="p-6">
@@ -767,11 +865,11 @@ export default function NovoOrcamentoPage() {
                             <Button variant="outline">Cancelar</Button>
                         </Link>
                         <Button
-                            onClick={handleSubmit}
+                            onClick={handleUpdateQuote}
                             disabled={isSubmitting || items.length === 0}
                             className="min-w-[150px]"
                         >
-                            {isSubmitting ? 'Salvando...' : 'Criar Orçamento'}
+                            {isSubmitting ? 'Salvando...' : 'Atualizar Orçamento'}
                         </Button>
                     </div>
                 </div>

@@ -196,6 +196,7 @@ model Clinic {
   suppliers         Supplier[]
   quoteTemplates    QuoteTemplate[]
   promotions        Promotion[]
+  environments      Environment[]
 }
 
 // Clinic working hours per day of week
@@ -1235,6 +1236,23 @@ model QuoteTemplate {
   @@index([clinicId])
 }
 
+// Business: Environment model (Ambientes)
+model Environment {
+  id        String   @id @default(uuid())
+  clinicId  String
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic     Clinic      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  quoteItems QuoteItem[]
+  orderItems OrderItem[]
+
+  @@unique([clinicId, name])
+  @@index([clinicId])
+}
+
 // Business: Quote model (Orçamento)
 model Quote {
   id       String @id @default(uuid())
@@ -1293,6 +1311,10 @@ model QuoteItem {
   areaWithMargin Float? // Área calculada após aplicar a margem: inputArea * (1 + marginPercent/100)
   quantityBoxes  Int // Quantidade de caixas (calculada ou manual)
   resultingArea  Float? // Área real (caixas * boxCoverage)
+
+  // Ambiente (Opcional)
+  environmentId String?
+  environment   Environment? @relation(fields: [environmentId], references: [id])
 
   // Preços
   unitPriceCents  Int // Preço por m² ou por caixa
@@ -1395,6 +1417,10 @@ model OrderItem {
   areaWithMargin Float? // Área com perda
   quantityBoxes  Int // Quantidade de caixas
   resultingArea  Float? // Área real (caixas * boxCoverage)
+
+  // Ambiente (Opcional)
+  environmentId String?
+  environment   Environment? @relation(fields: [environmentId], references: [id])
 
   // Preços
   unitPriceCents Int

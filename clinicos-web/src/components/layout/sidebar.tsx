@@ -33,12 +33,15 @@ import {
     Landmark,
     Tags,
     Activity,
+    LayoutGrid,
 } from 'lucide-react';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
+import { ChangelogDialog } from './changelog-dialog';
+import latestRelease from '@/data/latest-release.json';
 
 // Menu sections organized by business area
 const menuSections = [
@@ -92,6 +95,7 @@ const menuSections = [
             { href: '/dashboard/admin/usuarios', label: 'Usuários', icon: Users, module: 'ADMIN', permission: 'role.manage' },
             { href: '/dashboard/admin/papeis', label: 'Papéis e Acessos', icon: Shield, module: 'ADMIN', permission: 'role.read' },
             { href: '/dashboard/configuracoes/templates', label: 'Templates', icon: FileText, module: 'ADMIN', permission: 'clinic.settings.manage' },
+            { href: '/dashboard/configuracoes/ambientes', label: 'Ambientes', icon: LayoutGrid, module: 'ADMIN', permission: 'environment.read' },
             { href: '/dashboard/admin/auditoria', label: 'Auditoria', icon: Activity, module: 'ADMIN', permission: 'audit.read' },
         ],
     },
@@ -276,8 +280,11 @@ export default function Sidebar() {
                 )}
             </nav>
 
-            {/* Collapse Toggle Button */}
-            <div className="border-t border-gray-800 p-2">
+            {/* Collapse Toggle Button and Version Info */}
+            <div className="border-t border-gray-800 p-2 flex flex-col">
+                <div className={`text-[10px] text-gray-500 text-center mb-2 font-mono ${isCollapsed ? 'opacity-0 h-0 hidden' : 'opacity-100 block transition-opacity delay-150'}`}>
+                    v{latestRelease.version}
+                </div>
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
                     className="w-full flex items-center justify-center gap-2 p-3 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition"
@@ -292,6 +299,7 @@ export default function Sidebar() {
                         </>
                     )}
                 </button>
+                <ChangelogDialog />
             </div>
         </div>
     );

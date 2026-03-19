@@ -20,8 +20,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Plus, Users, Edit, Trash2, Search, Building, User } from 'lucide-react';
+import { Plus, Users, Edit, Trash2, Search, Building, User, Loader2 } from 'lucide-react';
 import { maskCPF, maskCNPJ, maskPhone, maskCEP, maskDate, unmask } from '@/lib/masks';
+import { fetchCepInfo, fetchCnpjInfo } from '@/lib/brasil-api';
 
 interface Customer {
     id: string;
@@ -83,6 +84,50 @@ export default function ClientesPage() {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
+
+    // External fetching
+    const [isFetchingCep, setIsFetchingCep] = useState(false);
+    const [isFetchingCnpj, setIsFetchingCnpj] = useState(false);
+
+    const handleCepBlur = async (cep: string) => {
+        if (!cep || cep.replace(/\D/g, '').length !== 8) return;
+        setIsFetchingCep(true);
+        try {
+            const data = await fetchCepInfo(cep);
+            if (data) {
+                setFormData(prev => ({
+                    ...prev,
+                    address: data.street ? `${data.street}${data.neighborhood ? `, ${data.neighborhood}` : ''}` : prev.address,
+                    city: data.city || prev.city,
+                    state: data.state || prev.state,
+                }));
+            }
+        } finally {
+            setIsFetchingCep(false);
+        }
+    };
+
+    const handleCnpjBlur = async (cnpj: string) => {
+        if (!cnpj || cnpj.replace(/\D/g, '').length !== 14) return;
+        setIsFetchingCnpj(true);
+        try {
+            const data = await fetchCnpjInfo(cnpj);
+            if (data) {
+                setFormData(prev => ({
+                    ...prev,
+                    name: data.razao_social || prev.name,
+                    zipCode: data.cep ? maskCEP(data.cep) : prev.zipCode,
+                    address: data.logradouro ? `${data.logradouro}, ${data.numero}${data.complemento ? ` - ${data.complemento}` : ''}${data.bairro ? ` (${data.bairro})` : ''}` : prev.address,
+                    city: data.municipio || prev.city,
+                    state: data.uf || prev.state,
+                    phone: data.ddd_telefone_1 ? maskPhone(data.ddd_telefone_1) : prev.phone,
+                    email: data.email || prev.email,
+                }));
+            }
+        } finally {
+            setIsFetchingCnpj(false);
+        }
+    };
 
     const fetchCustomers = async () => {
         try {
@@ -484,16 +529,35 @@ export default function ClientesPage() {
                             <Label htmlFor="document">
                                 {formData.type === 'PF' ? 'CPF' : 'CNPJ'}
                             </Label>
-                            <Input
-                                id="document"
-                                value={formData.document}
-                                onChange={(e) => {
-                                    const value = e.target.value;
-                                    const masked = formData.type === 'PF' ? maskCPF(value) : maskCNPJ(value);
-                                    setFormData({ ...formData, document: masked });
-                                }}
-                                placeholder={formData.type === 'PF' ? '000.000.000-00' : '00.000.000/0001-00'}
-                            />
+                            <div className="relative">
+                                <Input
+                                    id="document"
+                                    value={formData.document}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        const masked = formData.type === 'PF' ? maskCPF(value) : maskCNPJ(value);
+                                        setFormData({ ...formData, document: masked });
+                                    }}
+                                    onBlur={() => {
+                                        if (formData.type === 'PJ') {
+                                            handleCnpjBlur(formData.document);
+                                        }
+                                    }}
+                                    placeholder={formData.type === 'PF' ? '000.000.000-00' : '00.000.000/0001-00'}
+                                    className={formData.type === 'PJ' ? "pr-10" : ""}
+                                />
+                                {formData.type === 'PJ' && (
+                                    <button 
+                                        type="button"
+                                        onClick={() => handleCnpjBlur(formData.document)}
+                                        disabled={isFetchingCnpj || formData.document.replace(/\D/g, '').length !== 14}
+                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-primary transition-colors disabled:opacity-50"
+                                        title="Buscar CNPJ"
+                                    >
+                                        {isFetchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {formData.type === 'PF' && (
@@ -574,13 +638,26 @@ export default function ClientesPage() {
 
                         <div>
                             <Label htmlFor="zipCode">CEP</Label>
-                            <Input
-                                id="zipCode"
-                                value={formData.zipCode}
-                                onChange={(e) => setFormData({ ...formData, zipCode: maskCEP(e.target.value) })}
-                                placeholder="00000-000"
-                                maxLength={9}
-                            />
+                            <div className="relative">
+                                <Input
+                                    id="zipCode"
+                                    value={formData.zipCode}
+                                    onChange={(e) => setFormData({ ...formData, zipCode: maskCEP(e.target.value) })}
+                                    onBlur={() => handleCepBlur(formData.zipCode)}
+                                    placeholder="00000-000"
+                                    maxLength={9}
+                                    className="pr-10"
+                                />
+                                <button 
+                                    type="button"
+                                    onClick={() => handleCepBlur(formData.zipCode)}
+                                    disabled={isFetchingCep || formData.zipCode.replace(/\D/g, '').length !== 8}
+                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-primary transition-colors disabled:opacity-50"
+                                    title="Buscar CEP"
+                                >
+                                    {isFetchingCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                </button>
+                            </div>
                         </div>
 
                         <div>

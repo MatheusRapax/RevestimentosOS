@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { QuoteTemplateViewer } from '@/components/quotes/quote-template-viewer';
 import { maskCNPJ, maskPhone, unmask } from '@/lib/masks';
+import { fetchCnpjInfo } from '@/lib/brasil-api';
 
 import { useQuoteTemplates, QuoteTemplate, CreateQuoteTemplateData } from '@/hooks/useQuoteTemplates';
 import { Button } from '@/components/ui/button';
@@ -27,10 +28,13 @@ import {
     Star,
     Building2,
     CreditCard,
-    FileText,
     Palette,
     Eye,
-    Loader2
+    Loader2,
+    Settings,
+    FileText,
+    Image as ImageIcon,
+    Search
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -40,6 +44,25 @@ export default function TemplatesPage() {
     const [isCreating, setIsCreating] = useState(false);
     const [formData, setFormData] = useState<CreateQuoteTemplateData>({ name: '' });
     const [isSaving, setIsSaving] = useState(false);
+    const [isFetchingCnpj, setIsFetchingCnpj] = useState(false);
+
+    const handleCnpjBlur = async (cnpj: string) => {
+        if (!cnpj || cnpj.replace(/\D/g, '').length !== 14) return;
+        setIsFetchingCnpj(true);
+        try {
+            const data = await fetchCnpjInfo(cnpj);
+            if (data) {
+                setFormData(prev => ({
+                    ...prev,
+                    companyName: data.razao_social || prev.companyName,
+                    companyAddress: data.logradouro ? `${data.logradouro}, ${data.numero}${data.complemento ? ` - ${data.complemento}` : ''}${data.bairro ? ` (${data.bairro})` : ''}, ${data.municipio} - ${data.uf}` : prev.companyAddress,
+                    companyPhone: data.ddd_telefone_1 ? maskPhone(data.ddd_telefone_1) : prev.companyPhone,
+                }));
+            }
+        } finally {
+            setIsFetchingCnpj(false);
+        }
+    };
 
     const handleOpenCreate = () => {
         setFormData({
@@ -290,12 +313,25 @@ export default function TemplatesPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>CNPJ</Label>
-                                    <Input
-                                        value={formData.companyCnpj || ''}
-                                        onChange={(e) => updateField('companyCnpj', maskCNPJ(e.target.value))}
-                                        placeholder="00.000.000/0001-00"
-                                        maxLength={18}
-                                    />
+                                    <div className="relative">
+                                        <Input
+                                            value={formData.companyCnpj || ''}
+                                            onChange={(e) => updateField('companyCnpj', maskCNPJ(e.target.value))}
+                                            onBlur={() => handleCnpjBlur(formData.companyCnpj || '')}
+                                            placeholder="00.000.000/0001-00"
+                                            maxLength={18}
+                                            className="pr-10"
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => handleCnpjBlur(formData.companyCnpj || '')}
+                                            disabled={isFetchingCnpj || (formData.companyCnpj || '').replace(/\D/g, '').length !== 14}
+                                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-primary transition-colors disabled:opacity-50"
+                                            title="Buscar CNPJ"
+                                        >
+                                            {isFetchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Telefone</Label>

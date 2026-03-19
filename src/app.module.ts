@@ -37,6 +37,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { StoreSettingsModule } from './modules/store-settings/store-settings.module';
 import { OccurrencesModule } from './modules/occurrences/occurrences.module';
+import { EnvironmentsModule } from './modules/environments/environments.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { OccurrencesModule } from './modules/occurrences/occurrences.module';
     PromotionsModule,
     StoreSettingsModule,
     OccurrencesModule,
+    EnvironmentsModule,
   ],
   controllers: [],
   providers: [],

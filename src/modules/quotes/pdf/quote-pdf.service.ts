@@ -15,6 +15,7 @@ type QuoteWithRelations = Quote & {
   architect: Architect | null;
   items: (QuoteItem & {
     product: { name: string; sku: string | null; unit: string | null };
+    environment?: { name: string } | null;
   })[];
 };
 
@@ -229,46 +230,72 @@ export class QuotePdfService {
     let currentY = startY;
     const pageBottom = 750; // Margem inferior segura
 
-    // Cabeçalho da Tabela
-    this.generateTableHeader(doc, currentY, accentColor, template);
-    currentY += 25;
-
-    doc.font('Helvetica').fillColor('#000000');
-
+    const itemsByEnvironment: Record<string, typeof quote.items> = {};
     quote.items.forEach((item) => {
-      // Verifica quebra de página
-      if (currentY > pageBottom) {
+      const envName = item.environment?.name || 'Geral / Sem Ambiente';
+      if (!itemsByEnvironment[envName]) {
+        itemsByEnvironment[envName] = [];
+      }
+      itemsByEnvironment[envName].push(item);
+    });
+
+    for (const [envName, items] of Object.entries(itemsByEnvironment)) {
+      // Header do ambiente
+      if (currentY + 60 > pageBottom) {
         doc.addPage();
         currentY = 50;
-        this.generateTableHeader(doc, currentY, accentColor, template);
-        currentY += 25;
-        doc.font('Helvetica').fillColor('#000000');
       }
 
-      const showQuantity = template?.showQuantity ?? true;
-      const showUnitArea = template?.showUnitArea ?? true;
-      const showUnitPrice = template?.showUnitPrice ?? true;
+      doc
+        .fontSize(12)
+        .font('Helvetica-Bold')
+        .fillColor(primaryColor)
+        .text(`Ambiente: ${envName}`, 50, currentY);
+      currentY += 20;
 
-      const qtyText = showQuantity ? `${item.quantityBoxes} cx` : '';
-      const areaText = showUnitArea ? `${item.inputArea} m²` : '';
-      const unitCostText = showUnitPrice ? this.formatCurrency(item.unitPriceCents) : '';
+      // Cabeçalho da Tabela
+      this.generateTableHeader(doc, currentY, accentColor, template);
+      currentY += 25;
 
-      this.generateTableRow(
-        doc,
-        currentY,
-        item.product.sku || '-',
-        item.product.name,
-        qtyText,
-        areaText,
-        unitCostText,
-        this.formatCurrency(item.totalCents),
-        template
-      );
+      doc.font('Helvetica').fillColor('#000000');
 
-      currentY += 20; // Altura da linha
-      this.generateHr(doc, currentY, '#eeeeee');
-      currentY += 10; // Espaçamento
-    });
+      items.forEach((item) => {
+        // Verifica quebra de página
+        if (currentY > pageBottom) {
+          doc.addPage();
+          currentY = 50;
+          this.generateTableHeader(doc, currentY, accentColor, template);
+          currentY += 25;
+          doc.font('Helvetica').fillColor('#000000');
+        }
+
+        const showQuantity = template?.showQuantity ?? true;
+        const showUnitArea = template?.showUnitArea ?? true;
+        const showUnitPrice = template?.showUnitPrice ?? true;
+
+        const qtyText = showQuantity ? `${item.quantityBoxes} cx` : '';
+        const areaText = showUnitArea ? `${item.inputArea} m²` : '';
+        const unitCostText = showUnitPrice ? this.formatCurrency(item.unitPriceCents) : '';
+
+        this.generateTableRow(
+          doc,
+          currentY,
+          item.product.sku || '-',
+          item.product.name,
+          qtyText,
+          areaText,
+          unitCostText,
+          this.formatCurrency(item.totalCents),
+          template
+        );
+
+        currentY += 20; // Altura da linha
+        this.generateHr(doc, currentY, '#eeeeee');
+        currentY += 10; // Espaçamento
+      });
+
+      currentY += 10; // Espaçamento entre ambientes
+    }
 
     // Totais
     currentY += 20;

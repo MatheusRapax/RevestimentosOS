@@ -53,6 +53,11 @@ export class CreateQuoteItemDto {
   @IsString()
   preferredLotId?: string;
 
+  // Ambiente onde o produto será instalado (opcional)
+  @IsOptional()
+  @IsString()
+  environmentId?: string;
+
   @IsOptional()
   @IsString()
   notes?: string;
