@@ -113,6 +113,7 @@ export class OrdersService {
         delivery: true,
         invoices: true,
         fiscalDocuments: true,
+        payments: true,
         purchaseOrders: {
           select: {
             id: true,
@@ -132,6 +133,11 @@ export class OrdersService {
     status: OrderStatus,
     userId?: string,
     paymentMethod?: PaymentMethod,
+    payments?: Array<{
+      method: PaymentMethod;
+      amountCents: number;
+      installments?: number;
+    }>,
   ) {
     const updateData: any = { status };
 
@@ -240,19 +246,37 @@ export class OrdersService {
           currentOrder.status !== OrderStatus.PAGO
         ) {
           const desc = `Pagamento Pedido #${currentOrder.number}`;
-          const methodToUse = paymentMethod || 'CASH';
+          
+          if (payments && payments.length > 0) {
+            for (const p of payments) {
+              await this.financeService.registerPayment(
+                clinicId,
+                null,
+                p.amountCents,
+                p.method,
+                desc,
+                p.installments || 1,
+                userId,
+                currentOrder.customerId,
+                id,
+              );
+            }
+          } else {
+            const methodToUse = paymentMethod || 'CASH';
 
-          if (currentOrder.totalCents > 0) {
-            await this.financeService.registerPayment(
-              clinicId,
-              null,
-              currentOrder.totalCents,
-              methodToUse,
-              desc,
-              1,
-              userId,
-              currentOrder.customerId,
-            );
+            if (currentOrder.totalCents > 0) {
+              await this.financeService.registerPayment(
+                clinicId,
+                null,
+                currentOrder.totalCents,
+                methodToUse,
+                desc,
+                1,
+                userId,
+                currentOrder.customerId,
+                id,
+              );
+            }
           }
         }
 

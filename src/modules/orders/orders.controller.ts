@@ -76,6 +76,12 @@ export class OrdersController {
     @Param('id') id: string,
     @Body('status') status: string,
     @Body('paymentMethod') paymentMethod?: PaymentMethod,
+    @Body('payments')
+    payments?: Array<{
+      method: PaymentMethod;
+      amountCents: number;
+      installments?: number;
+    }>,
   ) {
     const userId = req.user?.userId;
     return this.ordersService.updateStatus(
@@ -84,6 +90,7 @@ export class OrdersController {
       status as OrderStatus,
       userId,
       paymentMethod,
+      payments,
     );
   }
 

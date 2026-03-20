@@ -10,8 +10,13 @@
     "release": "standard-version"
   },
   "standard-version": {
+    "bumpFiles": [
+      "package.json",
+      "package-lock.json",
+      "src/data/latest-release.json"
+    ],
     "scripts": {
-      "postchangelog": "node scripts/sync-changelog.js && git add src/data/latest-release.json"
+      "postchangelog": "node scripts/sync-changelog.js"
     }
   },
   "dependencies": {

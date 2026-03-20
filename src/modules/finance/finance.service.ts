@@ -570,6 +570,7 @@ export class FinanceService {
     installments = 1,
     userId?: string,
     customerId?: string,
+    orderId?: string,
   ) {
     if (amountCents <= 0) {
       throw new BadRequestException('Valor deve ser positivo');
@@ -587,6 +588,7 @@ export class FinanceService {
         clinicId,
         patientId: patientId || undefined,
         customerId: customerId || undefined,
+        orderId: orderId || undefined,
         amountCents,
         method: method as any,
         status: 'APPROVED',

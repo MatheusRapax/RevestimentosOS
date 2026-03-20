@@ -1096,6 +1096,8 @@ model Payment {
   clinic       Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   patient      Patient?      @relation(fields: [patientId], references: [id], onDelete: Cascade)
   customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orderId      String?
+  order        Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
   transactions Transaction[]
 
   @@index([clinicId])
@@ -1394,6 +1396,7 @@ model Order {
   clinic            Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   items             OrderItem[]
   invoices          Invoice[]
+  payments          Payment[]
   purchaseOrders    PurchaseOrder[]
   stockReservations StockReservation[]
   fiscalDocuments   FiscalDocument[]

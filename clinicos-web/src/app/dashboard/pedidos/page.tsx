@@ -20,6 +20,7 @@ import {
     DollarSign,
     Download,
     CreditCard,
+    Wallet,
 
     Edit,
     Receipt,
@@ -83,7 +84,52 @@ export default function OrdersPage() {
     const [deliveryEditDate, setDeliveryEditDate] = useState('');
     const [isEmitting, setIsEmitting] = useState(false);
     const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
-    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('PIX');
+
+    // Split payment state
+    const [splitPayments, setSplitPayments] = useState<Array<{ method: string; amountCents: number; installments: number }>>([]);
+    const [paymentDraft, setPaymentDraft] = useState({ method: 'PIX', amountCents: 0, installments: 1 });
+    const [paymentDraftAmountInputValue, setPaymentDraftAmountInputValue] = useState('');
+
+    useEffect(() => {
+        if (isConfirmingPayment && selectedOrder) {
+            setSplitPayments([]);
+            setPaymentDraft({ method: 'PIX', amountCents: selectedOrder.totalCents, installments: 1 });
+            setPaymentDraftAmountInputValue((selectedOrder.totalCents / 100).toFixed(2));
+        }
+    }, [isConfirmingPayment, selectedOrder]);
+
+    const totalPaid = splitPayments.reduce((sum, p) => sum + p.amountCents, 0);
+    const remainingToPay = (selectedOrder?.totalCents || 0) - totalPaid;
+
+    const handleAddPayment = () => {
+        if (paymentDraft.amountCents <= 0) {
+            toast.error('O valor deve ser maior que zero.');
+            return;
+        }
+        if (paymentDraft.amountCents > remainingToPay) {
+            toast.error('O valor não pode ser maior que o saldo devedor.');
+            return;
+        }
+        setSplitPayments([...splitPayments, { ...paymentDraft }]);
+        
+        const newRemaining = remainingToPay - paymentDraft.amountCents;
+        setPaymentDraft({
+            method: 'PIX',
+            amountCents: newRemaining,
+            installments: 1
+        });
+        setPaymentDraftAmountInputValue((newRemaining / 100).toFixed(2));
+    };
+
+    const handleRemovePayment = (index: number) => {
+        const newPayments = [...splitPayments];
+        const removed = newPayments.splice(index, 1)[0];
+        setSplitPayments(newPayments);
+        
+        const newDraftAmount = paymentDraft.amountCents + removed.amountCents;
+        setPaymentDraft(prev => ({ ...prev, amountCents: newDraftAmount }));
+        setPaymentDraftAmountInputValue((newDraftAmount / 100).toFixed(2));
+    };
 
     const handleEmitFiscal = async () => {
         if (!displayOrder?.id) return;
@@ -187,8 +233,8 @@ export default function OrdersPage() {
 
     // Update Order Status Mutation
     const updateStatusMutation = useMutation({
-        mutationFn: async ({ status, paymentMethod }: { status: string, paymentMethod?: string }) => {
-            await api.patch(`/orders/${selectedOrder.id}/status`, { status, paymentMethod });
+        mutationFn: async ({ status, paymentMethod, payments }: { status: string, paymentMethod?: string, payments?: any[] }) => {
+            await api.patch(`/orders/${selectedOrder.id}/status`, { status, paymentMethod, payments });
         },
         onSuccess: (data, variables) => {
             toast.success('Status atualizado com sucesso!');
@@ -822,6 +868,52 @@ export default function OrdersPage() {
                                             Gerar Novo Boleto (Em breve)
                                         </Button>
                                     </div>
+                                    
+                                    {/* Payments Section */}
+                                    <div className="flex justify-between items-center mt-6">
+                                        <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                                            <Wallet className="h-5 w-5" />
+                                            Pagamentos Realizados
+                                        </h3>
+                                    </div>
+                                    
+                                    {!displayOrder.payments || displayOrder.payments.length === 0 ? (
+                                        <div className="text-center py-8 text-gray-500 border-2 border-dashed rounded-xl">
+                                            <Wallet className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                            <p>Nenhum pagamento fracionado registrado para este pedido.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {displayOrder.payments.map((p: any, idx: number) => (
+                                                <div key={idx} className="border rounded-lg p-4 flex justify-between items-center bg-white shadow-sm">
+                                                    <div>
+                                                        <p className="font-bold text-gray-900">{formatCurrency(p.amountCents)}</p>
+                                                        <p className="text-sm text-gray-500">
+                                                            {p.method === 'CREDIT_CARD' ? 'Cartão de Crédito' :
+                                                             p.method === 'DEBIT_CARD' ? 'Cartão de Débito' :
+                                                             p.method === 'PIX' ? 'PIX' :
+                                                             p.method === 'CASH' ? 'Dinheiro' :
+                                                             p.method === 'BOLETO' ? 'Boleto' : p.method}
+                                                            {p.installments > 1 && ` (${p.installments}x)`}
+                                                        </p>
+                                                        <div className="mt-1">
+                                                            <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">
+                                                                Confirmado
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-xs text-gray-400">{formatDate(p.createdAt)}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    
+                                    <h3 className="font-medium text-gray-900 flex items-center gap-2 mt-8">
+                                        <DollarSign className="h-5 w-5" />
+                                        Boletos Adicionais
+                                    </h3>
 
                                     {invoices.length === 0 ? (
                                         <div className="text-center py-8 text-gray-500 border-2 border-dashed rounded-xl">
@@ -991,37 +1083,119 @@ export default function OrdersPage() {
             {/* Payment Confirmation Modal */}
             {isConfirmingPayment && selectedOrder && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">Confirmar Pagamento</h3>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Método de Pagamento Principal
-                                </label>
-                                <select
-                                    value={selectedPaymentMethod}
-                                    onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                                    className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3"
-                                >
-                                    <option value="PIX">PIX</option>
-                                    <option value="CREDIT_CARD">Cartão de Crédito</option>
-                                    <option value="DEBIT_CARD">Cartão de Débito</option>
-                                    <option value="CASH">Dinheiro</option>
-                                    <option value="BOLETO">Boleto</option>
-                                </select>
+                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold text-gray-900">Confirmar Pagamento</h3>
+                            <div className="text-right">
+                                <p className="text-sm text-gray-500">Total do Pedido</p>
+                                <p className="text-lg font-bold text-blue-600">{formatCurrency(selectedOrder.totalCents)}</p>
                             </div>
-                            <div className="pt-4 flex justify-end gap-2 text-sm">
-                                <Button variant="outline" onClick={() => setIsConfirmingPayment(false)}>
-                                    Cancelar
-                                </Button>
+                        </div>
+
+                        {/* List of Added Payments */}
+                        {splitPayments.length > 0 && (
+                            <div className="mb-6 space-y-2">
+                                <h4 className="text-sm font-semibold text-gray-700">Pagamentos Adicionados ({splitPayments.length})</h4>
+                                <div className="space-y-2">
+                                    {splitPayments.map((p, idx) => (
+                                        <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                            <div>
+                                                <p className="font-medium text-sm text-gray-900">{p.method}</p>
+                                                {p.installments > 1 && (
+                                                    <p className="text-xs text-gray-500">{p.installments}x de {formatCurrency(Math.floor(p.amountCents / p.installments))}</p>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <p className="font-bold text-gray-900">{formatCurrency(p.amountCents)}</p>
+                                                <button onClick={() => handleRemovePayment(idx)} className="text-red-500 hover:text-red-700 p-1">
+                                                    <XCircle className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Add Payment Form */}
+                        {remainingToPay > 0 ? (
+                            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 mb-6 space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <h4 className="text-sm font-semibold text-blue-900">Adicionar Pagamento</h4>
+                                    <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-full">Falta: {formatCurrency(remainingToPay)}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="col-span-2 sm:col-span-1">
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Método</label>
+                                        <select
+                                            value={paymentDraft.method}
+                                            onChange={(e) => setPaymentDraft({ ...paymentDraft, method: e.target.value, installments: 1 })}
+                                            className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
+                                        >
+                                            <option value="PIX">PIX</option>
+                                            <option value="CREDIT_CARD">Cartão de Crédito</option>
+                                            <option value="DEBIT_CARD">Cartão de Débito</option>
+                                            <option value="CASH">Dinheiro</option>
+                                            <option value="BOLETO">Boleto / Transferência</option>
+                                        </select>
+                                    </div>
+                                    <div className="col-span-2 sm:col-span-1">
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Valor (R$)</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={paymentDraftAmountInputValue}
+                                            onChange={(e) => {
+                                                setPaymentDraftAmountInputValue(e.target.value);
+                                                const val = parseFloat(e.target.value);
+                                                setPaymentDraft({ ...paymentDraft, amountCents: isNaN(val) ? 0 : Math.round(val * 100) });
+                                            }}
+                                            className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
+                                        />
+                                    </div>
+                                    {paymentDraft.method === 'CREDIT_CARD' && (
+                                        <div className="col-span-2">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Parcelas</label>
+                                            <select
+                                                value={paymentDraft.installments}
+                                                onChange={(e) => setPaymentDraft({ ...paymentDraft, installments: parseInt(e.target.value) })}
+                                                className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
+                                            >
+                                                {[...Array(12)].map((_, i) => (
+                                                    <option key={i + 1} value={i + 1}>
+                                                        {i + 1}x de {formatCurrency(Math.floor(paymentDraft.amountCents / (i + 1)))}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
                                 <Button
-                                    onClick={() => updateStatusMutation.mutate({ status: 'PAGO', paymentMethod: selectedPaymentMethod })}
-                                    disabled={updateStatusMutation.isPending}
-                                    className="bg-blue-600 text-white hover:bg-blue-700"
+                                    onClick={handleAddPayment}
+                                    type="button"
+                                    className="w-full bg-blue-100 text-blue-700 hover:bg-blue-200"
                                 >
-                                    {updateStatusMutation.isPending ? 'Confirmando...' : 'Confirmar Pagamento'}
+                                    Adicionar
                                 </Button>
                             </div>
+                        ) : (
+                            <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-xl text-center flex flex-col items-center justify-center gap-2 mb-6">
+                                <CheckCircle className="w-8 h-8 text-green-500" />
+                                <p className="font-medium">Total distribuído com sucesso!</p>
+                            </div>
+                        )}
+
+                        <div className="pt-4 flex justify-end gap-2 border-t border-gray-100">
+                            <Button variant="outline" onClick={() => setIsConfirmingPayment(false)}>
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={() => updateStatusMutation.mutate({ status: 'PAGO', payments: splitPayments })}
+                                disabled={updateStatusMutation.isPending || remainingToPay !== 0 || splitPayments.length === 0}
+                                className="bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500"
+                            >
+                                {updateStatusMutation.isPending ? 'Confirmando...' : 'Confirmar Pagamento'}
+                            </Button>
                         </div>
                     </div>
                 </div>

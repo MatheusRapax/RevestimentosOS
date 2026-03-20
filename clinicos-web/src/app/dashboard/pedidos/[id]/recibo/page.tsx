@@ -127,11 +127,24 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
                         <p className="text-sm text-gray-600 pl-6">Tel: {order.customer?.phone || 'Não informado'}</p>
                     </div>
                     <div className="space-y-2">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2 border-b border-gray-200 pb-1">Detalhes da Transação</h3>
-                        <p className="text-sm text-gray-600 flex items-center gap-2">
-                            <CreditCard className="h-4 w-4 text-gray-400" /> Método: <strong className="text-gray-900">{paymentMethodLabel}</strong>
-                        </p>
-                        <p className="text-sm text-gray-600 flex items-center gap-2">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2 border-b border-gray-200 pb-1">Detalhes de Pagamento</h3>
+                        {order.payments && order.payments.length > 0 ? (
+                            order.payments.map((p: any, idx: number) => (
+                                <p key={idx} className="text-sm text-gray-600 flex justify-between items-center pr-4">
+                                    <span className="flex items-center gap-2">
+                                        <CreditCard className="h-4 w-4 text-gray-400" /> 
+                                        {translatePaymentMethod(p.method)}
+                                        {p.installments > 1 && ` (${p.installments}x)`}
+                                    </span>
+                                    <strong className="text-gray-900">{formatCurrency(p.amountCents)}</strong>
+                                </p>
+                            ))
+                        ) : (
+                            <p className="text-sm text-gray-600 flex items-center gap-2">
+                                <CreditCard className="h-4 w-4 text-gray-400" /> Método: <strong className="text-gray-900">{paymentMethodLabel}</strong>
+                            </p>
+                        )}
+                        <p className="text-sm text-gray-600 flex items-center gap-2 pt-1 border-t border-gray-100">
                             <Calendar className="h-4 w-4 text-gray-400" /> Confirmação: <strong className="text-gray-900">{formatDate(order.confirmedAt || new Date())}</strong>
                         </p>
                         <p className="text-sm text-gray-600 pl-6">
