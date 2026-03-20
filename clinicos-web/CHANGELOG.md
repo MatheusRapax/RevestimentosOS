@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.2](///compare/v0.1.1...v0.1.2) (2026-03-20)
+
+
+### Features
+
+* **dashboard:** implementa atalhos de módulos configuráveis e adiciona ícone de Ambientes fb91046
+
 ### 0.1.1 (2026-03-19)
 
 
