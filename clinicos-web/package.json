@@ -1,6 +1,6 @@
 {
   "name": "clinicos-web",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",
@@ -13,7 +13,10 @@
     "bumpFiles": [
       "package.json",
       "package-lock.json",
-      "src/data/latest-release.json"
+      {
+        "filename": "src/data/latest-release.json",
+        "type": "json"
+      }
     ],
     "scripts": {
       "postchangelog": "node scripts/sync-changelog.js"
