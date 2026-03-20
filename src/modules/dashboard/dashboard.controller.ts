@@ -46,6 +46,25 @@ export class DashboardController {
     );
   }
 
+  // Get user's dashboard shortcuts
+  @Get('shortcuts')
+  async getShortcuts(@Request() req: AuthRequest) {
+    return this.dashboardService.getShortcuts(req.user.id, req.clinicId);
+  }
+
+  // Save user's dashboard shortcuts
+  @Put('shortcuts')
+  async saveShortcuts(
+    @Request() req: AuthRequest,
+    @Body() body: { shortcuts: string[] },
+  ) {
+    return this.dashboardService.saveShortcuts(
+      req.user.id,
+      req.clinicId,
+      body.shortcuts,
+    );
+  }
+
   // Widget data endpoints
   @Get('widgets/birthdays')
   async getBirthdays(@Request() req: AuthRequest) {

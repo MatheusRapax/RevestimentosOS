@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import WidgetsBoard from '@/components/dashboard/WidgetsBoard';
+import ConfigurableModulesBoard from '@/components/dashboard/ConfigurableModulesBoard';
 import {
     Users,
     Package,
@@ -30,6 +31,7 @@ import {
     Tags,
     Activity,
     Settings,
+    LayoutGrid,
 } from 'lucide-react';
 
 // Modules for a flooring/tile store ERP - synced with sidebar
@@ -208,6 +210,14 @@ const modules = [
         permission: 'clinic.settings.manage',
     },
     {
+        href: '/dashboard/configuracoes/ambientes',
+        label: 'Ambientes',
+        icon: LayoutGrid,
+        color: 'bg-zinc-700',
+        moduleGroup: 'ADMIN',
+        permission: 'environment.read',
+    },
+    {
         href: '/dashboard/admin/auditoria',
         label: 'Auditoria',
         icon: Activity,
@@ -249,29 +259,7 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* Grid compacto - todos os módulos visíveis */}
-            <div className="grid grid-cols-4 lg:grid-cols-6 gap-4">
-                {visibleModules.map((module) => {
-                    const Icon = module.icon;
-                    return (
-                        <Link
-                            key={module.href}
-                            href={module.href}
-                            className="group flex flex-col items-center p-4 rounded-xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200"
-                        >
-                            {/* Icon */}
-                            <div className={`flex items-center justify-center w-12 h-12 rounded-xl ${module.color} text-white mb-2 group-hover:scale-110 transition-transform`}>
-                                <Icon size={24} />
-                            </div>
-
-                            {/* Label */}
-                            <span className="text-xs font-medium text-gray-700 text-center">
-                                {module.label}
-                            </span>
-                        </Link>
-                    );
-                })}
-            </div>
+            <ConfigurableModulesBoard availableModules={visibleModules} />
 
             {/* Widgets configuráveis */}
             <WidgetsBoard />

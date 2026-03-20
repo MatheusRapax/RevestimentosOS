@@ -54,6 +54,39 @@ export class DashboardService {
     });
   }
 
+  // Get user's dashboard shortcuts
+  async getShortcuts(userId: string, clinicId: string) {
+    const config = await this.prisma.userDashboardConfig.findUnique({
+      where: {
+        userId_clinicId: { userId, clinicId },
+      },
+      select: { shortcuts: true }
+    });
+
+    return config?.shortcuts || [];
+  }
+
+  // Save user's dashboard shortcuts
+  async saveShortcuts(userId: string, clinicId: string, shortcuts: string[]) {
+    // Limit to let's say 12 shortcuts to prevent abuse
+    const limitedShortcuts = shortcuts.slice(0, 12);
+
+    return this.prisma.userDashboardConfig.upsert({
+      where: {
+        userId_clinicId: { userId, clinicId },
+      },
+      create: {
+        userId,
+        clinicId,
+        widgets: [],
+        shortcuts: limitedShortcuts,
+      },
+      update: {
+        shortcuts: limitedShortcuts,
+      },
+    });
+  }
+
   // Get birthdays widget data
   async getBirthdays(clinicId: string) {
     const today = new Date();

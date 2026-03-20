@@ -942,6 +942,7 @@ model UserDashboardConfig {
   userId    String
   clinicId  String
   widgets   Json // Array of widget types: ["birthdays", "today_appointments", ...]
+  shortcuts Json?    @default("[]") // Array of pinned module routes/hrefs
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
