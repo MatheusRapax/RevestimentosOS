@@ -35,10 +35,8 @@ export class CreateArchitectDto {
   birthDate?: string;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Max(100)
-  commissionRate?: number; // Percentual (ex: 3.0 = 3%)
+  @IsString()
+  commissionRuleId?: string;
 
   @IsOptional()
   @IsString()

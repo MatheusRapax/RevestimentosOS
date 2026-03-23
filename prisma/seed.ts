@@ -147,7 +147,9 @@ async function main() {
         { key: 'finance.update', description: 'Atualizar registros financeiros' },
         { key: 'finance.charge', description: 'Realizar cobranças' },
         { key: 'finance.payment', description: 'Realizar pagamentos' },
-        { key: 'commission.report.read', description: 'Visualizar comissões' },
+        { key: 'commission.report.read', description: 'Visualizar relatórios de comissões' },
+        { key: 'commission.read', description: 'Visualizar regras de comissão' },
+        { key: 'commission.manage', description: 'Gerenciar regras de comissão globais' },
         
         // User Admin Permissions
         { key: 'user.read', description: 'Visualizar usuários' },
@@ -274,7 +276,7 @@ async function main() {
         'stock.adjust', // Manage Stock
         'rma.read', 'rma.manage', // Manage RMA
         'finance.read', 'finance.charge', 'finance.payment',
-        'commission.report.read', // Read commissions
+        'commission.read', 'commission.manage', 'commission.report.read', // Read and manage commissions
         'fiscal.view', 'fiscal.emit', 'fiscal.cancel', // Fiscal Access
         'user.read', 'user.create', 'user.update', 'user.delete', 'user.invite', 'PROFESSIONAL_MANAGE', // User management
         'role.read', 'role.manage', // Roles management
@@ -371,7 +373,6 @@ async function main() {
             email: 'ana@arquitetura.com.br',
             phone: '11 91111-1111',
             document: '111.111.111-11',
-            commissionRate: 5.0,
             isActive: true,
         },
         {
@@ -380,7 +381,6 @@ async function main() {
             email: 'beto@studio.com',
             phone: '11 92222-2222',
             document: '222.222.222-22',
-            commissionRate: 4.0,
             isActive: true,
         },
         {
@@ -389,7 +389,6 @@ async function main() {
             email: 'camila@design.com',
             phone: '11 93333-3333',
             document: '333.333.333-33',
-            commissionRate: 6.0,
             isActive: true,
         }
     ];

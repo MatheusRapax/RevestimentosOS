@@ -91,6 +91,7 @@ const menuSections = [
         icon: Shield,
         items: [
             { href: '/dashboard/admin/configuracoes', label: 'Configurações Globais', icon: Settings, module: 'ADMIN', permission: 'clinic.settings.manage' },
+            { href: '/dashboard/configuracoes/comissoes', label: 'Regras de Comissão', icon: Percent, module: 'ADMIN', permission: 'commission.manage' },
             { href: '/dashboard/admin/catalogo', label: 'Config. de Catálogo', icon: Tags, module: 'STOCK', permission: 'catalogue.settings' },
             { href: '/dashboard/admin/usuarios', label: 'Usuários', icon: Users, module: 'ADMIN', permission: 'role.manage' },
             { href: '/dashboard/admin/papeis', label: 'Papéis e Acessos', icon: Shield, module: 'ADMIN', permission: 'role.read' },

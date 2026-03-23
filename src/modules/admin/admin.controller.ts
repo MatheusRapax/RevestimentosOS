@@ -74,6 +74,7 @@ export class AdminController {
       isSuperAdmin?: boolean;
       clinicId?: string;
       roleId?: string;
+      commissionRuleId?: string;
     },
   ) {
     return this.adminService.createUser(body);
@@ -88,6 +89,7 @@ export class AdminController {
       password?: string;
       isSuperAdmin?: boolean;
       clinicRoles?: { clinicId: string; roleId: string }[];
+      commissionRuleId?: string;
     },
   ) {
     return this.adminService.updateUser(id, body);

@@ -85,7 +85,7 @@ export class CustomersService {
       },
       include: {
         architect: {
-          select: { id: true, name: true, commissionRate: true },
+          select: { id: true, name: true },
         },
       },
     });

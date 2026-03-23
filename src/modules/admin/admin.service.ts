@@ -99,6 +99,7 @@ export class AdminService {
       password?: string;
       isSuperAdmin?: boolean;
       clinicRoles?: { clinicId: string; roleId: string }[];
+      commissionRuleId?: string;
     },
   ) {
     const updateData: any = {};
@@ -106,6 +107,9 @@ export class AdminService {
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
     if (data.isSuperAdmin !== undefined)
       updateData.isSuperAdmin = data.isSuperAdmin;
+    if (data.commissionRuleId !== undefined) {
+      updateData.commissionRuleId = data.commissionRuleId || null;
+    }
     if (data.password) {
       updateData.password = await bcrypt.hash(data.password, 10);
     }
@@ -122,6 +126,7 @@ export class AdminService {
           name: true,
           isActive: true,
           isSuperAdmin: true,
+          commissionRuleId: true,
         },
       });
 
@@ -189,6 +194,7 @@ export class AdminService {
     isSuperAdmin?: boolean;
     clinicId?: string;
     roleId?: string;
+    commissionRuleId?: string;
   }) {
     const password = await bcrypt.hash(data.password || '123456', 10);
 
@@ -201,6 +207,7 @@ export class AdminService {
           password,
           isSuperAdmin: data.isSuperAdmin || false,
           isActive: true,
+          commissionRuleId: data.commissionRuleId || null,
         },
       });
 

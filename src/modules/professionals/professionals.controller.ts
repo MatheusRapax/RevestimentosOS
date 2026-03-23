@@ -140,7 +140,7 @@ export class ProfessionalsController {
   async updateUserRole(
     @Request() req: any,
     @Param('userId') userId: string,
-    @Body() body: { roleId: string },
+    @Body() body: { roleId: string; commissionRuleId?: string },
   ) {
     const clinicId = req.clinicId;
     const currentUserId = req.user?.id;
@@ -148,6 +148,7 @@ export class ProfessionalsController {
       clinicId,
       userId,
       body.roleId,
+      body.commissionRuleId || null,
       currentUserId,
     );
   }

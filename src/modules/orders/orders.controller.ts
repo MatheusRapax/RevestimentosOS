@@ -70,6 +70,14 @@ export class OrdersController {
     return this.ordersService.findOne(req.clinicId, id);
   }
 
+  @Get(':id/commissions')
+  async getOrderCommissions(
+    @Request() req: AuthRequest,
+    @Param('id') id: string,
+  ) {
+    return this.ordersService.calculateOrderCommissions(req.clinicId, id);
+  }
+
   @Patch(':id/status')
   async updateStatus(
     @Request() req: AuthRequest,

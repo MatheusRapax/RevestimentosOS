@@ -137,6 +137,9 @@ export const PERMISSIONS = {
 
   // Reports (Relatórios de Vendas)
   SALES_REPORT_READ: 'sales.report.read',
+  // Commissions
+  COMMISSION_READ: 'commission.read',
+  COMMISSION_MANAGE: 'commission.manage',
   COMMISSION_REPORT_READ: 'commission.report.read',
 
   // Promotions (Promoções)

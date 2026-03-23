@@ -96,20 +96,21 @@ export class ArchitectsService {
     });
 
     const architect = await this.findOne(architectId, clinicId);
-    const commissionRate = architect.commissionRate || 0;
+    // TODO: Connect this with CommissionsService to dynamically calculate tiered commissions
+    const effectiveRate = 0;
 
     const totalSales = quotes.reduce(
       (sum, q) => sum + (q.order?.totalCents || 0),
       0,
     );
-    const totalCommission = Math.round(totalSales * (commissionRate / 100));
+    const totalCommission = Math.round(totalSales * (effectiveRate / 100));
 
     return {
       architect,
       period: { startDate, endDate },
       totalQuotes: quotes.length,
       totalSalesCents: totalSales,
-      commissionRate,
+      effectiveRate,
       totalCommissionCents: totalCommission,
       quotes: quotes.map((q) => ({
         quoteId: q.id,
@@ -118,7 +119,7 @@ export class ArchitectsService {
         orderStatus: q.order?.status,
         totalCents: q.order?.totalCents || 0,
         commissionCents: Math.round(
-          (q.order?.totalCents || 0) * (commissionRate / 100),
+          (q.order?.totalCents || 0) * (effectiveRate / 100),
         ),
       })),
     };

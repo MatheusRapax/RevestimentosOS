@@ -50,6 +50,10 @@ export class InviteProfessionalDto {
   @IsOptional()
   @IsString()
   password?: string;
+
+  @IsOptional()
+  @IsString()
+  commissionRuleId?: string;
 }
 
 // DTO for updating professional
@@ -121,7 +125,7 @@ export class ProfessionalsService {
       },
       include: {
         user: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, commissionRuleId: true },
         },
         role: {
           select: { id: true, key: true, name: true },
@@ -138,6 +142,7 @@ export class ProfessionalsService {
       roleId: cu.role.id,
       roleKey: cu.role.key,
       roleName: cu.role.name,
+      commissionRuleId: cu.user.commissionRuleId || undefined,
     }));
   }
 
@@ -213,6 +218,14 @@ export class ProfessionalsService {
       if (existing) {
         throw new ConflictException('Usuário já está vinculado a esta clínica');
       }
+
+      // Update commission rule if provided
+      if (dto.commissionRuleId) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { commissionRuleId: dto.commissionRuleId },
+        });
+      }
     } else {
       // Create new user with provided password or temporary one
       const rawPassword = dto.password || Math.random().toString(36).slice(-8);
@@ -224,6 +237,7 @@ export class ProfessionalsService {
           name: dto.name,
           password: hashedPassword,
           isActive: true,
+          commissionRuleId: dto.commissionRuleId || null,
         },
       });
     }
@@ -447,6 +461,7 @@ export class ProfessionalsService {
     clinicId: string,
     userId: string,
     roleId: string,
+    commissionRuleId: string | null, // Added commissionRuleId
     currentUserId: string,
   ): Promise<{ success: boolean; roleName: string }> {
     // Find the clinic user (any role)
@@ -477,6 +492,13 @@ export class ProfessionalsService {
       where: { id: clinicUser.id },
       data: { roleId },
     });
+
+    if (commissionRuleId !== undefined) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { commissionRuleId },
+      });
+    }
 
     // Audit log
     await this.auditService.log({

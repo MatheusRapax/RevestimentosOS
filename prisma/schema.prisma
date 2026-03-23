@@ -132,8 +132,10 @@ model User {
   professionalWorkingHours ProfessionalWorkingHours[]
 
   // Sales Module Relations
-  quotesAsSeller Quote[] @relation("QuoteSeller")
-  ordersAsSeller Order[] @relation("OrderSeller")
+  quotesAsSeller   Quote[]         @relation("QuoteSeller")
+  ordersAsSeller   Order[]         @relation("OrderSeller")
+  commissionRuleId String?
+  commissionRule   CommissionRule? @relation("UserCommissionRule", fields: [commissionRuleId], references: [id])
 
   // Super Admin
   isSuperAdmin Boolean @default(false)
@@ -197,6 +199,7 @@ model Clinic {
   quoteTemplates    QuoteTemplate[]
   promotions        Promotion[]
   environments      Environment[]
+  CommissionRule    CommissionRule[]
 }
 
 // Clinic working hours per day of week
@@ -572,13 +575,13 @@ model StockLot {
   shade   String? // Tonalidade (ex: "A1", "B2")
   caliber String? // Calibre (ex: "9mm", "10mm")
 
-  clinic         Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  product        Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
-  movements      StockMovement[]
-  stockExitItems StockExitItem[]
-  quoteItems     QuoteItem[]
-  orderItems     OrderItem[]
-  reservations   StockReservation[]
+  clinic          Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  product         Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  movements       StockMovement[]
+  stockExitItems  StockExitItem[]
+  quoteItems      QuoteItem[]
+  orderItems      OrderItem[]
+  reservations    StockReservation[]
   occurrenceItems OccurrenceItem[]
 
   @@unique([clinicId, productId, lotNumber])
@@ -1146,9 +1149,9 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clinic Clinic  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  quotes Quote[]
-  orders Order[]
+  clinic      Clinic       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  quotes      Quote[]
+  orders      Order[]
   occurrences Occurrence[]
 
   // Finance
@@ -1164,22 +1167,23 @@ model Customer {
 
 // Business: Architect model (Arquiteto/Indicador parceiro)
 model Architect {
-  id             String    @id @default(uuid())
-  clinicId       String
-  name           String
-  email          String?
-  phone          String?
-  document       String? // CPF
-  birthDate      DateTime?
-  commissionRate Float? // Percentual de comissão (ex: 3.0 = 3%)
-  notes          String?
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id               String    @id @default(uuid())
+  clinicId         String
+  name             String
+  email            String?
+  phone            String?
+  document         String? // CPF
+  birthDate        DateTime?
+  commissionRuleId String? // Substitui a taxa fixa para suportar regras escalonadas
+  notes            String?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  clinic    Clinic     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  customers Customer[]
-  quotes    Quote[]
+  clinic         Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  commissionRule CommissionRule? @relation("ArchitectCommissionRule", fields: [commissionRuleId], references: [id])
+  customers      Customer[]
+  quotes         Quote[]
 
   @@index([clinicId])
   @@index([clinicId, name])
@@ -1222,11 +1226,11 @@ model QuoteTemplate {
   showSignatureLines Boolean @default(true)
   showBankDetails    Boolean @default(true)
   showTerms          Boolean @default(true)
-  
+
   // Opções de Tabela (Colunas)
-  showQuantity       Boolean @default(true) // Mostra "Qtd" ou "Caixas"
-  showUnitArea       Boolean @default(true) // Mostra "Área (m²)"
-  showUnitPrice      Boolean @default(true) // Mostra "Unit."
+  showQuantity  Boolean @default(true) // Mostra "Qtd" ou "Caixas"
+  showUnitArea  Boolean @default(true) // Mostra "Área (m²)"
+  showUnitPrice Boolean @default(true) // Mostra "Unit."
 
   // Rodapé
   footerText String? @db.Text
@@ -1577,11 +1581,11 @@ model Expense {
 
   // Módulo de Notas de Serviços Tomados
   isServiceInvoice Boolean   @default(false)
-  invoiceNumber    String?   // Número da Nota
-  providerDocument String?   // CNPJ/CPF do prestador de serviço
-  providerName     String?   // Razão Social do prestador (pode mapear com recipientName)
+  invoiceNumber    String? // Número da Nota
+  providerDocument String? // CNPJ/CPF do prestador de serviço
+  providerName     String? // Razão Social do prestador (pode mapear com recipientName)
   issueDate        DateTime? // Data de emissão da nota
-  documentUrl      String?   // Link externo ou caminho do upload do PDF/XML
+  documentUrl      String? // Link externo ou caminho do upload do PDF/XML
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1763,19 +1767,19 @@ enum FiscalType {
 
 // Business: Promotion model (Campanhas Promocionais)
 model Promotion {
-  id              String             @id @default(uuid())
+  id              String   @id @default(uuid())
   clinicId        String
   name            String
   description     String?
-  discountPercent Float              // Desconto em porcentagem
+  discountPercent Float // Desconto em porcentagem
   startDate       DateTime
   endDate         DateTime
-  isActive        Boolean            @default(true)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  clinic          Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  products        PromotionProduct[]
+  clinic   Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  products PromotionProduct[]
 
   @@index([clinicId])
   @@index([isActive])
@@ -1786,24 +1790,70 @@ model PromotionProduct {
   promotionId String
   productId   String
 
-  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@id([promotionId, productId])
   @@index([promotionId])
   @@index([productId])
 }
 
+// Commission Configuration
+enum CommissionTargetType {
+  SELLER
+  ARCHITECT
+}
+
+enum CommissionGoalPeriod {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  SEMIANNUALLY
+  ANNUALLY
+}
+
+model CommissionRule {
+  id         String               @id @default(uuid())
+  clinicId   String
+  name       String // Ex: "Regra Global Vendedores", "Vendedor Ouro"
+  targetType CommissionTargetType // SELLER ou ARCHITECT
+  goalPeriod CommissionGoalPeriod @default(MONTHLY) // Período de apuração de meta
+  isGlobal   Boolean              @default(false) // Se true, aplica a todos do tipo que não têm uma regra específica
+  isActive   Boolean              @default(true)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  tiers CommissionTier[]
+
+  clinic     Clinic      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  users      User[]      @relation("UserCommissionRule")
+  architects Architect[] @relation("ArchitectCommissionRule")
+
+  @@index([clinicId])
+}
+
+model CommissionTier {
+  id               String @id @default(uuid())
+  commissionRuleId String
+  minGoalAmount    Int // Metas de vendas em centavos (Ex: atingiu 10.000,00)
+  commissionRate   Float // Qual será a % de comissão (Ex: 3.5)
+
+  commissionRule CommissionRule @relation(fields: [commissionRuleId], references: [id], onDelete: Cascade)
+
+  @@index([commissionRuleId])
+  @@index([commissionRuleId, minGoalAmount])
+}
+
 // System Settings for the Clinic/Store (e.g. delivery fee, default margins)
 model StoreSettings {
-  id                 String   @id @default(uuid())
-  clinicId           String   @unique
-  defaultDeliveryFee Int      @default(0) // cents
-  
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                 String @id @default(uuid())
+  clinicId           String @unique
+  defaultDeliveryFee Int    @default(0) // cents
 
-  clinic             Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 }
 
 // Business: Occurrence (RMA / Gestão de Avarias)
@@ -1823,12 +1873,12 @@ enum OccurrenceStatus {
 }
 
 model Occurrence {
-  id           String           @id @default(uuid())
-  clinicId     String
-  number       Int              @default(autoincrement()) // Ex: RMA-0012 a ser formatado no frontend
-  type         OccurrenceType
-  status       OccurrenceStatus @default(RASCUNHO)
-  
+  id       String           @id @default(uuid())
+  clinicId String
+  number   Int              @default(autoincrement()) // Ex: RMA-0012 a ser formatado no frontend
+  type     OccurrenceType
+  status   OccurrenceStatus @default(RASCUNHO)
+
   // Relacionamentos Opcionais dependendo do tipo da Ocorrência
   supplierId      String?
   customerId      String?
@@ -1836,17 +1886,17 @@ model Occurrence {
   purchaseOrderId String? // Pedido de Compra
   stockEntryId    String?
 
-  notes        String?          @db.Text
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  clinic        Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  supplier      Supplier?        @relation(fields: [supplierId], references: [id])
-  customer      Customer?        @relation(fields: [customerId], references: [id])
-  order         Order?           @relation(fields: [orderId], references: [id])
-  purchaseOrder PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id])
-  stockEntry    StockEntry?      @relation(fields: [stockEntryId], references: [id])
-  items         OccurrenceItem[]
+  clinic         Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  supplier       Supplier?        @relation(fields: [supplierId], references: [id])
+  customer       Customer?        @relation(fields: [customerId], references: [id])
+  order          Order?           @relation(fields: [orderId], references: [id])
+  purchaseOrder  PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id])
+  stockEntry     StockEntry?      @relation(fields: [stockEntryId], references: [id])
+  items          OccurrenceItem[]
   stockMovements StockMovement[]
 
   @@index([clinicId])
@@ -1858,20 +1908,20 @@ model Occurrence {
 }
 
 model OccurrenceItem {
-  id           String      @id @default(uuid())
+  id           String  @id @default(uuid())
   occurrenceId String
   productId    String
   lotId        String?
-  
-  quantity     Float
-  unitType     String      @default("CAIXA") // "CAIXA" ou "UNIDADE"
-  reason       String?     @db.Text
-  
-  createdAt    DateTime    @default(now())
 
-  occurrence   Occurrence  @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
-  product      Product     @relation(fields: [productId], references: [id])
-  lot          StockLot?   @relation(fields: [lotId], references: [id])
+  quantity Float
+  unitType String  @default("CAIXA") // "CAIXA" ou "UNIDADE"
+  reason   String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  occurrence Occurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id])
+  lot        StockLot?  @relation(fields: [lotId], references: [id])
 
   @@index([occurrenceId])
   @@index([productId])

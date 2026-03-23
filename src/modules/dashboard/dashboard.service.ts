@@ -482,14 +482,12 @@ export class DashboardService {
       const clientsCount = (arch as any).customers.filter(
         (c: any) => c.orders.length > 0,
       ).length;
-      const commissionTotal = Math.round(
-        totalSales * ((arch.commissionRate || 0) / 100),
-      );
+      const commissionTotal = 0; // TODO: Implement tiered commission logic
 
       return {
         id: arch.id,
         name: arch.name,
-        commissionRate: arch.commissionRate,
+        commissionRuleId: (arch as any).commissionRuleId,
         stats: {
           totalSales,
           clientsCount,

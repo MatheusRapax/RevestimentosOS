@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/dialog';
 import { Plus, Users, Edit, Trash2, Percent, Building2 } from 'lucide-react';
 import { maskCPF, maskPhone, maskDate, unmask } from '@/lib/masks';
+import { useCommissions } from '@/hooks/useCommissions';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Architect {
     id: string;
@@ -23,7 +25,8 @@ interface Architect {
     phone?: string;
     document?: string;
     birthDate?: string;
-    commissionRate?: number;
+    commissionRuleId?: string;
+    commissionRule?: { id: string, name: string, isGlobal: boolean };
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -35,7 +38,7 @@ const emptyForm = {
     phone: '',
     document: '',
     birthDate: '',
-    commissionRate: 5,
+    commissionRuleId: '',
 };
 
 export default function ArquitetosPage() {
@@ -43,6 +46,9 @@ export default function ArquitetosPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
+
+    const { rules: commissionRules } = useCommissions();
+    const architectRules = commissionRules.filter(r => r.targetType === 'ARCHITECT' && r.isActive);
 
     // Create/Edit dialog
     const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
@@ -94,7 +100,7 @@ export default function ArquitetosPage() {
             phone: architect.phone || '',
             document: architect.document || '',
             birthDate: architect.birthDate ? new Date(architect.birthDate).toLocaleDateString('pt-BR') : '',
-            commissionRate: architect.commissionRate || 5,
+            commissionRuleId: architect.commissionRuleId || '',
         });
         setIsFormDialogOpen(true);
     };
@@ -114,7 +120,7 @@ export default function ArquitetosPage() {
                 document: unmask(formData.document),
                 phone: unmask(formData.phone),
                 birthDate: formData.birthDate ? new Date(formData.birthDate.split('/').reverse().join('-')).toISOString() : undefined,
-                commissionRate: Number(formData.commissionRate),
+                commissionRuleId: formData.commissionRuleId || undefined,
             };
 
             if (editingArchitect) {
@@ -279,7 +285,7 @@ export default function ArquitetosPage() {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium rounded bg-amber-100 text-amber-800">
                                                 <Percent className="h-3 w-3" />
-                                                {architect.commissionRate || 0}%
+                                                {architect.commissionRule ? architect.commissionRule.name : 'Regra Global'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -385,18 +391,23 @@ export default function ArquitetosPage() {
                         </div>
 
                         <div>
-                            <Label htmlFor="commissionRate">Taxa de Comissão (%)</Label>
-                            <Input
-                                id="commissionRate"
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="0.5"
-                                value={formData.commissionRate}
-                                onChange={(e) => setFormData({ ...formData, commissionRate: Number(e.target.value) })}
-                            />
+                            <Label htmlFor="commissionRuleId">Regra de Comissão</Label>
+                            <Select 
+                                value={formData.commissionRuleId || "global"} 
+                                onValueChange={(val) => setFormData(prev => ({ ...prev, commissionRuleId: val === "global" ? '' : val }))}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Regra Padrão (Global)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="global">Regra Padrão (Global)</SelectItem>
+                                    {architectRules.map(rule => (
+                                        <SelectItem key={rule.id} value={rule.id}>{rule.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             <p className="text-xs text-gray-500 mt-1">
-                                Percentual sobre vendas vinculadas
+                                Selecione qual grupo de comissionamento aplicar.
                             </p>
                         </div>
                     </div>

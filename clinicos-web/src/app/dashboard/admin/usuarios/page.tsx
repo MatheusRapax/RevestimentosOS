@@ -17,6 +17,7 @@ import {
 import { Users, Shield, Check } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
+import { useCommissions } from '@/hooks/useCommissions';
 
 interface ClinicUser {
     id: string;
@@ -26,6 +27,7 @@ interface ClinicUser {
     roleId: string;
     roleKey: string;
     roleName: string;
+    commissionRuleId?: string;
 }
 
 interface Role {
@@ -62,7 +64,11 @@ export default function UsersPage() {
         email: '',
         password: '',
         roleId: '',
+        commissionRuleId: '',
     });
+
+    const { rules } = useCommissions();
+    const sellerRules = rules.filter((r) => r.targetType === 'SELLER');
 
     const fetchData = async () => {
         try {
@@ -93,16 +99,37 @@ export default function UsersPage() {
         fetchData();
     }, []);
 
-    const handleRoleChange = async (userId: string, roleId: string) => {
-        setSaving(userId);
+    const handleRoleChange = async (user: ClinicUser, newRoleId: string) => {
+        setSaving(user.id);
         setSuccess(null);
         try {
-            await api.put(`/professionals/${userId}/role`, { roleId });
-            setSuccess(userId);
+            await api.put(`/professionals/${user.id}/role`, { 
+                roleId: newRoleId, 
+                commissionRuleId: user.commissionRuleId 
+            });
+            setSuccess(user.id);
             setTimeout(() => setSuccess(null), 2000);
             await fetchData();
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Erro ao alterar papel');
+        } finally {
+            setSaving(null);
+        }
+    };
+
+    const handleCommissionRuleChange = async (user: ClinicUser, commissionRuleId: string) => {
+        setSaving(user.id);
+        setSuccess(null);
+        try {
+            await api.put(`/professionals/${user.id}/role`, { 
+                roleId: user.roleId, 
+                commissionRuleId: commissionRuleId === 'null' ? null : commissionRuleId 
+            });
+            setSuccess(user.id);
+            setTimeout(() => setSuccess(null), 2000);
+            await fetchData();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Erro ao alterar comissão');
         } finally {
             setSaving(null);
         }
@@ -123,11 +150,12 @@ export default function UsersPage() {
                 email: newUserForm.email,
                 password: newUserForm.password,
                 roleId: newUserForm.roleId,
+                commissionRuleId: newUserForm.commissionRuleId || undefined,
             });
             
             toast.success('Usuário criado com sucesso!');
             setIsAddModalOpen(false);
-            setNewUserForm({ name: '', email: '', password: '', roleId: roles.length > 0 ? roles[0].id : '' });
+            setNewUserForm({ name: '', email: '', password: '', roleId: roles.length > 0 ? roles[0].id : '', commissionRuleId: '' });
             await fetchData();
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Erro ao criar usuário');
@@ -233,6 +261,25 @@ export default function UsersPage() {
                                         ))}
                                     </select>
                                 </div>
+                                {roles.find(r => r.id === newUserForm.roleId)?.key === 'SELLER' && (
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="commissionRuleId">Regra de Comissão</Label>
+                                        <select
+                                            id="commissionRuleId"
+                                            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            value={newUserForm.commissionRuleId || ''}
+                                            onChange={(e) => setNewUserForm({ ...newUserForm, commissionRuleId: e.target.value })}
+                                            disabled={isAddingUser}
+                                        >
+                                            <option value="">Padrão (Regra Global de Vendedores)</option>
+                                            {sellerRules.filter((r: any) => !r.isGlobal).map((rule: any) => (
+                                                <option key={rule.id} value={rule.id}>
+                                                    {rule.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
                             <DialogFooter>
                                 <Button
@@ -268,6 +315,7 @@ export default function UsersPage() {
                                 <TableHead>Email</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Papel</TableHead>
+                                <TableHead>Regra de Comissão</TableHead>
                                 <TableHead className="w-12"></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -304,7 +352,7 @@ export default function UsersPage() {
                                             <select
                                                 value={user.roleId}
                                                 onChange={(e) =>
-                                                    handleRoleChange(user.id, e.target.value)
+                                                    handleRoleChange(user, e.target.value)
                                                 }
                                                 disabled={isCurrentUser || isSaving || user.roleKey === 'SUPER_ADMIN'}
                                                 className={`px-3 py-1.5 border rounded-md text-sm min-w-[140px] ${isCurrentUser || user.roleKey === 'SUPER_ADMIN'
@@ -322,6 +370,30 @@ export default function UsersPage() {
                                                     </option>
                                                 ))}
                                             </select>
+                                        </TableCell>
+                                        <TableCell>
+                                            {user.roleKey === 'SELLER' ? (
+                                                <select
+                                                    value={user.commissionRuleId || 'null'}
+                                                    onChange={(e) =>
+                                                        handleCommissionRuleChange(user, e.target.value)
+                                                    }
+                                                    disabled={isCurrentUser || isSaving}
+                                                    className={`px-3 py-1.5 border rounded-md text-sm min-w-[140px] ${isCurrentUser
+                                                        ? 'bg-gray-100 cursor-not-allowed'
+                                                        : 'cursor-pointer hover:border-blue-400'
+                                                        }`}
+                                                >
+                                                    <option value="null">Padrão da Loja</option>
+                                                    {sellerRules.filter((r: any) => !r.isGlobal).map((rule: any) => (
+                                                        <option key={rule.id} value={rule.id}>
+                                                            {rule.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <span className="text-gray-400 text-sm">-</span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             {isSaving && (

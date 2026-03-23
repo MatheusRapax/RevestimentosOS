@@ -38,6 +38,7 @@ import { PromotionsModule } from './modules/promotions/promotions.module';
 import { StoreSettingsModule } from './modules/store-settings/store-settings.module';
 import { OccurrencesModule } from './modules/occurrences/occurrences.module';
 import { EnvironmentsModule } from './modules/environments/environments.module';
+import { CommissionsModule } from './modules/commissions/commissions.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { EnvironmentsModule } from './modules/environments/environments.module';
     StoreSettingsModule,
     OccurrencesModule,
     EnvironmentsModule,
+    CommissionsModule,
   ],
   controllers: [],
   providers: [],

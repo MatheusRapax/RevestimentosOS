@@ -11,7 +11,7 @@ describe('ArchitectsService', () => {
     name: 'Arq. Maria Santos',
     email: 'maria@arquitetura.com',
     phone: '11988888888',
-    commissionRate: 3.5, // 3.5%
+    commissionRuleId: 'abc-123',
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -34,23 +34,23 @@ describe('ArchitectsService', () => {
   });
 
   describe('create', () => {
-    it('should create an architect with commission rate', async () => {
+    it('should create an architect with commission rule id', async () => {
       mockPrismaService.architect.create.mockResolvedValue(mockArchitect);
 
       const createDto = {
         name: 'Arq. Maria Santos',
         email: 'maria@arquitetura.com',
-        commissionRate: 3.5,
+        commissionRuleId: 'abc-123',
       };
 
       const result = await service.create('clinic-1', createDto);
 
       expect(result.name).toBe('Arq. Maria Santos');
-      expect(result.commissionRate).toBe(3.5);
+      expect(result.commissionRuleId).toBe('abc-123');
       expect(mockPrismaService.architect.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           clinicId: 'clinic-1',
-          commissionRate: 3.5,
+          commissionRuleId: 'abc-123',
         }),
       });
     });
@@ -114,9 +114,9 @@ describe('ArchitectsService', () => {
         'clinic-1',
       );
 
-      // Total: R$ 3.000,00 × 3.5% = R$ 105,00
+      // Default logic is currently 0
       expect(result.totalSalesCents).toBe(300000);
-      expect(result.totalCommissionCents).toBe(10500);
+      expect(result.totalCommissionCents).toBe(0);
       expect(result.totalQuotes).toBe(2);
     });
 

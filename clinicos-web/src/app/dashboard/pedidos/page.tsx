@@ -98,6 +98,16 @@ export default function OrdersPage() {
         }
     }, [isConfirmingPayment, selectedOrder]);
 
+    const { data: commissionsData, isLoading: isLoadingCommissions } = useQuery({
+        queryKey: ['order-commissions', selectedOrder?.id],
+        queryFn: async () => {
+            if (!selectedOrder?.id) return null;
+            const res = await api.get(`/orders/${selectedOrder.id}/commissions`);
+            return res.data;
+        },
+        enabled: !!selectedOrder?.id && activeTab === 'finance'
+    });
+
     const totalPaid = splitPayments.reduce((sum, p) => sum + p.amountCents, 0);
     const remainingToPay = (selectedOrder?.totalCents || 0) - totalPaid;
 
@@ -947,6 +957,60 @@ export default function OrdersPage() {
                                             ))}
                                         </div>
                                     )}
+
+                                    {/* Internal Commissions Panel */}
+                                    <div className="mt-8 pt-6 border-t border-gray-200">
+                                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                                            <h3 className="font-medium text-slate-900 flex items-center gap-2 mb-4">
+                                                <DollarSign className="h-4 w-4 text-slate-500" />
+                                                Dados de Comissão (Interno)
+                                            </h3>
+                                            
+                                            {isLoadingCommissions ? (
+                                                <div className="text-sm text-slate-500 py-2">Calculando comissões...</div>
+                                            ) : commissionsData ? (
+                                                <div className="space-y-4">
+                                                    {/* Seller Commission */}
+                                                    {commissionsData.seller && (
+                                                        <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                                            <div>
+                                                                <p className="font-medium text-sm text-slate-900">Vendedor: {commissionsData.seller.name}</p>
+                                                                <p className="text-xs text-slate-500">
+                                                                    Regra: {commissionsData.seller.ruleName} ({commissionsData.seller.tierPercentage}%)
+                                                                    <span className="block mt-0.5">Vendas no período: {formatCurrency(commissionsData.seller.periodTotalSales)}</span>
+                                                                </p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="font-bold text-slate-900">{formatCurrency(commissionsData.seller.commissionValueCents)}</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Architect Commission */}
+                                                    {commissionsData.architect && (
+                                                        <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                                            <div>
+                                                                <p className="font-medium text-sm text-slate-900">Arquiteto: {commissionsData.architect.name}</p>
+                                                                <p className="text-xs text-slate-500">
+                                                                    Regra: {commissionsData.architect.ruleName} ({commissionsData.architect.tierPercentage}%)
+                                                                    <span className="block mt-0.5">Indicações no período: {formatCurrency(commissionsData.architect.periodTotalSales)}</span>
+                                                                </p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="font-bold text-slate-900">{formatCurrency(commissionsData.architect.commissionValueCents)}</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {!commissionsData.seller && !commissionsData.architect && (
+                                                        <p className="text-xs text-slate-500 italic">Nenhuma regra de comissão aplicável a este pedido.</p>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="text-sm text-red-500 py-2">Erro ao carregar os dados de comissão.</div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             )}
 

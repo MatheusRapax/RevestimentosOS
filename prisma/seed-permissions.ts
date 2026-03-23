@@ -27,6 +27,14 @@ async function seedPermissions() {
             key: 'audit.read',
             description: 'View audit logs',
         },
+        {
+            key: 'commission.read',
+            description: 'View commission rules',
+        },
+        {
+            key: 'commission.manage',
+            description: 'Manage commission rules',
+        },
     ];
 
     for (const perm of permissions) {
@@ -91,6 +99,12 @@ async function seedPermissions() {
     const auditRead = await prisma.permission.findUnique({
         where: { key: 'audit.read' },
     });
+    const commissionRead = await prisma.permission.findUnique({
+        where: { key: 'commission.read' },
+    });
+    const commissionManage = await prisma.permission.findUnique({
+        where: { key: 'commission.manage' },
+    });
 
     if (!professionalRead || !professionalManage || !clinicAdmin) {
         throw new Error('Permissions not created properly');
@@ -99,11 +113,12 @@ async function seedPermissions() {
     // 5. Assign permissions to roles
     console.log('🔗 Assigning permissions to roles...');
 
-    // ADMIN gets all permissions
     const adminPermissions = [
         { roleId: adminRole.id, permissionId: clinicAdmin.id },
         { roleId: adminRole.id, permissionId: professionalRead.id },
         { roleId: adminRole.id, permissionId: professionalManage.id },
+        ...(commissionRead ? [{ roleId: adminRole.id, permissionId: commissionRead.id }] : []),
+        ...(commissionManage ? [{ roleId: adminRole.id, permissionId: commissionManage.id }] : []),
     ];
 
     for (const rp of adminPermissions) {
@@ -120,13 +135,14 @@ async function seedPermissions() {
     }
     console.log(`  ✓ ADMIN role: 3 permissions`);
 
-    // CLINIC_ADMIN gets all permissions (same as ADMIN for professionals + extra)
     const clinicAdminPermissions = [
         { roleId: clinicAdminRole.id, permissionId: clinicAdmin.id },
         { roleId: clinicAdminRole.id, permissionId: professionalRead.id },
         { roleId: clinicAdminRole.id, permissionId: professionalManage.id },
         ...(encounterUpdate ? [{ roleId: clinicAdminRole.id, permissionId: encounterUpdate.id }] : []),
         ...(auditRead ? [{ roleId: clinicAdminRole.id, permissionId: auditRead.id }] : []),
+        ...(commissionRead ? [{ roleId: clinicAdminRole.id, permissionId: commissionRead.id }] : []),
+        ...(commissionManage ? [{ roleId: clinicAdminRole.id, permissionId: commissionManage.id }] : []),
     ];
 
     for (const rp of clinicAdminPermissions) {

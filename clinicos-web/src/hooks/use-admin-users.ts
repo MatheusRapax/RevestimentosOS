@@ -8,6 +8,7 @@ export interface AdminUser {
     isActive: boolean;
     isSuperAdmin: boolean;
     createdAt: string;
+    commissionRuleId?: string;
     clinicUsers?: {
         clinic: {
             id: string;
@@ -26,6 +27,7 @@ export interface UpdateUserData {
     isActive?: boolean;
     isSuperAdmin?: boolean;
     password?: string;
+    commissionRuleId?: string;
     clinicRoles?: { clinicId: string; roleId: string }[];
     // clinicIds?: string[]; // Deprecated but might be needed for compat if we don't clean up types
 }
@@ -53,7 +55,7 @@ export function useAdminUsers(search?: string) {
     });
 
     const createUser = useMutation({
-        mutationFn: async (data: { name: string; email: string; password?: string; isSuperAdmin?: boolean; clinicId?: string; roleId?: string }) => {
+        mutationFn: async (data: { name: string; email: string; password?: string; isSuperAdmin?: boolean; clinicId?: string; roleId?: string; commissionRuleId?: string }) => {
             const response = await api.post<AdminUser>('/admin/users', data);
             return response.data;
         },

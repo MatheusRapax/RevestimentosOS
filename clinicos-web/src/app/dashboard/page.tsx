@@ -178,6 +178,14 @@ const modules = [
         permission: 'clinic.settings.manage',
     },
     {
+        href: '/dashboard/configuracoes/comissoes',
+        label: 'Regras Comissão',
+        icon: Percent,
+        color: 'bg-slate-700',
+        moduleGroup: 'ADMIN',
+        permission: 'commission.manage',
+    },
+    {
         href: '/dashboard/admin/catalogo',
         label: 'Conf. Catálogo',
         icon: Tags,
