@@ -1,4 +1,4 @@
 {
-  "version": "0.1.3",
-  "content": "### Features\n\n* **orders:** implement split payments and installment details c753db9"
+  "version": "0.1.4",
+  "content": "### Features\n\n* **sales:** implement internal commission calculation and order display 2bdc98e"
 }
