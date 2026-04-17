@@ -15,7 +15,7 @@ export interface ImportProductResult {
   costCents: number;
 }
 
-export type ImportStrategy = 'CASTELLI' | 'PIERINI' | 'EMBRAMACO';
+export type ImportStrategy = 'CASTELLI' | 'PIERINI' | 'EMBRAMACO' | 'BOUTIQUE BRASIL' | 'GLAM BRASIL' | 'LEXXA BAGNO' | 'MOSAIC' | 'DECA' | 'DEXCO' | 'STRUFALDI';
 
 @Injectable()
 export class ProductImportService {
@@ -30,6 +30,20 @@ export class ProductImportService {
         return this.parseStructured(rows); // Both share similar tabular structure
       case 'PIERINI':
         return this.parsePierini(rows);
+      
+      case 'BOUTIQUE BRASIL':
+        return this.parseDueFratelli(rows);
+      case 'GLAM BRASIL':
+        return this.parseGlam(rows);
+      case 'LEXXA BAGNO':
+        return this.parseLexxa(rows);
+      case 'MOSAIC':
+      case 'DECA':
+        return this.parseMosaicGroup(rows);
+      case 'DEXCO':
+        return this.parseDexco(rows);
+      case 'STRUFALDI':
+        return this.parseStrufaldi(rows);
       default:
         throw new BadRequestException('Strategy not implemented');
     }
@@ -277,4 +291,329 @@ export class ProductImportService {
 
     return results;
   }
+  private parseLexxa(rows: any[]): ImportProductResult[] {
+    const results: ImportProductResult[] = [];
+    for (const row of rows) {
+      if (!Array.isArray(row) || row.length < 10) continue;
+      
+      const sku = String(row[2] || '').trim();
+      const name = String(row[3] || '').trim();
+      const line = String(row[5] || '').trim();
+      let priceVal = row[12] !== undefined ? row[12] : row[11];
+      
+      const cost = this.excelService.parseNumber(priceVal);
+
+      if (sku && name && cost > 0 && sku !== 'REFERÊNCIA') {
+        results.push({
+          sku,
+          supplierCode: sku,
+          name,
+          format: '',
+          line,
+          boxCoverage: 0,
+          palletBoxes: 0,
+          boxWeight: 0,
+          piecesPerBox: 0,
+          usage: '',
+          costCents: Math.round(cost * 100),
+        });
+      }
+    }
+    return results;
+  }
+
+  private parseMosaicGroup(rows: any[]): ImportProductResult[] {
+    const results: ImportProductResult[] = [];
+    for (const row of rows) {
+      if (!Array.isArray(row) || row.length < 40) continue;
+      
+      const sku = String(row[12] || '').replace(/'/g, '').trim(); 
+      const name = String(row[20] || '').trim();
+      const line = String(row[25] || '').trim(); 
+      const weight = this.excelService.parseNumber(row[29] || row[30]);
+      let cost = this.excelService.parseNumber(row[49]);
+      if (!cost || cost === 0) cost = this.excelService.parseNumber(row[50]);
+
+      if (sku && name && cost > 0 && sku !== 'Material') {
+        results.push({
+          sku,
+          supplierCode: sku,
+          name,
+          format: '',
+          line,
+          boxCoverage: 0,
+          palletBoxes: 0,
+          boxWeight: weight,
+          piecesPerBox: 0,
+          usage: '',
+          costCents: Math.round(cost * 100),
+        });
+      }
+    }
+    return results;
+  }
+
+  private parseDueFratelliLayout(
+    rows: any[],
+    cols: { lineCol: number; metaLabelCol: number; metaValCol: number; skuCol: number; nameCol: number; priceStart: number; priceEnd: number },
+  ): ImportProductResult[] {
+    // PASS 1: Collect all metadata sections.
+    // A section starts when "Uso:" appears in metaLabelCol. Metadata spans ~5 rows.
+    interface Section {
+      startRow: number;
+      format: string;
+      line: string;
+      usage: string;
+      boxCoverage: number;
+      palletBoxes: number;
+      boxWeight: number;
+    }
+
+    const sections: Section[] = [];
+    let current: Section | null = null;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || !Array.isArray(row)) continue;
+
+      const rawMetaLabel = String(row[cols.metaLabelCol] || '').trim();
+      const metaLabel = rawMetaLabel.toLowerCase();
+      const isStarred = rawMetaLabel.startsWith('*');
+
+      // Detect new section by "Uso:" (without asterisk) in metaLabelCol
+      // "*Uso:" is a secondary annotation, not a section start
+      if (!isStarred && metaLabel === 'uso:') {
+        // Look backwards from this row to find true section start (format/dimension row)
+        let startRow = i;
+        for (let b = i - 1; b >= 0; b--) {
+          const prevRow = rows[b];
+          if (!prevRow || !Array.isArray(prevRow)) break;
+          const prevLineCell = String(prevRow[cols.lineCol] || '').trim();
+          const prevLabel = String(prevRow[cols.metaLabelCol] || '').trim().toLowerCase();
+          // Stop if we hit the end of a previous section (peso row)
+          if (prevLabel.includes('peso por m')) break;
+          // If this row has a format dimension, this is the real section start
+          if (prevLineCell && /\d+.*[xX].*\d+/.test(prevLineCell)) {
+            startRow = b;
+            break;
+          }
+          // Also check if it has products (extend section start to include them)
+          const prevSku = String(prevRow[cols.skuCol] || '').trim();
+          if (prevSku && prevSku !== 'CÓD.') startRow = b;
+        }
+
+        current = {
+          startRow,
+          format: '',
+          line: '',
+          usage: String(row[cols.metaValCol] || '').trim(),
+          boxCoverage: 0,
+          palletBoxes: 0,
+          boxWeight: 0,
+        };
+        sections.push(current);
+
+        // Retroactively collect format/line from rows we looked back through
+        for (let b = startRow; b < i; b++) {
+          const prevRow = rows[b];
+          if (!prevRow) continue;
+          const prevLineCell = String(prevRow[cols.lineCol] || '').trim();
+          if (prevLineCell) {
+            const parts = prevLineCell.split(/\r?\n/);
+            for (const part of parts) {
+              const p = part.trim();
+              if (!p) continue;
+              if (/\d+.*[xX].*\d+/.test(p)) current.format = p;
+              else if (p.length < 30 && p !== 'LINHA' && p !== 'INFORMAÇÕES' && p !== 'OBSERVAÇÕES' && !p.includes('DUEFRATELLI') && !p.includes('BRASIL') && !p.includes('Produtos classe') && !p.includes('NCM') && !p.includes('FOB')) current.line = p;
+            }
+          }
+        }
+      }
+
+      if (!current) continue;
+
+      // Strip asterisk for metadata value matching (but NOT for section detection above)
+      const cleanLabel = metaLabel.replace(/^\*/, '');
+      if (cleanLabel.includes('m² por caixa:') || cleanLabel.includes('m2 por caixa:')) {
+        current.boxCoverage = this.excelService.parseNumber(row[cols.metaValCol]);
+      } else if (cleanLabel.includes('m² por palete:') || cleanLabel.includes('m2 por palete:')) {
+        const palletM2 = this.excelService.parseNumber(row[cols.metaValCol]);
+        current.palletBoxes = current.boxCoverage > 0 ? Math.round(palletM2 / current.boxCoverage) : 0;
+      } else if (cleanLabel.includes('peso por m')) {
+        current.boxWeight = this.excelService.parseNumber(row[cols.metaValCol]);
+      }
+
+      // Collect format/line from lineCol
+      const lineCell = String(row[cols.lineCol] || '').trim();
+      if (lineCell) {
+        const parts = lineCell.split(/\r?\n/);
+        for (const part of parts) {
+          const p = part.trim();
+          if (!p) continue;
+          if (/\d+.*[xX].*\d+/.test(p)) {
+            current.format = p;
+          } else if (
+            p.length < 30 &&
+            p !== 'LINHA' && p !== 'INFORMAÇÕES' && p !== 'OBSERVAÇÕES' &&
+            !p.includes('DUEFRATELLI') && !p.includes('BRASIL') &&
+            !p.includes('Produtos classe') && !p.includes('NCM') && !p.includes('FOB')
+          ) {
+            current.line = p;
+          }
+        }
+      }
+    }
+
+    // PASS 2: Collect products and assign metadata from their section.
+    const results: ImportProductResult[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || !Array.isArray(row)) continue;
+
+      const sku = String(row[cols.skuCol] || '').trim();
+      const name = String(row[cols.nameCol] || '').trim();
+
+      if (!sku || !name) continue;
+      if (sku === 'CÓD.' || name === 'DESCRIÇÃO' || name === 'PRODUTOS') continue;
+
+      // Find cost in price range
+      let cost = 0;
+      for (let j = cols.priceStart; j <= cols.priceEnd; j++) {
+        if (row[j] !== undefined && row[j] !== null && row[j] !== '') {
+          cost = this.excelService.parseNumber(row[j]);
+          if (cost > 0) break;
+        }
+      }
+
+      if (cost <= 0) continue;
+
+      // Find the section that applies to this row (most recent section starting <= i)
+      let section: Section | null = null;
+      for (let s = sections.length - 1; s >= 0; s--) {
+        if (sections[s].startRow <= i) {
+          section = sections[s];
+          break;
+        }
+      }
+
+      results.push({
+        sku: String(sku).replace(/^\*/, ''),
+        supplierCode: String(sku).replace(/^\*/, ''),
+        name,
+        format: section?.format || '',
+        line: section?.line || '',
+        piecesPerBox: 0,
+        boxCoverage: section?.boxCoverage || 0,
+        palletBoxes: section?.palletBoxes || 0,
+        boxWeight: section?.boxWeight || 0,
+        usage: section?.usage || '',
+        costCents: Math.round(cost * 100),
+      });
+    }
+
+    return results;
+  }
+
+  // Boutique Brasil: LINHA=col1, INFO=col2-3, SKU=col4, Nome=col6, Preço=col9
+  private parseDueFratelli(rows: any[]): ImportProductResult[] {
+    return this.parseDueFratelliLayout(rows, {
+      lineCol: 1, metaLabelCol: 2, metaValCol: 3,
+      skuCol: 4, nameCol: 6, priceStart: 7, priceEnd: 10,
+    });
+  }
+
+  // Glam Brasil: LINHA=col0, INFO=col1-2, SKU=col3, Nome=col5, Preço=col6
+  private parseGlam(rows: any[]): ImportProductResult[] {
+    return this.parseDueFratelliLayout(rows, {
+      lineCol: 0, metaLabelCol: 1, metaValCol: 2,
+      skuCol: 3, nameCol: 5, priceStart: 6, priceEnd: 8,
+    });
+  }
+
+  // Dexco: Tabular layout — each row is a product with dedicated columns
+  // Col12=CodigoProduto, Col20=Produto, Col14=PcPorCX, Col15=M2PorCx, Col16=ClasseUso,
+  // Col21=QtdePallet, Col25=Hierarquia3(formato), Col29=PesoBruto, Col37=ValorLista, Col9=GrupoPreco(linha)
+  private parseDexco(rows: any[]): ImportProductResult[] {
+    const results: ImportProductResult[] = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!Array.isArray(row) || row.length < 38) continue;
+
+      const sku = String(row[12] || '').replace(/'/g, '').trim();
+      const name = String(row[20] || '').trim();
+      const cost = this.excelService.parseNumber(row[37]); // ValorLista
+
+      if (!sku || !name || cost <= 0) continue;
+      if (sku === 'CodigoProduto') continue; // skip header
+
+      const piecesPerBox = Math.round(this.excelService.parseNumber(row[14])); // PcPorCX
+      const boxCoverage = this.excelService.parseNumber(row[15]); // M2PorCx
+      const usage = String(row[16] || '').trim(); // ClasseUso
+      const palletM2 = this.excelService.parseNumber(row[21]); // QtdePallet (m² per pallet)
+      const palletBoxes = boxCoverage > 0 ? Math.round(palletM2 / boxCoverage) : 0;
+      const format = String(row[25] || '').trim(); // Hierarquia3 (formato)
+      const boxWeight = this.excelService.parseNumber(row[29]); // PesoBruto
+      const line = String(row[9] || '').trim(); // GrupoPreco (linha)
+
+      results.push({
+        sku,
+        supplierCode: sku,
+        name,
+        format,
+        line,
+        piecesPerBox,
+        boxCoverage,
+        palletBoxes,
+        boxWeight,
+        usage,
+        costCents: Math.round(cost * 100),
+      });
+    }
+    return results;
+  }
+
+  private parseStrufaldi(rows: any[]): ImportProductResult[] {
+    const results: ImportProductResult[] = [];
+    // Header is at row index 2. Data starts at 3.
+    const startIndex = rows.length > 3 ? 3 : 0;
+
+    for (let i = startIndex; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || !Array.isArray(row) || row.length < 13) continue;
+
+      const sku = String(row[1] || '').trim();
+      const name = String(row[2] || '').trim();
+      const cost = this.excelService.parseNumber(row[12]);
+
+      if (!sku || !name || cost <= 0) continue;
+      // Skip header rows
+      if (sku === 'Código Fabricante' || name === 'Descrição Curta') continue;
+
+      const line = String(row[20] || '').trim();
+      const format = String(row[21] || '').trim();
+      const boxCoverage = this.excelService.parseNumber(row[31]);
+      const piecesPerBox = Math.round(this.excelService.parseNumber(row[32]));
+      const palletM2 = this.excelService.parseNumber(row[30]);
+      const palletBoxes = boxCoverage > 0 ? Math.round(palletM2 / boxCoverage) : 0;
+      const boxWeight = this.excelService.parseNumber(row[9]);
+      const usage = String(row[22] || '').trim(); // Tipo (Piso, Parede, etc)
+
+      results.push({
+        sku,
+        supplierCode: sku,
+        name,
+        format,
+        line,
+        piecesPerBox,
+        boxCoverage,
+        palletBoxes,
+        boxWeight,
+        usage,
+        costCents: Math.round(cost * 100),
+      });
+    }
+    return results;
+  }
+
 }

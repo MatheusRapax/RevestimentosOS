@@ -9,6 +9,7 @@ import { Label } from '../../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
 import { Trash2 } from 'lucide-react';
+import { Badge } from '../../../../components/ui/badge';
 import api from '../../../../lib/api';
 import { toast } from 'sonner';
 import { AuthContext } from '../../../../contexts/auth-context';
@@ -48,7 +49,7 @@ export default function ImportProductsPage() {
         formData.append('file', file);
 
         try {
-            const response = await api.post(`/stock/products/import/parse?strategy=${strategy}`, formData, {
+            const response = await api.post(`/stock/products/import/parse?strategy=${strategy}&clinicId=${activeClinic || ''}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
             setParsedItems(response.data.items);
@@ -68,7 +69,8 @@ export default function ImportProductsPage() {
             const payload = {
                 supplierId,
                 clinicId: activeClinic,
-                items: parsedItems
+                strategy,
+                items: parsedItems.map(({ isNew, ...rest }) => rest)
             };
             await api.post('/stock/products/import/execute', payload);
             toast.success(`Importação realizada com sucesso! ${parsedItems.length} produtos salvos.`);
@@ -118,13 +120,20 @@ export default function ImportProductsPage() {
                                     <SelectItem value="CASTELLI">Castelli (Padrão)</SelectItem>
                                     <SelectItem value="EMBRAMACO">Embramaco</SelectItem>
                                     <SelectItem value="PIERINI">Pierini</SelectItem>
+                                    <SelectItem value="STRUFALDI">Strufaldi</SelectItem>
+                                    <SelectItem value="BOUTIQUE BRASIL">Boutique Brasil</SelectItem>
+                                    <SelectItem value="GLAM BRASIL">Glam Brasil</SelectItem>
+                                    <SelectItem value="MOSAIC">Mosaic</SelectItem>
+                                    <SelectItem value="LEXXA BAGNO">Lexxa Bagno</SelectItem>
+                                    <SelectItem value="DECA">Deca</SelectItem>
+                                    <SelectItem value="DEXCO">Dexco</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         <div className="grid w-full max-w-sm items-center gap-1.5">
-                            <Label>Arquivo Excel (.xlsx)</Label>
-                            <Input type="file" accept=".xlsx,.xls" onChange={handleFileChange} />
+                            <Label>Arquivo Excel/CSV (.xlsx, .csv)</Label>
+                            <Input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} />
                         </div>
 
                         <Button onClick={handleParse} disabled={isLoading || !file || !strategy || !supplierId}>
@@ -153,6 +162,7 @@ export default function ImportProductsPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-[100px]">SKU</TableHead>
+                                        <TableHead className="w-[100px]">Status</TableHead>
                                         <TableHead className="min-w-[200px]">Nome</TableHead>
                                         <TableHead>Formato</TableHead>
                                         <TableHead>Linha</TableHead>
@@ -178,6 +188,13 @@ export default function ImportProductsPage() {
                                                     }}
                                                     className="h-8 font-mono text-xs"
                                                 />
+                                            </TableCell>
+                                            <TableCell>
+                                                {item.isNew ? (
+                                                    <Badge className="bg-green-600 hover:bg-green-700">Novo</Badge>
+                                                ) : (
+                                                    <Badge className="bg-blue-600 hover:bg-blue-700">Atualização</Badge>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <Input

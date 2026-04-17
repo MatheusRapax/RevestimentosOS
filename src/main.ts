@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { env, validateEnv } from './config/env';
 import { AuditInterceptor } from './core/audit/audit.interceptor';
 import { AuditService } from './core/audit/audit.service';
+import * as bodyParser from 'body-parser';
 
 async function bootstrap() {
   // Validate environment variables
@@ -12,6 +13,10 @@ async function bootstrap() {
 
   // Create NestJS application
   const app = await NestFactory.create(AppModule);
+
+  // Increase body parser limits for large import payloads
+  app.use(bodyParser.json({ limit: '50mb' }));
+  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
   // Enable global validation pipe
   app.useGlobalPipes(

@@ -774,12 +774,31 @@ export class StockService {
   }
 
   /**
+   * Bulk identify existing product SKUs for preview parsing.
+   */
+  async findExistingProductSkus(clinicId: string, skus: string[]): Promise<Set<string>> {
+    // Return early if no skus provided to avoid Prisma error
+    if (!skus || skus.length === 0) return new Set();
+
+    const existingProducts = await this.prisma.product.findMany({
+      where: {
+        clinicId,
+        sku: { in: skus },
+      },
+      select: { sku: true },
+    });
+
+    return new Set(existingProducts.map((p) => p.sku as string));
+  }
+
+  /**
    * Bulk Import Parsed Products (Actual Implementation)
    */
   async importParsedProducts(
     clinicId: string,
     items: any[],
     supplierId?: string,
+    brandName?: string,
   ) {
     // Sanitize supplierId
     const validSupplierId =
@@ -789,6 +808,21 @@ export class StockService {
     const savedItems: any[] = [];
 
     await this.prisma.$transaction(async (tx) => {
+      let brandId: string | undefined;
+
+      if (brandName) {
+        let brand = await tx.brand.findFirst({
+          where: { clinicId, name: brandName },
+        });
+
+        if (!brand) {
+          brand = await tx.brand.create({
+            data: { clinicId, name: brandName },
+          });
+        }
+        brandId = brand.id;
+      }
+
       for (const item of items) {
         const existing = await tx.product.findFirst({
           where: { clinicId, sku: item.sku },
@@ -802,6 +836,7 @@ export class StockService {
               name: item.name,
               costCents: item.costCents,
               supplierId: validSupplierId || existing.supplierId,
+              brandId: brandId || existing.brandId,
               format: item.format,
               line: item.line,
               usage: item.usage,
@@ -819,6 +854,7 @@ export class StockService {
               name: item.name,
               sku: item.sku,
               supplierId: validSupplierId,
+              brandId,
               costCents: item.costCents,
               format: item.format,
               line: item.line,
@@ -835,7 +871,7 @@ export class StockService {
         savedItems.push(product);
         count++;
       }
-    });
+    }, { maxWait: 30000, timeout: 120000 });
 
     // Audit log
     await this.auditService.log({

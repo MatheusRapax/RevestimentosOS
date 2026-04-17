@@ -31,11 +31,28 @@ export class ProductImportController {
   async parseFile(
     @UploadedFile() file: Express.Multer.File,
     @Query('strategy') strategy: ImportStrategy,
+    @Query('clinicId') queryClinicId: string,
+    @Req() req: any,
   ) {
     if (!file) throw new BadRequestException('File is required');
 
+    const clinicId = queryClinicId || req.user?.clinicId;
+    if (!clinicId) {
+      throw new BadRequestException('clinicId é obrigatório para visualização da importação');
+    }
+
     const items = this.importService.processFile(file.buffer, strategy);
-    return { items, count: items.length };
+    
+    // Identificar itens novos vs atualizações
+    const skus = items.map((i) => i.sku).filter((sku) => sku && sku.trim() !== '');
+    const existingSkusSet = await this.stockService.findExistingProductSkus(clinicId, skus);
+
+    const enrichedItems = items.map((item) => ({
+      ...item,
+      isNew: !existingSkusSet.has(item.sku),
+    }));
+
+    return { items: enrichedItems, count: enrichedItems.length };
   }
 
   @Post('execute')
@@ -54,6 +71,7 @@ export class ProductImportController {
         clinicId,
         dto.items,
         dto.supplierId,
+        dto.strategy,
       );
 
       return { success: true, count: saved.count };

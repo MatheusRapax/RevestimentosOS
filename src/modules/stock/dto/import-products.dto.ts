@@ -5,6 +5,7 @@ import {
   ValidateNested,
   IsNumber,
   IsInt,
+  IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -49,6 +50,10 @@ export class ImportProductItemDto {
 
   @IsNumber()
   costCents: number;
+
+  @IsBoolean()
+  @IsOptional()
+  isNew?: boolean;
 }
 
 export class ImportProductsDto {
@@ -58,6 +63,10 @@ export class ImportProductsDto {
   @IsString()
   @IsOptional()
   clinicId?: string; // Required for super admin, optional for clinic users
+
+  @IsString()
+  @IsOptional()
+  strategy?: string; // Automatically associates layout strategy to Brand
 
   @IsArray()
   @ValidateNested({ each: true })

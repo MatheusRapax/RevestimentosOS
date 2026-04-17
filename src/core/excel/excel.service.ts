@@ -7,8 +7,9 @@ export class ExcelService {
    * Parse an Excel buffer into a JSON array of arrays.
    * @param buffer File buffer
    * @param headerRowIndex Index of the header row (0-based)
+   * @param options Additional options for sheet_to_json
    */
-  parseExcel(buffer: Buffer, headerRowIndex: number = 0): any[] {
+  parseExcel(buffer: Buffer, headerRowIndex: number = 0, options: { raw?: boolean } = {}): any[] {
     try {
       const workbook = XLSX.read(buffer, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
@@ -18,6 +19,7 @@ export class ExcelService {
       const rows: any[] = XLSX.utils.sheet_to_json(sheet, {
         header: 1,
         defval: '',
+        raw: options.raw !== undefined ? options.raw : true,
       });
 
       if (!rows || rows.length < headerRowIndex + 1) {
@@ -30,6 +32,42 @@ export class ExcelService {
     } catch (error) {
       throw new BadRequestException(
         `Failed to parse Excel file: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Parse specific sheets from an Excel buffer and concatenate their rows.
+   * Useful for templates spread across multiple tabs.
+   */
+  parseMultipleSheets(buffer: Buffer, targetSheetNames: string[], options: { raw?: boolean } = {}): any[] {
+    try {
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      let allRows: any[] = [];
+
+      for (const sheetName of targetSheetNames) {
+        if (!workbook.SheetNames.includes(sheetName)) {
+          continue; // Skip if sheet is not in the workbook
+        }
+        const sheet = workbook.Sheets[sheetName];
+        const rows: any[] = XLSX.utils.sheet_to_json(sheet, {
+          header: 1,
+          defval: '',
+          raw: options.raw !== undefined ? options.raw : true,
+        });
+        allRows = allRows.concat(rows);
+      }
+
+      if (allRows.length === 0) {
+        throw new BadRequestException(
+          'Could not find requested tabs or file is empty',
+        );
+      }
+
+      return allRows;
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to parse Excel file across sheets: ${error.message}`,
       );
     }
   }
