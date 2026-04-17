@@ -1,4 +1,4 @@
 {
-  "version": "0.1.4",
-  "content": "### Features\n\n* **sales:** implement internal commission calculation and order display 2bdc98e"
+  "version": "0.1.5",
+  "content": "### Features\n\n* **stock:** implementar importador Dexco e otimizar transações de lote 0bd4ad7"
 }
