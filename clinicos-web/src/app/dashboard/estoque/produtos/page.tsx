@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -77,6 +77,14 @@ export default function ProdutosPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [showAdhoc, setShowAdhoc] = useState(false);
 
+    // Pagination
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const LIMIT = 50;
+
+    const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+
     // Create dialog
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
@@ -142,14 +150,24 @@ export default function ProdutosPage() {
         return value.toString();
     };
 
-    const fetchProducts = async () => {
+    const fetchProducts = async (currentPage: number, search: string) => {
         try {
             setIsLoading(true);
             setError('');
-            const response = await api.get('/stock/products', {
-                params: { includeAdhoc: showAdhoc }
-            });
-            setProducts(response.data);
+            const params: Record<string, any> = { 
+                includeAdhoc: showAdhoc, 
+                page: currentPage, 
+                limit: LIMIT 
+            };
+            if (search) params.search = search;
+            
+            const response = await api.get('/stock/products', { params });
+            const { data, meta } = response.data;
+            setProducts(data ?? response.data);
+            if (meta) {
+                setTotalPages(meta.totalPages);
+                setTotalItems(meta.total);
+            }
         } catch (err: any) {
             console.error('Error fetching products:', err);
             setError('Erro ao carregar produtos');
@@ -158,9 +176,20 @@ export default function ProdutosPage() {
         }
     };
 
+    // Debounced search + filter changes
     useEffect(() => {
-        fetchProducts();
-    }, [showAdhoc]);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            setPage(1);
+            fetchProducts(1, searchTerm);
+        }, 400);
+        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }, [searchTerm, showAdhoc]);
+
+    // Page changes
+    useEffect(() => {
+        fetchProducts(page, searchTerm);
+    }, [page]);
 
     // Auto-dismiss success message
     useEffect(() => {
@@ -245,25 +274,15 @@ export default function ProdutosPage() {
         }
     };
 
-    // Filter products by search
-    const filteredProducts = products.filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    // Filter products by search is now server-side
+    const filteredProducts = products;
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-lg text-gray-600">Carregando produtos...</div>
-            </div>
-        );
-    }
 
     if (error) {
         return (
             <div className="rounded-lg bg-red-50 p-4">
                 <p className="text-red-600">{error}</p>
-                <Button onClick={fetchProducts} className="mt-4" variant="outline">
+                <Button onClick={() => fetchProducts(page, searchTerm)} className="mt-4" variant="outline">
                     Tentar novamente
                 </Button>
             </div>
@@ -357,13 +376,20 @@ export default function ProdutosPage() {
                 </Popover>
             </div>
 
-            {filteredProducts.length === 0 ? (
+            {isLoading && products.length === 0 ? (
+                <Card className="p-12 text-center">
+                    <div className="flex justify-center mb-4">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Carregando produtos...</h3>
+                </Card>
+            ) : filteredProducts.length === 0 ? (
                 <Card className="p-12 text-center">
                     <div className="text-gray-400 mb-4">
                         <Package className="h-16 w-16 mx-auto" />
                     </div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        {searchTerm ? 'Nenhum produto encontrado' : 'Nenhum produto cadastrado'}
+                        {searchTerm ? 'Nenhum certificado encontrado' : 'Nenhum produto cadastrado'}
                     </h3>
                     <p className="text-gray-600 mb-4">
                         {searchTerm ? 'Tente outro termo de busca' : 'Comece cadastrando um novo produto'}
@@ -430,6 +456,35 @@ export default function ProdutosPage() {
                             </tbody>
                         </table>
                     </div>
+                    
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-6 py-3 border-t bg-gray-50">
+                            <div className="text-sm text-gray-500">
+                                Mostrando página <span className="font-medium text-gray-900">{page}</span> de <span className="font-medium text-gray-900">{totalPages}</span> (Total de {totalItems} produtos)
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(page - 1)}
+                                    disabled={page === 1}
+                                    className="px-3"
+                                >
+                                    Anterior
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(page + 1)}
+                                    disabled={page >= totalPages}
+                                    className="px-3"
+                                >
+                                    Próxima
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </Card>
             )}
 
@@ -439,7 +494,7 @@ export default function ProdutosPage() {
                 onClose={() => setIsCreateDialogOpen(false)}
                 onSuccess={() => {
                     setIsCreateDialogOpen(false);
-                    fetchProducts();
+                    fetchProducts(1, searchTerm);
                     setSuccessMessage('Produto criado com sucesso!');
                 }}
             />
@@ -455,7 +510,7 @@ export default function ProdutosPage() {
                 onSuccess={() => {
                     setIsEditDialogOpen(false);
                     setEditingItem(null);
-                    fetchProducts();
+                    fetchProducts(page, searchTerm);
                     setSuccessMessage('Produto atualizado com sucesso!');
                 }}
             />

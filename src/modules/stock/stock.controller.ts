@@ -38,8 +38,8 @@ export class StockController {
   @Get()
   @UseGuards(PermissionsGuard)
   @Permissions(PERMISSIONS.PRODUCT_READ)
-  findAll(@Request() req: any) {
-    return this.stockService.listProducts(req.clinicId, {});
+  findAll(@Query() query: ListProductsDto, @Request() req: any) {
+    return this.stockService.listProducts(req.clinicId, query);
   }
 
   @Post()

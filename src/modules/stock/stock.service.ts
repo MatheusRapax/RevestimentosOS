@@ -67,113 +67,100 @@ export class StockService {
 
   async listProducts(
     clinicId: string,
-    filters?: { search?: string; isActive?: boolean; includeAdhoc?: boolean },
+    filters?: {
+      search?: string;
+      isActive?: boolean;
+      includeAdhoc?: boolean;
+      status?: string;
+      page?: number;
+      limit?: number;
+    },
   ) {
-    console.log(
-      `[StockService] listProducts called with clinicId=${clinicId}, filters=${JSON.stringify(filters)}`,
-    );
+    const page = Math.max(1, filters?.page ?? 1);
+    const limit = Math.min(200, Math.max(1, filters?.limit ?? 50));
+    const skip = (page - 1) * limit;
+
     const where: any = { clinicId };
 
-    // Default to showing only active products
     if (filters?.isActive !== undefined) {
       where.isActive = filters.isActive;
     } else {
-      where.isActive = true; // Default: show only active
+      where.isActive = true;
     }
 
-    // Default to hiding ad-hoc products
     if (!filters?.includeAdhoc) {
       where.isAdhoc = false;
     }
 
+    // Expanded search: name, sku, barcode, format, line, usage, supplierCode
     if (filters?.search) {
       where.OR = [
         { name: { contains: filters.search, mode: 'insensitive' } },
         { sku: { contains: filters.search, mode: 'insensitive' } },
         { barcode: { contains: filters.search, mode: 'insensitive' } },
+        { format: { contains: filters.search, mode: 'insensitive' } },
+        { line: { contains: filters.search, mode: 'insensitive' } },
+        { usage: { contains: filters.search, mode: 'insensitive' } },
+        { supplierCode: { contains: filters.search, mode: 'insensitive' } },
       ];
     }
 
-    const products = await this.prisma.product.findMany({
-      where,
-      include: {
-        lots: {
-          where: { quantity: { gt: 0 } },
-          include: { reservations: { where: { status: 'ACTIVE' } } },
-          orderBy: { expirationDate: 'asc' },
-        },
-        category: true,
-        brand: true,
-        promotions: {
-          include: { promotion: true },
-        },
-      },
-      orderBy: { name: 'asc' },
-    });
+    // out_of_stock can be pushed to DB (no lots with qty > 0)
+    if (filters?.status === 'out_of_stock') {
+      where.lots = { none: { quantity: { gt: 0 } } };
+    }
 
-    // Fetch Global Markup
+    const [totalCount, products] = await Promise.all([
+      this.prisma.product.count({ where }),
+      this.prisma.product.findMany({
+        where,
+        include: {
+          lots: {
+            where: { quantity: { gt: 0 } },
+            include: { reservations: { where: { status: 'ACTIVE' } } },
+            orderBy: { expirationDate: 'asc' },
+          },
+          category: true,
+          brand: true,
+          promotions: { include: { promotion: true } },
+        },
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: clinicId },
       select: { globalMarkup: true },
     });
-
     const globalMarkup = clinic?.globalMarkup || 40.0;
+    const now = new Date();
 
-    // Calculate total stock for each product
-    const productsWithStock = products.map((product) => {
-      const totalStock = product.lots.reduce(
-        (sum, lot) => sum + lot.quantity,
-        0,
-      );
-      const totalReserved = product.lots.reduce((sum, lot) => {
-        return (
-          sum +
-          lot.reservations.reduce(
-            (rSum: number, r: any) => rSum + r.quantity,
-            0,
-          )
-        );
-      }, 0);
+    const enriched = products.map((product) => {
+      const totalStock = product.lots.reduce((sum, lot) => sum + lot.quantity, 0);
+      const totalReserved = product.lots.reduce((sum, lot) =>
+        sum + lot.reservations.reduce((rSum: number, r: any) => rSum + r.quantity, 0), 0);
 
-      // Dynamic Price Calculation (Fallback)
       let displayPriceCents = product.priceCents;
-      if (
-        (!displayPriceCents || displayPriceCents === 0) &&
-        product.costCents
-      ) {
+      if ((!displayPriceCents || displayPriceCents === 0) && product.costCents) {
         let markup = globalMarkup;
-
-        if (product.markup) {
-          markup = product.markup;
-        } else if (product.brand?.defaultMarkup) {
-          markup = product.brand.defaultMarkup;
-        } else if (product.category?.defaultMarkup) {
-          markup = product.category.defaultMarkup;
-        }
-
-        const cost = product.costCents;
-        const price = cost * (1 + markup / 100);
-        displayPriceCents = Math.round(price);
+        if (product.markup) markup = product.markup;
+        else if (product.brand?.defaultMarkup) markup = product.brand.defaultMarkup;
+        else if (product.category?.defaultMarkup) markup = product.category.defaultMarkup;
+        displayPriceCents = Math.round(product.costCents * (1 + markup / 100));
       }
 
-      // Promotional Price Logic
       let promotionalPriceCents = null;
       let activePromotion = null;
-      const now = new Date();
-      if (product.promotions && product.promotions.length > 0) {
-        // Find the most advantageous ACTIVE promotion
+      if (product.promotions?.length > 0) {
         const validPromos = product.promotions
           .map((p: any) => p.promotion)
-          .filter(
-            (p: any) => p.isActive && p.startDate <= now && p.endDate >= now,
-          );
-
+          .filter((p: any) => p.isActive && p.startDate <= now && p.endDate >= now)
+          .sort((a: any, b: any) => b.discountPercent - a.discountPercent);
         if (validPromos.length > 0) {
-          validPromos.sort(
-            (a: any, b: any) => b.discountPercent - a.discountPercent,
-          );
           activePromotion = validPromos[0];
-          if (displayPriceCents !== null && activePromotion) {
+          if (displayPriceCents) {
             promotionalPriceCents = Math.round(
               displayPriceCents * (1 - activePromotion.discountPercent / 100),
             );
@@ -192,7 +179,23 @@ export class StockService {
       };
     });
 
-    return productsWithStock;
+    // in_stock / low_stock filtering in memory (requires summed stock vs minStock)
+    let data = enriched;
+    if (filters?.status === 'low_stock') {
+      data = enriched.filter(p => p.totalStock > 0 && p.totalStock < p.minStock);
+    } else if (filters?.status === 'in_stock') {
+      data = enriched.filter(p => p.totalStock >= p.minStock && p.totalStock > 0);
+    }
+
+    return {
+      data,
+      meta: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    };
   }
 
   async findOne(id: string, clinicId: string) {

@@ -22,6 +22,16 @@ export class ProductImportService {
   constructor(private excelService: ExcelService) {}
 
   processFile(buffer: Buffer, strategy: ImportStrategy): ImportProductResult[] {
+    // STRUFALDI spreads products across multiple sheets — read all of them first
+    if (strategy === 'STRUFALDI') {
+      const rows = this.excelService.parseMultipleSheets(buffer, [
+        'TABELA ATELIÊ STRUFALDI',
+        'TABELA STRUFALDI - LINHA CONVEN',
+        'CANTONEIRA',
+      ]);
+      return this.parseStrufaldi(rows);
+    }
+
     const rows = this.excelService.parseExcel(buffer);
 
     switch (strategy) {
@@ -42,8 +52,6 @@ export class ProductImportService {
         return this.parseMosaicGroup(rows);
       case 'DEXCO':
         return this.parseDexco(rows);
-      case 'STRUFALDI':
-        return this.parseStrufaldi(rows);
       default:
         throw new BadRequestException('Strategy not implemented');
     }

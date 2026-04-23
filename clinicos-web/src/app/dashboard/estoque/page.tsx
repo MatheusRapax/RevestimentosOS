@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Package, Search, AlertTriangle, CheckCircle, XCircle, ArrowUpDown, ArrowUp, ArrowDown, BadgePercent } from 'lucide-react';
+import { Package, Search, AlertTriangle, CheckCircle, XCircle, ArrowUpDown, ArrowUp, ArrowDown, BadgePercent, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProductDetailsSheet } from './components/ProductDetailsSheet';
 import { ModuleGuard } from '@/components/auth/module-guard';
 
@@ -35,40 +35,66 @@ export default function EstoquePage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<FilterType>('all');
 
+    // Pagination
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const LIMIT = 50;
+
     // Details Sheet State
     const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
     const [selectedProductDetails, setSelectedProductDetails] = useState<any>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-    const fetchStock = async () => {
+    const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+    const fetchStock = useCallback(async (currentPage: number, search: string, status: FilterType) => {
         try {
             setIsLoading(true);
             setError('');
-            const response = await api.get('/stock');
-            setProducts(response.data);
+            const params: Record<string, any> = { page: currentPage, limit: LIMIT };
+            if (search) params.search = search;
+            if (status !== 'all') params.status = status;
+            const response = await api.get('/stock', { params });
+            const { data, meta } = response.data;
+            setProducts(data ?? response.data);
+            if (meta) {
+                setTotalPages(meta.totalPages);
+                setTotalItems(meta.total);
+            }
         } catch (err: any) {
             console.error('Error fetching stock:', err);
             setError('Erro ao carregar estoque');
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
+
+    // Debounced search + filter changes → reset to page 1
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            setPage(1);
+            fetchStock(1, searchTerm, filter);
+        }, 400);
+        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }, [searchTerm, filter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Page changes without debounce
+    useEffect(() => {
+        fetchStock(page, searchTerm, filter);
+    }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleRowClick = async (productId: string) => {
         try {
             setSelectedProductId(productId);
             setIsDetailsOpen(true);
-            // Fetch fill details
             const res = await api.get(`/stock/products/${productId}`);
             setSelectedProductDetails(res.data);
         } catch (err) {
             console.error('Error fetching product details:', err);
         }
-    }
-
-    useEffect(() => {
-        fetchStock();
-    }, []);
+    };
 
     const getStockStatus = (product: ProductWithStock) => {
         const available = product.availableStock ?? product.totalStock;
@@ -106,27 +132,7 @@ export default function EstoquePage() {
         );
     };
 
-    // Filter and search
-    const filteredProducts = products.filter(product => {
-        // Search filter
-        const matchesSearch =
-            product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()));
-
-        if (!matchesSearch) return false;
-
-        // Status filter
-        const status = getStockStatus(product);
-        if (filter === 'all') return true;
-        if (filter === 'in_stock') return status === 'in_stock';
-        if (filter === 'low_stock') return status === 'low_stock';
-        if (filter === 'out_of_stock') return status === 'out_of_stock';
-
-        return true;
-    });
-
-    // Summary counts
-    const totalProducts = products.length;
+    // Summary counts (from current page)
     const lowStockCount = products.filter(p => getStockStatus(p) === 'low_stock').length;
     const outOfStockCount = products.filter(p => getStockStatus(p) === 'out_of_stock').length;
 
@@ -160,7 +166,7 @@ export default function EstoquePage() {
         });
     };
 
-    const sortedProducts = getSortedProducts(filteredProducts);
+    const sortedProducts = getSortedProducts(products);
 
     // Helper for Sort Icon
     const SortIcon = ({ columnKey }: { columnKey: string }) => {
@@ -182,22 +188,14 @@ export default function EstoquePage() {
         </th>
     );
 
-    if (isLoading) {
-        return (
-            <ModuleGuard module="STOCK" permissions="stock.view">
-                <div className="flex items-center justify-center h-64">
-                    <div className="text-lg text-gray-600">Carregando estoque...</div>
-                </div>
-            </ModuleGuard>
-        );
-    }
+
 
     if (error) {
         return (
             <ModuleGuard module="STOCK" permissions="stock.view">
                 <div className="rounded-lg bg-red-50 p-4">
                     <p className="text-red-600">{error}</p>
-                    <Button onClick={fetchStock} className="mt-4" variant="outline">
+                    <Button onClick={() => fetchStock(page, searchTerm, filter)} className="mt-4" variant="outline">
                         Tentar novamente
                     </Button>
                 </div>
@@ -222,7 +220,7 @@ export default function EstoquePage() {
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500">Total de Produtos</p>
-                                <p className="text-2xl font-bold text-gray-900">{totalProducts}</p>
+                                <p className="text-2xl font-bold text-gray-900">{totalItems}</p>
                             </div>
                         </div>
                     </Card>
@@ -292,7 +290,14 @@ export default function EstoquePage() {
                 </div>
 
                 {/* Stock Table */}
-                {filteredProducts.length === 0 ? (
+                {isLoading && products.length === 0 ? (
+                    <Card className="p-12 text-center">
+                        <div className="flex justify-center mb-4">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Carregando estoque...</h3>
+                    </Card>
+                ) : products.length === 0 ? (
                     <Card className="p-12 text-center">
                         <div className="text-gray-400 mb-4">
                             <Package className="h-16 w-16 mx-auto" />
@@ -363,6 +368,35 @@ export default function EstoquePage() {
                                 </tbody>
                             </table>
                         </div>
+                        
+                        {/* Pagination Controls */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between px-6 py-3 border-t bg-gray-50">
+                                <div className="text-sm text-gray-500">
+                                    Mostrando página <span className="font-medium text-gray-900">{page}</span> de <span className="font-medium text-gray-900">{totalPages}</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage(page - 1)}
+                                        disabled={page === 1}
+                                        className="flex items-center gap-1"
+                                    >
+                                        <ChevronLeft className="h-4 w-4" /> Anterior
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage(page + 1)}
+                                        disabled={page >= totalPages}
+                                        className="flex items-center gap-1"
+                                    >
+                                        Próxima <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                     </Card>
                 )}
 

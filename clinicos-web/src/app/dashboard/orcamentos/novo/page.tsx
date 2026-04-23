@@ -84,7 +84,7 @@ export default function NovoOrcamentoPage() {
     // Data for selects
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [architects, setArchitects] = useState<Architect[]>([]);
-    const [products, setProducts] = useState<Product[]>([]);
+
     const [environments, setEnvironments] = useState<any[]>([]);
 
     // Form state
@@ -108,16 +108,14 @@ export default function NovoOrcamentoPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [customersRes, architectsRes, productsRes, settingsRes, environmentsRes] = await Promise.all([
+                const [customersRes, architectsRes, settingsRes, environmentsRes] = await Promise.all([
                     api.get('/customers'),
                     api.get('/architects'),
-                    api.get('/stock/products'),
                     api.get('/settings').catch(() => ({ data: { defaultDeliveryFee: 0 } })),
                     api.get('/environments').catch(() => ({ data: [] })),
                 ]);
                 setCustomers(customersRes.data);
                 setArchitects(architectsRes.data);
-                setProducts(productsRes.data);
                 
                 if (Array.isArray(environmentsRes.data)) {
                     setEnvironments(environmentsRes.data.filter(e => e.isActive));
@@ -211,25 +209,36 @@ export default function NovoOrcamentoPage() {
         setItems(items.filter((_, i) => i !== index));
     };
 
+    // Direct product selection (used by ProductCombobox)
+    const selectProduct = (index: number, productId: string, product?: Product) => {
+        const newItems = [...items];
+        const item = { ...newItems[index] };
+        item.productId = productId;
+        item.product = product;
+        item.unitPriceCents = product?.promotionalPriceCents ?? product?.priceCents ?? 0;
+        item.preferredLotId = undefined;
+        if (item.inputArea > 0 && product?.boxCoverage) {
+            const marginToUse = typeof item.marginPercent === 'number' ? item.marginPercent : (globalMarginPercent || 0);
+            const areaWithMargin = item.inputArea * (1 + marginToUse / 100);
+            item.quantityBoxes = calculateBoxesFromArea(areaWithMargin, product.boxCoverage);
+            item.resultingArea = calculateResultingArea(item.quantityBoxes, product.boxCoverage);
+        }
+        const sub = item.unitPriceCents * item.quantityBoxes;
+        item.discountCents = Math.round(sub * ((item.discountPercent || 0) / 100));
+        item.totalCents = sub - item.discountCents;
+        newItems[index] = item;
+        setItems(newItems);
+    };
+
     // Update item
     const updateItem = (index: number, field: keyof QuoteItem, value: any) => {
         const newItems = [...items];
         const item = { ...newItems[index] };
 
         if (field === 'productId') {
-            const product = products.find(p => p.id === value);
-            item.productId = value;
-            item.product = product;
-            item.unitPriceCents = product?.promotionalPriceCents ?? product?.priceCents ?? 0;
-            item.preferredLotId = undefined;
-
-            // Recalculate if area was already set
-            if (item.inputArea > 0 && product?.boxCoverage) {
-                const marginToUse = item.marginPercent || globalMarginPercent || 0;
-                const areaWithMargin = item.inputArea * (1 + marginToUse / 100);
-                item.quantityBoxes = calculateBoxesFromArea(areaWithMargin, product.boxCoverage);
-                item.resultingArea = calculateResultingArea(item.quantityBoxes, product.boxCoverage);
-            }
+            // productId changes now handled by selectProduct (called directly from ProductCombobox)
+            // This branch kept for safety, but should not normally be triggered
+            item.productId = value as string;
         } else if (field === 'inputArea' || field === 'marginPercent') {
             if (field === 'inputArea') item.inputArea = Number(value);
             if (field === 'marginPercent') item.marginPercent = value === '' ? '' : Number(value);
@@ -506,9 +515,8 @@ export default function NovoOrcamentoPage() {
                                             </Button>
                                         </div>
                                         <ProductCombobox
-                                            products={products}
                                             value={item.productId}
-                                            onChange={(value) => updateItem(index, 'productId', value)}
+                                            onChange={(productId, product) => selectProduct(index, productId, product)}
                                         />
                                         {item.product?.boxCoverage && (
                                             <p className="text-xs text-gray-500">
@@ -781,9 +789,6 @@ export default function NovoOrcamentoPage() {
                 isOpen={isAdhocModalOpen}
                 onClose={() => setIsAdhocModalOpen(false)}
                 onSuccess={(newProduct) => {
-                    // Refresh products list to include the adhoc one just created temporarily in the context
-                    setProducts(prev => [...prev, newProduct]);
-
                     const price = newProduct.promotionalPriceCents || newProduct.priceCents || 0;
 
                     if (items.length > 0 && !items[items.length - 1].productId) {
