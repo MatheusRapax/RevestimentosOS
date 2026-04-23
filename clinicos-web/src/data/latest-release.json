@@ -1,4 +1,4 @@
 {
-  "version": "0.1.5",
-  "content": "### Features\n\n* **stock:** implementar importador Dexco e otimizar transações de lote 0bd4ad7"
+  "version": "0.1.6",
+  "content": "### Features\n\n* **stock:** implementar paginação server-side e busca expandida c271e24"
 }
