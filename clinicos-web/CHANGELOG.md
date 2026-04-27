@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.7](///compare/v0.1.6...v0.1.7) (2026-04-27)
+
+
+### Features
+
+* implementar cadastro rápido de cliente e metadados de produtos no estoque b4a3bb5
+
 ### [0.1.6](///compare/v0.1.5...v0.1.6) (2026-04-23)
 
 

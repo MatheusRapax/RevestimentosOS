@@ -1,4 +1,4 @@
 {
-  "version": "0.1.6",
-  "content": "### Features\n\n* **stock:** implementar paginação server-side e busca expandida c271e24"
+  "version": "0.1.7",
+  "content": "### Features\n\n* implementar cadastro rápido de cliente e metadados de produtos no estoque b4a3bb5"
 }
