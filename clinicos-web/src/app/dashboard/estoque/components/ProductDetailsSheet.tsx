@@ -103,9 +103,15 @@ export function ProductDetailsSheet({ product, isOpen, onClose }: ProductDetails
                                         </h4>
                                         <div className="grid grid-cols-2 gap-3">
                                             <DetailItem label="Formato" value={product.format} />
+                                            <DetailItem label="Cor" value={product.color} />
                                             <DetailItem label="Linha" value={product.line} />
                                             <DetailItem label="Uso" value={product.usage} />
                                             <DetailItem label="Superfície" value={product.surface || '-'} />
+                                            <DetailItem label="Dimensões" value={
+                                                product.height || product.width || product.depth 
+                                                    ? `${product.height ?? 0} x ${product.width ?? 0} x ${product.depth ?? 0}`
+                                                    : null
+                                            } />
                                         </div>
                                     </div>
 

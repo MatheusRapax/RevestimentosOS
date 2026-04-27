@@ -91,6 +91,27 @@ export class CreateProductDto {
   @Min(0)
   palletCoverage?: number;
 
+  // Additional Dimensions and Properties
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  height?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  width?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  depth?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  color?: string;
+
   // Pricing
   @IsOptional()
   @IsInt()

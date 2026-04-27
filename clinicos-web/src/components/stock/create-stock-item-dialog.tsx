@@ -56,6 +56,10 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
         format: '',
         line: '',
         usage: '',
+        height: '',
+        width: '',
+        depth: '',
+        color: '',
         boxCoverage: '',
         piecesPerBox: '',
         boxWeight: '',
@@ -86,6 +90,10 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
             format: '',
             line: '',
             usage: '',
+            height: '',
+            width: '',
+            depth: '',
+            color: '',
             boxCoverage: '',
             piecesPerBox: '',
             boxWeight: '',
@@ -180,6 +188,10 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
                 format: formData.format || undefined,
                 line: formData.line || undefined,
                 usage: formData.usage || undefined,
+                height: formData.height ? parseFloat(formData.height) : undefined,
+                width: formData.width ? parseFloat(formData.width) : undefined,
+                depth: formData.depth ? parseFloat(formData.depth) : undefined,
+                color: formData.color || undefined,
                 boxCoverage: formData.boxCoverage ? parseFloat(formData.boxCoverage) : undefined,
                 piecesPerBox: formData.piecesPerBox ? parseInt(formData.piecesPerBox) : undefined,
                 boxWeight: formData.boxWeight ? parseFloat(formData.boxWeight) : undefined,
@@ -309,6 +321,54 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
                                     value={formData.usage}
                                     onChange={(e) => setFormData({ ...formData, usage: e.target.value })}
                                     placeholder="Ex: Piso, Parede"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Dimensões e Cores */}
+                    <div className="space-y-4">
+                        <h3 className="font-medium text-gray-900 border-b pb-2">Dimensões e Cores (Ex: Louças e Metais)</h3>
+                        <div className="grid grid-cols-4 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="create-height">Altura (cm)</Label>
+                                <Input
+                                    id="create-height"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.height}
+                                    onChange={(e) => setFormData({ ...formData, height: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="create-width">Largura (cm)</Label>
+                                <Input
+                                    id="create-width"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.width}
+                                    onChange={(e) => setFormData({ ...formData, width: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="create-depth">Profundidade (cm)</Label>
+                                <Input
+                                    id="create-depth"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.depth}
+                                    onChange={(e) => setFormData({ ...formData, depth: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="create-color">Cor</Label>
+                                <Input
+                                    id="create-color"
+                                    value={formData.color}
+                                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                                 />
                             </div>
                         </div>

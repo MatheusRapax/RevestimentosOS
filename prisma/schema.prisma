@@ -494,6 +494,12 @@ model Product {
   palletWeight   Float? // peso do palete em kg
   palletCoverage Float? // m² cobertos por palete
 
+  // Campos Dimensionais Adicionais (Louças, Metais, etc)
+  height         Float? // Altura em cm/m
+  width          Float? // Largura em cm/m
+  depth          Float? // Profundidade em cm/m
+  color          String? // Cor / Acabamento
+
   // Campos de Padronização e Importação (Phase 7)
   supplierId String?
   supplier   Supplier? @relation(fields: [supplierId], references: [id])

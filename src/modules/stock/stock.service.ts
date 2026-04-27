@@ -848,6 +848,10 @@ export class StockService {
               piecesPerBox: item.piecesPerBox,
               palletBoxes: item.palletBoxes,
               boxWeight: item.boxWeight,
+              height: item.height !== undefined ? item.height : existing.height,
+              width: item.width !== undefined ? item.width : existing.width,
+              depth: item.depth !== undefined ? item.depth : existing.depth,
+              color: item.color !== undefined ? item.color : existing.color,
             },
           });
         } else {
@@ -867,6 +871,10 @@ export class StockService {
               piecesPerBox: item.piecesPerBox,
               palletBoxes: item.palletBoxes,
               boxWeight: item.boxWeight,
+              height: item.height,
+              width: item.width,
+              depth: item.depth,
+              color: item.color,
               saleType: 'BOTH',
             },
           });

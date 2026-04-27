@@ -24,6 +24,7 @@ interface ProductWithStock {
     availableStock?: number;
     isActive: boolean;
     activePromotion?: any;
+    color?: string;
 }
 
 type FilterType = 'all' | 'in_stock' | 'low_stock' | 'out_of_stock';
@@ -320,6 +321,7 @@ export default function EstoquePage() {
                                         <SortableHeader label="Produto" columnKey="name" />
                                         <SortableHeader label="SKU" columnKey="sku" />
                                         <SortableHeader label="Formato" columnKey="format" />
+                                        <SortableHeader label="Cor" columnKey="color" />
                                         <SortableHeader label="Físico" columnKey="totalStock" align="right" />
                                         <SortableHeader label="Reservado" columnKey="totalReserved" align="right" />
                                         <SortableHeader label="Disponível" columnKey="availableStock" align="right" />
@@ -350,6 +352,9 @@ export default function EstoquePage() {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {product.format || '-'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {product.color || '-'}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
                                                 {product.totalStock}

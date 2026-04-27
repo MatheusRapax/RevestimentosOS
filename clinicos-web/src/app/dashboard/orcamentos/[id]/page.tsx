@@ -21,8 +21,10 @@ import {
     Building2,
     Clock,
     Download,
-    Edit
+    Edit,
+    UserCheck
 } from 'lucide-react';
+import { CompleteCustomerDialog } from '@/components/customers/complete-customer-dialog';
 import {
     Dialog,
     DialogContent,
@@ -89,6 +91,9 @@ interface Quote {
         name: string;
         phone?: string;
         email?: string;
+        document?: string;
+        address?: string;
+        city?: string;
     };
     seller: {
         id: string;
@@ -149,6 +154,7 @@ export default function QuoteDetailPage() {
     const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
     const { templates, isLoading: isLoadingTemplates } = useQuoteTemplates();
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+    const [isCompleteCustomerOpen, setIsCompleteCustomerOpen] = useState(false);
 
     // Set default template when templates load
     useEffect(() => {
@@ -196,7 +202,12 @@ export default function QuoteDetailPage() {
         try {
             setActionLoading('approve');
             await api.post(`/quotes/${quote.id}/approve`);
-            fetchQuote();
+            await fetchQuote();
+            // Open complete customer dialog if customer has incomplete data
+            const customer = quote.customer;
+            if (!customer.document && !customer.address) {
+                setIsCompleteCustomerOpen(true);
+            }
         } catch (err: any) {
             setError(err.response?.data?.message || 'Erro ao aprovar orçamento');
         } finally {
@@ -454,10 +465,22 @@ export default function QuoteDetailPage() {
                     )}
 
                     {quote.status === 'APROVADO' && (
-                        <Button onClick={handleConvertToOrder} disabled={actionLoading === 'convert'} className="bg-green-600 hover:bg-green-700">
-                            <Package className="mr-2 h-4 w-4" />
-                            {actionLoading === 'convert' ? 'Convertendo...' : 'Converter em Pedido'}
-                        </Button>
+                        <>
+                            <Button onClick={handleConvertToOrder} disabled={actionLoading === 'convert'} className="bg-green-600 hover:bg-green-700">
+                                <Package className="mr-2 h-4 w-4" />
+                                {actionLoading === 'convert' ? 'Convertendo...' : 'Converter em Pedido'}
+                            </Button>
+                            {!quote.customer.document && !quote.customer.address && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setIsCompleteCustomerOpen(true)}
+                                    className="border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                >
+                                    <UserCheck className="mr-2 h-4 w-4" />
+                                    Completar Dados do Cliente
+                                </Button>
+                            )}
+                        </>
                     )}
                 </div>
             </Card>
@@ -721,6 +744,14 @@ export default function QuoteDetailPage() {
                     )}
                 </div>
             )}
+
+            <CompleteCustomerDialog
+                open={isCompleteCustomerOpen}
+                onOpenChange={setIsCompleteCustomerOpen}
+                customer={quote.customer}
+                allowSkip
+                onCompleted={() => fetchQuote()}
+            />
         </div>
     );
 }

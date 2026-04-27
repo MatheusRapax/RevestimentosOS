@@ -25,13 +25,22 @@ import {
     Clock,
     XCircle,
     RotateCcw,
+    UserCheck,
 } from 'lucide-react';
 import Link from 'next/link';
+import { CompleteCustomerDialog } from '@/components/customers/complete-customer-dialog';
 
 interface Quote {
     id: string;
     number: number;
-    customer: { id: string; name: string };
+    customer: {
+        id: string;
+        name: string;
+        document?: string;
+        address?: string;
+        phone?: string;
+        email?: string;
+    };
     architect?: { id: string; name: string } | null;
     seller?: { id: string; name: string } | null;
     status: 'EM_ORCAMENTO' | 'AGUARDANDO_APROVACAO' | 'APROVADO' | 'REJEITADO' | 'EXPIRADO' | 'CONVERTIDO';
@@ -55,6 +64,8 @@ export default function OrcamentosPage() {
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
+    const [isCompleteCustomerOpen, setIsCompleteCustomerOpen] = useState(false);
+    const [pendingCustomer, setPendingCustomer] = useState<Quote['customer'] | null>(null);
 
     const fetchQuotes = async () => {
         try {
@@ -144,12 +155,17 @@ export default function OrcamentosPage() {
         }
     };
 
-    const handleApproveQuote = async (quoteId: string) => {
+    const handleApproveQuote = async (quote: Quote) => {
         try {
-            setLoadingAction(quoteId);
-            await api.post(`/quotes/${quoteId}/approve`);
+            setLoadingAction(quote.id);
+            await api.post(`/quotes/${quote.id}/approve`);
             setSuccessMessage('Orçamento aprovado com sucesso!');
             fetchQuotes();
+            // If customer has no document and no address, prompt to complete
+            if (!quote.customer.document && !quote.customer.address) {
+                setPendingCustomer(quote.customer);
+                setIsCompleteCustomerOpen(true);
+            }
         } catch (err: any) {
             setError(err.response?.data?.message || 'Erro ao aprovar orçamento');
         } finally {
@@ -240,7 +256,7 @@ export default function OrcamentosPage() {
                     size="sm"
                     variant="outline"
                     disabled={isLoading}
-                    onClick={() => handleApproveQuote(quote.id)}
+                    onClick={() => handleApproveQuote(quote)}
                     className="text-green-600 border-green-200 hover:bg-green-50"
                 >
                     <CheckCircle className="h-3 w-3 mr-1" />
@@ -276,186 +292,179 @@ export default function OrcamentosPage() {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Orçamentos</h1>
-                    <p className="text-gray-600 mt-1">
-                        Gerencie orçamentos e converta em pedidos
-                    </p>
-                </div>
-                <Link href="/dashboard/orcamentos/novo">
-                    <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Novo Orçamento
-                    </Button>
-                </Link>
-            </div>
-
-            {/* Filters */}
-            <div className="flex gap-4 items-center flex-wrap">
-                <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                        placeholder="Buscar por cliente..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                    />
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                    {[
-                        { value: 'ALL', label: 'Todos' },
-                        { value: 'EM_ORCAMENTO', label: 'Rascunho' },
-                        { value: 'AGUARDANDO_APROVACAO', label: 'Enviados' },
-                        { value: 'APROVADO', label: 'Aprovados' },
-                        { value: 'CONVERTIDO', label: 'Convertidos' },
-                    ].map((filter) => (
-                        <Button
-                            key={filter.value}
-                            variant={filterStatus === filter.value ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setFilterStatus(filter.value)}
-                        >
-                            {filter.label}
-                        </Button>
-                    ))}
-                </div>
-            </div>
-
-            {successMessage && (
-                <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded">
-                    {successMessage}
-                </div>
-            )}
-
-            {error && (
-                <div className="rounded-lg bg-red-50 p-4">
-                    <p className="text-red-600">{error}</p>
-                    <Button onClick={fetchQuotes} className="mt-4" variant="outline">
-                        Tentar novamente
-                    </Button>
-                </div>
-            )}
-
-            {quotes.length === 0 ? (
-                <Card className="p-12 text-center">
-                    <div className="text-gray-400 mb-4">
-                        <FileText className="h-16 w-16 mx-auto" />
+        <>
+            <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">Orçamentos</h1>
+                        <p className="text-gray-600 mt-1">
+                            Gerencie orçamentos e converta em pedidos
+                        </p>
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        Nenhum orçamento encontrado
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                        Crie um novo orçamento para começar
-                    </p>
                     <Link href="/dashboard/orcamentos/novo">
                         <Button>
                             <Plus className="mr-2 h-4 w-4" />
-                            Criar Orçamento
+                            Novo Orçamento
                         </Button>
                     </Link>
-                </Card>
-            ) : (
-                <Card>
-                    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)]">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b sticky top-0 z-10">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Nº
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Cliente
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Arquiteto
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Status
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Itens
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Total
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Data
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Ações
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {quotes.map((quote) => {
-                                    const statusConfig = getStatusConfig(quote.status);
-                                    const StatusIcon = statusConfig.icon;
+                </div>
 
-                                    return (
-                                        <tr key={quote.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="text-sm font-mono font-medium text-gray-900">
-                                                    #{quote.number.toString().padStart(5, '0')}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm font-medium text-gray-900">
-                                                    {quote.customer.name}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {quote.architect?.name || '-'}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span
-                                                    className={`px-2 py-1 inline-flex items-center gap-1 text-xs leading-5 font-semibold rounded-full ${statusConfig.className}`}
-                                                >
-                                                    <StatusIcon className="h-3 w-3" />
-                                                    {statusConfig.label}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {quote.items?.length || 0} itens
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {formatCurrency(quote.totalCents)}
-                                                    </div>
-                                                    {(() => {
-                                                        const itemDiscounts = quote.items?.reduce((acc, item: any) => acc + (item.discountCents || 0), 0) || 0;
-                                                        const totalDiscount = quote.discountCents + itemDiscounts;
-
-                                                        if (totalDiscount > 0) {
-                                                            return (
-                                                                <div className="text-xs text-green-600">
-                                                                    -{formatCurrency(totalDiscount)} desc.
-                                                                </div>
-                                                            );
-                                                        }
-                                                        return null;
-                                                    })()}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {formatDate(quote.createdAt)}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                <div className="flex gap-2">
-                                                    {getActionButtons(quote)}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                {/* Filters */}
+                <div className="flex gap-4 items-center flex-wrap">
+                    <div className="relative flex-1 max-w-md">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                            placeholder="Buscar por cliente..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10"
+                        />
                     </div>
-                </Card>
-            )
-            }
-        </div >
+                    <div className="flex gap-2 flex-wrap">
+                        {[
+                            { value: 'ALL', label: 'Todos' },
+                            { value: 'EM_ORCAMENTO', label: 'Rascunho' },
+                            { value: 'AGUARDANDO_APROVACAO', label: 'Enviados' },
+                            { value: 'APROVADO', label: 'Aprovados' },
+                            { value: 'CONVERTIDO', label: 'Convertidos' },
+                        ].map((filter) => (
+                            <Button
+                                key={filter.value}
+                                variant={filterStatus === filter.value ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setFilterStatus(filter.value)}
+                            >
+                                {filter.label}
+                            </Button>
+                        ))}
+                    </div>
+                </div>
+
+                {successMessage && (
+                    <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded">
+                        {successMessage}
+                    </div>
+                )}
+
+                {error && (
+                    <div className="rounded-lg bg-red-50 p-4">
+                        <p className="text-red-600">{error}</p>
+                        <Button onClick={fetchQuotes} className="mt-4" variant="outline">
+                            Tentar novamente
+                        </Button>
+                    </div>
+                )}
+
+                {quotes.length === 0 ? (
+                    <Card className="p-12 text-center">
+                        <div className="text-gray-400 mb-4">
+                            <FileText className="h-16 w-16 mx-auto" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                            Nenhum orçamento encontrado
+                        </h3>
+                        <p className="text-gray-600 mb-4">
+                            Crie um novo orçamento para começar
+                        </p>
+                        <Link href="/dashboard/orcamentos/novo">
+                            <Button>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Criar Orçamento
+                            </Button>
+                        </Link>
+                    </Card>
+                ) : (
+                    <Card>
+                        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)]">
+                            <table className="w-full">
+                                <thead className="bg-gray-50 border-b sticky top-0 z-10">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nº</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Arquiteto</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Itens</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {quotes.map((quote) => {
+                                        const statusConfig = getStatusConfig(quote.status);
+                                        const StatusIcon = statusConfig.icon;
+
+                                        return (
+                                            <tr key={quote.id} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="text-sm font-mono font-medium text-gray-900">
+                                                        #{quote.number.toString().padStart(5, '0')}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-sm font-medium text-gray-900">
+                                                        {quote.customer.name}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {quote.architect?.name || '-'}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`px-2 py-1 inline-flex items-center gap-1 text-xs leading-5 font-semibold rounded-full ${statusConfig.className}`}>
+                                                        <StatusIcon className="h-3 w-3" />
+                                                        {statusConfig.label}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {quote.items?.length || 0} itens
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div>
+                                                        <div className="text-sm font-medium text-gray-900">
+                                                            {formatCurrency(quote.totalCents)}
+                                                        </div>
+                                                        {(() => {
+                                                            const itemDiscounts = quote.items?.reduce((acc, item: any) => acc + (item.discountCents || 0), 0) || 0;
+                                                            const totalDiscount = quote.discountCents + itemDiscounts;
+                                                            if (totalDiscount > 0) {
+                                                                return (
+                                                                    <div className="text-xs text-green-600">
+                                                                        -{formatCurrency(totalDiscount)} desc.
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {formatDate(quote.createdAt)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                    <div className="flex gap-2">
+                                                        {getActionButtons(quote)}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+                )}
+            </div>
+
+            <CompleteCustomerDialog
+                open={isCompleteCustomerOpen}
+                onOpenChange={(open) => {
+                    setIsCompleteCustomerOpen(open);
+                    if (!open) setPendingCustomer(null);
+                }}
+                customer={pendingCustomer}
+                onCompleted={fetchQuotes}
+                allowSkip
+            />
+        </>
     );
 }

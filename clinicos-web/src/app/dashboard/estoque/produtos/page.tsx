@@ -31,6 +31,10 @@ const COLUMN_DEFINITIONS = [
     { key: 'format', label: 'Formato', defaultVisible: true },
     { key: 'line', label: 'Linha', defaultVisible: true },
     { key: 'usage', label: 'Uso', defaultVisible: true },
+    { key: 'color', label: 'Cor', defaultVisible: true },
+    { key: 'height', label: 'Alt. (cm)', defaultVisible: false },
+    { key: 'width', label: 'Larg. (cm)', defaultVisible: false },
+    { key: 'depth', label: 'Prof. (cm)', defaultVisible: false },
     { key: 'sku', label: 'SKU', defaultVisible: true },
     { key: 'piecesPerBox', label: 'Pç/Cx', defaultVisible: false },
     { key: 'boxCoverage', label: 'm²/Cx', defaultVisible: true },
@@ -57,6 +61,10 @@ interface Product {
     format?: string;
     usage?: string;
     line?: string;
+    height?: number;
+    width?: number;
+    depth?: number;
+    color?: string;
     boxCoverage?: number;
     piecesPerBox?: number;
     boxWeight?: number;

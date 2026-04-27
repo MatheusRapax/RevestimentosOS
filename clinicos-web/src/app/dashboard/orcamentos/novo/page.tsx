@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { StockLotSelector } from '@/components/stock/StockLotSelector';
 import { ProductCombobox } from '@/components/quotes/product-combobox';
 import { AdHocProductModal } from '@/components/products/ad-hoc-product-modal';
+import { QuickCustomerDialog } from '@/components/customers/quick-customer-dialog';
 
 interface Customer {
     id: string;
@@ -98,6 +99,12 @@ export default function NovoOrcamentoPage() {
 
     // Computed state
     const [isAdhocModalOpen, setIsAdhocModalOpen] = useState(false);
+    const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
+
+    const handleQuickCustomerCreated = (customer: Customer) => {
+        setCustomers(prev => [...prev, customer]);
+        setCustomerId(customer.id);
+    };
 
     // Calculated totals
     const [subtotal, setSubtotal] = useState(0);
@@ -395,18 +402,29 @@ export default function NovoOrcamentoPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="customer">Cliente *</Label>
-                        <Select value={customerId} onValueChange={setCustomerId}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecione o cliente" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {customers.map((customer) => (
-                                    <SelectItem key={customer.id} value={customer.id}>
-                                        {customer.name} ({customer.type})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <div className="flex gap-2">
+                            <Select value={customerId} onValueChange={setCustomerId}>
+                                <SelectTrigger className="flex-1">
+                                    <SelectValue placeholder="Selecione o cliente" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {customers.map((customer) => (
+                                        <SelectItem key={customer.id} value={customer.id}>
+                                            {customer.name} ({customer.type})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                title="Criar novo cliente rapidamente"
+                                onClick={() => setIsQuickCustomerOpen(true)}
+                            >
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="architect">Arquiteto (opcional)</Label>
@@ -818,6 +836,12 @@ export default function NovoOrcamentoPage() {
                         }]);
                     }
                 }}
+            />
+
+            <QuickCustomerDialog
+                open={isQuickCustomerOpen}
+                onOpenChange={setIsQuickCustomerOpen}
+                onCreated={handleQuickCustomerCreated}
             />
         </div>
     );

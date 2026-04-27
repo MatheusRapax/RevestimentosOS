@@ -13,6 +13,10 @@ export interface ImportProductResult {
   palletBoxes: number;
   boxWeight: number;
   costCents: number;
+  height?: number;
+  width?: number;
+  depth?: number;
+  color?: string;
 }
 
 export type ImportStrategy = 'CASTELLI' | 'PIERINI' | 'EMBRAMACO' | 'BOUTIQUE BRASIL' | 'GLAM BRASIL' | 'LEXXA BAGNO' | 'MOSAIC' | 'DECA' | 'DEXCO' | 'STRUFALDI';
@@ -306,24 +310,33 @@ export class ProductImportService {
       
       const sku = String(row[2] || '').trim();
       const name = String(row[3] || '').trim();
-      const line = String(row[5] || '').trim();
-      let priceVal = row[12] !== undefined ? row[12] : row[11];
+      const color = String(row[5] || '').trim();
       
+      let priceVal = row[12] !== undefined ? row[12] : row[11];
       const cost = this.excelService.parseNumber(priceVal);
 
       if (sku && name && cost > 0 && sku !== 'REFERÊNCIA') {
+        const height = this.excelService.parseNumber(row[6]);
+        const width = this.excelService.parseNumber(row[7]);
+        const depth = this.excelService.parseNumber(row[8]);
+        const boxWeight = this.excelService.parseNumber(row[9]);
+
         results.push({
           sku,
           supplierCode: sku,
           name,
           format: '',
-          line,
+          line: '',
           boxCoverage: 0,
           palletBoxes: 0,
-          boxWeight: 0,
+          boxWeight,
           piecesPerBox: 0,
           usage: '',
           costCents: Math.round(cost * 100),
+          color,
+          height,
+          width,
+          depth,
         });
       }
     }
