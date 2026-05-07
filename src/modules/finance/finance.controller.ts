@@ -179,6 +179,12 @@ export class FinanceController {
     );
   }
 
+  @Get('reports/inventory-valuation')
+  @Permissions(PERMISSIONS.FINANCE_READ)
+  async getInventoryValuation(@Request() req: any) {
+    return this.financeService.getInventoryValuation(req.clinicId);
+  }
+
   // =====================================================
   // SERVICE INVOICES (NFS-E)
   // =====================================================

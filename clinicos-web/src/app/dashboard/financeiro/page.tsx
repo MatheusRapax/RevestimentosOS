@@ -58,6 +58,14 @@ export default function FinanceiroPage() {
         }
     });
 
+    const { data: inventoryData, isLoading: isLoadingInventory } = useQuery({
+        queryKey: ['inventory-valuation'],
+        queryFn: async () => {
+            const response = await api.get('/finance/reports/inventory-valuation');
+            return response.data;
+        }
+    });
+
     const formatCurrency = (cents: number) => {
         return new Intl.NumberFormat('pt-BR', {
             style: 'currency',
@@ -213,6 +221,54 @@ export default function FinanceiroPage() {
                                 </div>
                                 <p className="text-xs text-gray-400 mt-2">
                                     {dashboardData.currentMonth.ordersCount} de {dashboardData.currentMonth.quotesCount} orçamentos
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Inventory Valuation Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                            <div className="bg-white rounded-xl border p-5 shadow-sm">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-sm text-gray-500">Valor em Estoque (Custo)</p>
+                                        <p className="text-2xl font-bold mt-1">
+                                            {isLoadingInventory ? <Loader2 className="h-6 w-6 animate-spin text-gray-400" /> : formatCurrency(inventoryData?.totalCostCents || 0)}
+                                        </p>
+                                    </div>
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <Package className="h-5 w-5 text-gray-600" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-xl border p-5 shadow-sm">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-sm text-gray-500">Valor em Estoque (Venda)</p>
+                                        <p className="text-2xl font-bold mt-1 text-blue-600">
+                                            {isLoadingInventory ? <Loader2 className="h-6 w-6 animate-spin text-gray-400" /> : formatCurrency(inventoryData?.totalSalesCents || 0)}
+                                        </p>
+                                    </div>
+                                    <div className="p-2 bg-blue-50 rounded-lg">
+                                        <ShoppingCart className="h-5 w-5 text-blue-600" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-xl border p-5 shadow-sm">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-sm text-gray-500">Lucro Projetado (Estoque)</p>
+                                        <p className="text-2xl font-bold mt-1 text-green-600">
+                                            {isLoadingInventory ? <Loader2 className="h-6 w-6 animate-spin text-gray-400" /> : formatCurrency(inventoryData?.projectedProfitCents || 0)}
+                                        </p>
+                                    </div>
+                                    <div className="p-2 bg-green-50 rounded-lg">
+                                        <TrendingUp className="h-5 w-5 text-green-600" />
+                                    </div>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-2">
+                                    {isLoadingInventory ? '...' : `${inventoryData?.totalItems || 0} itens no estoque`}
                                 </p>
                             </div>
                         </div>

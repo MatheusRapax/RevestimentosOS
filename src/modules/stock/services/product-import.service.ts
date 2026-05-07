@@ -33,32 +33,110 @@ export class ProductImportService {
         'TABELA STRUFALDI - LINHA CONVEN',
         'CANTONEIRA',
       ]);
+      this.validateTemplate(rows, strategy);
       return this.parseStrufaldi(rows);
     }
 
     const rows = this.excelService.parseExcel(buffer);
+    this.validateTemplate(rows, strategy);
+
+    let results: ImportProductResult[] = [];
 
     switch (strategy) {
       case 'CASTELLI':
       case 'EMBRAMACO':
-        return this.parseStructured(rows); // Both share similar tabular structure
+        results = this.parseStructured(rows); // Both share similar tabular structure
+        break;
       case 'PIERINI':
-        return this.parsePierini(rows);
-      
+        results = this.parsePierini(rows);
+        break;
       case 'BOUTIQUE BRASIL':
-        return this.parseDueFratelli(rows);
+        results = this.parseDueFratelli(rows);
+        break;
       case 'GLAM BRASIL':
-        return this.parseGlam(rows);
+        results = this.parseGlam(rows);
+        break;
       case 'LEXXA BAGNO':
-        return this.parseLexxa(rows);
+        results = this.parseLexxa(rows);
+        break;
       case 'MOSAIC':
       case 'DECA':
-        return this.parseMosaicGroup(rows);
+        results = this.parseMosaicGroup(rows);
+        break;
       case 'DEXCO':
-        return this.parseDexco(rows);
+        results = this.parseDexco(rows);
+        break;
       default:
         throw new BadRequestException('Strategy not implemented');
     }
+
+    if (results.length === 0) {
+      throw new BadRequestException(
+        `Nenhum produto válido foi encontrado. O layout da planilha não parece ser compatível com o modelo selecionado (${strategy}) ou a planilha está vazia.`
+      );
+    }
+
+    return results;
+  }
+
+  private validateTemplate(rows: any[], strategy: ImportStrategy) {
+    if (!rows || rows.length === 0) {
+      this.throwInvalidTemplate(strategy);
+    }
+
+    let isValid = false;
+    const maxRowsToCheck = Math.min(rows.length, 50); // Check first 50 rows for headers
+
+    for (let i = 0; i < maxRowsToCheck; i++) {
+      const row = rows[i] || [];
+      const rowStr = row.map((c: any) => String(c || '').trim().toLowerCase());
+
+      switch (strategy) {
+        case 'CASTELLI':
+        case 'EMBRAMACO':
+          if (rowStr.includes('ref.') && rowStr.includes('descrição')) isValid = true;
+          break;
+        case 'PIERINI':
+          if (rowStr[1] === 'linha' && rowStr[4] === 'cód.' && rowStr[6] === 'descrição') isValid = true;
+          break;
+        case 'DEXCO':
+          if (rowStr[12] === 'codigoproduto' && rowStr[20] === 'produto') isValid = true;
+          break;
+        case 'STRUFALDI':
+          if (rowStr[1] === 'código fabricante' && rowStr[2] === 'descrição curta') isValid = true;
+          break;
+        case 'MOSAIC':
+        case 'DECA':
+          if (rowStr[12] === 'material') isValid = true;
+          break;
+        case 'BOUTIQUE BRASIL':
+          if (rowStr[4] === 'cód.' && (rowStr[6] === 'descrição' || rowStr[6] === 'produtos')) isValid = true;
+          break;
+        case 'GLAM BRASIL':
+          if (rowStr[3] === 'cód.' && (rowStr[5] === 'descrição' || rowStr[5] === 'produtos')) isValid = true;
+          break;
+        case 'LEXXA BAGNO':
+          if (rowStr[2] === 'referência' && rowStr[3] === 'descrição') isValid = true;
+          break;
+        default:
+          isValid = true; // Fallback for unknown strategies
+      }
+
+      if (isValid) break;
+    }
+
+    if (!isValid) {
+      this.throwInvalidTemplate(strategy);
+    }
+  }
+
+  private throwInvalidTemplate(strategy: string) {
+    throw new BadRequestException({
+      message: `A estrutura da planilha não corresponde ao modelo esperado para o fornecedor ${strategy}. Por favor, verifique se selecionou o modelo correto ou se a planilha sofreu alterações estruturais.`,
+      error: 'Invalid Template',
+      code: 'INVALID_TEMPLATE',
+      statusCode: 400,
+    });
   }
 
   private parseStructured(rows: any[]): ImportProductResult[] {

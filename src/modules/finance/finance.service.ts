@@ -788,6 +788,53 @@ export class FinanceService {
     };
   }
 
+  async getInventoryValuation(clinicId: string) {
+    // Get all active products with their active lots where quantity > 0
+    const productsInStock = await this.prisma.product.findMany({
+      where: {
+        clinicId,
+        isActive: true, // Only consider active products
+        lots: {
+          some: {
+            quantity: { gt: 0 }
+          }
+        }
+      },
+      include: {
+        lots: {
+          where: {
+            quantity: { gt: 0 }
+          }
+        }
+      }
+    });
+
+    let totalCostCents = 0;
+    let totalSalesCents = 0;
+    let totalItems = 0;
+
+    for (const product of productsInStock) {
+      const cost = product.costCents || 0;
+      const price = product.priceCents || 0;
+      
+      const productTotalQuantity = product.lots.reduce((acc, lot) => acc + lot.quantity, 0);
+      
+      totalCostCents += productTotalQuantity * cost;
+      totalSalesCents += productTotalQuantity * price;
+      totalItems += productTotalQuantity;
+    }
+
+    return {
+      totalCostCents,
+      totalCostFormatted: this.formatCurrency(totalCostCents),
+      totalSalesCents,
+      totalSalesFormatted: this.formatCurrency(totalSalesCents),
+      projectedProfitCents: totalSalesCents - totalCostCents,
+      projectedProfitFormatted: this.formatCurrency(totalSalesCents - totalCostCents),
+      totalItems
+    };
+  }
+
   // =====================================================
   // SERVICE INVOICES (NFS-E)
   // =====================================================

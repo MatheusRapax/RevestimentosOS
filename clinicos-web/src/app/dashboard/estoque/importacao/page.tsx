@@ -10,6 +10,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
 import { Trash2 } from 'lucide-react';
 import { Badge } from '../../../../components/ui/badge';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '../../../../components/ui/alert-dialog';
 import api from '../../../../lib/api';
 import { toast } from 'sonner';
 import { AuthContext } from '../../../../contexts/auth-context';
@@ -22,6 +32,8 @@ export default function ImportProductsPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [step, setStep] = useState<'upload' | 'preview'>('upload');
     const [parsedItems, setParsedItems] = useState<any[]>([]);
+    const [invalidTemplateError, setInvalidTemplateError] = useState<string | null>(null);
+    const [showMissingFieldsWarning, setShowMissingFieldsWarning] = useState(false);
 
     // Fetch Suppliers
     const { data: suppliers = [] } = useQuery({
@@ -57,13 +69,32 @@ export default function ImportProductsPage() {
             toast.success('Arquivo processado! Verifique os dados abaixo.');
         } catch (error: any) {
             console.error(error);
-            toast.error(error.response?.data?.message || 'Falha ao ler arquivo.');
+            const errData = error.response?.data;
+            if (errData?.code === 'INVALID_TEMPLATE') {
+                setInvalidTemplateError(errData.message);
+            } else {
+                toast.error(errData?.message || 'Falha ao ler arquivo.');
+            }
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleExecute = async () => {
+    const handleExecuteClick = () => {
+        const hasMissingFields = parsedItems.some(item => 
+            !item.sku || !item.name || !item.format || !item.line || !item.usage || 
+            !item.piecesPerBox || !item.boxCoverage || !item.palletBoxes || !item.boxWeight || !item.costCents
+        );
+
+        if (hasMissingFields) {
+            setShowMissingFieldsWarning(true);
+        } else {
+            executeImport();
+        }
+    };
+
+    const executeImport = async () => {
+        setShowMissingFieldsWarning(false);
         setIsLoading(true);
         try {
             const payload = {
@@ -151,7 +182,7 @@ export default function ImportProductsPage() {
                             <Button variant="outline" onClick={() => setStep('upload')} disabled={isLoading}>
                                 Voltar
                             </Button>
-                            <Button onClick={handleExecute} disabled={isLoading}>
+                            <Button onClick={handleExecuteClick} disabled={isLoading}>
                                 {isLoading ? 'Salvando...' : 'Confirmar Importação'}
                             </Button>
                         </div>
@@ -328,6 +359,36 @@ export default function ImportProductsPage() {
                     </CardContent>
                 </Card>
             )}
+
+            <AlertDialog open={!!invalidTemplateError} onOpenChange={(open) => !open && setInvalidTemplateError(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Estrutura Incompatível</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {invalidTemplateError}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setInvalidTemplateError(null)}>Entendi</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={showMissingFieldsWarning} onOpenChange={setShowMissingFieldsWarning}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Campos Incompletos Detectados</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Existem produtos com campos não preenchidos (ex: formato, linha, caixa, peso ou custo iguais a zero ou em branco). 
+                            Tem certeza que deseja continuar a importação assim mesmo ou prefere revisar?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setShowMissingFieldsWarning(false)}>Revisar Dados</AlertDialogCancel>
+                        <AlertDialogAction onClick={executeImport}>Continuar Importação</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
