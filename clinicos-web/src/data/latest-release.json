@@ -1,4 +1,4 @@
 {
-  "version": "0.1.7",
-  "content": "### Features\n\n* implementar cadastro rápido de cliente e metadados de produtos no estoque b4a3bb5"
+  "version": "0.1.8",
+  "content": "### Features\n\n* **Security:** Adicionado segurança para importação de planilhas e montante financeiro para produtos em estoque adicionados na aba financeiro. 4fb2a89"
 }

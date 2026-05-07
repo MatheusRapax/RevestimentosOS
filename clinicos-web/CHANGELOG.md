@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.8](///compare/v0.1.7...v0.1.8) (2026-05-07)
+
+
+### Features
+
+* **Security:** Adicionado segurança para importação de planilhas e montante financeiro para produtos em estoque adicionados na aba financeiro. 4fb2a89
+
 ### [0.1.7](///compare/v0.1.6...v0.1.7) (2026-04-27)
 
 
