@@ -37,7 +37,13 @@ export class ProductImportService {
       return this.parseStrufaldi(rows);
     }
 
-    const rows = this.excelService.parseExcel(buffer);
+    let rows: any[];
+    if (strategy === 'CASTELLI' || strategy === 'EMBRAMACO') {
+      rows = this.excelService.parseAllSheets(buffer);
+    } else {
+      rows = this.excelService.parseExcel(buffer);
+    }
+    
     this.validateTemplate(rows, strategy);
 
     let results: ImportProductResult[] = [];
@@ -143,10 +149,16 @@ export class ProductImportService {
     // Headers around row 4/5.
     // We look for "Ref." or "Descrição" to start.
     let headerIndex = -1;
+    let fracIndex = -1;
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       if (row.includes('Ref.') && row.includes('Descrição')) {
         headerIndex = i;
+        for (let j = 0; j < row.length; j++) {
+          if (String(row[j] || '').toLowerCase().includes('frac')) {
+            fracIndex = j;
+          }
+        }
         break;
       }
     }
@@ -201,17 +213,35 @@ export class ProductImportService {
         !row[10];
 
       let cost = 0;
-      let format = '';
-      let line = '';
+      let format = String(row[2] || '').trim();
+      let line = String(row[3] || '').trim();
 
       if (isShortFormat) {
-        format = String(row[2] || '').trim();
-        line = String(row[3] || '').trim();
         cost = this.excelService.parseNumber(row[4]);
+        // Tenta pegar um preço mais à frente se existir
+        for (let j = row.length - 1; j >= 4; j--) {
+          const val = this.excelService.parseNumber(row[j]);
+          if (val > 0) {
+            cost = val;
+            break;
+          }
+        }
       } else {
-        format = String(row[2] || '').trim();
-        line = String(row[3] || '').trim();
-        cost = this.excelService.parseNumber(row[10]);
+        if (fracIndex !== -1 && row[fracIndex]) {
+          cost = this.excelService.parseNumber(row[fracIndex]);
+        } else {
+          // Pega o último preço válido a partir da coluna 10
+          for (let j = row.length - 1; j >= 10; j--) {
+            const val = this.excelService.parseNumber(row[j]);
+            if (val > 0) {
+              cost = val;
+              break;
+            }
+          }
+          if (cost === 0) {
+            cost = this.excelService.parseNumber(row[10]);
+          }
+        }
       }
 
       // Skip if cost is 0 (likely a section header like "20 x 120 ... R$ 0,00")

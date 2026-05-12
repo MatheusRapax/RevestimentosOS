@@ -37,6 +37,38 @@ export class ExcelService {
   }
 
   /**
+   * Parse all sheets from an Excel buffer and concatenate their rows.
+   */
+  parseAllSheets(buffer: Buffer, options: { raw?: boolean } = {}): any[] {
+    try {
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      let allRows: any[] = [];
+
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const rows: any[] = XLSX.utils.sheet_to_json(sheet, {
+          header: 1,
+          defval: '',
+          raw: options.raw !== undefined ? options.raw : true,
+        });
+        allRows = allRows.concat(rows);
+      }
+
+      if (allRows.length === 0) {
+        throw new BadRequestException(
+          'Could not read Excel content or file is empty',
+        );
+      }
+
+      return allRows;
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to parse Excel file across sheets: ${error.message}`,
+      );
+    }
+  }
+
+  /**
    * Parse specific sheets from an Excel buffer and concatenate their rows.
    * Useful for templates spread across multiple tabs.
    */
