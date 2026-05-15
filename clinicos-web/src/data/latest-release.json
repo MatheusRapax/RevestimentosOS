@@ -1,4 +1,4 @@
 {
-  "version": "0.1.8",
-  "content": "### Features\n\n* **Security:** Adicionado segurança para importação de planilhas e montante financeiro para produtos em estoque adicionados na aba financeiro. 4fb2a89"
+  "version": "0.1.9",
+  "content": "All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines."
 }
