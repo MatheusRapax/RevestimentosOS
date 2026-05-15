@@ -103,26 +103,26 @@ export class ProductImportService {
           if (rowStr.includes('ref.') && rowStr.includes('descrição')) isValid = true;
           break;
         case 'PIERINI':
-          if (rowStr[1] === 'linha' && rowStr[4] === 'cód.' && rowStr[6] === 'descrição') isValid = true;
+          if (rowStr.includes('linha') && rowStr.includes('cód.') && rowStr.includes('descrição')) isValid = true;
           break;
         case 'DEXCO':
-          if (rowStr[12] === 'codigoproduto' && rowStr[20] === 'produto') isValid = true;
+          if (rowStr.includes('codigoproduto') || rowStr.includes('material')) isValid = true;
           break;
         case 'STRUFALDI':
-          if (rowStr[1] === 'código fabricante' && rowStr[2] === 'descrição curta') isValid = true;
+          if (rowStr.includes('código fabricante') || rowStr.includes('descrição curta')) isValid = true;
           break;
         case 'MOSAIC':
         case 'DECA':
-          if (rowStr[12] === 'material') isValid = true;
+          if (rowStr.includes('material') || rowStr.includes('codigoproduto')) isValid = true;
           break;
         case 'BOUTIQUE BRASIL':
-          if (rowStr[4] === 'cód.' && (rowStr[6] === 'descrição' || rowStr[6] === 'produtos')) isValid = true;
+          if (rowStr.includes('cód.') && (rowStr.includes('descrição') || rowStr.includes('produtos'))) isValid = true;
           break;
         case 'GLAM BRASIL':
-          if (rowStr[3] === 'cód.' && (rowStr[5] === 'descrição' || rowStr[5] === 'produtos')) isValid = true;
+          if (rowStr.includes('cód.') && (rowStr.includes('descrição') || rowStr.includes('produtos'))) isValid = true;
           break;
         case 'LEXXA BAGNO':
-          if (rowStr[2] === 'referência' && rowStr[3] === 'descrição') isValid = true;
+          if (rowStr.includes('referência') && rowStr.includes('descrição')) isValid = true;
           break;
         default:
           isValid = true; // Fallback for unknown strategies
@@ -452,18 +452,63 @@ export class ProductImportService {
   }
 
   private parseMosaicGroup(rows: any[]): ImportProductResult[] {
+    let skuIdx = 12, nameIdx = 20, lineIdx = 25, weightIdx1 = 29, weightIdx2 = 30;
+    let costIdx1 = 49, costIdx2 = 37, valorNfIdx = 50;
+
+    // Detect dynamically
+    for (let i = 0; i < Math.min(rows.length, 50); i++) {
+      const row = rows[i];
+      if (!Array.isArray(row)) continue;
+      const rowStr = row.map(c => String(c || '').trim().toLowerCase());
+      
+      let tmpSku = rowStr.indexOf('material');
+      if (tmpSku === -1) tmpSku = rowStr.indexOf('codigoproduto');
+
+      if (tmpSku !== -1) {
+        skuIdx = tmpSku;
+        
+        nameIdx = rowStr.indexOf('descricao_completa');
+        if (nameIdx === -1) nameIdx = rowStr.indexOf('produto');
+        
+        lineIdx = rowStr.indexOf('linha do item');
+        if (lineIdx === -1) lineIdx = rowStr.indexOf('hierarquia3');
+        if (lineIdx === -1) lineIdx = rowStr.indexOf('hierarquia 3');
+        if (lineIdx === -1) lineIdx = rowStr.indexOf('grupopreco');
+        
+        weightIdx1 = rowStr.indexOf('peso_bruto');
+        if (weightIdx1 === -1) weightIdx1 = rowStr.indexOf('pesobruto');
+        
+        weightIdx2 = rowStr.indexOf('peso liquido');
+        if (weightIdx2 === -1) weightIdx2 = rowStr.indexOf('pesoliquido');
+        
+        costIdx1 = rowStr.indexOf('preço_sugerido_consumidor');
+        
+        costIdx2 = rowStr.indexOf('valorlista');
+        
+        let nfIdx = rowStr.indexOf('valor da nf');
+        if (nfIdx === -1) nfIdx = rowStr.indexOf('valordanf');
+        valorNfIdx = nfIdx;
+        break;
+      }
+    }
+
     const results: ImportProductResult[] = [];
     for (const row of rows) {
-      if (!Array.isArray(row) || row.length < 40) continue;
+      if (!Array.isArray(row) || row.length < Math.max(skuIdx, costIdx1)) continue;
       
-      const sku = String(row[12] || '').replace(/'/g, '').trim(); 
-      const name = String(row[20] || '').trim();
-      const line = String(row[25] || '').trim(); 
-      const weight = this.excelService.parseNumber(row[29] || row[30]);
-      let cost = this.excelService.parseNumber(row[49]);
-      if (!cost || cost === 0) cost = this.excelService.parseNumber(row[50]);
+      const sku = String(row[skuIdx] || '').replace(/'/g, '').trim(); 
+      const name = String(row[nameIdx] || '').trim();
+      const line = String(row[lineIdx] || '').trim(); 
+      const weight = this.excelService.parseNumber(row[weightIdx1] || row[weightIdx2]);
+      
+      let cost = 0;
+      if (valorNfIdx !== -1 && row[valorNfIdx] !== undefined && row[valorNfIdx] !== '') {
+         cost = this.excelService.parseNumber(row[valorNfIdx]);
+      }
+      if (cost <= 0) cost = this.excelService.parseNumber(row[costIdx1]);
+      if (cost <= 0) cost = this.excelService.parseNumber(row[costIdx2]);
 
-      if (sku && name && cost > 0 && sku !== 'Material') {
+      if (sku && name && cost > 0 && sku.toLowerCase() !== 'material') {
         results.push({
           sku,
           supplierCode: sku,
@@ -661,29 +706,85 @@ export class ProductImportService {
   }
 
   // Dexco: Tabular layout — each row is a product with dedicated columns
-  // Col12=CodigoProduto, Col20=Produto, Col14=PcPorCX, Col15=M2PorCx, Col16=ClasseUso,
-  // Col21=QtdePallet, Col25=Hierarquia3(formato), Col29=PesoBruto, Col37=ValorLista, Col9=GrupoPreco(linha)
   private parseDexco(rows: any[]): ImportProductResult[] {
-    const results: ImportProductResult[] = [];
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      if (!Array.isArray(row) || row.length < 38) continue;
+    let skuIdx = -1, nameIdx = -1, pcBoxIdx = -1, m2BoxIdx = -1, usoIdx = -1,
+        palletIdx = -1, formatIdx = -1, weightIdx = -1, lineIdx = -1,
+        valorNFIdx = -1, valorListaIdx = -1;
 
-      const sku = String(row[12] || '').replace(/'/g, '').trim();
-      const name = String(row[20] || '').trim();
-      const cost = this.excelService.parseNumber(row[37]); // ValorLista
+    let startRow = 1;
+    for (let i = 0; i < Math.min(rows.length, 50); i++) {
+      const row = rows[i];
+      if (!Array.isArray(row)) continue;
+      const rowStr = row.map(c => String(c || '').trim().toLowerCase());
+      
+      skuIdx = rowStr.indexOf('codigoproduto');
+      if (skuIdx === -1) skuIdx = rowStr.indexOf('material');
+      
+      if (skuIdx !== -1) {
+        nameIdx = rowStr.indexOf('produto');
+        if (nameIdx === -1) nameIdx = rowStr.indexOf('descricao_completa');
+        
+        pcBoxIdx = rowStr.indexOf('pcporcx');
+        m2BoxIdx = rowStr.indexOf('m2porcx');
+        usoIdx = rowStr.indexOf('classeuso');
+        palletIdx = rowStr.indexOf('qtdepallet');
+        formatIdx = rowStr.indexOf('hierarquia3');
+        if (formatIdx === -1) formatIdx = rowStr.findIndex(r => r.includes('formato'));
+        weightIdx = rowStr.indexOf('pesobruto');
+        if (weightIdx === -1) weightIdx = rowStr.indexOf('peso_bruto');
+        lineIdx = rowStr.indexOf('grupopreco');
+        if (lineIdx === -1) lineIdx = rowStr.indexOf('grupo preco');
+        
+        let nfIdx = rowStr.indexOf('valor da nf');
+        if (nfIdx === -1) nfIdx = rowStr.indexOf('valordanf');
+        valorNFIdx = nfIdx;
+        
+        valorListaIdx = rowStr.indexOf('valorlista');
+        
+        startRow = i + 1;
+        break;
+      }
+    }
+
+    if (skuIdx === -1) skuIdx = 12;
+    if (nameIdx === -1) nameIdx = 20;
+    if (pcBoxIdx === -1) pcBoxIdx = 14;
+    if (m2BoxIdx === -1) m2BoxIdx = 15;
+    if (usoIdx === -1) usoIdx = 16;
+    if (palletIdx === -1) palletIdx = 21;
+    if (formatIdx === -1) formatIdx = 25;
+    if (weightIdx === -1) weightIdx = 29;
+    if (lineIdx === -1) lineIdx = 9;
+    if (valorListaIdx === -1) valorListaIdx = 37;
+    if (valorNFIdx === -1) valorNFIdx = 50;
+
+    const results: ImportProductResult[] = [];
+    for (let i = startRow; i < rows.length; i++) {
+      const row = rows[i];
+      if (!Array.isArray(row)) continue;
+
+      const sku = String(row[skuIdx] || '').replace(/'/g, '').trim();
+      const name = String(row[nameIdx] || '').trim();
+      
+      let cost = 0;
+      if (valorNFIdx !== -1 && row[valorNFIdx] !== undefined && row[valorNFIdx] !== '') {
+        cost = this.excelService.parseNumber(row[valorNFIdx]);
+      }
+      if (cost <= 0) {
+        cost = this.excelService.parseNumber(row[valorListaIdx]);
+      }
 
       if (!sku || !name || cost <= 0) continue;
-      if (sku === 'CodigoProduto') continue; // skip header
+      if (sku.toLowerCase() === 'codigoproduto' || sku.toLowerCase() === 'material') continue; // skip header
 
-      const piecesPerBox = Math.round(this.excelService.parseNumber(row[14])); // PcPorCX
-      const boxCoverage = this.excelService.parseNumber(row[15]); // M2PorCx
-      const usage = String(row[16] || '').trim(); // ClasseUso
-      const palletM2 = this.excelService.parseNumber(row[21]); // QtdePallet (m² per pallet)
+      const piecesPerBox = Math.round(this.excelService.parseNumber(row[pcBoxIdx]));
+      const boxCoverage = this.excelService.parseNumber(row[m2BoxIdx]);
+      const usage = String(row[usoIdx] || '').trim();
+      const palletM2 = this.excelService.parseNumber(row[palletIdx]);
       const palletBoxes = boxCoverage > 0 ? Math.round(palletM2 / boxCoverage) : 0;
-      const format = String(row[25] || '').trim(); // Hierarquia3 (formato)
-      const boxWeight = this.excelService.parseNumber(row[29]); // PesoBruto
-      const line = String(row[9] || '').trim(); // GrupoPreco (linha)
+      const format = String(row[formatIdx] || '').trim();
+      const boxWeight = this.excelService.parseNumber(row[weightIdx]);
+      const line = String(row[lineIdx] || '').trim();
 
       results.push({
         sku,
