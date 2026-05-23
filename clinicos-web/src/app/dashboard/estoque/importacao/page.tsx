@@ -198,6 +198,10 @@ export default function ImportProductsPage() {
                                         <TableHead>Formato</TableHead>
                                         <TableHead>Linha</TableHead>
                                         <TableHead>Uso</TableHead>
+                                        <TableHead>Cor</TableHead>
+                                        <TableHead className="w-[80px]">Alt.</TableHead>
+                                        <TableHead className="w-[80px]">Larg.</TableHead>
+                                        <TableHead className="w-[80px]">Prof.</TableHead>
                                         <TableHead className="w-[80px]">Pç/Cx</TableHead>
                                         <TableHead className="w-[80px]">m²/Cx</TableHead>
                                         <TableHead className="w-[80px]">Cx/Pal</TableHead>
@@ -269,6 +273,59 @@ export default function ImportProductsPage() {
                                                         setParsedItems(newItems);
                                                     }}
                                                     className="h-8 w-[80px]"
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Input
+                                                    value={item.color || ''}
+                                                    onChange={(e) => {
+                                                        const newItems = [...parsedItems];
+                                                        newItems[idx].color = e.target.value;
+                                                        setParsedItems(newItems);
+                                                    }}
+                                                    className="h-8 w-[100px]"
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Input
+                                                    type="number"
+                                                    step="0.1"
+                                                    value={item.height || ''}
+                                                    onChange={(e) => {
+                                                        const newItems = [...parsedItems];
+                                                        newItems[idx].height = Number(e.target.value);
+                                                        setParsedItems(newItems);
+                                                    }}
+                                                    className="h-8 w-[60px]"
+                                                    placeholder="0"
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Input
+                                                    type="number"
+                                                    step="0.1"
+                                                    value={item.width || ''}
+                                                    onChange={(e) => {
+                                                        const newItems = [...parsedItems];
+                                                        newItems[idx].width = Number(e.target.value);
+                                                        setParsedItems(newItems);
+                                                    }}
+                                                    className="h-8 w-[60px]"
+                                                    placeholder="0"
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Input
+                                                    type="number"
+                                                    step="0.1"
+                                                    value={item.depth || ''}
+                                                    onChange={(e) => {
+                                                        const newItems = [...parsedItems];
+                                                        newItems[idx].depth = Number(e.target.value);
+                                                        setParsedItems(newItems);
+                                                    }}
+                                                    className="h-8 w-[60px]"
+                                                    placeholder="0"
                                                 />
                                             </TableCell>
                                             <TableCell>

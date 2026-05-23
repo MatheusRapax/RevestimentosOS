@@ -32,3 +32,11 @@ cloudflared.deb
 
 # Antigravity/Gemini
 .gemini/
+
+#Clientes
+seed-customers-production.sql
+seed-customers.ts
+customers_import.json
+
+#planilhas
+*.xlsx

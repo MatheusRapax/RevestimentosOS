@@ -51,6 +51,22 @@ export class ImportProductItemDto {
   @IsNumber()
   costCents: number;
 
+  @IsNumber()
+  @IsOptional()
+  height?: number;
+
+  @IsNumber()
+  @IsOptional()
+  width?: number;
+
+  @IsNumber()
+  @IsOptional()
+  depth?: number;
+
+  @IsString()
+  @IsOptional()
+  color?: string;
+
   @IsBoolean()
   @IsOptional()
   isNew?: boolean;
