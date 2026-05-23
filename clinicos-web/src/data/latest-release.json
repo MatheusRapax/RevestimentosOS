@@ -1,4 +1,4 @@
 {
-  "version": "0.1.10",
-  "content": "### Features\n\n* **import:** adiciona script de seed para clientes e corrige importação Lexxa dec8f86"
+  "version": "0.1.11",
+  "content": "### Features\n\n* Mudança na tabela Lexxa, valor do produto row 18 b2d6d38"
 }

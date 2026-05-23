@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.11](///compare/v0.1.10...v0.1.11) (2026-05-23)
+
+
+### Features
+
+* Mudança na tabela Lexxa, valor do produto row 18 b2d6d38
+
 ### [0.1.10](///compare/v0.1.9...v0.1.10) (2026-05-23)
 
 
