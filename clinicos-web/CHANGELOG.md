@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.10](///compare/v0.1.9...v0.1.10) (2026-05-23)
+
+
+### Features
+
+* **import:** adiciona script de seed para clientes e corrige importação Lexxa dec8f86
+
 ### [0.1.9](///compare/v0.1.8...v0.1.9) (2026-05-15)
 
 ### [0.1.8](///compare/v0.1.7...v0.1.8) (2026-05-07)

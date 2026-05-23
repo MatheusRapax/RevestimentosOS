@@ -1,4 +1,4 @@
 {
-  "version": "0.1.9",
-  "content": "All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines."
+  "version": "0.1.10",
+  "content": "### Features\n\n* **import:** adiciona script de seed para clientes e corrige importação Lexxa dec8f86"
 }
