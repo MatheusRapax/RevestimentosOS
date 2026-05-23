@@ -420,7 +420,7 @@ export class ProductImportService {
       const name = String(row[3] || '').trim();
       const color = String(row[5] || '').trim();
       
-      let priceVal = row[12] !== undefined ? row[12] : row[11];
+      let priceVal = row[18];
       const cost = this.excelService.parseNumber(priceVal);
 
       if (sku && name && cost > 0 && sku !== 'REFERÊNCIA') {
