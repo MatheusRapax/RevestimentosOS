@@ -1,4 +1,4 @@
 {
-  "version": "0.1.12",
-  "content": "### Bug Fixes\n\n* correções no orçamento, layout de impressão, sessão JWT e arquitetos d40ad26"
+  "version": "0.1.13",
+  "content": "### Bug Fixes\n\n* estabiliza configuracoes globais, layouts de impressao e widgets 250496f"
 }
