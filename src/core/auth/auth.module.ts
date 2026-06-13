@@ -11,7 +11,7 @@ import { env } from '../../config/env';
     PassportModule,
     JwtModule.register({
       secret: env.jwt.secret,
-      signOptions: { expiresIn: '1h' },
+      signOptions: { expiresIn: '8h' },
     }),
   ],
   controllers: [AuthController],

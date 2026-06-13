@@ -334,14 +334,38 @@ export class QuotesService {
       );
     }
 
+    const { 
+      customerId, 
+      architectId, 
+      deliveryFeeCents,
+      deliveryFee,
+      globalMarginPercent,
+      ...rest 
+    } = updateQuoteDto;
+
+    const data: any = {
+      ...rest,
+      deliveryFee: deliveryFeeCents ?? deliveryFee,
+      validUntil: rest.validUntil
+        ? new Date(rest.validUntil)
+        : undefined,
+    };
+
+    if (customerId) {
+      data.customer = { connect: { id: customerId } };
+    }
+
+    if (architectId !== undefined) {
+      if (architectId === null || architectId === '') {
+        data.architect = { disconnect: true };
+      } else {
+        data.architect = { connect: { id: architectId } };
+      }
+    }
+
     return this.prisma.quote.update({
       where: { id },
-      data: {
-        ...updateQuoteDto,
-        validUntil: updateQuoteDto.validUntil
-          ? new Date(updateQuoteDto.validUntil)
-          : undefined,
-      },
+      data,
       include: {
         customer: { select: { id: true, name: true } },
         items: true,

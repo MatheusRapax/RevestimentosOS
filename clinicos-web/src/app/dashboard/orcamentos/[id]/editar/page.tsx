@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { StockLotSelector } from '@/components/stock/StockLotSelector';
 import { ProductCombobox } from '@/components/quotes/product-combobox';
 import { AdHocProductModal } from '@/components/products/ad-hoc-product-modal';
+import { toast } from 'sonner';
 
 interface Customer {
     id: string;
@@ -418,10 +419,11 @@ export default function EditOrcamentoPage() {
                 });
             }
 
+            toast.success('Orçamento atualizado com sucesso!');
             router.push(`/dashboard/orcamentos/${quoteId}`);
         } catch (err: any) {
             console.error('Error updating quote:', err);
-            setError(err.response?.data?.message || 'Erro ao atualizar orçamento');
+            toast.error(err.response?.data?.message || 'Erro ao atualizar orçamento');
         } finally {
             setIsSubmitting(false);
         }

@@ -117,6 +117,7 @@ export default function ArquitetosPage() {
 
             const payload = {
                 ...formData,
+                email: formData.email?.trim() || undefined,
                 document: unmask(formData.document),
                 phone: unmask(formData.phone),
                 birthDate: formData.birthDate ? new Date(formData.birthDate.split('/').reverse().join('-')).toISOString() : undefined,

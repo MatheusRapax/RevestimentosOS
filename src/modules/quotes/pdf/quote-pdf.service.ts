@@ -93,16 +93,18 @@ export class QuotePdfService {
   ) {
     const primaryColor = template?.primaryColor || '#000000';
 
-    // Título
+    // Título no canto direito
     doc
       .fillColor(primaryColor)
       .fontSize(22)
       .font('Helvetica-Bold')
-      .text('ORÇAMENTO', 0, y, { align: 'center' })
+      .text('ORÇAMENTO', 50, y, { align: 'right', width: 495 });
+      
+    doc
       .fontSize(12)
       .font('Helvetica')
-      .text(`Nº #${String(quote.number).padStart(4, '0')}`, {
-        align: 'center',
+      .text(`Nº #${String(quote.number).padStart(4, '0')}`, 50, doc.y, {
+        align: 'right', width: 495
       });
 
     // Dados da empresa
@@ -111,7 +113,7 @@ export class QuotePdfService {
     const companyPhone = template?.companyPhone || '';
     const companyCnpj = template?.companyCnpj || '';
 
-    const companyInfoY = y + 10;
+    const companyInfoY = y;
     
     // Logo
     if (template?.companyLogo) {

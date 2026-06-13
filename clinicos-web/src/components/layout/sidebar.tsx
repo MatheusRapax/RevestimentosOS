@@ -206,7 +206,7 @@ export default function Sidebar() {
     };
 
     return (
-        <div className={`${isCollapsed ? 'w-16' : 'w-64'} bg-gray-900 text-white flex flex-col transition-all duration-300`}>
+        <div className={`print:hidden ${isCollapsed ? 'w-16' : 'w-64'} bg-gray-900 text-white flex flex-col transition-all duration-300`}>
             {/* Header */}
             <div className={`border-b border-gray-800 flex items-center h-[89px] ${isCollapsed ? 'justify-center px-2' : 'justify-between px-6'}`}>
                 {!isCollapsed && (
