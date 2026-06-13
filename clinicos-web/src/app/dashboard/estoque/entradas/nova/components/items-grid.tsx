@@ -61,7 +61,13 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
     const fetchProducts = async () => {
         try {
             const res = await api.get('/stock/products?isActive=true');
-            setProducts(res.data);
+            if (res.data && Array.isArray(res.data.data)) {
+                setProducts(res.data.data);
+            } else if (Array.isArray(res.data)) {
+                setProducts(res.data);
+            } else {
+                setProducts([]);
+            }
         } catch (err) {
             console.error('Error fetching products', err);
         }

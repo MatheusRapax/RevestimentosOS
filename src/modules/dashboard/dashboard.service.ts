@@ -10,6 +10,7 @@ export const WIDGET_TYPES = [
   'pending_orders',
   'today_revenue',
   'pending_deliveries',
+  'rma_alerts',
 ] as const;
 
 export type WidgetType = (typeof WIDGET_TYPES)[number];
@@ -330,6 +331,24 @@ export class DashboardService {
         customer: { select: { name: true } },
       },
       orderBy: { deliveryDate: 'asc' },
+      take: 5,
+    });
+  }
+
+  // Get active RMAs
+  async getRmaAlerts(clinicId: string) {
+    return this.prisma.occurrence.findMany({
+      where: {
+        clinicId,
+        status: {
+          notIn: ['RESOLVIDO', 'RASCUNHO'],
+        },
+      },
+      include: {
+        supplier: { select: { name: true } },
+        customer: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
       take: 5,
     });
   }

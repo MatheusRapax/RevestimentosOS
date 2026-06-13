@@ -30,7 +30,7 @@ export class OccurrencesController {
   @Permissions(PERMISSIONS.RMA_MANAGE)
   create(@Req() req: any, @Body() createOccurrenceDto: CreateOccurrenceDto) {
     return this.occurrencesService.create(
-      req.user.clinicId,
+      req.clinicId,
       createOccurrenceDto,
     );
   }
@@ -38,13 +38,13 @@ export class OccurrencesController {
   @Get()
   @Permissions(PERMISSIONS.RMA_READ)
   findAll(@Req() req: any) {
-    return this.occurrencesService.findAll(req.user.clinicId);
+    return this.occurrencesService.findAll(req.clinicId);
   }
 
   @Get(':id')
   @Permissions(PERMISSIONS.RMA_READ)
   findOne(@Req() req: any, @Param('id') id: string) {
-    return this.occurrencesService.findOne(req.user.clinicId, id);
+    return this.occurrencesService.findOne(req.clinicId, id);
   }
 
   @Patch(':id/status')
@@ -55,7 +55,7 @@ export class OccurrencesController {
     @Body() updateOccurrenceStatusDto: UpdateOccurrenceStatusDto,
   ) {
     return this.occurrencesService.updateStatus(
-      req.user.clinicId,
+      req.clinicId,
       req.user.id,
       id,
       updateOccurrenceStatusDto,

@@ -96,11 +96,13 @@ export default function NovaOcorrenciaPage() {
 
     useEffect(() => {
         // Fetch reference data independently
-        api.get('/stock/products?isActive=true').then(res => setProducts(res.data)).catch(console.error);
-        api.get('/suppliers').then(res => setSuppliers(res.data)).catch(console.error);
-        api.get('/customers').then(res => setCustomers(res.data)).catch(console.error);
-        api.get('/orders').then(res => setOrders(res.data)).catch(console.error);
-        api.get('/purchase-orders').then(res => setPurchaseOrders(res.data)).catch(console.error);
+        const extractData = (res: any) => (res.data && Array.isArray(res.data.data)) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
+
+        api.get('/stock/products?isActive=true').then(res => setProducts(extractData(res))).catch(console.error);
+        api.get('/suppliers').then(res => setSuppliers(extractData(res))).catch(console.error);
+        api.get('/customers').then(res => setCustomers(extractData(res))).catch(console.error);
+        api.get('/orders').then(res => setOrders(extractData(res))).catch(console.error);
+        api.get('/purchase-orders').then(res => setPurchaseOrders(extractData(res))).catch(console.error);
     }, []);
 
     const onSubmit = async (data: FormData) => {

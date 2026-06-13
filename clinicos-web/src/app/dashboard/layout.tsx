@@ -122,9 +122,13 @@ export default function DashboardLayout({
 
     return (
         <div className="flex h-screen print:h-auto bg-gray-50 print:bg-white">
-            <Sidebar />
+            <div className="print:hidden h-full flex flex-col">
+                <Sidebar />
+            </div>
             <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible">
-                <Header />
+                <div className="print:hidden">
+                    <Header />
+                </div>
                 <main className="flex-1 overflow-y-auto p-6 print:p-0 print:overflow-visible">
                     {children}
                 </main>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
-import { Plus, X, Cake, Package, AlertTriangle, DollarSign, TrendingUp, ShoppingCart } from 'lucide-react';
+import { Plus, X, Cake, Package, AlertTriangle, DollarSign, TrendingUp, ShoppingCart, ShieldAlert } from 'lucide-react';
 
 // Widget type definitions for flooring store
 const WIDGET_CONFIG = {
@@ -47,6 +47,13 @@ const WIDGET_CONFIG = {
         color: 'text-blue-500',
         bgColor: 'bg-blue-50',
         description: 'Entregas agendadas para hoje',
+    },
+    rma_alerts: {
+        label: 'Ocorrências (RMA)',
+        icon: ShieldAlert,
+        color: 'text-rose-500',
+        bgColor: 'bg-rose-50',
+        description: 'Avarias e devoluções pendentes',
     },
 } as const;
 
@@ -318,6 +325,18 @@ function renderWidgetContent(type: WidgetType, data: any, formatCurrency: (c: nu
                             </li>
                         );
                     })}
+                </ul>
+            );
+
+        case 'rma_alerts':
+            return (
+                <ul className="space-y-1">
+                    {items.slice(0, 5).map((item: any, i: number) => (
+                        <li key={i} className="text-sm text-gray-700 truncate flex items-center justify-between">
+                            <span className="truncate mr-2">🛡️ RMA-{item.number} {item.supplier ? `(${item.supplier.name})` : item.customer ? `(${item.customer.name})` : ''}</span>
+                            <span className="text-[10px] bg-white border px-1 rounded text-gray-500 flex-shrink-0">{item.status}</span>
+                        </li>
+                    ))}
                 </ul>
             );
 

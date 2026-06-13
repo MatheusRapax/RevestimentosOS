@@ -88,7 +88,7 @@ export default function PurchaseOrderForm({ initialData, isEditing = false, onSu
         queryKey: ['suppliers', 'active'],
         queryFn: async () => {
             const response = await api.get('/suppliers', { params: { isActive: 'true' } });
-            return response.data;
+            return Array.isArray(response.data) ? response.data : (response.data?.data || []);
         }
     });
 
@@ -97,7 +97,7 @@ export default function PurchaseOrderForm({ initialData, isEditing = false, onSu
         queryKey: ['products'],
         queryFn: async () => {
             const response = await api.get('/stock/products');
-            return response.data;
+            return Array.isArray(response.data) ? response.data : (response.data?.data || []);
         }
     });
 
@@ -107,8 +107,9 @@ export default function PurchaseOrderForm({ initialData, isEditing = false, onSu
         queryKey: ['sales-orders', 'active'],
         queryFn: async () => {
             const response = await api.get('/orders');
+            const ordersArray = Array.isArray(response.data) ? response.data : (response.data?.data || []);
             // Filter out delivered and cancelled orders
-            return (response.data || []).filter((o: any) =>
+            return ordersArray.filter((o: any) =>
                 o.status !== 'ENTREGUE' && o.status !== 'CANCELADO'
             );
         },

@@ -96,6 +96,11 @@ export class DashboardController {
     return this.dashboardService.getPendingDeliveries(req.clinicId);
   }
 
+  @Get('widgets/rma-alerts')
+  async getRmaAlerts(@Request() req: AuthRequest) {
+    return this.dashboardService.getRmaAlerts(req.clinicId);
+  }
+
   // ====================================================================
   // FINANCIAL REPORTS ENDPOINTS
   // ====================================================================
