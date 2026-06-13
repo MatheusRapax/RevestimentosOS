@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.12](///compare/v0.1.11...v0.1.12) (2026-06-13)
+
+
+### Bug Fixes
+
+* correções no orçamento, layout de impressão, sessão JWT e arquitetos d40ad26
+
 ### [0.1.11](///compare/v0.1.10...v0.1.11) (2026-05-23)
 
 
