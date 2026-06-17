@@ -263,7 +263,11 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                     </div>
 
                     <div className="space-y-1">
-                        <label className="text-xs font-medium">Custo Unit.</label>
+                        <label className="text-xs font-medium">
+                            {selectedProduct?.boxCoverage && selectedProduct.boxCoverage > 0
+                                ? 'Custo Unit. (R$/m²)'
+                                : 'Custo Unit. (R$)'}
+                        </label>
                         <Input
                             type="number"
                             min="0"
@@ -271,6 +275,11 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                             value={unitCost}
                             onChange={e => setUnitCost(e.target.value)}
                         />
+                        {selectedProduct?.boxCoverage && selectedProduct.boxCoverage > 0 && unitCost && (
+                            <p className="text-[10px] text-amber-600 font-medium pt-1">
+                                Custo da Cx: R$ {(parseFloat(unitCost) * selectedProduct.boxCoverage).toFixed(2)}
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-1">

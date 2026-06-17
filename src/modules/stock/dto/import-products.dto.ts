@@ -36,11 +36,11 @@ export class ImportProductItemDto {
   @IsOptional()
   boxCoverage?: number;
 
-  @IsInt()
+  @IsNumber()
   @IsOptional()
   piecesPerBox?: number;
 
-  @IsInt()
+  @IsNumber()
   @IsOptional()
   palletBoxes?: number;
 
@@ -50,6 +50,10 @@ export class ImportProductItemDto {
 
   @IsNumber()
   costCents: number;
+
+  @IsNumber()
+  @IsOptional()
+  costPerM2Cents?: number;
 
   @IsNumber()
   @IsOptional()
@@ -82,7 +86,11 @@ export class ImportProductsDto {
 
   @IsString()
   @IsOptional()
-  strategy?: string; // Automatically associates layout strategy to Brand
+  strategy?: string; // Layout strategy
+
+  @IsString()
+  @IsOptional()
+  brandName?: string; // Selected Brand
 
   @IsArray()
   @ValidateNested({ each: true })

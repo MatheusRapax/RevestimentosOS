@@ -20,6 +20,14 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '../../../../components/ui/alert-dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    DialogTrigger,
+} from '../../../../components/ui/dialog';
 import api from '../../../../lib/api';
 import { toast } from 'sonner';
 import { AuthContext } from '../../../../contexts/auth-context';
@@ -29,11 +37,15 @@ export default function ImportProductsPage() {
     const [file, setFile] = useState<File | null>(null);
     const [strategy, setStrategy] = useState<string>('');
     const [supplierId, setSupplierId] = useState<string>('');
+    const [brandName, setBrandName] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const [step, setStep] = useState<'upload' | 'preview'>('upload');
     const [parsedItems, setParsedItems] = useState<any[]>([]);
     const [invalidTemplateError, setInvalidTemplateError] = useState<string | null>(null);
     const [showMissingFieldsWarning, setShowMissingFieldsWarning] = useState(false);
+
+    const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
+    const [newBrandInput, setNewBrandInput] = useState('');
 
     // Fetch Suppliers
     const { data: suppliers = [] } = useQuery({
@@ -44,6 +56,16 @@ export default function ImportProductsPage() {
         }
     });
 
+    // Fetch Brands
+    const { data: brands = [] } = useQuery({
+        queryKey: ['brands', activeClinic],
+        queryFn: async () => {
+            const res = await api.get('/catalogue/brands', { params: { clinicId: activeClinic } });
+            return res.data;
+        },
+        enabled: !!activeClinic
+    });
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             setFile(e.target.files[0]);
@@ -51,8 +73,8 @@ export default function ImportProductsPage() {
     };
 
     const handleParse = async () => {
-        if (!file || !strategy || !supplierId) {
-            toast.error('Selecione um arquivo, um fornecedor e um layout.');
+        if (!file || !strategy || !supplierId || !brandName) {
+            toast.error('Selecione um arquivo, um fornecedor, uma marca e um layout.');
             return;
         }
 
@@ -101,6 +123,7 @@ export default function ImportProductsPage() {
                 supplierId,
                 clinicId: activeClinic,
                 strategy,
+                brandName: brandName.trim() || undefined,
                 items: parsedItems.map(({ isNew, ...rest }) => rest)
             };
             await api.post('/stock/products/import/execute', payload);
@@ -148,7 +171,8 @@ export default function ImportProductsPage() {
                                     <SelectValue placeholder="Selecione o modelo" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="CASTELLI">Castelli (Padrão)</SelectItem>
+                                    <SelectItem value="STANDARD">Padrão Oficial do Sistema (Recomendado)</SelectItem>
+                                    <SelectItem value="CASTELLI">Castelli (Planilha Original)</SelectItem>
                                     <SelectItem value="EMBRAMACO">Embramaco</SelectItem>
                                     <SelectItem value="PIERINI">Pierini</SelectItem>
                                     <SelectItem value="STRUFALDI">Strufaldi</SelectItem>
@@ -163,11 +187,67 @@ export default function ImportProductsPage() {
                         </div>
 
                         <div className="grid w-full max-w-sm items-center gap-1.5">
+                            <Label>Marca / Fabricante (Obrigatório)</Label>
+                            <div className="flex gap-2">
+                                <Select onValueChange={setBrandName} value={brandName || undefined}>
+                                    <SelectTrigger className="flex-1">
+                                        <SelectValue placeholder="Selecione ou adicione" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {brands.map((b: any) => (
+                                            <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>
+                                        ))}
+                                        {brands.length === 0 && (
+                                            <SelectItem value="none" disabled>Nenhuma marca encontrada</SelectItem>
+                                        )}
+                                        {brandName && !brands.some((b: any) => b.name === brandName) && (
+                                            <SelectItem value={brandName}>{brandName} (Nova)</SelectItem>
+                                        )}
+                                    </SelectContent>
+                                </Select>
+
+                                <Dialog open={isBrandModalOpen} onOpenChange={setIsBrandModalOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" title="Adicionar nova marca">+</Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Adicionar Nova Marca</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="grid gap-4 py-4">
+                                            <div className="grid gap-2">
+                                                <Label>Nome da Marca</Label>
+                                                <Input 
+                                                    placeholder="Digite o nome da marca..." 
+                                                    value={newBrandInput}
+                                                    onChange={(e) => setNewBrandInput(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button variant="outline" onClick={() => setIsBrandModalOpen(false)}>Cancelar</Button>
+                                            <Button onClick={() => {
+                                                if (newBrandInput.trim()) {
+                                                    setBrandName(newBrandInput.trim());
+                                                    setIsBrandModalOpen(false);
+                                                    setNewBrandInput('');
+                                                }
+                                            }}>Confirmar</Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Se preenchido, aplicará esta marca a todos os produtos importados.
+                            </p>
+                        </div>
+
+                        <div className="grid w-full max-w-sm items-center gap-1.5">
                             <Label>Arquivo Excel/CSV (.xlsx, .csv)</Label>
                             <Input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} />
                         </div>
 
-                        <Button onClick={handleParse} disabled={isLoading || !file || !strategy || !supplierId}>
+                        <Button onClick={handleParse} disabled={isLoading || !file || !strategy || !supplierId || !brandName}>
                             {isLoading ? 'Lendo Arquivo...' : 'Pré-visualizar Importação'}
                         </Button>
                     </CardContent>
@@ -206,7 +286,8 @@ export default function ImportProductsPage() {
                                         <TableHead className="w-[80px]">m²/Cx</TableHead>
                                         <TableHead className="w-[80px]">Cx/Pal</TableHead>
                                         <TableHead className="w-[80px]">Kg/Cx</TableHead>
-                                        <TableHead className="text-right w-[100px]">Custo (R$)</TableHead>
+                                        <TableHead className="text-right w-[100px]">Custo/m² (R$)</TableHead>
+                                        <TableHead className="text-right w-[110px]">Custo/Cx (R$)</TableHead>
                                         <TableHead className="w-[50px]"></TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -386,14 +467,31 @@ export default function ImportProductsPage() {
                                                 <Input
                                                     type="number"
                                                     step="0.01"
-                                                    value={item.costCents / 100}
+                                                    value={(item.costPerM2Cents ?? item.costCents) / 100}
                                                     onChange={(e) => {
                                                         const newItems = [...parsedItems];
-                                                        newItems[idx].costCents = Math.round(Number(e.target.value) * 100);
+                                                        const coverage = newItems[idx].boxCoverage || 0;
+                                                        const m2Val = Number(e.target.value);
+                                                        newItems[idx].costPerM2Cents = Math.round(m2Val * 100);
+                                                        newItems[idx].costCents = coverage > 0
+                                                            ? Math.round(m2Val * coverage * 100)
+                                                            : Math.round(m2Val * 100);
                                                         setParsedItems(newItems);
                                                     }}
                                                     className="h-8 w-[80px] text-right"
                                                 />
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                {item.boxCoverage && item.boxCoverage > 0 ? (
+                                                    <span className="font-semibold text-emerald-700">
+                                                        R$ {(item.costCents / 100).toFixed(2)}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-amber-600" title="Produto sem m²/Cx — custo importado como unitário">
+                                                        R$ {(item.costCents / 100).toFixed(2)}
+                                                        <span className="ml-1">⚠️</span>
+                                                    </span>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <Button

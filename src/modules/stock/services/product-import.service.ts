@@ -12,18 +12,34 @@ export interface ImportProductResult {
   piecesPerBox: number;
   palletBoxes: number;
   boxWeight: number;
+  /** Custo real da CAIXA em centavos — o que é salvo no banco (costPerM2 × boxCoverage para produtos m²) */
   costCents: number;
+  /** Custo por m² lido diretamente da planilha, em centavos — apenas para exibição/auditoria */
+  costPerM2Cents?: number;
   height?: number;
   width?: number;
   depth?: number;
   color?: string;
 }
 
-export type ImportStrategy = 'CASTELLI' | 'PIERINI' | 'EMBRAMACO' | 'BOUTIQUE BRASIL' | 'GLAM BRASIL' | 'LEXXA BAGNO' | 'MOSAIC' | 'DECA' | 'DEXCO' | 'STRUFALDI';
+export type ImportStrategy = 'CASTELLI' | 'PIERINI' | 'EMBRAMACO' | 'BOUTIQUE BRASIL' | 'GLAM BRASIL' | 'LEXXA BAGNO' | 'MOSAIC' | 'DECA' | 'DEXCO' | 'STRUFALDI' | 'STANDARD';
 
 @Injectable()
 export class ProductImportService {
   constructor(private excelService: ExcelService) {}
+
+  /**
+   * Calcula o custo da CAIXA em centavos.
+   * Para produtos com m² (boxCoverage > 0), o custo da planilha é por m²
+   * e precisa ser multiplicado pelo boxCoverage para obter o custo da caixa.
+   * Para produtos unitários (boxCoverage = 0), o custo é direto.
+   */
+  private calcCostCents(costPerUnit: number, boxCoverage: number): number {
+    if (boxCoverage > 0) {
+      return Math.round(costPerUnit * boxCoverage * 100);
+    }
+    return Math.round(costPerUnit * 100);
+  }
 
   processFile(buffer: Buffer, strategy: ImportStrategy): ImportProductResult[] {
     // STRUFALDI spreads products across multiple sheets — read all of them first
@@ -38,7 +54,7 @@ export class ProductImportService {
     }
 
     let rows: any[];
-    if (strategy === 'CASTELLI' || strategy === 'EMBRAMACO') {
+    if (strategy === 'EMBRAMACO') {
       rows = this.excelService.parseAllSheets(buffer);
     } else {
       rows = this.excelService.parseExcel(buffer);
@@ -49,6 +65,9 @@ export class ProductImportService {
     let results: ImportProductResult[] = [];
 
     switch (strategy) {
+      case 'STANDARD':
+        results = this.parseStandardLayout(rows);
+        break;
       case 'CASTELLI':
       case 'EMBRAMACO':
         results = this.parseStructured(rows); // Both share similar tabular structure
@@ -82,6 +101,78 @@ export class ProductImportService {
       );
     }
 
+    return results;
+  }
+
+  // ========== PRIVATE CALCULATION UTILS ==========
+  
+
+  // ========== PARSERS ==========
+
+  /**
+   * Layout Padrão Oficial do MOA NEXUS
+   * Parser estrito baseado em colunas fixas para evitar qualquer corrupção de dados.
+   */
+  private parseStandardLayout(rows: any[]): ImportProductResult[] {
+    const results: ImportProductResult[] = [];
+    
+    // Pula o cabeçalho (espera-se que a linha 0 seja o cabeçalho oficial)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!Array.isArray(row) || row.length < 2 || !row[0]) continue;
+
+      const sku = String(row[0] || '').trim();
+      const supplierCode = String(row[1] || '').trim();
+      const name = String(row[2] || '').trim();
+      
+      if (!sku && !name) continue;
+
+      const format = String(row[3] || '').trim();
+      const line = String(row[4] || '').trim();
+      const usage = String(row[5] || '').trim();
+      const color = String(row[6] || '').trim();
+
+      const height = this.excelService.parseNumber(row[7]);
+      const width = this.excelService.parseNumber(row[8]);
+      const depth = this.excelService.parseNumber(row[9]);
+
+      const pcBox = this.excelService.parseNumber(row[10]);
+      const m2Box = this.excelService.parseNumber(row[11]);
+      const boxWeight = this.excelService.parseNumber(row[12]);
+      const palletBoxes = this.excelService.parseNumber(row[13]);
+
+      const rawCostM2 = this.excelService.parseNumber(row[14]);
+      const rawCostCx = this.excelService.parseNumber(row[15]);
+
+      const costPerM2Cents = rawCostM2 ? Math.round(rawCostM2 * 100) : undefined;
+      let costCents = 0;
+      
+      if (rawCostCx) {
+        costCents = Math.round(rawCostCx * 100);
+      } else if (rawCostM2) {
+        costCents = this.calcCostCents(rawCostM2, m2Box);
+      }
+
+      results.push({
+        sku,
+        supplierCode,
+        name,
+        format,
+        line,
+        usage,
+        color,
+        height,
+        width,
+        depth,
+        piecesPerBox: pcBox,
+        boxCoverage: m2Box,
+        boxWeight: boxWeight,
+        palletBoxes: palletBoxes,
+        costPerM2Cents,
+        costCents,
+      });
+    }
+    
     return results;
   }
 
@@ -189,6 +280,10 @@ export class ProductImportService {
       // Or if Col 0 is "Tab.Geral..."
       if (col0.toLowerCase().includes('tab.geral')) continue;
 
+      // If the name column is just a number (e.g. "62.59"), this is likely a price table, not the product definition.
+      // Many supplier spreadsheets include a second table at the bottom with pricing terms.
+      if (!isNaN(Number(col1.replace(',', '.'))) && col1.trim() !== '') continue;
+
       // If Col 0 is a format like "62 x 120" and the rest is empty/price 0, it is a section.
       // But sometimes the SKU might look like that? Unlikely. SKUs are usually numeric like 73720.
       // User's SKUs: 73720, P70604.
@@ -247,18 +342,22 @@ export class ProductImportService {
       // Skip if cost is 0 (likely a section header like "20 x 120 ... R$ 0,00")
       if (cost === 0) continue;
 
+      const boxCoverage = this.excelService.parseNumber(row[5]);
+      const finalCost = isNaN(cost) ? 0 : cost;
+
       results.push({
         sku: col0,
         supplierCode: col0,
         name: col1,
         format: format,
         line: line,
-        piecesPerBox: this.excelService.parseNumber(row[4]), // Likely wrong for short format, will be 0/cost
-        boxCoverage: this.excelService.parseNumber(row[5]),
+        piecesPerBox: this.excelService.parseNumber(row[4]),
+        boxCoverage,
         palletBoxes: this.excelService.parseNumber(row[6]),
         boxWeight: this.excelService.parseNumber(row[8]),
         usage: String(row[9] || '').trim(),
-        costCents: isNaN(cost) ? 0 : Math.round(cost * 100),
+        costCents: this.calcCostCents(finalCost, boxCoverage),
+        costPerM2Cents: Math.round(finalCost * 100),
       });
     }
     return results;
@@ -392,6 +491,9 @@ export class ProductImportService {
           ? Math.round(metadata.palletCoverage / metadata.boxCoverage)
           : 0;
 
+      const parsedCost = this.excelService.parseNumber(product.price);
+      const coverage = metadata.boxCoverage || 0;
+
       results.push({
         sku: product.code,
         supplierCode: product.code,
@@ -399,13 +501,12 @@ export class ProductImportService {
         format: format,
         line: product.lineName,
         usage: metadata.usage || '',
-        boxCoverage: metadata.boxCoverage || 0,
-        piecesPerBox: 0, // Not in Perini data
+        boxCoverage: coverage,
+        piecesPerBox: 0,
         palletBoxes: palletBoxes,
         boxWeight: boxWeight,
-        costCents: Math.round(
-          this.excelService.parseNumber(product.price) * 100,
-        ),
+        costCents: this.calcCostCents(parsedCost, coverage),
+        costPerM2Cents: Math.round(parsedCost * 100),
       });
     }
 
@@ -429,6 +530,7 @@ export class ProductImportService {
         const depth = this.excelService.parseNumber(row[8]);
         const boxWeight = this.excelService.parseNumber(row[9]);
 
+        // Lexxa Bagno: produtos unitários (louças, metais) — sem m², custo é direto
         results.push({
           sku,
           supplierCode: sku,
@@ -441,6 +543,7 @@ export class ProductImportService {
           piecesPerBox: 0,
           usage: '',
           costCents: Math.round(cost * 100),
+          costPerM2Cents: Math.round(cost * 100),
           color,
           height,
           width,
@@ -509,6 +612,7 @@ export class ProductImportService {
       if (cost <= 0) cost = this.excelService.parseNumber(row[costIdx2]);
 
       if (sku && name && cost > 0 && sku.toLowerCase() !== 'material') {
+        // Mosaic/Deca: produtos unitários — sem m², custo é direto
         results.push({
           sku,
           supplierCode: sku,
@@ -521,6 +625,7 @@ export class ProductImportService {
           piecesPerBox: 0,
           usage: '',
           costCents: Math.round(cost * 100),
+          costPerM2Cents: Math.round(cost * 100),
         });
       }
     }
@@ -671,6 +776,8 @@ export class ProductImportService {
         }
       }
 
+      const coverage = section?.boxCoverage || 0;
+
       results.push({
         sku: String(sku).replace(/^\*/, ''),
         supplierCode: String(sku).replace(/^\*/, ''),
@@ -678,11 +785,12 @@ export class ProductImportService {
         format: section?.format || '',
         line: section?.line || '',
         piecesPerBox: 0,
-        boxCoverage: section?.boxCoverage || 0,
+        boxCoverage: coverage,
         palletBoxes: section?.palletBoxes || 0,
         boxWeight: section?.boxWeight || 0,
         usage: section?.usage || '',
-        costCents: Math.round(cost * 100),
+        costCents: this.calcCostCents(cost, coverage),
+        costPerM2Cents: Math.round(cost * 100),
       });
     }
 
@@ -797,7 +905,8 @@ export class ProductImportService {
         palletBoxes,
         boxWeight,
         usage,
-        costCents: Math.round(cost * 100),
+        costCents: this.calcCostCents(cost, boxCoverage),
+        costPerM2Cents: Math.round(cost * 100),
       });
     }
     return results;
@@ -840,7 +949,8 @@ export class ProductImportService {
         palletBoxes,
         boxWeight,
         usage,
-        costCents: Math.round(cost * 100),
+        costCents: this.calcCostCents(cost, boxCoverage),
+        costPerM2Cents: Math.round(cost * 100),
       });
     }
     return results;

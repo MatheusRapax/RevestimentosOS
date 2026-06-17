@@ -2,76 +2,69 @@ import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 
 function createTemplates() {
-  // Planilha de M2
-  const m2Header = [
-    'SKU (Obrigatório)',
-    'Nome do Produto (Obrigatório)',
-    'Marca (Obrigatório)',
-    'Custo (R$) (Obrigatório)',
-    'M2 por Caixa (Obrigatório)',
-    'Peças por Caixa',
-    'Caixas por Palete',
-    'Peso por Caixa (kg)',
-    'Formato (ex: 60x120)',
-    'Linha',
-    'Uso (ex: Piso, Parede)',
+  // Planilha de Padrão (Unificada)
+  const header = [
+    'SKU', // 0
+    'Cod. Fornecedor', // 1
+    'Nome do Produto (Obrigatório)', // 2
+    'Formato (ex: 60x120)', // 3
+    'Linha', // 4
+    'Uso (ex: Piso, Parede)', // 5
+    'Cor', // 6
+    'Altura (cm)', // 7
+    'Largura (cm)', // 8
+    'Profundidade (cm)', // 9
+    'Peças por Caixa', // 10
+    'm² por Caixa', // 11
+    'Peso por Caixa (kg)', // 12
+    'Caixas por Palete', // 13
+    'Custo por m² (R$)', // 14
+    'Custo da Caixa ou Unidade (R$)', // 15
   ];
 
-  const m2Example = [
+  const exampleM2 = [
     'REV-123',
+    'F-123',
     'Porcelanato Calacata',
-    'Castelli',
-    '45,00',
-    '2,40',
-    '4',
-    '32',
-    '32,5',
     '60x120',
     'Premium',
     'Piso Interno',
+    'Branco',
+    '',
+    '',
+    '',
+    '4',
+    '2,40',
+    '32,5',
+    '32',
+    '50,00',   // Custo por m² (Sistema calculará 50 * 2,4 = 120,00 por caixa)
+    '',        // Deixa vazio para auto-calcular
   ];
 
-  const wbM2 = XLSX.utils.book_new();
-  const wsM2 = XLSX.utils.aoa_to_sheet([m2Header, m2Example]);
-  wsM2['!cols'] = m2Header.map(h => ({ wch: Math.max(h.length, 15) }));
-  XLSX.utils.book_append_sheet(wbM2, wsM2, 'Produtos_M2');
-  XLSX.writeFile(wbM2, 'Template_Importacao_Produtos_M2.xlsx');
-
-
-  // Planilha de Unidade
-  const unHeader = [
-    'SKU (Obrigatório)',
-    'Nome do Produto (Obrigatório)',
-    'Marca (Obrigatório)',
-    'Custo (R$) (Obrigatório)',
-    'Unidade de Medida (UN, CX, ML, PC)',
-    'Peso Bruto (kg)',
-    'Largura (cm)',
-    'Altura (cm)',
-    'Profundidade (cm)',
-    'Cor',
-  ];
-
-  const unExample = [
+  const exampleUn = [
     'TOR-456',
+    'T-456',
     'Torneira Lavatório Bica Alta',
-    'Deca',
-    '120,00',
-    'UN',
-    '1,2',
-    '5,0',
-    '25,0',
-    '15,0',
+    '',
+    'Metais',
+    'Banheiro',
     'Cromado',
+    '25',
+    '15',
+    '5',
+    '',
+    '',
+    '1,2',
+    '',
+    '',
+    '150,00', // Custo da Unidade
   ];
 
-  const wbUn = XLSX.utils.book_new();
-  const wsUn = XLSX.utils.aoa_to_sheet([unHeader, unExample]);
-  wsUn['!cols'] = unHeader.map(h => ({ wch: Math.max(h.length, 15) }));
-  XLSX.utils.book_append_sheet(wbUn, wsUn, 'Produtos_Unidade');
-  XLSX.writeFile(wbUn, 'Template_Importacao_Produtos_Unidade.xlsx');
-
-  console.log('Templates criados com sucesso!');
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([header, exampleM2, exampleUn]);
+  ws['!cols'] = header.map(h => ({ wch: Math.max(h.length, 15) }));
+  XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
+  XLSX.writeFile(wb, 'Template_Importacao_Produtos.xlsx');
 }
 
 createTemplates();

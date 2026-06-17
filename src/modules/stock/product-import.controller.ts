@@ -67,11 +67,14 @@ export class ProductImportController {
       }
 
       // Use the existing logic in StockService
+      // Use explicit brandName if provided, otherwise fallback to strategy if it's not STANDARD
+      const brandToSave = dto.brandName || (dto.strategy !== 'STANDARD' ? dto.strategy : undefined);
+
       const saved = await this.stockService.importParsedProducts(
         clinicId,
         dto.items,
         dto.supplierId,
-        dto.strategy,
+        brandToSave,
       );
 
       return { success: true, count: saved.count };

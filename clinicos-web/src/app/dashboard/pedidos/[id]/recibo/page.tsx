@@ -166,23 +166,36 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {order.items?.map((item: any, idx: number) => (
-                                <tr key={idx}>
-                                    <td className="py-3 px-2 text-center font-medium text-gray-900">
-                                        {item.quantityBoxes} <span className="text-xs text-gray-400">cx</span>
-                                    </td>
-                                    <td className="py-3 px-2">
-                                        <p className="font-medium text-gray-900">{item.product?.name}</p>
-                                        <p className="text-xs text-gray-500 font-mono mt-0.5">{item.product?.sku}</p>
-                                    </td>
-                                    <td className="py-3 px-2 text-right text-gray-600">
-                                        {formatCurrency(item.unitPriceCents)}
-                                    </td>
-                                    <td className="py-3 px-2 text-right font-medium text-gray-900">
-                                        {formatCurrency(item.totalCents)}
-                                    </td>
-                                </tr>
-                            ))}
+                            {order.items?.map((item: any, idx: number) => {
+                                const isAreaProduct = !!item.resultingArea && !!item.product?.boxCoverage;
+                                const displayQty = isAreaProduct
+                                    ? item.resultingArea?.toFixed(2)
+                                    : item.quantityBoxes;
+                                const displayUnit = isAreaProduct
+                                    ? 'm²'
+                                    : (item.product?.unit || 'un');
+                                const displayUnitPrice = isAreaProduct && item.product?.boxCoverage
+                                    ? `${formatCurrency(item.unitPriceCents / item.product.boxCoverage)} /m²`
+                                    : formatCurrency(item.unitPriceCents);
+
+                                return (
+                                    <tr key={idx}>
+                                        <td className="py-3 px-2 text-center font-medium text-gray-900">
+                                            {displayQty} <span className="text-xs text-gray-400">{displayUnit}</span>
+                                        </td>
+                                        <td className="py-3 px-2">
+                                            <p className="font-medium text-gray-900">{item.product?.name}</p>
+                                            <p className="text-xs text-gray-500 font-mono mt-0.5">{item.product?.sku}</p>
+                                        </td>
+                                        <td className="py-3 px-2 text-right text-gray-600">
+                                            {displayUnitPrice}
+                                        </td>
+                                        <td className="py-3 px-2 text-right font-medium text-gray-900">
+                                            {formatCurrency(item.totalCents)}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

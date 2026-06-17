@@ -116,6 +116,13 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
     // Populate form when item changes
     useEffect(() => {
         if (item) {
+            const coverage = item.boxCoverage ?? 0;
+            // Se o produto tem m²/cx, o custo no banco é da CAIXA.
+            // Exibimos o custo por M² no campo para que o usuário edite de forma intuitiva.
+            const displayCost = coverage > 0 && item.costCents
+                ? ((item.costCents / coverage) / 100).toFixed(2)
+                : item.costCents ? (item.costCents / 100).toFixed(2) : '';
+
             setFormData({
                 name: item.name,
                 description: item.description || '',
@@ -135,7 +142,7 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                 palletBoxes: item.palletBoxes?.toString() || '',
                 palletWeight: item.palletWeight?.toString() || '',
                 palletCoverage: item.palletCoverage?.toString() || '',
-                costCents: item.costCents ? (item.costCents / 100).toFixed(2) : '',
+                costCents: displayCost,
                 priceCents: item.priceCents ? (item.priceCents / 100).toFixed(2) : '',
                 supplierCode: item.supplierCode || '',
                 categoryId: item.categoryId || '',
@@ -145,6 +152,7 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
             });
         }
     }, [item]);
+
 
     useEffect(() => {
         if (open) {
@@ -169,6 +177,10 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
         if (!formData.manualPrice && formData.costCents) {
             const cost = parseFloat(formData.costCents);
             if (!isNaN(cost) && cost > 0) {
+                const coverage = parseFloat(formData.boxCoverage) || 0;
+                // O custo exibido pode ser por m². Calcular o custo real da caixa.
+                const realBoxCost = coverage > 0 ? cost * coverage : cost;
+
                 let markup = 40.0; // Default Global Markup (fallback)
 
                 // 1. Product Markup Override
@@ -191,7 +203,7 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                     if (category?.defaultMarkup) markup = category.defaultMarkup;
                 }
 
-                const price = cost * (1 + markup / 100);
+                const price = realBoxCost * (1 + markup / 100);
                 setFormData(prev => ({
                     ...prev,
                     priceCents: price.toFixed(2)
@@ -200,6 +212,7 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
         }
     }, [
         formData.costCents,
+        formData.boxCoverage,
         formData.categoryId,
         formData.brandId,
         formData.markup,
@@ -207,6 +220,7 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
         categories,
         brands
     ]);
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -216,6 +230,14 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
         setIsLoading(true);
 
         try {
+            const coverage = formData.boxCoverage ? parseFloat(formData.boxCoverage) : 0;
+            const userCost = formData.costCents ? parseFloat(formData.costCents) : 0;
+            // O campo exibe o custo por m² para produtos com boxCoverage.
+            // Reconverter para custo da caixa antes de persistir.
+            const finalCostCents = coverage > 0
+                ? Math.round(userCost * coverage * 100)
+                : Math.round(userCost * 100);
+
             const payload = {
                 name: formData.name,
                 description: formData.description || undefined,
@@ -229,13 +251,13 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                 width: formData.width ? parseFloat(formData.width) : undefined,
                 depth: formData.depth ? parseFloat(formData.depth) : undefined,
                 color: formData.color || undefined,
-                boxCoverage: formData.boxCoverage ? parseFloat(formData.boxCoverage) : undefined,
+                boxCoverage: coverage || undefined,
                 piecesPerBox: formData.piecesPerBox ? parseInt(formData.piecesPerBox) : undefined,
                 boxWeight: formData.boxWeight ? parseFloat(formData.boxWeight) : undefined,
                 palletBoxes: formData.palletBoxes ? parseInt(formData.palletBoxes) : undefined,
                 palletWeight: formData.palletWeight ? parseFloat(formData.palletWeight) : undefined,
                 palletCoverage: formData.palletCoverage ? parseFloat(formData.palletCoverage) : undefined,
-                costCents: formData.costCents ? Math.round(parseFloat(formData.costCents) * 100) : undefined,
+                costCents: finalCostCents || undefined,
                 priceCents: formData.priceCents ? Math.round(parseFloat(formData.priceCents) * 100) : undefined,
                 supplierCode: formData.supplierCode || undefined,
                 categoryId: formData.categoryId || undefined,
@@ -556,7 +578,11 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="edit-costCents">Custo (R$)</Label>
+                                <Label htmlFor="edit-costCents">
+                                    {formData.boxCoverage && parseFloat(formData.boxCoverage) > 0
+                                        ? 'Custo (R$/m²)'
+                                        : 'Custo (R$)'}
+                                </Label>
                                 <Input
                                     id="edit-costCents"
                                     type="number"
@@ -564,8 +590,13 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                                     min="0"
                                     value={formData.costCents}
                                     onChange={(e) => setFormData({ ...formData, costCents: e.target.value })}
-                                    placeholder="Ex: 45.90"
+                                    placeholder={formData.boxCoverage && parseFloat(formData.boxCoverage) > 0 ? 'Ex: 90.00 (por m²)' : 'Ex: 45.90'}
                                 />
+                                {formData.boxCoverage && parseFloat(formData.boxCoverage) > 0 && formData.costCents && (
+                                    <p className="text-[10px] text-amber-600 font-medium pt-1">
+                                        Custo da Cx: R$ {(parseFloat(formData.costCents) * parseFloat(formData.boxCoverage)).toFixed(2)}
+                                    </p>
+                                )}
                             </div>
                         </div>
 

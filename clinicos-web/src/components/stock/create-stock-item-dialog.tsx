@@ -135,6 +135,11 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
         const cost = parseFloat(formData.costCents);
         if (isNaN(cost) || cost <= 0) return;
 
+        const coverage = parseFloat(formData.boxCoverage) || 0;
+        // O custo que o usuário digitou pode ser por m² ou por unidade.
+        // O preço de venda deve ser calculado sobre o custo REAL da caixa.
+        const realBoxCost = coverage > 0 ? cost * coverage : cost;
+
         let markup = 40.0; // Default Global Markup (fallback)
 
         // 1. Product Markup Override
@@ -157,7 +162,7 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
             if (category?.defaultMarkup) markup = category.defaultMarkup;
         }
 
-        const price = cost * (1 + markup / 100);
+        const price = realBoxCost * (1 + markup / 100);
         setFormData(prev => ({
             ...prev,
             priceCents: price.toFixed(2)
@@ -165,6 +170,7 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
 
     }, [
         formData.costCents,
+        formData.boxCoverage,
         formData.categoryId,
         formData.brandId,
         formData.markup,
@@ -173,12 +179,21 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
         brands
     ]);
 
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
 
         try {
+            const coverage = formData.boxCoverage ? parseFloat(formData.boxCoverage) : 0;
+            const userCost = formData.costCents ? parseFloat(formData.costCents) : 0;
+            // Se o produto tem m²/cx, o usuário digitou o custo por m².
+            // Converter para custo da caixa antes de enviar.
+            const finalCostCents = coverage > 0
+                ? Math.round(userCost * coverage * 100)
+                : Math.round(userCost * 100);
+
             const payload = {
                 name: formData.name,
                 description: formData.description || undefined,
@@ -192,18 +207,18 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
                 width: formData.width ? parseFloat(formData.width) : undefined,
                 depth: formData.depth ? parseFloat(formData.depth) : undefined,
                 color: formData.color || undefined,
-                boxCoverage: formData.boxCoverage ? parseFloat(formData.boxCoverage) : undefined,
+                boxCoverage: coverage || undefined,
                 piecesPerBox: formData.piecesPerBox ? parseInt(formData.piecesPerBox) : undefined,
                 boxWeight: formData.boxWeight ? parseFloat(formData.boxWeight) : undefined,
                 palletBoxes: formData.palletBoxes ? parseInt(formData.palletBoxes) : undefined,
                 palletWeight: formData.palletWeight ? parseFloat(formData.palletWeight) : undefined,
                 palletCoverage: formData.palletCoverage ? parseFloat(formData.palletCoverage) : undefined,
-                costCents: formData.costCents ? Math.round(parseFloat(formData.costCents) * 100) : undefined,
+                costCents: finalCostCents || undefined,
                 priceCents: formData.priceCents ? Math.round(parseFloat(formData.priceCents) * 100) : undefined,
                 supplierCode: formData.supplierCode || undefined,
                 categoryId: formData.categoryId || undefined,
                 brandId: formData.brandId || undefined,
-                markup: formData.markup ? parseFloat(formData.markup) : undefined, // Send just the markup override
+                markup: formData.markup ? parseFloat(formData.markup) : undefined,
                 manualPrice: formData.manualPrice,
             };
             await api.post('/stock', payload);
@@ -520,7 +535,11 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="create-costCents">Custo (R$)</Label>
+                                <Label htmlFor="create-costCents">
+                                    {formData.boxCoverage && parseFloat(formData.boxCoverage) > 0
+                                        ? 'Custo (R$/m²)'
+                                        : 'Custo (R$)'}
+                                </Label>
                                 <Input
                                     id="create-costCents"
                                     type="number"
@@ -528,8 +547,13 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
                                     min="0"
                                     value={formData.costCents}
                                     onChange={(e) => setFormData({ ...formData, costCents: e.target.value })}
-                                    placeholder="Ex: 45.90"
+                                    placeholder={formData.boxCoverage && parseFloat(formData.boxCoverage) > 0 ? 'Ex: 90.00 (por m²)' : 'Ex: 45.90'}
                                 />
+                                {formData.boxCoverage && parseFloat(formData.boxCoverage) > 0 && formData.costCents && (
+                                    <p className="text-[10px] text-amber-600 font-medium pt-1">
+                                        Custo da Cx: R$ {(parseFloat(formData.costCents) * parseFloat(formData.boxCoverage)).toFixed(2)}
+                                    </p>
+                                )}
                             </div>
                         </div>
 

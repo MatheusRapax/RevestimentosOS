@@ -8,6 +8,8 @@ interface QuoteItem {
         sku: string;
         format?: string;
         line?: string;
+        boxCoverage?: number;
+        unit?: string;
     };
     quantityBoxes: number;
     unitPriceCents: number;
@@ -68,7 +70,7 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
         items: [
             {
                 id: '1',
-                product: { name: 'Porcelanato Bianco 60x60', sku: 'P6060' },
+                product: { name: 'Porcelanato Bianco 60x60', sku: 'P6060', boxCoverage: 2.1 },
                 quantityBoxes: 5,
                 unitPriceCents: 8990,
                 totalCents: 44950,
@@ -167,32 +169,39 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                     <tr style={{ backgroundColor: template.accentColor || '#4CAF50', color: 'white' }}>
                         <th className="p-2 text-left">Produto</th>
                         {template.showQuantity !== false && <th className="p-2 text-center">Qtd</th>}
-                        {template.showUnitArea !== false && <th className="p-2 text-center">Área (m²)</th>}
                         {template.showUnitPrice !== false && <th className="p-2 text-right">Unit.</th>}
                         <th className="p-2 text-right">Total</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {data.items.map((item) => (
-                        <tr key={item.id} className="border-b">
-                            <td className="p-2">
-                                <span className="font-semibold">{item.product.name}</span>
-                                <br />
-                                <span className="text-[10px] text-gray-500">{item.product.sku}</span>
-                            </td>
-                            {template.showQuantity !== false && <td className="p-2 text-center">{item.quantityBoxes}</td>}
-                            {template.showUnitArea !== false && <td className="p-2 text-center">{item.resultingArea?.toFixed(2) || item.inputArea?.toFixed(2) || '-'}</td>}
-                            {template.showUnitPrice !== false && <td className="p-2 text-right">{formatCurrency(item.unitPriceCents)}</td>}
-                            <td className="p-2 text-right">{formatCurrency(item.totalCents)}</td>
-                        </tr>
-                    ))}
+                    {data.items.map((item) => {
+                        const isAreaProduct = !!item.resultingArea && !!item.product?.boxCoverage;
+                        const displayQty = isAreaProduct
+                            ? `${item.resultingArea?.toFixed(2)} m²`
+                            : `${item.quantityBoxes} ${item.product?.unit || 'un'}`;
+                        const displayUnitPrice = isAreaProduct && item.product?.boxCoverage
+                            ? `${formatCurrency(item.unitPriceCents / item.product.boxCoverage)} /m²`
+                            : formatCurrency(item.unitPriceCents);
+
+                        return (
+                            <tr key={item.id} className="border-b">
+                                <td className="p-2">
+                                    <span className="font-semibold">{item.product.name}</span>
+                                    <br />
+                                    <span className="text-[10px] text-gray-500">{item.product.sku}</span>
+                                </td>
+                                {template.showQuantity !== false && <td className="p-2 text-center">{displayQty}</td>}
+                                {template.showUnitPrice !== false && <td className="p-2 text-right">{displayUnitPrice}</td>}
+                                <td className="p-2 text-right">{formatCurrency(item.totalCents)}</td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
                 <tfoot>
                     <tr className="font-semibold border-t">
                         <td colSpan={
                             1 +
                             (template.showQuantity !== false ? 1 : 0) +
-                            (template.showUnitArea !== false ? 1 : 0) +
                             (template.showUnitPrice !== false ? 1 : 0)
                         } className="p-2 text-right">Subtotal:</td>
                         <td className="p-2 text-right">{formatCurrency(data.subtotalCents)}</td>
@@ -202,7 +211,6 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                             <td colSpan={
                                 1 +
                                 (template.showQuantity !== false ? 1 : 0) +
-                                (template.showUnitArea !== false ? 1 : 0) +
                                 (template.showUnitPrice !== false ? 1 : 0)
                             } className="p-2 text-right">Desconto:</td>
                             <td className="p-2 text-right">-{formatCurrency(data.discountCents)}</td>
@@ -213,7 +221,6 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                             <td colSpan={
                                 1 +
                                 (template.showQuantity !== false ? 1 : 0) +
-                                (template.showUnitArea !== false ? 1 : 0) +
                                 (template.showUnitPrice !== false ? 1 : 0)
                             } className="p-2 text-right">Frete:</td>
                             <td className="p-2 text-right">{formatCurrency(data.deliveryFee)}</td>
@@ -223,7 +230,6 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                         <td colSpan={
                             1 +
                             (template.showQuantity !== false ? 1 : 0) +
-                            (template.showUnitArea !== false ? 1 : 0) +
                             (template.showUnitPrice !== false ? 1 : 0)
                         } className="p-2 text-right">TOTAL:</td>
                         <td className="p-2 text-right">{formatCurrency(data.totalCents)}</td>

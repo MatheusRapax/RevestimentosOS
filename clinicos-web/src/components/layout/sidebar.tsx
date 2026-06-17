@@ -206,7 +206,7 @@ export default function Sidebar() {
     };
 
     return (
-        <div className={`print:hidden ${isCollapsed ? 'w-16' : 'w-64'} bg-gray-900 text-white flex flex-col transition-all duration-300`}>
+        <div className={`print:hidden ${isCollapsed ? 'w-16' : 'w-64'} h-full bg-gray-900 text-white flex flex-col transition-all duration-300 shrink-0`}>
             {/* Header */}
             <div className={`border-b border-gray-800 flex items-center h-[89px] ${isCollapsed ? 'justify-center px-2' : 'justify-between px-6'}`}>
                 {!isCollapsed && (
@@ -228,7 +228,7 @@ export default function Sidebar() {
                 )}
                 <Link
                     href="/dashboard"
-                    className="p-2 rounded-lg hover:bg-gray-800 transition-colors"
+                    className={`flex items-center justify-center rounded-lg hover:bg-gray-800 transition-colors ${isCollapsed ? 'w-10 h-10' : 'p-2'}`}
                     title="Ir para Home"
                 >
                     <Home size={20} />
@@ -236,7 +236,7 @@ export default function Sidebar() {
             </div>
 
             {/* Navigation */}
-            <nav className={`flex-1 py-4 space-y-2 overflow-y-auto ${isCollapsed ? 'px-2' : 'px-4'}`}>
+            <nav className={`flex-1 py-4 space-y-2 ${isCollapsed ? 'px-2 overflow-visible' : 'px-4 overflow-y-auto'}`}>
                 {isCollapsed ? (
                     // Collapsed: Show only icons with popover submenus
                     <div className="space-y-2">

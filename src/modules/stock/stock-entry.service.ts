@@ -558,12 +558,22 @@ export class StockEntryService {
         });
 
         // 2c. Update Product Cost (Last Cost Strategy)
-        // StockEntryItem.unitCost is Float (e.g., 50.49). Product.costCents is Int (e.g., 5049).
+        // unitCost is the cost-per-m² (as entered by user on the NF).
+        // For area-based products (boxCoverage > 0), we must multiply to get the box cost.
         if (item.unitCost) {
+          const prod = await tx.product.findUnique({
+            where: { id: item.productId },
+            select: { boxCoverage: true },
+          });
+          const coverage = prod?.boxCoverage ?? 0;
+          const finalCostCents =
+            coverage > 0
+              ? Math.round(item.unitCost * coverage * 100)
+              : Math.round(item.unitCost * 100);
           await tx.product.update({
             where: { id: item.productId },
             data: {
-              costCents: Math.round(item.unitCost * 100), // Convert Float back to Cents
+              costCents: finalCostCents,
               updatedAt: new Date(),
             },
           });
