@@ -1,4 +1,4 @@
 {
-  "version": "0.1.13",
-  "content": "### Bug Fixes\n\n* estabiliza configuracoes globais, layouts de impressao e widgets 250496f"
+  "version": "0.1.14",
+  "content": "### Bug Fixes\n\n* padronização financeira do custo de produtos (m² vs Caixa) e correções de UI ec9bd69"
 }
