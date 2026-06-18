@@ -22,6 +22,14 @@ export class ImportProductItemDto {
 
   @IsString()
   @IsOptional()
+  unit?: string;
+
+  @IsString()
+  @IsOptional()
+  saleType?: string;
+
+  @IsString()
+  @IsOptional()
   format?: string;
 
   @IsString()
@@ -31,6 +39,10 @@ export class ImportProductItemDto {
   @IsString()
   @IsOptional()
   usage?: string;
+
+  @IsString()
+  @IsOptional()
+  color?: string;
 
   @IsNumber()
   @IsOptional()
@@ -43,6 +55,10 @@ export class ImportProductItemDto {
   @IsNumber()
   @IsOptional()
   palletBoxes?: number;
+
+  @IsNumber()
+  @IsOptional()
+  palletCoverage?: number;
 
   @IsNumber()
   @IsOptional()
@@ -66,10 +82,6 @@ export class ImportProductItemDto {
   @IsNumber()
   @IsOptional()
   depth?: number;
-
-  @IsString()
-  @IsOptional()
-  color?: string;
 
   @IsBoolean()
   @IsOptional()

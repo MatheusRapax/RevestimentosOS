@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   UseInterceptors,
   UploadedFile,
   Body,
@@ -8,7 +9,9 @@ import {
   BadRequestException,
   UseGuards,
   Req,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ProductImportService,
@@ -25,6 +28,14 @@ export class ProductImportController {
     private readonly importService: ProductImportService,
     private readonly stockService: StockService,
   ) {}
+
+  @Get('template')
+  downloadTemplate(@Res() res: Response) {
+    const buffer = this.importService.generateTemplateBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="Template_Importacao_Produtos.xlsx"');
+    res.send(buffer);
+  }
 
   @Post('parse')
   @UseInterceptors(FileInterceptor('file'))

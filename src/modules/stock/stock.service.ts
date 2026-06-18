@@ -832,11 +832,15 @@ export class StockService {
         });
 
         let product;
+        const saleType = (item.saleType as any) || (item.unit === 'M2' ? 'AREA' : 'UNIT');
+
         if (existing) {
           product = await tx.product.update({
             where: { id: existing.id },
             data: {
               name: item.name,
+              unit: item.unit || existing.unit,
+              saleType,
               costCents: item.costCents,
               supplierId: validSupplierId || existing.supplierId,
               brandId: brandId || existing.brandId,
@@ -847,12 +851,13 @@ export class StockService {
               boxCoverage: item.boxCoverage,
               piecesPerBox: item.piecesPerBox,
               palletBoxes: item.palletBoxes,
+              palletCoverage: item.palletCoverage,
               boxWeight: item.boxWeight,
               height: item.height !== undefined ? item.height : existing.height,
               width: item.width !== undefined ? item.width : existing.width,
               depth: item.depth !== undefined ? item.depth : existing.depth,
               color: item.color !== undefined ? item.color : existing.color,
-              isActive: true, // Reactivate if it was soft-deleted
+              isActive: true,
             },
           });
         } else {
@@ -861,6 +866,8 @@ export class StockService {
               clinicId,
               name: item.name,
               sku: item.sku,
+              unit: item.unit,
+              saleType,
               supplierId: validSupplierId,
               brandId,
               costCents: item.costCents,
@@ -871,12 +878,12 @@ export class StockService {
               boxCoverage: item.boxCoverage,
               piecesPerBox: item.piecesPerBox,
               palletBoxes: item.palletBoxes,
+              palletCoverage: item.palletCoverage,
               boxWeight: item.boxWeight,
               height: item.height,
               width: item.width,
               depth: item.depth,
               color: item.color,
-              saleType: 'BOTH',
             },
           });
         }
