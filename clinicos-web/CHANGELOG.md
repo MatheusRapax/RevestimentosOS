@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.15](///compare/v0.1.14...v0.1.15) (2026-06-18)
+
+
+### Features
+
+* **stock:** unified product import pipeline with standard 16-column template cdd258f
+
 ### [0.1.14](///compare/v0.1.13...v0.1.14) (2026-06-17)
 
 

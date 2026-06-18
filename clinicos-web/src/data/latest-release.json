@@ -1,4 +1,4 @@
 {
-  "version": "0.1.14",
-  "content": "### Bug Fixes\n\n* padronização financeira do custo de produtos (m² vs Caixa) e correções de UI ec9bd69"
+  "version": "0.1.15",
+  "content": "### Features\n\n* **stock:** unified product import pipeline with standard 16-column template cdd258f"
 }
