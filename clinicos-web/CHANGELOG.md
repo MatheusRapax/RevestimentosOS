@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.17](///compare/v0.1.16...v0.1.17) (2026-06-24)
+
+
+### Features
+
+* **stock:** estabiliza pipeline de importação IA com multi-abas e governança de dados 3041d6b
+
 ### [0.1.16](///compare/v0.1.15...v0.1.16) (2026-06-24)
 
 

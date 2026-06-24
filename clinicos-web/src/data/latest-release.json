@@ -1,4 +1,4 @@
 {
-  "version": "0.1.16",
-  "content": "### Features\n\n* **stock-import:** implementação completa do pipeline de importação via IA (OpenAI) c6432f2"
+  "version": "0.1.17",
+  "content": "### Features\n\n* **stock:** estabiliza pipeline de importação IA com multi-abas e governança de dados 3041d6b"
 }
