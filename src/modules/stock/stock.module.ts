@@ -10,6 +10,7 @@ import { StockConsumptionService } from '../../core/stock/stock-consumption.serv
 import { ExcelService } from '../../core/excel/excel.service';
 import { ProductImportService } from './services/product-import.service';
 import { ProductImportController } from './product-import.controller';
+import { AiImportService } from './services/ai-import.service';
 
 import { StockAllocationService } from './services/stock-allocation.service';
 
@@ -28,6 +29,7 @@ import { StockAllocationService } from './services/stock-allocation.service';
     StockExitService,
     ExcelService,
     ProductImportService,
+    AiImportService,
     StockAllocationService,
   ],
   exports: [

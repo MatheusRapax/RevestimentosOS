@@ -200,6 +200,7 @@ model Clinic {
   promotions        Promotion[]
   environments      Environment[]
   CommissionRule    CommissionRule[]
+  supplierMappingCaches SupplierMappingCache[]
 }
 
 // Clinic working hours per day of week
@@ -1492,9 +1493,30 @@ model Supplier {
   purchaseOrders PurchaseOrder[]
   products       Product[]
   occurrences    Occurrence[]
+  mappingCaches  SupplierMappingCache[]
 
   @@unique([clinicId, cnpj])
   @@index([clinicId])
+}
+
+// Business: SupplierMappingCache model (Cache do AI de Mapeamento)
+model SupplierMappingCache {
+  id              String   @id @default(uuid())
+  supplierId      String
+  clinicId        String
+  headersHash     String   // Hash das colunas da planilha (para detectar schema drift)
+  mappingPayload  String   @db.Text // AIColumnMappingDto em JSON
+  confidenceScore Float    @default(0) // Confiança da IA na classificação
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  supplier        Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  clinic          Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, headersHash])
+  @@index([clinicId])
+  @@index([supplierId])
 }
 
 // Business: PurchaseOrder model (Pedido de Compra)

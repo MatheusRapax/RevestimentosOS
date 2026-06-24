@@ -8,7 +8,20 @@ import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
-import { Trash2, Download, Lock, Sparkles } from 'lucide-react';
+import { 
+    UploadCloud, 
+    FileSpreadsheet, 
+    Trash2, 
+    AlertTriangle, 
+    Sparkles, 
+    Info,
+    Save,
+    Download,
+    X,
+    Check,
+    FileDown
+} from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Badge } from '../../../../components/ui/badge';
 import {
     AlertDialog,
@@ -43,10 +56,18 @@ export default function ImportProductsPage() {
     const [supplierId, setSupplierId] = useState<string>('');
     const [brandName, setBrandName] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
-    const [step, setStep] = useState<'upload' | 'preview'>('upload');
+    const [importMode, setImportMode] = useState<'STANDARD' | 'AI'>('STANDARD');
+    const [step, setStep] = useState<'upload' | 'resolve_ambiguities' | 'preview'>('upload');
     const [parsedItems, setParsedItems] = useState<any[]>([]);
     const [invalidTemplateError, setInvalidTemplateError] = useState<string | null>(null);
-    const [showMissingFieldsWarning, setShowMissingFieldsWarning] = useState(false);
+    const [showPreConfirmation, setShowPreConfirmation] = useState(false);
+
+    // Estados de Ambiguidade
+    const [ambiguityHeaders, setAmbiguityHeaders] = useState<string[]>([]);
+    const [ambiguitySampleData, setAmbiguitySampleData] = useState<any[]>([]);
+    const [ambiguitiesList, setAmbiguitiesList] = useState<string[]>([]);
+    const [mappingState, setMappingState] = useState<any>(null);
+    const [selectedCostColumn, setSelectedCostColumn] = useState<string>('');
 
     const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
     const [newBrandInput, setNewBrandInput] = useState('');
@@ -102,11 +123,31 @@ export default function ImportProductsPage() {
         formData.append('file', file);
 
         try {
-            const response = await api.post(
-                `/stock/products/import/parse?strategy=${STRATEGY}&clinicId=${activeClinic || ''}`,
-                formData,
-                { headers: { 'Content-Type': 'multipart/form-data' } }
-            );
+            let response;
+            if (importMode === 'STANDARD') {
+                response = await api.post(
+                    `/stock/products/import/parse?strategy=${STRATEGY}&clinicId=${activeClinic || ''}`,
+                    formData,
+                    { headers: { 'Content-Type': 'multipart/form-data' } }
+                );
+            } else {
+                response = await api.post(
+                    `/stock/products/import/ai-map?supplierId=${supplierId}&clinicId=${activeClinic || ''}`,
+                    formData,
+                    { headers: { 'Content-Type': 'multipart/form-data' } }
+                );
+                
+                if (response.data.ambiguities && response.data.ambiguities.length > 0) {
+                    setAmbiguitiesList(response.data.ambiguities);
+                    setAmbiguityHeaders(response.data.headers || []);
+                    setAmbiguitySampleData(response.data.sampleData || []);
+                    setMappingState(response.data.mapping);
+                    setStep('resolve_ambiguities');
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
             setParsedItems(response.data.items);
             setStep('preview');
             toast.success('Arquivo processado! Verifique os dados abaixo.');
@@ -123,21 +164,52 @@ export default function ImportProductsPage() {
         }
     };
 
-    const handleExecuteClick = () => {
-        // For standard layout, only SKU, name and costCents are truly required
-        const hasMissingFields = parsedItems.some(item =>
-            !item.sku || !item.name || !item.costCents
-        );
-
-        if (hasMissingFields) {
-            setShowMissingFieldsWarning(true);
-        } else {
-            executeImport();
+    const handleResolveAmbiguities = async () => {
+        if (!selectedCostColumn) {
+            toast.error('Selecione uma coluna para Custo.');
+            return;
+        }
+        
+        const newMapping = { ...mappingState };
+        newMapping.cost = selectedCostColumn;
+        
+        setIsLoading(true);
+        const formData = new FormData();
+        formData.append('file', file!);
+        formData.append('forceMapping', JSON.stringify(newMapping));
+        
+        try {
+            const response = await api.post(
+                `/stock/products/import/ai-map?supplierId=${supplierId}&clinicId=${activeClinic || ''}`,
+                formData,
+                { headers: { 'Content-Type': 'multipart/form-data' } }
+            );
+            
+            setParsedItems(response.data.items);
+            setStep('preview');
+            toast.success('Ambiguidade resolvida! Verifique o preview.');
+        } catch (error: any) {
+            console.error(error);
+            toast.error('Erro ao processar arquivo com novo mapeamento.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
+    const handleApproveItem = (idx: number) => {
+        const newItems = [...parsedItems];
+        newItems[idx].confidence = 'HIGH';
+        newItems[idx].anomalies = [];
+        setParsedItems(newItems);
+        toast.success(`Item "${newItems[idx].sku || 'Sem SKU'}" aprovado com sucesso.`);
+    };
+
+    const handleExecuteClick = () => {
+        setShowPreConfirmation(true);
+    };
+
     const executeImport = async () => {
-        setShowMissingFieldsWarning(false);
+        setShowPreConfirmation(false);
         setIsLoading(true);
         try {
             const payload = {
@@ -145,7 +217,14 @@ export default function ImportProductsPage() {
                 clinicId: activeClinic,
                 strategy: STRATEGY,
                 brandName: brandName.trim() || undefined,
-                items: parsedItems.map(({ isNew, ...rest }) => rest),
+                items: parsedItems.map((item) => {
+                    const { 
+                        isNew, brand, ean, ncm, cest, confidence, anomalies, 
+                        cost, costPerM2,
+                        ...rest 
+                    } = item as any;
+                    return rest;
+                }),
             };
             await api.post('/stock/products/import/execute', payload);
             toast.success(`Importação realizada com sucesso! ${parsedItems.length} produtos salvos.`);
@@ -198,20 +277,55 @@ export default function ImportProductsPage() {
 
     const isM2 = (item: any) => item.unit === 'M2';
 
+    const handleExportPreview = () => {
+        if (!parsedItems || parsedItems.length === 0) return;
+        
+        const exportData = parsedItems.map(item => ({
+            SKU: item.sku,
+            Status: item.isNew ? 'Novo' : 'Atualização',
+            Confianca: item.confidence === 'HIGH' ? 'Alta' : item.confidence === 'MEDIUM' ? 'Média' : item.confidence === 'LOW' ? 'Baixa' : '',
+            Unidade: item.unit,
+            Nome: item.name,
+            Formato: item.format,
+            Linha: item.line,
+            Uso: item.usage,
+            Cor: item.color,
+            Altura: item.height,
+            Largura: item.width,
+            Profundidade: item.depth,
+            PecasPorCaixa: item.piecesPerBox,
+            M2PorCaixa: item.boxCoverage,
+            CaixasPorPallet: item.palletBoxes,
+            PesoPorCaixa: item.boxWeight,
+            CustoPorM2: item.costPerM2Cents != null ? item.costPerM2Cents / 100 : '',
+            CustoPorCaixa_Ou_Unidade: item.costCents / 100,
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Preview Importação');
+        XLSX.writeFile(workbook, `preview_importacao_${brandName}_${new Date().getTime()}.xlsx`);
+    };
+
     return (
         <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <h1 className="text-3xl font-bold tracking-tight">Importação de Produtos</h1>
 
-                    {/* IA locked card */}
-                    <div
-                        title="A importação com IA lerá automaticamente a tabela do seu fornecedor e converterá para o formato padrão, sem preenchimento manual. Disponível em breve!"
-                        className="flex items-center gap-2 rounded-lg border border-dashed border-muted-foreground/40 bg-muted/30 px-4 py-2 cursor-not-allowed select-none opacity-70"
-                    >
-                        <Lock className="h-4 w-4 text-muted-foreground" />
-                        <Sparkles className="h-4 w-4 text-amber-500" />
-                        <span className="text-sm font-medium text-muted-foreground">Importação com IA</span>
-                        <Badge variant="outline" className="text-xs border-amber-400 text-amber-600 ml-1">Em breve</Badge>
+                    <div className="flex bg-muted/30 p-1 rounded-lg border">
+                        <button
+                            onClick={() => setImportMode('STANDARD')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${importMode === 'STANDARD' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:bg-muted/50'}`}
+                        >
+                            Template Padrão
+                        </button>
+                        <button
+                            onClick={() => setImportMode('AI')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${importMode === 'AI' ? 'bg-amber-50 shadow text-amber-900 border border-amber-200' : 'text-muted-foreground hover:bg-muted/50'}`}
+                        >
+                            <Sparkles className="h-4 w-4 text-amber-500" />
+                            IA Automática
+                        </button>
                     </div>
                 </div>
 
@@ -222,18 +336,24 @@ export default function ImportProductsPage() {
                                 <div>
                                     <CardTitle>Configuração da Importação</CardTitle>
                                     <p className="text-sm text-muted-foreground mt-1">
-                                        Use o <strong>Template Padrão</strong> do sistema. Suporta produtos por M² e por unidade na mesma planilha.
+                                        {importMode === 'STANDARD' ? (
+                                            <>Use o <strong>Template Padrão</strong> do sistema. Suporta produtos por M² e por unidade na mesma planilha.</>
+                                        ) : (
+                                            <>Importação assistida por IA. Faça o upload da planilha <strong>original do fornecedor</strong>. Nós cuidamos do mapeamento.</>
+                                        )}
                                     </p>
                                 </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="flex items-center gap-2 shrink-0"
-                                    onClick={handleDownloadTemplate}
-                                >
-                                    <Download className="h-4 w-4" />
-                                    Baixar Template Padrão
-                                </Button>
+                                {importMode === 'STANDARD' && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-2 shrink-0"
+                                        onClick={handleDownloadTemplate}
+                                    >
+                                        <Download className="h-4 w-4" />
+                                        Baixar Template Padrão
+                                    </Button>
+                                )}
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -317,11 +437,49 @@ export default function ImportProductsPage() {
                             </div>
 
                             {/* File */}
-                            <div className="grid w-full max-w-sm items-center gap-1.5">
+                            <div className="grid w-full items-center gap-1.5">
                                 <Label>Arquivo Excel (.xlsx)</Label>
-                                <Input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} />
-                                <p className="text-xs text-muted-foreground">
-                                    Utilize o template padrão do sistema. A coluna "Unidade de Medida" define o tipo: M2, UN, CX, ML ou PC.
+                                <div 
+                                  className={`relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${file ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:bg-muted/50'}`}
+                                >
+                                    <input 
+                                        key={file ? file.name : 'empty'}
+                                        type="file" 
+                                        accept=".xlsx,.xls,.csv" 
+                                        onChange={handleFileChange} 
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    />
+                                    {file ? (
+                                        <div className="flex flex-col items-center justify-center space-y-2 text-center pointer-events-none">
+                                            <div className="p-2 bg-primary/10 text-primary rounded-full">
+                                                <FileSpreadsheet className="w-8 h-8" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-semibold text-primary">{file.name}</p>
+                                                <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB anexado</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center space-y-2 text-center pointer-events-none">
+                                            <div className="p-2 bg-muted text-muted-foreground rounded-full">
+                                                <UploadCloud className="w-8 h-8" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-medium">Clique ou arraste um arquivo para anexar</p>
+                                                <p className="text-xs text-muted-foreground">.xlsx, .xls, ou .csv (Máx. 10MB)</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                {file && (
+                                    <div className="flex justify-end mt-1">
+                                        <Button variant="ghost" size="sm" className="text-xs text-destructive hover:text-destructive hover:bg-destructive/10 h-auto py-1" onClick={() => setFile(null)}>
+                                            <X className="w-3 h-3 mr-1" /> Remover Arquivo
+                                        </Button>
+                                    </div>
+                                )}
+                                <p className="text-xs text-muted-foreground mt-2">
+                                    {importMode === 'STANDARD' ? 'Utilize o template padrão do sistema. A coluna "Unidade de Medida" define o tipo: M2, UN, CX, ML ou PC.' : 'Faça o upload da planilha original do fornecedor.'}
                                 </p>
                             </div>
 
@@ -335,6 +493,83 @@ export default function ImportProductsPage() {
                     </Card>
                 )}
 
+                {step === 'resolve_ambiguities' && (
+                    <Card className="border-amber-500 shadow-md">
+                        <CardHeader className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900">
+                            <CardTitle className="text-amber-700 dark:text-amber-500 flex items-center">
+                                <Sparkles className="w-5 h-5 mr-2" /> 
+                                Ação Necessária: Ambiguidades Encontradas
+                            </CardTitle>
+                            <p className="text-sm text-amber-800 dark:text-amber-400/80">
+                                A inteligência artificial encontrou múltiplas colunas possíveis para um ou mais campos obrigatórios. Por favor, confirme as opções abaixo antes de gerar o preview.
+                            </p>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            {ambiguitiesList.map((ambiguity: any, idx: number) => {
+                                const isCostAmbiguity = ambiguity.type === 'MULTIPLE_PRICES';
+                                return (
+                                    <div key={idx} className="mb-6 p-4 border rounded-md bg-slate-50 dark:bg-slate-900">
+                                        <h3 className="font-semibold mb-4 text-slate-800 dark:text-slate-200">
+                                            ❓ {ambiguity.message || 'Encontramos um conflito nas colunas.'}
+                                        </h3>
+                                        {isCostAmbiguity && ambiguity.options && ambiguity.options.length > 0 && (
+                                            <div className="flex flex-col gap-3">
+                                                {ambiguity.options.map((opt: any, optIdx: number) => {
+                                                    const header = opt.column;
+                                                    // Fallback to option's sampleValue if ambiguitySampleData doesn't have it
+                                                    const sampleRow = ambiguitySampleData.find(row => row[header] !== undefined && row[header] !== null && row[header] !== '');
+                                                    const sampleValue = sampleRow ? sampleRow[header] : (opt.sampleValue || 'N/A');
+                                                    
+                                                    // Evitar erro de key vazia se o header for vazio (o que não deveria acontecer pela IA, mas por segurança)
+                                                    const safeKey = header ? header : `empty-header-${optIdx}`;
+
+                                                    return (
+                                                        <Label 
+                                                            key={safeKey} 
+                                                            className={`flex items-center space-x-3 p-3 border rounded-md cursor-pointer transition-colors ${selectedCostColumn === header ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                                        >
+                                                            <input 
+                                                                type="radio" 
+                                                                name="costColumn" 
+                                                                value={header} 
+                                                                checked={selectedCostColumn === header} 
+                                                                onChange={(e) => setSelectedCostColumn(e.target.value)} 
+                                                                className="w-4 h-4 text-primary accent-primary"
+                                                            />
+                                                            <div className="flex flex-col">
+                                                                <span className="font-medium text-base">{opt.label || header}</span>
+                                                                {header && opt.label && header !== opt.label && (
+                                                                    <span className="text-xs text-muted-foreground">Coluna: {header}</span>
+                                                                )}
+                                                                <span className="text-xs text-muted-foreground mt-1">Amostra de valor: <strong className="text-foreground">{sampleValue}</strong></span>
+                                                            </div>
+                                                        </Label>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                            
+                            <div className="flex gap-2 justify-end mt-6">
+                                <Button variant="outline" onClick={() => {
+                                    setStep('upload');
+                                    setFile(null);
+                                }}>
+                                    Cancelar Importação
+                                </Button>
+                                <Button 
+                                    onClick={handleResolveAmbiguities} 
+                                    disabled={isLoading || (ambiguitiesList.some((a: any) => a.type === 'MULTIPLE_PRICES') && !selectedCostColumn)}
+                                >
+                                    {isLoading ? 'Processando...' : 'Confirmar e Continuar'}
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {step === 'preview' && (
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
@@ -344,38 +579,75 @@ export default function ImportProductsPage() {
                                     Marca: <strong>{brandName}</strong>  •  Você pode editar os campos antes de confirmar.
                                 </p>
                             </div>
-                            <div className="space-x-2">
+                            <div className="space-x-2 flex">
+                                <Button variant="outline" onClick={handleExportPreview} disabled={isLoading || parsedItems.length === 0} className="flex items-center gap-2">
+                                    <FileDown className="h-4 w-4" /> Exportar Preview
+                                </Button>
                                 <Button variant="outline" onClick={() => setStep('upload')} disabled={isLoading}>
                                     Voltar
                                 </Button>
-                                <Button onClick={handleExecuteClick} disabled={isLoading}>
+                                <Button 
+                                    onClick={handleExecuteClick} 
+                                    disabled={isLoading || parsedItems.length === 0 || parsedItems.some(item => (importMode === 'AI' && item.confidence !== 'HIGH') || (item.anomalies && item.anomalies.length > 0) || !item.sku || !item.name || !item.costCents)}
+                                >
                                     {isLoading ? 'Salvando...' : 'Confirmar Importação'}
                                 </Button>
                             </div>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="space-y-4">
+                            {importMode === 'AI' && parsedItems.some(item => item.confidence !== 'HIGH' || (item.anomalies && item.anomalies.length > 0)) && (
+                                <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm flex items-start gap-2">
+                                    <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-500" />
+                                    <div>
+                                        <p className="font-semibold">Ação Necessária: Itens Pendentes de Revisão</p>
+                                        <p>Você possui itens com alertas ou confiança média/baixa. Revise-os na tabela e clique no botão <strong className="text-green-700">Aprovar</strong> para poder prosseguir com a importação.</p>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div className="grid grid-cols-4 gap-4 p-4 border rounded-md bg-muted/20">
+                                <div>
+                                    <p className="text-sm font-medium text-muted-foreground">Total de itens</p>
+                                    <p className="text-2xl font-bold">{parsedItems.length}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-1"><Badge className="bg-green-600 scale-75 origin-left">Novo</Badge> Cadastros Novos</p>
+                                    <p className="text-2xl font-bold">{parsedItems.filter(i => i.isNew).length}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-1"><Badge className="bg-blue-600 scale-75 origin-left">Atualização</Badge> Atualizações</p>
+                                    <p className="text-2xl font-bold">{parsedItems.filter(i => !i.isNew).length}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-amber-600 flex items-center gap-1">⚠️ Com Alertas / Anomalias</p>
+                                    <p className={`text-2xl font-bold ${parsedItems.some(i => i.anomalies && i.anomalies.length > 0) ? 'text-amber-600' : ''}`}>
+                                        {parsedItems.filter(i => (i.anomalies && i.anomalies.length > 0) || i.confidence !== 'HIGH').length}
+                                    </p>
+                                </div>
+                            </div>
+                            
                             <div className="rounded-md border max-h-[600px] overflow-auto">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="w-[100px]">SKU</TableHead>
-                                            <TableHead className="w-[90px]">Status</TableHead>
-                                            <TableHead className="w-[60px]">Un.</TableHead>
-                                            <TableHead className="min-w-[200px]">Nome</TableHead>
-                                            <TableHead>Formato</TableHead>
-                                            <TableHead>Linha</TableHead>
-                                            <TableHead>Uso</TableHead>
-                                            <TableHead>Cor</TableHead>
-                                            <TableHead className="w-[70px]">Alt.</TableHead>
-                                            <TableHead className="w-[70px]">Larg.</TableHead>
-                                            <TableHead className="w-[70px]">Prof.</TableHead>
-                                            <TableHead className="w-[70px]">Pç/Cx</TableHead>
-                                            <TableHead className="w-[70px]">m²/Cx</TableHead>
-                                            <TableHead className="w-[70px]">Cx/Pal</TableHead>
-                                            <TableHead className="w-[70px]">Kg/Cx</TableHead>
-                                            <TableHead className="text-right w-[110px]">Custo/m² (R$)</TableHead>
-                                            <TableHead className="text-right w-[110px]">Custo/Cx (R$)</TableHead>
-                                            <TableHead className="w-[50px]"></TableHead>
+                                            <TableHead className="w-[140px]">SKU</TableHead>
+                                            <TableHead className="w-[100px]">Status</TableHead>
+                                            <TableHead className="w-[70px]">Un.</TableHead>
+                                            <TableHead className="min-w-[280px]">Nome</TableHead>
+                                            <TableHead className="w-[110px]">Formato</TableHead>
+                                            <TableHead className="w-[110px]">Linha</TableHead>
+                                            <TableHead className="w-[100px]">Uso</TableHead>
+                                            <TableHead className="w-[100px]">Cor</TableHead>
+                                            <TableHead className="w-[80px]">Alt.</TableHead>
+                                            <TableHead className="w-[80px]">Larg.</TableHead>
+                                            <TableHead className="w-[80px]">Prof.</TableHead>
+                                            <TableHead className="w-[80px]">Pç/Cx</TableHead>
+                                            <TableHead className="w-[80px]">m²/Cx</TableHead>
+                                            <TableHead className="w-[80px]">Cx/Pal</TableHead>
+                                            <TableHead className="w-[80px]">Kg/Cx</TableHead>
+                                            <TableHead className="text-right w-[120px]">Custo/m² (R$)</TableHead>
+                                            <TableHead className="text-right w-[120px]">Custo/Cx (R$)</TableHead>
+                                            <TableHead className="w-[60px]"></TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -385,15 +657,46 @@ export default function ImportProductsPage() {
                                                     <Input
                                                         value={item.sku}
                                                         onChange={(e) => updateItem(idx, 'sku', e.target.value)}
-                                                        className="h-8 font-mono text-xs"
+                                                        className="h-8 font-mono text-xs w-[130px]"
                                                     />
                                                 </TableCell>
                                                 <TableCell>
-                                                    {item.isNew ? (
-                                                        <Badge className="bg-green-600 hover:bg-green-700">Novo</Badge>
-                                                    ) : (
-                                                        <Badge className="bg-blue-600 hover:bg-blue-700">Atualização</Badge>
-                                                    )}
+                                                    <div className="flex flex-col gap-1">
+                                                        {item.isNew ? (
+                                                            <Badge className="bg-green-600 hover:bg-green-700 w-fit">Novo</Badge>
+                                                        ) : (
+                                                            <div className="group relative w-fit">
+                                                                <Badge className="bg-blue-600 hover:bg-blue-700">Atualização</Badge>
+                                                                {item.oldCostCents !== undefined && (
+                                                                    <div className="absolute left-full ml-2 hidden w-max rounded bg-popover p-2 text-xs shadow-md border group-hover:block z-10">
+                                                                        <p>Custo atual: R$ {(item.oldCostCents / 100).toFixed(2)}</p>
+                                                                        <p>Novo custo: R$ {(item.costCents / 100).toFixed(2)}</p>
+                                                                        {(() => {
+                                                                            const diff = item.costCents - item.oldCostCents;
+                                                                            const pct = (Math.abs(diff) / item.oldCostCents) * 100;
+                                                                            const isUp = diff > 0;
+                                                                            return (
+                                                                                <p className={`font-semibold ${isUp ? 'text-red-500' : 'text-green-500'}`}>
+                                                                                    {isUp ? '+' : '-'}{pct.toFixed(1)}%
+                                                                                </p>
+                                                                            );
+                                                                        })()}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                        {importMode === 'AI' && item.confidence && (
+                                                            <Badge variant="outline" className={`w-fit text-[10px] ${item.confidence === 'HIGH' ? 'border-green-500 text-green-600' : item.confidence === 'MEDIUM' ? 'border-amber-500 text-amber-600' : 'border-red-500 text-red-600'}`}>
+                                                                Confiança: {item.confidence === 'HIGH' ? 'Alta' : item.confidence === 'MEDIUM' ? 'Média' : 'Baixa'}
+                                                            </Badge>
+                                                        )}
+                                                        {item.anomalies?.includes('DUPLICATE_SKU') && (
+                                                            <Badge variant="destructive" className="w-fit text-[10px]" title="SKU já existe nesta mesma planilha">SKU Duplicado</Badge>
+                                                        )}
+                                                        {item.anomalies?.includes('PRICE_VARIATION') && (
+                                                            <Badge variant="destructive" className="w-fit text-[10px] bg-amber-500 hover:bg-amber-600 border-none" title="Variação de custo superior a 50%">⚠️ Variação de Preço</Badge>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge variant="outline" className="text-xs font-mono">
@@ -530,15 +833,27 @@ export default function ImportProductsPage() {
                                                     )}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Button
-                                                        variant="ghost" size="sm"
-                                                        onClick={() => {
-                                                            setParsedItems(parsedItems.filter((_, i) => i !== idx));
-                                                        }}
-                                                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+                                                    <div className="flex items-center space-x-1">
+                                                        {importMode === 'AI' && (item.confidence !== 'HIGH' || (item.anomalies && item.anomalies.length > 0)) && (
+                                                            <Button
+                                                                variant="outline" size="sm"
+                                                                onClick={() => handleApproveItem(idx)}
+                                                                className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200"
+                                                                title="Aprovar e Marcar como Alta Confiança"
+                                                            >
+                                                                <Check className="h-4 w-4 mr-1" /> Aprovar
+                                                            </Button>
+                                                        )}
+                                                        <Button
+                                                            variant="ghost" size="sm"
+                                                            onClick={() => {
+                                                                setParsedItems(parsedItems.filter((_, i) => i !== idx));
+                                                            }}
+                                                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -560,18 +875,35 @@ export default function ImportProductsPage() {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
-
-                <AlertDialog open={showMissingFieldsWarning} onOpenChange={setShowMissingFieldsWarning}>
-                    <AlertDialogContent>
+                <AlertDialog open={showPreConfirmation} onOpenChange={setShowPreConfirmation}>
+                    <AlertDialogContent className="max-w-md">
                         <AlertDialogHeader>
-                            <AlertDialogTitle>Campos Incompletos Detectados</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Existem produtos sem SKU, nome ou custo. Deseja continuar mesmo assim?
+                            <AlertDialogTitle>Resumo Pré-Confirmação</AlertDialogTitle>
+                            <AlertDialogDescription asChild>
+                                <div className="space-y-4 pt-2 text-foreground text-sm">
+                                    <div className="grid grid-cols-2 gap-2 border p-4 rounded-md bg-muted/20">
+                                        <div className="font-medium text-muted-foreground">Marca:</div>
+                                        <div className="font-semibold text-right">{brandName}</div>
+                                        <div className="font-medium text-muted-foreground">Total de itens:</div>
+                                        <div className="font-semibold text-right">{parsedItems.length}</div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 px-2">
+                                        <div className="flex items-center gap-2"><Badge className="bg-green-600">Novo</Badge></div>
+                                        <div className="font-semibold text-right">{parsedItems.filter(i => i.isNew).length} itens</div>
+                                        <div className="flex items-center gap-2"><Badge className="bg-blue-600">Atualização</Badge></div>
+                                        <div className="font-semibold text-right">{parsedItems.filter(i => !i.isNew).length} itens</div>
+                                        <div className="flex items-center gap-2 text-amber-600 font-medium">⚠️ Com Alertas</div>
+                                        <div className="font-semibold text-right">{parsedItems.filter(i => i.anomalies && i.anomalies.length > 0).length} itens</div>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground text-center pt-2 border-t">
+                                        Clique em "Confirmar Importação" para salvar os dados no sistema.
+                                    </div>
+                                </div>
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setShowMissingFieldsWarning(false)}>Revisar Dados</AlertDialogCancel>
-                            <AlertDialogAction onClick={executeImport}>Continuar Importação</AlertDialogAction>
+                            <AlertDialogCancel onClick={() => setShowPreConfirmation(false)}>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={executeImport}>✅ Confirmar Importação</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>

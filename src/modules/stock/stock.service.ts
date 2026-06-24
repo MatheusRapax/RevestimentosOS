@@ -777,21 +777,27 @@ export class StockService {
   }
 
   /**
-   * Bulk identify existing product SKUs for preview parsing.
+   * Bulk identify existing products for preview parsing.
    */
-  async findExistingProductSkus(clinicId: string, skus: string[]): Promise<Set<string>> {
+  async findExistingProductsData(clinicId: string, skus: string[]): Promise<Map<string, { costCents: number }>> {
     // Return early if no skus provided to avoid Prisma error
-    if (!skus || skus.length === 0) return new Set();
+    if (!skus || skus.length === 0) return new Map();
 
     const existingProducts = await this.prisma.product.findMany({
       where: {
         clinicId,
         sku: { in: skus },
       },
-      select: { sku: true },
+      select: { sku: true, costCents: true },
     });
 
-    return new Set(existingProducts.map((p) => p.sku as string));
+    const map = new Map<string, { costCents: number }>();
+    for (const p of existingProducts) {
+      if (p.sku) {
+        map.set(p.sku, { costCents: p.costCents || 0 });
+      }
+    }
+    return map;
   }
 
   /**
@@ -802,12 +808,14 @@ export class StockService {
     items: any[],
     supplierId?: string,
     brandName?: string,
+    userId?: string,
   ) {
     // Sanitize supplierId
     const validSupplierId =
       supplierId && supplierId.trim() !== '' ? supplierId : undefined;
 
-    let count = 0;
+    let createdCount = 0;
+    let updatedCount = 0;
     const savedItems: any[] = [];
 
     await this.prisma.$transaction(async (tx) => {
@@ -860,6 +868,7 @@ export class StockService {
               isActive: true,
             },
           });
+          updatedCount++;
         } else {
           product = await tx.product.create({
             data: {
@@ -886,22 +895,30 @@ export class StockService {
               color: item.color,
             },
           });
+          createdCount++;
         }
         savedItems.push(product);
-        count++;
       }
     }, { maxWait: 30000, timeout: 120000 });
 
     // Audit log
     await this.auditService.log({
       clinicId,
+      userId,
       action: AuditAction.CREATE,
       entity: 'Product',
       entityId: 'import-parsed',
-      message: `stock.import: ${count} items processed`,
+      message: `Importação de Planilha: ${createdCount + updatedCount} produtos processados`,
+      details: {
+        created: createdCount,
+        updated: updatedCount,
+        total: createdCount + updatedCount,
+        brandName: brandName || 'Sem marca',
+        supplierId
+      }
     });
 
-    return { count, items: savedItems };
+    return { count: createdCount + updatedCount, items: savedItems };
   }
 
   // ========== SHADE/CALIBER ALERTS ==========

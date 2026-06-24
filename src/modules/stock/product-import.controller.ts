@@ -17,6 +17,7 @@ import {
   ProductImportService,
   ImportStrategy,
 } from './services/product-import.service';
+import { AiImportService } from './services/ai-import.service';
 import { StockService } from './stock.service';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { ImportProductsDto } from './dto/import-products.dto';
@@ -26,6 +27,7 @@ import { ImportProductsDto } from './dto/import-products.dto';
 export class ProductImportController {
   constructor(
     private readonly importService: ProductImportService,
+    private readonly aiImportService: AiImportService,
     private readonly stockService: StockService,
   ) {}
 
@@ -56,14 +58,147 @@ export class ProductImportController {
     
     // Identificar itens novos vs atualizações
     const skus = items.map((i) => i.sku).filter((sku) => sku && sku.trim() !== '');
-    const existingSkusSet = await this.stockService.findExistingProductSkus(clinicId, skus);
+    const existingSkusMap = await this.stockService.findExistingProductsData(clinicId, skus);
 
     const enrichedItems = items.map((item) => ({
       ...item,
-      isNew: !existingSkusSet.has(item.sku),
+      isNew: !existingSkusMap.has(item.sku),
+      oldCostCents: existingSkusMap.get(item.sku)?.costCents,
     }));
 
     return { items: enrichedItems, count: enrichedItems.length };
+  }
+
+  @Post('ai-map')
+  @UseInterceptors(FileInterceptor('file'))
+  async aiMapFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Query('supplierId') supplierId: string,
+    @Query('clinicId') queryClinicId: string,
+    @Body('forceMapping') forceMappingStr: string | undefined,
+    @Req() req: any,
+  ) {
+    if (!file) throw new BadRequestException('File is required');
+    if (!supplierId) throw new BadRequestException('supplierId is required for AI mapping');
+
+    const clinicId = queryClinicId || req.user?.clinicId;
+    if (!clinicId) throw new BadRequestException('clinicId is required');
+
+    // 1. Flatten the Excel
+    const sheetsData = await this.aiImportService.flattenExcelToJSON(file.buffer);
+    if (sheetsData.length === 0) throw new BadRequestException('No valid product sheets found');
+
+    // For simplicity, we process the first valid sheet
+    const targetSheet = sheetsData[0];
+    const headerIdx = this.aiImportService.detectHeaders(targetSheet.rows);
+    const { headers, sampleData } = this.aiImportService.buildAISample(targetSheet.rows, headerIdx);
+
+    const headersHash = this.aiImportService.generateHeadersHash(headers);
+    let mapping: any = null;
+    let ambiguities: string[] = [];
+
+    // 2. Check Force Mapping
+    if (forceMappingStr) {
+      try {
+        mapping = JSON.parse(forceMappingStr);
+      } catch (e) {
+        throw new BadRequestException('Invalid forceMapping JSON');
+      }
+      // Since mapping is forced, we assume no ambiguities and we can overwrite cache if needed
+      await this.aiImportService.saveCachedMapping(supplierId, clinicId, headersHash, mapping, 1.0);
+    } else {
+      // 3. Try Cache (TEMPORARILY DISABLED TO FORCE NEW PROMPT)
+      // mapping = await this.aiImportService.getCachedMapping(supplierId, clinicId, headersHash);
+      mapping = null;
+
+      // 4. Fallback to AI
+      if (!mapping) {
+        const aiResult = await this.aiImportService.callOpenAIMapping({ headers, sampleData });
+        mapping = aiResult.mapping;
+        ambiguities = aiResult.ambiguities || [];
+
+        // Save AI "best guess" mapping, even with ambiguities (so user can see preview if they skip resolution)
+        if (mapping) {
+          await this.aiImportService.saveCachedMapping(supplierId, clinicId, headersHash, mapping, 1.0);
+        }
+      }
+    }
+
+    // 5. Apply Mapping Local
+    const rowsOnly = targetSheet.rows.slice(headerIdx + 1);
+    const mappedItems = this.aiImportService.applyMapping(rowsOnly, mapping, headers);
+
+    // 6. Apply Business Logic to generate final Preview Items
+    const finalItems = this.aiImportService.generateImportResult(mappedItems, []);
+
+    // 7. Enrich with "isNew" flag, "anomalies" and "oldCostCents" for UI preview
+    const skus = finalItems.map((i) => i.sku).filter((sku) => sku && sku.trim() !== '');
+    const existingProductsMap = await this.stockService.findExistingProductsData(clinicId, skus);
+
+    const hasAmbiguities = ambiguities && ambiguities.length > 0;
+    const confidence = hasAmbiguities ? 'MEDIUM' : 'HIGH';
+    
+    const seenSkus = new Set<string>();
+
+    const enrichedItems = finalItems.map((item) => {
+      let isNew = true;
+      let oldCostCents: number | undefined = undefined;
+      const existingData = existingProductsMap.get(item.sku);
+      if (existingData) {
+        isNew = false;
+        oldCostCents = existingData.costCents;
+      }
+
+      // Check duplicates
+      const isDuplicate = seenSkus.has(item.sku);
+      if (item.sku) seenSkus.add(item.sku);
+
+      const anomalies = [];
+      if (isDuplicate) anomalies.push('DUPLICATE_SKU');
+      
+      // Price anomaly check (> 50%)
+      if (!isNew && oldCostCents !== undefined && oldCostCents > 0) {
+        const diff = Math.abs(item.costCents - oldCostCents);
+        const percentChange = (diff / oldCostCents) * 100;
+        if (percentChange > 50) {
+          anomalies.push('PRICE_VARIATION');
+        }
+      }
+
+      return {
+        ...item,
+        isNew,
+        oldCostCents,
+        confidence: (item as any).confidence || confidence,
+        anomalies,
+      };
+    });
+
+    return {
+      mapping,
+      ambiguities,
+      headers,
+      sampleData,
+      items: enrichedItems,
+      count: enrichedItems.length
+    };
+  }
+
+  @Post('ai-classify')
+  async aiClassifyItems(
+    @Body() body: { items: any[] },
+    @Req() req: any,
+  ) {
+    if (!body.items || !Array.isArray(body.items)) {
+      throw new BadRequestException('items array is required');
+    }
+
+    // Na versão final, isso chamaria a OpenAI para itens ambíguos.
+    // Como a POC atual usa inferência estática baseada em m2PerBox > 0
+    // este endpoint servirá como ponte para classificação linha-a-linha no futuro.
+    const classified = await this.aiImportService.callOpenAIClassify(body.items);
+    
+    return { classified };
   }
 
   @Post('execute')
@@ -86,6 +221,7 @@ export class ProductImportController {
         dto.items,
         dto.supplierId,
         brandToSave,
+        req.user?.id,
       );
 
       return { success: true, count: saved.count };

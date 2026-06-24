@@ -35,6 +35,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/revestimentos?schema=public
       JWT_SECRET: your-super-secret-jwt-key-change-in-production
       JWT_EXPIRES_IN: 1h
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
       NODE_ENV: development
       PORT: 3000
     depends_on:
