@@ -1,4 +1,4 @@
 {
-  "version": "0.1.15",
-  "content": "### Features\n\n* **stock:** unified product import pipeline with standard 16-column template cdd258f"
+  "version": "0.1.16",
+  "content": "### Features\n\n* **stock-import:** implementação completa do pipeline de importação via IA (OpenAI) c6432f2"
 }

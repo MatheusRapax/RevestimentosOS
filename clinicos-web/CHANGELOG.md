@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.16](///compare/v0.1.15...v0.1.16) (2026-06-24)
+
+
+### Features
+
+* **stock-import:** implementação completa do pipeline de importação via IA (OpenAI) c6432f2
+
 ### [0.1.15](///compare/v0.1.14...v0.1.15) (2026-06-18)
 
 
