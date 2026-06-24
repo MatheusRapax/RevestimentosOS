@@ -29,11 +29,21 @@ export class AiImportService {
   }
 
   /**
-   * Lê todas as abas do Excel, desmescla células e converte para JSON plano
+   * Lê o Excel e retorna apenas os nomes das abas válidas (de produtos)
    */
-  async flattenExcelToJSON(buffer: Buffer): Promise<{ sheetName: string; rows: any[] }[]> {
+  extractSheetNames(buffer: Buffer): string[] {
     const wb = xlsx.read(buffer, { type: 'buffer' });
-    const productSheets = this.identifyProductSheets(wb.SheetNames);
+    return this.identifyProductSheets(wb.SheetNames);
+  }
+
+  /**
+   * Lê todas as abas do Excel (ou apenas uma específica se fornecida), desmescla células e converte para JSON plano
+   */
+  async flattenExcelToJSON(buffer: Buffer, targetSheetName?: string): Promise<{ sheetName: string; rows: any[] }[]> {
+    const wb = xlsx.read(buffer, { type: 'buffer' });
+    const productSheets = targetSheetName 
+      ? [targetSheetName].filter(name => wb.SheetNames.includes(name))
+      : this.identifyProductSheets(wb.SheetNames);
     
     const allSheetsData = [];
 
@@ -248,7 +258,7 @@ Regras do domínio:
 
 Instruções críticas e PROIBIÇÕES:
 - CUIDADO EXTREMO: A coluna de "cost" DEVE apontar para a coluna que contém o PREÇO FINANCEIRO (ex: 20,50, R$, etc). A coluna "m2/Cx" ou "M2" contém medidas físicas, NÃO É O CUSTO. NUNCA mapeie "m2/Cx", "Pç/Cx" ou similares para o campo "cost".
-- MÚLTIPLOS PREÇOS: Se você identificar 2 ou mais colunas de preços/valores monetários (ex: "Preço Fob", "Preço Cif", "Preço Atacado", "Preço Varejo"), você NÃO DEVE adivinhar qual é o certo. Você DEVE OBRIGATORIAMENTE gerar uma ambiguidade do tipo MULTIPLE_PRICES para que o usuário escolha.
+- MÚLTIPLOS PREÇOS: Se você identificar 2 ou mais colunas que representam valores financeiros, preços, custos ou faturamentos (ex: "Preço Fob", "Preço Cif", "Vlr Líquido", "ICMS", "IPI", "Custo", "R$"), você NÃO DEVE adivinhar qual é o certo. Você DEVE OBRIGATORIAMENTE gerar uma ambiguidade do tipo MULTIPLE_PRICES incluindo TODAS as colunas que podem ser preços. NÃO OMITA NENHUMA.
 - Se não for possível determinar a unidade (nem M2 nem UN), e não houver "m2/Cx", retorne ambiguidade UNKNOWN_UNIT.
 - Se os dados estiverem muito confusos devido a células mescladas, retorne MERGED_DATA.
 - As chaves de mapping devem conter o NOME EXATO da coluna original do fornecedor. Se a coluna não existir na planilha, defina como null.

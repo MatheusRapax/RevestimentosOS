@@ -41,6 +41,14 @@ import {
     DialogFooter,
     DialogTrigger,
 } from '../../../../components/ui/dialog';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '../../../../components/ui/sheet';
 
 import api from '../../../../lib/api';
 import { toast } from 'sonner';
@@ -52,15 +60,22 @@ export default function ImportProductsPage() {
     const { activeClinic } = useContext(AuthContext);
     const queryClient = useQueryClient();
 
+    const [isAnomalyDrawerOpen, setIsAnomalyDrawerOpen] = useState(false);
+    const [processedSheets, setProcessedSheets] = useState<string[]>([]);
+
     const [file, setFile] = useState<File | null>(null);
     const [supplierId, setSupplierId] = useState<string>('');
     const [brandName, setBrandName] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const [importMode, setImportMode] = useState<'STANDARD' | 'AI'>('STANDARD');
-    const [step, setStep] = useState<'upload' | 'resolve_ambiguities' | 'preview'>('upload');
+    const [step, setStep] = useState<'upload' | 'select_sheet' | 'resolve_ambiguities' | 'preview'>('upload');
     const [parsedItems, setParsedItems] = useState<any[]>([]);
     const [invalidTemplateError, setInvalidTemplateError] = useState<string | null>(null);
     const [showPreConfirmation, setShowPreConfirmation] = useState(false);
+
+    // Estados de Seleção de Aba
+    const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+    const [selectedSheet, setSelectedSheet] = useState<string>('');
 
     // Estados de Ambiguidade
     const [ambiguityHeaders, setAmbiguityHeaders] = useState<string[]>([]);
@@ -131,21 +146,21 @@ export default function ImportProductsPage() {
                     { headers: { 'Content-Type': 'multipart/form-data' } }
                 );
             } else {
-                response = await api.post(
-                    `/stock/products/import/ai-map?supplierId=${supplierId}&clinicId=${activeClinic || ''}`,
-                    formData,
-                    { headers: { 'Content-Type': 'multipart/form-data' } }
-                );
+                const extractRes = await api.post('/stock/products/import/extract-sheets', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                const sheets = extractRes.data.sheets;
                 
-                if (response.data.ambiguities && response.data.ambiguities.length > 0) {
-                    setAmbiguitiesList(response.data.ambiguities);
-                    setAmbiguityHeaders(response.data.headers || []);
-                    setAmbiguitySampleData(response.data.sampleData || []);
-                    setMappingState(response.data.mapping);
-                    setStep('resolve_ambiguities');
+                if (sheets && sheets.length > 1) {
+                    setAvailableSheets(sheets);
+                    setSelectedSheet(sheets[0]);
+                    setStep('select_sheet');
                     setIsLoading(false);
                     return;
                 }
+                
+                // Se só tem 1 aba, vai direto
+                const target = sheets && sheets.length === 1 ? sheets[0] : undefined;
+                await processAIMap(formData, target);
+                return;
             }
 
             setParsedItems(response.data.items);
@@ -157,11 +172,44 @@ export default function ImportProductsPage() {
             if (errData?.code === 'INVALID_TEMPLATE') {
                 setInvalidTemplateError(errData.message);
             } else {
-                toast.error(errData?.message || 'Falha ao ler arquivo.');
+                toast.error(errData?.message || 'Falha ao processar arquivo.');
             }
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const processAIMap = async (formData: FormData, targetSheetName?: string) => {
+        try {
+            const url = `/stock/products/import/ai-map?supplierId=${supplierId}&clinicId=${activeClinic || ''}${targetSheetName ? `&targetSheetName=${encodeURIComponent(targetSheetName)}` : ''}`;
+            const response = await api.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            
+            if (response.data.ambiguities && response.data.ambiguities.length > 0) {
+                setAmbiguitiesList(response.data.ambiguities);
+                setAmbiguityHeaders(response.data.headers || []);
+                setAmbiguitySampleData(response.data.sampleData || []);
+                setMappingState(response.data.mapping);
+                setStep('resolve_ambiguities');
+                setIsLoading(false);
+                return;
+            }
+            
+            const itemsWithOriginalSku = response.data.items.map((i: any) => ({ ...i, originalSku: i.sku }));
+            setParsedItems(itemsWithOriginalSku);
+            setStep('preview');
+            toast.success('Arquivo processado! Verifique os dados abaixo.');
+        } catch (error: any) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Falha ao mapear planilha com IA.');
+            setIsLoading(false);
+        }
+    };
+
+    const handleConfirmSheetSelection = async () => {
+        setIsLoading(true);
+        const formData = new FormData();
+        formData.append('file', file!);
+        await processAIMap(formData, selectedSheet);
     };
 
     const handleResolveAmbiguities = async () => {
@@ -179,13 +227,15 @@ export default function ImportProductsPage() {
         formData.append('forceMapping', JSON.stringify(newMapping));
         
         try {
+            const url = `/stock/products/import/ai-map?supplierId=${supplierId}&clinicId=${activeClinic || ''}${selectedSheet ? `&targetSheetName=${encodeURIComponent(selectedSheet)}` : ''}`;
             const response = await api.post(
-                `/stock/products/import/ai-map?supplierId=${supplierId}&clinicId=${activeClinic || ''}`,
+                url,
                 formData,
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
             
-            setParsedItems(response.data.items);
+            const itemsWithOriginalSku = response.data.items.map((i: any) => ({ ...i, originalSku: i.sku }));
+            setParsedItems(itemsWithOriginalSku);
             setStep('preview');
             toast.success('Ambiguidade resolvida! Verifique o preview.');
         } catch (error: any) {
@@ -197,11 +247,26 @@ export default function ImportProductsPage() {
     };
 
     const handleApproveItem = (idx: number) => {
+        const item = parsedItems[idx];
+        const isDuplicateNow = parsedItems.filter(i => i.sku === item.sku).length > 1;
+        
+        if (item.anomalies?.some((a: any) => a.type === 'DUPLICATE_SKU' || a === 'DUPLICATE_SKU') && isDuplicateNow) {
+            toast.error('Este SKU ainda está duplicado na lista. Altere o SKU de um dos itens conflitantes para um código único.');
+            return;
+        }
+
         const newItems = [...parsedItems];
         newItems[idx].confidence = 'HIGH';
         newItems[idx].anomalies = [];
         setParsedItems(newItems);
         toast.success(`Item "${newItems[idx].sku || 'Sem SKU'}" aprovado com sucesso.`);
+    };
+
+    const handleDeleteItem = (idx: number) => {
+        const newItems = [...parsedItems];
+        newItems.splice(idx, 1);
+        setParsedItems(newItems);
+        toast.success('Item removido.');
     };
 
     const handleExecuteClick = () => {
@@ -220,17 +285,25 @@ export default function ImportProductsPage() {
                 items: parsedItems.map((item) => {
                     const { 
                         isNew, brand, ean, ncm, cest, confidence, anomalies, 
-                        cost, costPerM2,
+                        cost, costPerM2, originalSku,
                         ...rest 
                     } = item as any;
                     return rest;
                 }),
             };
             await api.post('/stock/products/import/execute', payload);
-            toast.success(`Importação realizada com sucesso! ${parsedItems.length} produtos salvos.`);
-            setFile(null);
-            setParsedItems([]);
-            setStep('upload');
+            toast.success(`Importação da aba realizada com sucesso! ${parsedItems.length} produtos salvos.`);
+            if (availableSheets.length > 1) {
+                setProcessedSheets(prev => [...prev, selectedSheet]);
+                setParsedItems([]);
+                setSelectedSheet('');
+                setStep('select_sheet');
+            } else {
+                setFile(null);
+                setParsedItems([]);
+                setProcessedSheets([]);
+                setStep('upload');
+            }
         } catch (error: any) {
             console.error(error);
             toast.error(error.response?.data?.message || 'Falha ao salvar produtos.');
@@ -493,6 +566,73 @@ export default function ImportProductsPage() {
                     </Card>
                 )}
 
+                {step === 'select_sheet' && (
+                    <Card className="border-blue-500 shadow-md">
+                        <CardHeader className="bg-blue-50 dark:bg-blue-950/30 border-b border-blue-200 dark:border-blue-900">
+                            <CardTitle className="text-blue-700 dark:text-blue-500 flex items-center">
+                                <FileSpreadsheet className="w-5 h-5 mr-2" /> 
+                                Múltiplas Abas Detectadas
+                            </CardTitle>
+                            <p className="text-sm text-blue-800 dark:text-blue-400/80">
+                                As planilhas complexas são importadas uma aba por vez para garantir a precisão da IA. Selecione a primeira aba para processar. As demais poderão ser processadas posteriormente repetindo o fluxo.
+                            </p>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <div className="flex flex-col gap-3">
+                                {availableSheets.map((sheet, idx) => {
+                                    const isProcessed = processedSheets.includes(sheet);
+                                    return (
+                                    <Label 
+                                        key={idx} 
+                                        className={`flex items-center space-x-3 p-3 border rounded-md transition-colors ${selectedSheet === sheet ? 'border-primary bg-primary/5 ring-1 ring-primary' : isProcessed ? 'bg-slate-50 dark:bg-slate-900/50 opacity-50 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer'}`}
+                                    >
+                                        <input 
+                                            type="radio" 
+                                            name="sheetName" 
+                                            value={sheet} 
+                                            checked={selectedSheet === sheet} 
+                                            onChange={(e) => !isProcessed && setSelectedSheet(e.target.value)} 
+                                            disabled={isProcessed}
+                                            className="w-4 h-4 text-primary accent-primary"
+                                        />
+                                        <div className="flex flex-col">
+                                            <span className="font-medium text-base flex items-center">
+                                                {sheet} 
+                                                {isProcessed && <span className="text-xs text-green-600 dark:text-green-500 ml-2 font-semibold flex items-center"><Check className="w-3 h-3 mr-1" /> Importada</span>}
+                                            </span>
+                                        </div>
+                                    </Label>
+                                )})}
+                            </div>
+                            
+                            <div className="flex gap-2 justify-end mt-6">
+                                {processedSheets.length > 0 && (
+                                    <Button variant="outline" className="mr-auto border-red-200 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30" onClick={() => {
+                                        setFile(null);
+                                        setProcessedSheets([]);
+                                        setStep('upload');
+                                    }}>
+                                        Encerrar Importação
+                                    </Button>
+                                )}
+                                <Button variant="outline" onClick={() => {
+                                    setStep('upload');
+                                    setFile(null);
+                                    setProcessedSheets([]);
+                                }}>
+                                    Cancelar
+                                </Button>
+                                <Button 
+                                    onClick={handleConfirmSheetSelection} 
+                                    disabled={!selectedSheet || isLoading || processedSheets.includes(selectedSheet)}
+                                >
+                                    {isLoading ? 'Processando...' : 'Continuar com esta Aba'}
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {step === 'resolve_ambiguities' && (
                     <Card className="border-amber-500 shadow-md">
                         <CardHeader className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900">
@@ -618,11 +758,21 @@ export default function ImportProductsPage() {
                                     <p className="text-sm font-medium text-muted-foreground flex items-center gap-1"><Badge className="bg-blue-600 scale-75 origin-left">Atualização</Badge> Atualizações</p>
                                     <p className="text-2xl font-bold">{parsedItems.filter(i => !i.isNew).length}</p>
                                 </div>
-                                <div>
+                                <div 
+                                    className="cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors p-2 -m-2 rounded-md"
+                                    onClick={() => {
+                                        if (parsedItems.some(i => i.anomalies && i.anomalies.length > 0)) {
+                                            setIsAnomalyDrawerOpen(true);
+                                        }
+                                    }}
+                                >
                                     <p className="text-sm font-medium text-amber-600 flex items-center gap-1">⚠️ Com Alertas / Anomalias</p>
                                     <p className={`text-2xl font-bold ${parsedItems.some(i => i.anomalies && i.anomalies.length > 0) ? 'text-amber-600' : ''}`}>
                                         {parsedItems.filter(i => (i.anomalies && i.anomalies.length > 0) || i.confidence !== 'HIGH').length}
                                     </p>
+                                    {parsedItems.some(i => i.anomalies && i.anomalies.length > 0) && (
+                                        <p className="text-xs text-amber-600 mt-1 flex items-center"><Sparkles className="w-3 h-3 mr-1"/> Clique para corrigir</p>
+                                    )}
                                 </div>
                             </div>
                             
@@ -907,6 +1057,97 @@ export default function ImportProductsPage() {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+                <Sheet open={isAnomalyDrawerOpen} onOpenChange={setIsAnomalyDrawerOpen}>
+                    <SheetContent className="w-[400px] sm:w-[540px] sm:max-w-md overflow-y-auto">
+                        <SheetHeader className="mb-6">
+                            <SheetTitle className="text-amber-600 flex items-center gap-2">
+                                <AlertTriangle className="w-5 h-5" /> Gaveta de Anomalias
+                            </SheetTitle>
+                            <SheetDescription>
+                                Corrija os problemas detectados pela inteligência artificial antes de prosseguir.
+                            </SheetDescription>
+                        </SheetHeader>
+                        
+                        <div className="space-y-6">
+                            {parsedItems.map((item, idx) => {
+                                if (!item.anomalies || item.anomalies.length === 0) return null;
+                                
+                                return (
+                                    <div key={idx} className="border border-amber-200 bg-amber-50 dark:bg-amber-950/20 rounded-md p-4 space-y-3">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h4 className="font-medium text-sm text-amber-900 dark:text-amber-400 flex items-center gap-2">
+                                                    Item {idx + 1}
+                                                </h4>
+                                                <p className="text-xs text-muted-foreground line-clamp-1">{item.name}</p>
+                                            </div>
+                                            <Button variant="ghost" size="sm" className="h-6 px-2 text-destructive" onClick={() => handleDeleteItem(idx)}>
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            {item.anomalies.map((anomaly: any, i: number) => {
+                                                const type = typeof anomaly === 'string' ? anomaly : anomaly.type;
+                                                const isDuplicate = type === 'DUPLICATE_SKU';
+                                                return (
+                                                    <div key={i} className="text-xs bg-white dark:bg-slate-900 p-2 rounded border">
+                                                        <span className="font-semibold text-red-600 block mb-1">
+                                                            {isDuplicate ? '❌ SKU Duplicado' : '⚠️ Variação de Preço (>50%)'}
+                                                        </span>
+                                                        {isDuplicate && anomaly.relatedIndices && (
+                                                            <span className="text-muted-foreground block mb-2">
+                                                                Este SKU também aparece nas linhas: {anomaly.relatedIndices.map((r: number) => r + 1).join(', ')}
+                                                            </span>
+                                                        )}
+                                                        {isDuplicate ? (
+                                                            <div className="space-y-1">
+                                                                <Label className="text-xs">Editar SKU (deve ser único):</Label>
+                                                                <Input 
+                                                                    value={item.sku} 
+                                                                    onChange={(e) => updateItem(idx, 'sku', e.target.value)}
+                                                                    className="h-7 text-xs font-mono"
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="space-y-1">
+                                                                <Label className="text-xs">Confirmar Custo (R$ {item.costCents / 100}):</Label>
+                                                                <Input 
+                                                                    type="number"
+                                                                    value={item.costCents / 100} 
+                                                                    onChange={(e) => updateItem(idx, 'costCents', parseFloat(e.target.value) * 100)}
+                                                                    className="h-7 text-xs font-mono"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="pt-2 flex justify-end border-t border-amber-200">
+                                            <Button 
+                                                size="sm" 
+                                                variant="outline"
+                                                onClick={() => handleApproveItem(idx)}
+                                                className="h-7 text-xs bg-white hover:bg-green-50 hover:text-green-700 hover:border-green-300"
+                                            >
+                                                <Check className="w-3 h-3 mr-1" /> Marcar como Resolvido
+                                            </Button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            {!parsedItems.some(i => i.anomalies && i.anomalies.length > 0) && (
+                                <div className="text-center p-6 text-muted-foreground text-sm">
+                                    <Check className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                                    Nenhuma anomalia pendente!
+                                </div>
+                            )}
+                        </div>
+                    </SheetContent>
+                </Sheet>
             </div>
     );
 }

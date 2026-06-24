@@ -69,12 +69,23 @@ export class ProductImportController {
     return { items: enrichedItems, count: enrichedItems.length };
   }
 
+  @Post('extract-sheets')
+  @UseInterceptors(FileInterceptor('file'))
+  async extractSheets(
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('File is required');
+    const sheets = this.aiImportService.extractSheetNames(file.buffer);
+    return { sheets };
+  }
+
   @Post('ai-map')
   @UseInterceptors(FileInterceptor('file'))
   async aiMapFile(
     @UploadedFile() file: Express.Multer.File,
     @Query('supplierId') supplierId: string,
     @Query('clinicId') queryClinicId: string,
+    @Query('targetSheetName') targetSheetName: string | undefined,
     @Body('forceMapping') forceMappingStr: string | undefined,
     @Req() req: any,
   ) {
@@ -85,10 +96,10 @@ export class ProductImportController {
     if (!clinicId) throw new BadRequestException('clinicId is required');
 
     // 1. Flatten the Excel
-    const sheetsData = await this.aiImportService.flattenExcelToJSON(file.buffer);
+    const sheetsData = await this.aiImportService.flattenExcelToJSON(file.buffer, targetSheetName);
     if (sheetsData.length === 0) throw new BadRequestException('No valid product sheets found');
 
-    // For simplicity, we process the first valid sheet
+    // For simplicity, we process the first valid sheet (which is the targetSheetName if provided)
     const targetSheet = sheetsData[0];
     const headerIdx = this.aiImportService.detectHeaders(targetSheet.rows);
     const { headers, sampleData } = this.aiImportService.buildAISample(targetSheet.rows, headerIdx);
@@ -138,9 +149,17 @@ export class ProductImportController {
     const hasAmbiguities = ambiguities && ambiguities.length > 0;
     const confidence = hasAmbiguities ? 'MEDIUM' : 'HIGH';
     
-    const seenSkus = new Set<string>();
+    const skuIndicesMap = new Map<string, number[]>();
+    finalItems.forEach((item, index) => {
+      if (item.sku) {
+        if (!skuIndicesMap.has(item.sku)) {
+          skuIndicesMap.set(item.sku, []);
+        }
+        skuIndicesMap.get(item.sku)!.push(index);
+      }
+    });
 
-    const enrichedItems = finalItems.map((item) => {
+    const enrichedItems = finalItems.map((item, index) => {
       let isNew = true;
       let oldCostCents: number | undefined = undefined;
       const existingData = existingProductsMap.get(item.sku);
@@ -149,19 +168,25 @@ export class ProductImportController {
         oldCostCents = existingData.costCents;
       }
 
-      // Check duplicates
-      const isDuplicate = seenSkus.has(item.sku);
-      if (item.sku) seenSkus.add(item.sku);
-
       const anomalies = [];
-      if (isDuplicate) anomalies.push('DUPLICATE_SKU');
+      
+      // Check duplicates
+      if (item.sku) {
+        const indices = skuIndicesMap.get(item.sku);
+        if (indices && indices.length > 1) {
+          anomalies.push({
+             type: 'DUPLICATE_SKU',
+             relatedIndices: indices.filter(i => i !== index)
+          });
+        }
+      }
       
       // Price anomaly check (> 50%)
       if (!isNew && oldCostCents !== undefined && oldCostCents > 0) {
         const diff = Math.abs(item.costCents - oldCostCents);
         const percentChange = (diff / oldCostCents) * 100;
         if (percentChange > 50) {
-          anomalies.push('PRICE_VARIATION');
+          anomalies.push({ type: 'PRICE_VARIATION' });
         }
       }
 
