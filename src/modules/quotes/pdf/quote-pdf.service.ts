@@ -14,7 +14,7 @@ type QuoteWithRelations = Quote & {
   seller: { id: string; name: string | null };
   architect: Architect | null;
   items: (QuoteItem & {
-    product: { name: string; sku: string | null; unit: string | null };
+    product: { name: string; sku: string | null; unit: string | null; format: string | null };
     environment?: { name: string } | null;
   })[];
 };
@@ -98,13 +98,14 @@ export class QuotePdfService {
       .fillColor(primaryColor)
       .fontSize(22)
       .font('Helvetica-Bold')
-      .text('ORÇAMENTO', 50, y, { align: 'right', width: 495 });
+      .text('ORÇAMENTO', 50, y, { align: 'right', width: 500 });
       
     doc
       .fontSize(12)
       .font('Helvetica')
+      .fillColor(primaryColor)
       .text(`Nº #${String(quote.number).padStart(4, '0')}`, 50, doc.y, {
-        align: 'right', width: 495
+        align: 'right', width: 500
       });
 
     // Dados da empresa
@@ -275,15 +276,21 @@ export class QuotePdfService {
         const showUnitArea = template?.showUnitArea ?? true;
         const showUnitPrice = template?.showUnitPrice ?? true;
 
-        const qtyText = showQuantity ? `${item.quantityBoxes} cx` : '';
-        const areaText = showUnitArea ? `${item.inputArea} m²` : '';
+        const qtyText = showQuantity ? `${item.quantityBoxes}` : '';
+        const finalArea = item.resultingArea ?? item.areaWithMargin ?? item.inputArea;
+        const areaText = showUnitArea && finalArea ? `${finalArea.toFixed(2)}` : '';
         const unitCostText = showUnitPrice ? this.formatCurrency(item.unitPriceCents) : '';
+        const unit = item.product.unit || '-';
+        const format = item.product.format || '-';
+        const sku = item.product.sku || '-';
 
-        this.generateTableRow(
+        const rowHeight = this.generateTableRow(
           doc,
           currentY,
-          item.product.sku || '-',
+          unit,
           item.product.name,
+          sku,
+          format,
           qtyText,
           areaText,
           unitCostText,
@@ -291,7 +298,7 @@ export class QuotePdfService {
           template
         );
 
-        currentY += 20; // Altura da linha
+        currentY += rowHeight + 5; // Altura da linha ajustada com o conteúdo
         this.generateHr(doc, currentY, '#eeeeee');
         currentY += 10; // Espaçamento
       });
@@ -314,6 +321,8 @@ export class QuotePdfService {
       '',
       '',
       '',
+      '',
+      '',
       'Subtotal',
       this.formatCurrency(quote.subtotalCents),
       template
@@ -324,6 +333,8 @@ export class QuotePdfService {
       this.generateTableRow(
         doc,
         discountPosition,
+        '',
+        '',
         '',
         '',
         '',
@@ -344,6 +355,8 @@ export class QuotePdfService {
         '',
         '',
         '',
+        '',
+        '',
         'Frete',
         this.formatCurrency(quote.deliveryFee),
         template
@@ -356,6 +369,8 @@ export class QuotePdfService {
     this.generateTableRow(
       doc,
       currentY,
+      '',
+      '',
       '',
       '',
       '',
@@ -374,7 +389,7 @@ export class QuotePdfService {
     accentColor: string,
     template: QuoteTemplate | null,
   ) {
-    doc.rect(50, y - 5, 495, 20).fill(accentColor);
+    doc.rect(50, y - 5, 500, 20).fill(accentColor);
     doc.font('Helvetica-Bold').fillColor('#FFFFFF');
     
     const showQuantity = template?.showQuantity ?? true;
@@ -384,13 +399,16 @@ export class QuotePdfService {
     this.generateTableRow(
       doc,
       y,
-      'Item',
+      'Unid.',
       'Descrição',
-      showQuantity ? 'Qtd' : '',
-      showUnitArea ? 'M²' : '',
-      showUnitPrice ? 'Preço Unit.' : '',
+      'Cód.',
+      'Formato',
+      showQuantity ? 'Qtd Cx' : '',
+      showUnitArea ? 'Qtd M²' : '',
+      showUnitPrice ? 'V. Unit.' : '',
       'Total',
-      template
+      template,
+      true
     );
   }
 
@@ -461,7 +479,7 @@ export class QuotePdfService {
       if (hasTerms) {
         // Draw Terms Box
         const termsX = hasBank ? 300 : 50;
-        const termsWidth = hasBank ? 245 : 495;
+        const termsWidth = hasBank ? 250 : 500;
         
         doc.rect(termsX, currentY, termsWidth, 100).fillAndStroke('#f9fafb', '#e5e7eb');
         
@@ -534,43 +552,58 @@ export class QuotePdfService {
   private generateTableRow(
     doc: PDFKit.PDFDocument,
     y: number,
-    item: string,
-    description: string,
-    quantity: string,
-    areaText: string,
-    unitCost: string,
+    unidade: string,
+    descricao: string,
+    codigo: string,
+    formato: string,
+    qtd: string,
+    m2: string,
+    vUnit: string,
     total: string,
     template: QuoteTemplate | null,
-  ) {
+    isHeader = false
+  ): number {
     const showQuantity = template?.showQuantity ?? true;
     const showUnitArea = template?.showUnitArea ?? true;
     const showUnitPrice = template?.showUnitPrice ?? true;
 
-    doc
-      .fontSize(10)
-      .text(item, 50, y, { width: 60 }) // SKU
-      .text(description, 110, y, { width: 150, ellipsis: true }); // Descrição
+    doc.fontSize(10);
+    if (!isHeader) {
+      doc.font('Helvetica');
+    }
 
-    let currentX = 260; // Starting X for the columns
+    // Calcula altura necessária para a descrição (pode ter quebra de linha automática)
+    const descWidth = 135;
+    const descHeight = doc.heightOfString(descricao || ' ', { width: descWidth });
+    const rowHeight = Math.max(15, descHeight);
 
+    // Renderiza as células
+    doc.text(unidade, 50, y, { width: 25, ellipsis: true });
+    doc.text(codigo, 80, y, { width: 40, ellipsis: true });
+    doc.text(descricao, 125, y, { width: descWidth });
+    doc.text(formato, 265, y, { width: 50, ellipsis: true });
+
+    let currentX = 320;
+    
     if (showQuantity) {
-        doc.text(quantity, currentX, y, { width: 60, align: 'right' });
-        currentX += 70;
+      doc.text(qtd, currentX, y, { width: 40, align: 'right' });
+      currentX += 45; // Avança
     }
-
+    
     if (showUnitArea) {
-        doc.text(areaText, currentX, y, { width: 60, align: 'right' });
-        currentX += 70;
+      doc.text(m2, currentX, y, { width: 45, align: 'right' });
+      currentX += 50; // Avança
     }
-
+    
     if (showUnitPrice) {
-        doc.text(unitCost, currentX, y, { width: 80, align: 'right' });
-        currentX += 90;
+      doc.text(vUnit, currentX, y, { width: 60, align: 'right' });
+      currentX += 65; // Avança
     }
+    
+    // Total (550 é o limite direito, então width = 550 - currentX)
+    doc.text(total, currentX, y, { width: 550 - currentX, align: 'right' });
 
-    // The startX for "Total" value might need pushing based on active columns depending on how we render the layout,
-    // For now we keep it fixed to original X to maintain right alignment
-    doc.text(total, 480, y, { width: 70, align: 'right' });
+    return rowHeight;
   }
 
   private generateHr(doc: PDFKit.PDFDocument, y: number, color = '#aaaaaa') {

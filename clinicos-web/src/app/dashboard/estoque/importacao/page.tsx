@@ -285,7 +285,7 @@ export default function ImportProductsPage() {
                 items: parsedItems.map((item) => {
                     const { 
                         isNew, brand, ean, ncm, cest, confidence, anomalies, 
-                        cost, costPerM2, originalSku,
+                        cost, costPerM2, originalSku, oldCostCents, oldCostPerM2Cents,
                         ...rest 
                     } = item as any;
                     return rest;
@@ -654,14 +654,18 @@ export default function ImportProductsPage() {
                                         </h3>
                                         {isCostAmbiguity && ambiguity.options && ambiguity.options.length > 0 && (
                                             <div className="flex flex-col gap-3">
-                                                {ambiguity.options.map((opt: any, optIdx: number) => {
+                                                {ambiguity.options
+                                                    .filter((opt: any, index: number, self: any[]) => 
+                                                        index === self.findIndex((t) => t.column === opt.column)
+                                                    )
+                                                    .map((opt: any, optIdx: number) => {
                                                     const header = opt.column;
                                                     // Fallback to option's sampleValue if ambiguitySampleData doesn't have it
                                                     const sampleRow = ambiguitySampleData.find(row => row[header] !== undefined && row[header] !== null && row[header] !== '');
                                                     const sampleValue = sampleRow ? sampleRow[header] : (opt.sampleValue || 'N/A');
                                                     
-                                                    // Evitar erro de key vazia se o header for vazio (o que não deveria acontecer pela IA, mas por segurança)
-                                                    const safeKey = header ? header : `empty-header-${optIdx}`;
+                                                    // Evitar erro de key vazia se o header for vazio ou duplicado
+                                                    const safeKey = header ? `${header}-${optIdx}` : `empty-header-${optIdx}`;
 
                                                     return (
                                                         <Label 

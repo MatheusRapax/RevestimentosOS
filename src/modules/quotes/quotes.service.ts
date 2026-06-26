@@ -201,7 +201,7 @@ export class QuotesService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, sku: true, boxCoverage: true },
+              select: { id: true, name: true, sku: true, boxCoverage: true, format: true, unit: true },
             },
             environment: true,
           },
@@ -246,6 +246,7 @@ export class QuotesService {
                 sku: true,
                 boxCoverage: true,
                 unit: true,
+                format: true,
               },
             },
             preferredLot: {

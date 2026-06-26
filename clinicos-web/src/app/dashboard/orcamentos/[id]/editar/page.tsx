@@ -124,7 +124,8 @@ export default function EditOrcamentoPage() {
                 ]);
                 setCustomers(customersRes.data);
                 setArchitects(architectsRes.data);
-                setProducts(productsRes.data);
+                const rawProducts = productsRes.data;
+                setProducts(rawProducts?.data ? rawProducts.data : (Array.isArray(rawProducts) ? rawProducts : []));
                 
                 if (Array.isArray(environmentsRes.data)) {
                     setEnvironments(environmentsRes.data.filter(e => e.isActive));
@@ -251,25 +252,36 @@ export default function EditOrcamentoPage() {
         setItems(items.filter((_, i) => i !== index));
     };
 
+    // Direct product selection (used by ProductCombobox)
+    const selectProduct = (index: number, productId: string, product?: Product) => {
+        const newItems = [...items];
+        const item = { ...newItems[index] };
+        item.productId = productId;
+        item.product = product;
+        item.unitPriceCents = product?.promotionalPriceCents ?? product?.priceCents ?? 0;
+        item.preferredLotId = undefined;
+        if (item.inputArea > 0 && product?.boxCoverage) {
+            const marginToUse = typeof item.marginPercent === 'number' ? item.marginPercent : (globalMarginPercent || 0);
+            const areaWithMargin = item.inputArea * (1 + marginToUse / 100);
+            item.quantityBoxes = calculateBoxesFromArea(areaWithMargin, product.boxCoverage);
+            item.resultingArea = calculateResultingArea(item.quantityBoxes, product.boxCoverage);
+        }
+        const sub = item.unitPriceCents * item.quantityBoxes;
+        item.discountCents = Math.round(sub * ((item.discountPercent || 0) / 100));
+        item.totalCents = sub - item.discountCents;
+        newItems[index] = item;
+        setItems(newItems);
+    };
+
     // Update item
     const updateItem = (index: number, field: keyof QuoteItem, value: any) => {
         const newItems = [...items];
         const item = { ...newItems[index] };
 
         if (field === 'productId') {
-            const product = products.find(p => p.id === value);
-            item.productId = value;
-            item.product = product;
-            item.unitPriceCents = product?.promotionalPriceCents ?? product?.priceCents ?? 0;
-            item.preferredLotId = undefined;
-
-            // Recalculate if area was already set
-            if (item.inputArea > 0 && product?.boxCoverage) {
-                const marginToUse = item.marginPercent || globalMarginPercent || 0;
-                const areaWithMargin = item.inputArea * (1 + marginToUse / 100);
-                item.quantityBoxes = calculateBoxesFromArea(areaWithMargin, product.boxCoverage);
-                item.resultingArea = calculateResultingArea(item.quantityBoxes, product.boxCoverage);
-            }
+            // productId changes now handled by selectProduct (called directly from ProductCombobox)
+            // This branch kept for safety, but should not normally be triggered
+            item.productId = value as string;
         } else if (field === 'inputArea' || field === 'marginPercent') {
             if (field === 'inputArea') item.inputArea = Number(value);
             if (field === 'marginPercent') item.marginPercent = value === '' ? '' : Number(value);
@@ -606,9 +618,8 @@ export default function EditOrcamentoPage() {
                                             </Button>
                                         </div>
                                         <ProductCombobox
-                                            products={products}
                                             value={item.productId}
-                                            onChange={(value) => updateItem(index, 'productId', value)}
+                                            onChange={(productId, product) => selectProduct(index, productId, product)}
                                         />
                                         {item.product?.boxCoverage && (
                                             <p className="text-xs text-gray-500">
@@ -730,17 +741,17 @@ export default function EditOrcamentoPage() {
                                                 Área Resultante
                                             </Label>
                                             <p className="font-medium">
-                                                {item.resultingArea.toFixed(2)} m²
+                                                {(item.resultingArea || item.inputArea || 0).toFixed(2)} m²
                                             </p>
                                             {item.inputArea > 0 && item.resultingArea > item.inputArea && (() => {
                                                 const marginToUse = typeof item.marginPercent === 'number' ? item.marginPercent : (globalMarginPercent || 0);
                                                 const marginArea = item.inputArea * (marginToUse / 100);
-                                                const roundingArea = item.resultingArea - (item.inputArea + marginArea);
+                                                const roundingArea = (item.resultingArea || 0) - (item.inputArea + marginArea);
 
                                                 return (
                                                     <div className="text-xs flex flex-col mt-1.5 p-1.5 bg-amber-50 dark:bg-amber-950/30 rounded border border-amber-100 dark:border-amber-900">
                                                         <span className="font-semibold text-amber-800 dark:text-amber-500 mb-0.5 whitespace-nowrap">
-                                                            Sobra: +{(item.resultingArea - item.inputArea).toFixed(2)} m²
+                                                            Sobra: +{((item.resultingArea || 0) - item.inputArea).toFixed(2)} m²
                                                         </span>
                                                         {marginArea > 0 && (
                                                             <span className="text-amber-700/80 dark:text-amber-400/80 whitespace-nowrap">
