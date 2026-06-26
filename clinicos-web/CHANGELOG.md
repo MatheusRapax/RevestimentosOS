@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.18](///compare/v0.1.17...v0.1.18) (2026-06-26)
+
+
+### Bug Fixes
+
+* resolução de bugs críticos no frontend (orçamentos e importação) e build do backend 23dfb1a
+
 ### [0.1.17](///compare/v0.1.16...v0.1.17) (2026-06-24)
 
 

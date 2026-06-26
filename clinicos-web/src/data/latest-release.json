@@ -1,4 +1,4 @@
 {
-  "version": "0.1.17",
-  "content": "### Features\n\n* **stock:** estabiliza pipeline de importação IA com multi-abas e governança de dados 3041d6b"
+  "version": "0.1.18",
+  "content": "### Bug Fixes\n\n* resolução de bugs críticos no frontend (orçamentos e importação) e build do backend 23dfb1a"
 }
