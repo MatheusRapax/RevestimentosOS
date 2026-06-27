@@ -77,13 +77,14 @@ export class AiImportService {
         // Se uma linha tiver a primeira célula preenchida e as próximas X células iguais à primeira
         // é um forte indício de que era uma linha de categoria (merge horizontal extenso)
         const firstVal = String(row[0] || '').trim();
+        const newRow = [...row];
         if (firstVal && row.length > 3) {
           const isCategory = row.slice(1, 4).every(val => String(val || '').trim() === firstVal);
           if (isCategory) {
             currentCategory = firstVal;
+            (newRow as any)._isCategoryRow = true;
           }
         }
-        const newRow = [...row];
         (newRow as any)._category = currentCategory;
         return newRow;
       });
@@ -370,6 +371,7 @@ ${JSON.stringify(sample, null, 2)}
 
     for (const row of rows) {
       if (!row || Object.keys(row).length === 0) continue;
+      if (row['_isCategoryRow']) continue;
       
       const skuValRaw = getVal(row, mapping.sku);
       const nameValRaw = getVal(row, mapping.name);
@@ -405,11 +407,19 @@ ${JSON.stringify(sample, null, 2)}
   private sanitizeNumber(val: any): number {
     if (!val) return 0;
     if (typeof val === 'number') return val;
-    // Substitui vírgula por ponto em decimais formato brasileiro
+    
     let str = String(val).replace(/\\r\\n/g, '').trim();
-    if (str.includes(',') && !str.includes('.')) {
+    // Remover símbolos de moeda e letras, preservando apenas dígitos, vírgula, ponto e sinal negativo
+    str = str.replace(/[^\d,\.-]/g, '');
+    
+    if (str.includes(',') && str.includes('.')) {
+      // Formato brasileiro com milhar e decimal: "1.234,56"
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else if (str.includes(',') && !str.includes('.')) {
+      // Formato decimal com vírgula: "123,45"
       str = str.replace(',', '.');
     }
+    
     const num = parseFloat(str);
     return isNaN(num) ? 0 : num;
   }
