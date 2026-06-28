@@ -21,6 +21,11 @@ interface FiscalSettings {
     defaultNcm: string | null;
     defaultCest: string | null;
     defaultOrigin: number;
+    // New fields for NexosFiscal setup
+    document?: string;
+    name?: string;
+    certificate?: FileList;
+    password?: string;
 }
 
 interface FiscalSettingsFormProps {
@@ -30,6 +35,7 @@ interface FiscalSettingsFormProps {
 export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSavingSetup, setIsSavingSetup] = useState(false);
     const [settings, setSettings] = useState<FiscalSettings | null>(null);
 
     const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FiscalSettings>();
@@ -42,7 +48,8 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
         setIsLoading(true);
         try {
             const response = await api.get('/fiscal/settings', {
-                params: { clinicId }
+                params: { clinicId },
+                headers: clinicId ? { 'X-Clinic-Id': clinicId } : {}
             });
             const data = response.data;
             setSettings(data);
@@ -71,7 +78,8 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                 ...data,
                 defaultOrigin: Number(data.defaultOrigin) // Ensure number
             }, {
-                params: { clinicId }
+                params: { clinicId },
+                headers: clinicId ? { 'X-Clinic-Id': clinicId } : {}
             });
             toast.success('Configurações salvas com sucesso!');
             loadSettings(); // Reload to confirm state
@@ -80,6 +88,43 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             toast.error('Erro ao salvar as configurações.');
         } finally {
             setIsSaving(false);
+        }
+    }
+
+    async function onSubmitSetup(data: FiscalSettings) {
+        if (!data.certificate || data.certificate.length === 0) {
+            toast.error('O arquivo do certificado (.pfx) é obrigatório.');
+            return;
+        }
+
+        if (!data.document || !data.name || !data.password) {
+            toast.error('Preencha todos os campos do setup.');
+            return;
+        }
+
+        setIsSavingSetup(true);
+        try {
+            const formData = new FormData();
+            formData.append('document', data.document);
+            formData.append('name', data.name);
+            formData.append('password', data.password);
+            formData.append('certificate', data.certificate[0]);
+
+            await api.post('/fiscal/setup', formData, {
+                params: { clinicId },
+                headers: { 
+                    'Content-Type': 'multipart/form-data',
+                    ...(clinicId ? { 'X-Clinic-Id': clinicId } : {})
+                }
+            });
+            
+            toast.success('Certificado e Tenant configurados com sucesso!');
+            loadSettings(); // Reload to confirm state
+        } catch (error) {
+            console.error('Erro ao configurar NexosFiscal:', error);
+            toast.error('Erro ao configurar o certificado.');
+        } finally {
+            setIsSavingSetup(false);
         }
     }
 
@@ -111,7 +156,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                         )}
                     </CardTitle>
                     <CardDescription>
-                        Estado atual das credenciais da API Webmania.
+                        Estado atual das credenciais da API NexosFiscal.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -135,6 +180,50 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                 </CardContent>
             </Card>
 
+            {/* Setup Form */}
+            <form onSubmit={handleSubmit(onSubmitSetup)}>
+                <Card className="mb-6 border-blue-200">
+                    <CardHeader className="bg-blue-50/50">
+                        <CardTitle>Setup Inicial (NexosFiscal)</CardTitle>
+                        <CardDescription>
+                            Configure o certificado digital A1 para habilitar a emissão de notas.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6 pt-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>CNPJ da Loja</Label>
+                                <Input {...register('document', { required: true })} placeholder="Ex: 00.000.000/0000-00" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Razão Social</Label>
+                                <Input {...register('name', { required: true })} placeholder="Ex: Loja de Revestimentos LTDA" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Certificado Digital A1 (.pfx)</Label>
+                                <Input type="file" accept=".pfx,.p12" {...register('certificate', { required: true })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Senha do Certificado</Label>
+                                <Input type="password" {...register('password', { required: true })} placeholder="Senha do arquivo .pfx" />
+                            </div>
+                        </div>
+                        <div className="flex justify-end mt-4">
+                            <Button type="submit" disabled={isSavingSetup} className="bg-blue-600 hover:bg-blue-700">
+                                {isSavingSetup ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Configurando...
+                                    </>
+                                ) : (
+                                    'Configurar Certificado'
+                                )}
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </form>
+
             {/* Rules Form */}
             <form onSubmit={handleSubmit(onSubmit)}>
                 <Card>
@@ -148,7 +237,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Ambiente Webmania</Label>
+                                <Label>Ambiente NexosFiscal</Label>
                                 <Select
                                     defaultValue={settings?.environment}
                                     onValueChange={(val) => setValue('environment', val as '1' | '2')}
@@ -174,13 +263,15 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                             <h3 className="text-sm font-medium mb-4 text-gray-900">Tributação e Classificação</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label>ID da Classe de Imposto (Webmania)</Label>
-                                    <Input {...register('defaultTaxClass')} placeholder="Ex: 102" />
+                                    <div className="flex items-center justify-between">
+                                        <Label>ID da Classe de Imposto</Label>
+                                        <span className="text-xs text-gray-500">Opcional</span>
+                                    </div>
+                                    <Input {...register('defaultTaxClass')} placeholder="Ex: classe_01" />
                                     <p className="text-xs text-gray-500">
-                                        ID do grupo de impostos configurado no painel da Webmania (ex: Simples Nacional).
+                                        ID do grupo de impostos caso utilize perfil pré-configurado.
                                     </p>
                                 </div>
-
                                 <div className="space-y-2">
                                     <Label>NCM Padrão</Label>
                                     <Input {...register('defaultNcm')} placeholder="0000.00.00" />

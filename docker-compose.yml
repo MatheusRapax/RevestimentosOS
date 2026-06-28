@@ -38,6 +38,11 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       NODE_ENV: development
       PORT: 3000
+      FISCAL_MASTER_API_KEY: ${FISCAL_MASTER_API_KEY}
+      FISCAL_MICROSERVICE_URL: ${FISCAL_MICROSERVICE_URL:-http://host.docker.internal:5000/api/v1}
+      FISCAL_WEBHOOK_SECRET: ${FISCAL_WEBHOOK_SECRET}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

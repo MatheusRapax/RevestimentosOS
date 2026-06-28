@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { UpdateFiscalSettingsDto } from '../dto/update-fiscal-settings.dto';
+import FormData from 'form-data';
 
 @Injectable()
 export class FiscalService {
@@ -14,6 +15,76 @@ export class FiscalService {
     private httpService: HttpService,
     private configService: ConfigService,
   ) {}
+
+  async setupNexosFiscal(clinicId: string, name: string, document: string, pfxBuffer: Buffer, password: string, originalFileName: string) {
+    const masterApiKey = this.configService.get<string>('FISCAL_MASTER_API_KEY');
+    const apiUrl = this.configService.get<string>('FISCAL_MICROSERVICE_URL');
+
+    if (!masterApiKey || !apiUrl) {
+      throw new Error('FISCAL_MASTER_API_KEY ou FISCAL_MICROSERVICE_URL não configurados no .env');
+    }
+
+    try {
+      this.logger.log(`Starting NexosFiscal setup for clinic ${clinicId}`);
+
+      // 1. Create Tenant
+      const createTenantRes = await firstValueFrom(
+        this.httpService.post(`${apiUrl}/tenants`, { name, document }, {
+          headers: { 'X-API-Key': masterApiKey }
+        })
+      );
+      const tenantId = createTenantRes.data.id;
+      
+      this.logger.log(`Tenant created: ${tenantId}`);
+
+      // 2. Generate API Key
+      const createKeyRes = await firstValueFrom(
+        this.httpService.post(`${apiUrl}/tenants/${tenantId}/api-keys`, {}, {
+          headers: { 'X-API-Key': masterApiKey }
+        })
+      );
+      const apiKey = createKeyRes.data.key;
+
+      this.logger.log(`API Key generated for tenant: ${tenantId}`);
+
+      // 3. Upload Certificate
+      const form = new FormData();
+      form.append('file', pfxBuffer, { filename: originalFileName });
+      form.append('password', password);
+      form.append('name', `${name} - A1`);
+
+      await firstValueFrom(
+        this.httpService.post(`${apiUrl}/certificate`, form, {
+          headers: {
+            ...form.getHeaders(),
+            'X-API-Key': apiKey // Use the newly generated key
+          }
+        })
+      );
+      
+      this.logger.log(`Certificate uploaded for tenant: ${tenantId}`);
+
+      // 4. Save to Database
+      await this.prisma.clinicFiscalConfig.upsert({
+        where: { clinicId },
+        create: {
+          clinicId,
+          nexosTenantId: tenantId,
+          nexosApiKey: apiKey,
+          environment: '2', // default homologation
+        },
+        update: {
+          nexosTenantId: tenantId,
+          nexosApiKey: apiKey,
+        }
+      });
+
+      return { success: true, message: 'Configuração fiscal concluída com sucesso' };
+    } catch (error: any) {
+      this.logger.error(`Error in setupNexosFiscal: ${error.response?.data?.message || error.message}`);
+      throw new BadRequestException('Erro ao configurar serviço fiscal: ' + (error.response?.data?.message || error.message));
+    }
+  }
 
   async emitirNota(orderId: string, clinicId: string) {
     this.logger.log(
@@ -30,11 +101,8 @@ export class FiscalService {
       config = {
         clinicId,
         id: 'transient',
-        consumerKey: process.env.WEBMANIA_CONSUMER_KEY || null,
-        consumerSecret: process.env.WEBMANIA_CONSUMER_SECRET || null,
-        accessToken: process.env.WEBMANIA_ACCESS_TOKEN || null,
-        accessTokenSecret: process.env.WEBMANIA_ACCESS_TOKEN_SECRET || null,
-        environment: process.env.WEBMANIA_ENV || '2',
+        nexosApiKey: null,
+        environment: '2',
         defaultNaturezaOperacao: 'Venda de mercadoria',
         defaultNcm: null,
         defaultCest: null,
@@ -43,18 +111,12 @@ export class FiscalService {
       } as any;
     }
 
-    const consumerKey =
-      config?.consumerKey || process.env.WEBMANIA_CONSUMER_KEY;
-    const consumerSecret =
-      config?.consumerSecret || process.env.WEBMANIA_CONSUMER_SECRET;
-    const accessToken =
-      config?.accessToken || process.env.WEBMANIA_ACCESS_TOKEN;
-    const accessTokenSecret =
-      config?.accessTokenSecret || process.env.WEBMANIA_ACCESS_TOKEN_SECRET;
+    const apiKey = config?.nexosApiKey;
+    const apiUrl = this.configService.get<string>('FISCAL_MICROSERVICE_URL');
 
-    if (!consumerKey || !consumerSecret || !accessToken || !accessTokenSecret) {
+    if (!apiKey) {
       throw new Error(
-        'Configurações fiscais (Webmania) incompletas na clínica ou variáveis de ambiente.',
+        'Configuração FISCAL_API_KEY não definida nas variáveis de ambiente.',
       );
     }
 
@@ -72,7 +134,16 @@ export class FiscalService {
       },
     });
 
-    if (!order) throw new Error('Pedido não encontrado.');
+    if (!order) {
+      throw new BadRequestException('Pedido não encontrado');
+    }
+
+    const blockedStatuses = ['CRIADO', 'RASCUNHO', 'AGUARDANDO_PAGAMENTO', 'CANCELADO'];
+    if (blockedStatuses.includes(order.status)) {
+      throw new BadRequestException(
+        `Não é possível emitir NFe para um pedido no status ${order.status}. O pedido deve estar confirmado/pago.`,
+      );
+    }
     if (!order.customer) throw new Error('Cliente não associado ao pedido.');
     if (!order.customer.document)
       throw new Error('CPF/CNPJ do cliente não cadastrado.');
@@ -80,115 +151,137 @@ export class FiscalService {
     // 3. Prepare Payload
     const baseUrl =
       this.configService.get('APP_URL') || 'https://api.revestimentos.com.br';
-    const notificationUrl = `${baseUrl}/api/fiscal/webhook`;
-    const isProduction = config?.environment === '1';
+    
+    // Fallbacks for address mapping
+    const [logradouro, numero] = (order.customer.address || '').split(',').map(s => s.trim());
 
     const payload = {
-      ID: order.id,
-      url_notificacao: notificationUrl,
-      operacao: 1, // Saída
-      natureza_operacao:
-        config?.defaultNaturezaOperacao || 'Venda de mercadoria',
-      modelo: 1, // NF-e
-      finalidade: 1, // Normal
-      ambiente: isProduction ? 1 : 2,
-      cliente: {
-        cpf:
-          order.customer.document.length === 11
-            ? order.customer.document
-            : undefined,
-        cnpj:
-          order.customer.document.length > 11
-            ? order.customer.document
-            : undefined,
-        razao_social: order.customer.name,
-        endereco: order.customer.address,
-        cidade: order.customer.city,
-        uf: order.customer.state,
-        cep: order.customer.zipCode,
-        telefone: order.customer.phone,
-        email: order.customer.email,
+      externalId: order.id,
+      naturezaOperacao: config?.defaultNaturezaOperacao || 'Venda de mercadorias',
+      finalidade: 'NORMAL',
+      destinatario: {
+        tipo: order.customer.document.length > 11 ? 'PJ' : 'PF',
+        cnpjCpf: order.customer.document,
+        razaoSocial: order.customer.name,
+        endereco: {
+          logradouro: logradouro || order.customer.address || 'Rua não informada',
+          numero: numero || 'S/N',
+          bairro: order.customer.neighborhood || 'Centro',
+          codigoMunicipio: '3550308', // Default until IBGE codes are added to Customer model
+          municipio: order.customer.city || 'São Paulo',
+          uf: order.customer.state || 'SP',
+          cep: order.customer.zipCode || '01001000'
+        }
       },
-      produtos: order.items.map((item) => ({
-        nome: item.product.name,
-        codigo: item.product.id.substring(0, 20),
-        ncm: item.product.ncm || config?.defaultNcm || '00000000',
-        cest: item.product.cest || config?.defaultCest,
-        quantidade: item.quantityBoxes,
-        unidade: item.product.unit || 'UN',
-        peso: item.product.boxWeight
-          ? (item.quantityBoxes * item.product.boxWeight).toFixed(3)
-          : '0.000',
-        origem: item.product.origin ?? config?.defaultOrigin ?? 0,
-        subtotal: (item.totalCents / 100).toFixed(2),
-        total: (item.totalCents / 100).toFixed(2),
-        classe_imposto: item.product.taxClass || config?.defaultTaxClass,
-      })),
-      pedido: {
-        pagamento: 0,
-        forma_pagamento: 15, // Boleto default for now
-        frete: order.deliveryFee
-          ? (order.deliveryFee / 100).toFixed(2)
-          : '0.00',
+      itens: order.items.map((item) => {
+        const isM2 = item.product.unit?.toUpperCase() === 'M2';
+        const qty = isM2 && item.product.boxCoverage 
+          ? Number((item.quantityBoxes * item.product.boxCoverage).toFixed(2))
+          : item.quantityBoxes;
+          
+        const totalValue = item.totalCents / 100;
+        const unitPrice = totalValue / (qty || 1);
+
+        return {
+          codigo: item.product.id.substring(0, 20),
+          descricao: item.product.name,
+          ncm: item.product.ncm || config?.defaultNcm || '00000000',
+          cfop: '5102',
+          unidade: isM2 ? 'M2' : (item.product.unit || 'UN'),
+          quantidade: qty,
+          valorUnitario: Number(unitPrice.toFixed(2)),
+          valorTotal: Number(totalValue.toFixed(2)),
+          impostos: {
+             icms: { cst: '00', aliquota: 18.0, baseCalculo: Number(totalValue.toFixed(2)) },
+             pis: { cst: '01', aliquota: 1.65, baseCalculo: Number(totalValue.toFixed(2)) },
+             cofins: { cst: '01', aliquota: 7.60, baseCalculo: Number(totalValue.toFixed(2)) }
+          }
+        };
+      }),
+      frete: {
+        modalidade: order.deliveryFee > 0 ? 0 : 9,
+        valorFrete: order.deliveryFee ? Number((order.deliveryFee / 100).toFixed(2)) : 0
       },
+      pagamento: {
+        tipo: 'A_VISTA',
+        formas: [
+          { meio: 'PIX', valor: Number(((order.totalCents + (order.deliveryFee || 0)) / 100).toFixed(2)) }
+        ]
+      }
     };
 
     // 4. Send Request
     const headers = {
-      'X-Consumer-Key': consumerKey,
-      'X-Consumer-Secret': consumerSecret,
-      'X-Access-Token': accessToken,
-      'X-Access-Token-Secret': accessTokenSecret,
+      'X-API-Key': apiKey,
       'Content-Type': 'application/json',
     };
 
     try {
-      const url = 'https://webmania.me/api/1/nfe/emissao';
-      const response = await firstValueFrom(
+      const url = `${apiUrl}/nfe/emit`;
+      await firstValueFrom(
         this.httpService.post(url, payload, { headers }),
       );
-      const data = response.data as any;
-
-      if (data.error) {
-        throw new Error(`Webmania Error: ${data.error}`);
-      }
-
-      // 5. Save Record
-      await this.prisma.fiscalDocument.create({
-        data: {
-          clinicId,
-          orderId,
-          uuid: data.uuid,
-          status: data.status,
-          type: 'NFE',
-          xmlUrl: data.xml,
-          danfeUrl: data.danfe,
-          serie: data.serie,
-          number: data.nfe ? String(data.nfe) : null,
-          key: data.chave,
-        },
+      
+      // Manual upsert since orderId is not unique
+      let fiscalDoc = await this.prisma.fiscalDocument.findFirst({
+        where: { orderId },
       });
 
+      if (fiscalDoc) {
+        await this.prisma.fiscalDocument.update({
+          where: { id: fiscalDoc.id },
+          data: {
+            status: 'PROCESSING',
+            type: 'NFE',
+            errorMessage: null,
+          },
+        });
+      } else {
+        await this.prisma.fiscalDocument.create({
+          data: {
+            clinicId,
+            orderId,
+            status: 'PROCESSING',
+            type: 'NFE',
+          },
+        });
+      }
+
       return {
-        status: 'SUCCESS',
-        message: 'Nota Fiscal enviada para processamento.',
-        uuid: data.uuid,
+        status: 'PROCESSING',
+        message: 'Nota Fiscal enviada para processamento assíncrono.',
       };
     } catch (error: any) {
       this.logger.error(`Error emitting NF-e: ${error.message}`, error.stack);
 
       // Log rejection
-      await this.prisma.fiscalDocument.create({
-        data: {
-          clinicId,
-          orderId,
-          status: 'REJECTED',
-          type: 'NFE',
-          errorMessage: error.response?.data?.error || error.message,
-        },
+      let errorDoc = await this.prisma.fiscalDocument.findFirst({
+        where: { orderId },
       });
 
-      throw error;
+      const errorMessage = error.response?.data?.message || error.message || 'Falha na comunicação com a API Fiscal.';
+
+      if (errorDoc) {
+        await this.prisma.fiscalDocument.update({
+          where: { id: errorDoc.id },
+          data: {
+            status: 'REJECTED',
+            errorMessage: errorMessage,
+          },
+        });
+      } else {
+        await this.prisma.fiscalDocument.create({
+          data: {
+            clinicId,
+            orderId,
+            status: 'REJECTED',
+            type: 'NFE',
+            errorMessage: errorMessage,
+          },
+        });
+      }
+
+      throw new BadRequestException(errorMessage);
     }
   }
 
@@ -197,15 +290,13 @@ export class FiscalService {
       where: { clinicId },
     });
 
-    const hasEnvCredentials =
-      !!process.env.WEBMANIA_CONSUMER_KEY &&
-      !!process.env.WEBMANIA_CONSUMER_SECRET;
+    const hasEnvCredentials = !!process.env.FISCAL_MASTER_API_KEY;
 
     if (!config) {
       return {
         hasCredentials: hasEnvCredentials,
         source: 'env',
-        environment: process.env.WEBMANIA_ENV || '2',
+        environment: '2',
         defaultNaturezaOperacao: 'Venda de mercadoria',
         defaultTaxClass: null,
         defaultNcm: null,
@@ -214,7 +305,7 @@ export class FiscalService {
       };
     }
 
-    const hasDbCredentials = !!config.consumerKey && !!config.consumerSecret;
+    const hasDbCredentials = !!config.nexosApiKey;
 
     return {
       hasCredentials: hasDbCredentials || hasEnvCredentials,
@@ -241,55 +332,50 @@ export class FiscalService {
 
   async handleWebhook(payload: any) {
     this.logger.log(
-      `Received Webhook from Webmania: ${JSON.stringify(payload)}`,
+      `Received Webhook from NexosFiscal: ${JSON.stringify(payload)}`,
     );
 
-    const { uuid, status, nfe, serie, chave, xml, danfe, log, motivo } =
-      payload;
+    const { event, data } = payload;
 
-    if (!uuid) {
-      this.logger.warn('Webhook payload missing UUID');
-      return { status: 'IGNORED', message: 'Missing UUID' };
+    const orderId = data.externalId || data.ExternalId;
+
+    if (!orderId) {
+      this.logger.warn('Webhook payload missing externalId');
+      return { status: 'IGNORED', message: 'Missing externalId' };
     }
 
-    const fiscalDoc = await this.prisma.fiscalDocument.findUnique({
-      where: { uuid },
+    const fiscalDoc = await this.prisma.fiscalDocument.findFirst({
+      where: { orderId },
     });
 
     if (!fiscalDoc) {
-      this.logger.warn(`FiscalDocument not found for UUID: ${uuid}`);
+      this.logger.warn(`FiscalDocument not found for OrderId: ${orderId}`);
       return { status: 'NOT_FOUND', message: 'FiscalDocument not found' };
     }
 
     let newStatus = fiscalDoc.status;
     let errorMessage = null;
 
-    const statusLower = status?.toLowerCase();
-
-    if (statusLower === 'aprovado') newStatus = 'APPROVED';
-    else if (statusLower === 'rejeitado') newStatus = 'REJECTED';
-    else if (statusLower === 'cancelado') newStatus = 'CANCELLED';
-    else if (statusLower === 'processando') newStatus = 'PROCESSING';
-    else if (statusLower === 'contingencia') newStatus = 'CONTINGENCY';
-
-    if (newStatus === 'REJECTED') {
-      errorMessage = log || motivo || 'Rejeição desconhecida';
+    if (event === 'NFeAuthorized') newStatus = 'APPROVED';
+    else if (event === 'NFeRejected') {
+      newStatus = 'REJECTED';
+      errorMessage = data.rejectionReason || data.RejectionReason;
     }
+    else if (event === 'NFeCanceled') newStatus = 'CANCELLED';
 
     await this.prisma.fiscalDocument.update({
-      where: { uuid },
+      where: { id: fiscalDoc.id },
       data: {
         status: newStatus,
-        number: nfe ? String(nfe) : fiscalDoc.number,
-        serie: serie ? String(serie) : fiscalDoc.serie,
-        key: chave || fiscalDoc.key,
-        xmlUrl: xml || fiscalDoc.xmlUrl,
-        danfeUrl: danfe || fiscalDoc.danfeUrl,
+        uuid: data.documentId || data.DocumentId || fiscalDoc.uuid,
+        key: data.accessKey || data.AccessKey || fiscalDoc.key,
+        xmlUrl: data.xmlPath || data.XmlPath || fiscalDoc.xmlUrl,
+        danfeUrl: data.pdfPath || data.PdfPath || fiscalDoc.danfeUrl,
         errorMessage: errorMessage,
       },
     });
 
-    this.logger.log(`Updated FiscalDocument ${uuid} to ${newStatus}`);
+    this.logger.log(`Updated FiscalDocument for Order ${orderId} to ${newStatus}`);
     return { status: 'SUCCESS' };
   }
 }

@@ -12,10 +12,15 @@ async function bootstrap() {
   validateEnv();
 
   // Create NestJS application
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
-  // Increase body parser limits for large import payloads
-  app.use(bodyParser.json({ limit: '50mb' }));
+  // Increase body parser limits for large import payloads and preserve rawBody for webhooks
+  app.use(bodyParser.json({ 
+    limit: '50mb',
+    verify: (req: any, res, buf) => {
+      req.rawBody = buf;
+    }
+  }));
   app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
   // Enable global validation pipe

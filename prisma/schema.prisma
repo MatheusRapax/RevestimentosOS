@@ -1762,11 +1762,9 @@ model ClinicFiscalConfig {
   id       String @id @default(uuid())
   clinicId String @unique
 
-  // Credentials (Optional - Fallback to Env Vars)
-  consumerKey       String?
-  consumerSecret    String?
-  accessToken       String?
-  accessTokenSecret String?
+  // NexosFiscal Credentials
+  nexosTenantId String?
+  nexosApiKey   String?
 
   // Business Rules / Defaults
   environment             String  @default("2") // 1=Production, 2=Homologation

@@ -679,14 +679,15 @@ export default function OrdersPage() {
                                                 <FileText className="h-4 w-4" />
                                                 Nota Fiscal
                                             </h3>
-                                            {(!displayOrder.fiscalDocuments || displayOrder.fiscalDocuments.length === 0) && (
+                                            {(!displayOrder.fiscalDocuments || displayOrder.fiscalDocuments.length === 0 || displayOrder.fiscalDocuments.every((d: any) => ['REJEITADO', 'REJECTED', 'ERROR'].includes(d.status))) && (
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
                                                     onClick={handleEmitFiscal}
-                                                    disabled={isEmitting}
+                                                    disabled={isEmitting || ['CRIADO', 'RASCUNHO', 'AGUARDANDO_PAGAMENTO', 'CANCELADO'].includes(displayOrder.status)}
+                                                    title={['CRIADO', 'RASCUNHO', 'AGUARDANDO_PAGAMENTO', 'CANCELADO'].includes(displayOrder.status) ? 'O pedido deve estar pago/confirmado para emitir NFe' : ''}
                                                 >
-                                                    {isEmitting ? 'Emitindo...' : 'Emitir Nota'}
+                                                    {isEmitting ? 'Emitindo...' : (displayOrder.fiscalDocuments?.length > 0 ? 'Tentar Novamente' : 'Emitir Nota')}
                                                 </Button>
                                             )}
                                         </div>
@@ -708,12 +709,12 @@ export default function OrdersPage() {
                                                             </div>
                                                             <div className="flex gap-2">
                                                                 {doc.xmlUrl && (
-                                                                    <a href={doc.xmlUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
+                                                                    <a href={doc.xmlUrl.replace('/app/storage', 'http://localhost:5000/storage')} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
                                                                         XML
                                                                     </a>
                                                                 )}
                                                                 {doc.danfeUrl && (
-                                                                    <a href={doc.danfeUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
+                                                                    <a href={doc.danfeUrl.replace('/app/storage', 'http://localhost:5000/storage')} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
                                                                         PDF
                                                                     </a>
                                                                 )}
