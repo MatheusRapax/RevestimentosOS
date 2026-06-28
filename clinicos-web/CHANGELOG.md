@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.19](///compare/v0.1.18...v0.1.19) (2026-06-28)
+
+
+### Features
+
+* **fiscal:** migração completa da Webmania para NexosFiscal 84b8274
+
+
+### Bug Fixes
+
+* **stock:** sanitização universal de custos e bloqueio de falsos produtos 0abad5e
+
 ### [0.1.18](///compare/v0.1.17...v0.1.18) (2026-06-26)
 
 

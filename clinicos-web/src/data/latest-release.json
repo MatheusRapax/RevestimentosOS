@@ -1,4 +1,4 @@
 {
-  "version": "0.1.18",
-  "content": "### Bug Fixes\n\n* resolução de bugs críticos no frontend (orçamentos e importação) e build do backend 23dfb1a"
+  "version": "0.1.19",
+  "content": "### Features\n\n* **fiscal:** migração completa da Webmania para NexosFiscal 84b8274\n\n\n### Bug Fixes\n\n* **stock:** sanitização universal de custos e bloqueio de falsos produtos 0abad5e"
 }
