@@ -1,4 +1,4 @@
 {
-  "version": "0.1.20",
-  "content": "### Features\n\n* **fiscal:** implementar pipeline de governanca fiscal e 3-way matching 5db6cda\n\n\n### Bug Fixes\n\n* **fiscal:** estabilização do fluxo de emissão de NF-e e sincronização de dados 4b5b4fa"
+  "version": "1.0.0",
+  "content": "### Features\n\n* **fiscal:** parametrização global de CFOP e CST para produtos d970c91"
 }
