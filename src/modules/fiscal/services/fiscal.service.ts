@@ -377,6 +377,8 @@ export class FiscalService {
         defaultTaxClass: null,
         defaultNcm: null,
         defaultCest: null,
+        defaultCfop: null,
+        defaultCst: null,
         defaultOrigin: 0,
       };
     }
@@ -391,6 +393,8 @@ export class FiscalService {
       defaultTaxClass: config.defaultTaxClass,
       defaultNcm: config.defaultNcm,
       defaultCest: config.defaultCest,
+      defaultCfop: config.defaultCfop,
+      defaultCst: config.defaultCst,
       defaultOrigin: config.defaultOrigin,
     };
   }

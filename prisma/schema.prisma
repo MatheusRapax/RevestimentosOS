@@ -1776,6 +1776,8 @@ model ClinicFiscalConfig {
   defaultTaxClass         String? // ID da Classe de Imposto na Webmania
   defaultNcm              String?
   defaultCest             String?
+  defaultCfop             String?
+  defaultCst              String?
   defaultOrigin           Int?    @default(0) // 0=Nacional, etc.
 
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)

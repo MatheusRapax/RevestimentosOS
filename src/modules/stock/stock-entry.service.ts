@@ -559,6 +559,12 @@ export class StockEntryService {
       entry.notes =
         `${entry.notes || ''}\n[Aprovação de Divergência]: ${options.justification}`.trim();
     }
+    // Buscar CFOP/CST padrão da loja para usar ao atualizar master data
+    const fiscalConfig = await this.prisma.clinicFiscalConfig.findUnique({
+      where: { clinicId },
+    });
+    const defaultCfop = fiscalConfig?.defaultCfop || null;
+    const defaultCst = fiscalConfig?.defaultCst || null;
 
     // Start Transaction
     const result = await this.prisma.$transaction(async (tx) => {
@@ -633,7 +639,7 @@ export class StockEntryService {
         // 2c. Update Product Cost (Last Cost Strategy) and Fiscal Data
         const prod = await tx.product.findUnique({
           where: { id: item.productId },
-          select: { boxCoverage: true },
+          select: { boxCoverage: true, cfop: true, cst: true },
         });
         const coverage = prod?.boxCoverage ?? 0;
 
@@ -653,8 +659,14 @@ export class StockEntryService {
         if (options?.updateMasterData) {
           if (item.ncm) updateData.ncm = item.ncm;
           if (item.cest) updateData.cest = item.cest;
-          if (item.cfop) updateData.cfop = item.cfop;
-          if (item.cst) updateData.cst = item.cst;
+          
+          // NUNCA usamos o CFOP/CST do fornecedor, usamos o padrão da loja de revenda
+          if (!prod?.cfop && defaultCfop) {
+            updateData.cfop = defaultCfop;
+          }
+          if (!prod?.cst && defaultCst) {
+            updateData.cst = defaultCst;
+          }
         }
 
         if (Object.keys(updateData).length > 1) {

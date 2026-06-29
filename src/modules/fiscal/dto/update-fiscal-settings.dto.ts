@@ -18,6 +18,14 @@ export class UpdateFiscalSettingsDto {
   defaultCest?: string;
 
   @IsOptional()
+  @IsString()
+  defaultCfop?: string;
+
+  @IsOptional()
+  @IsString()
+  defaultCst?: string;
+
+  @IsOptional()
   @IsInt()
   defaultOrigin?: number;
 

@@ -20,6 +20,8 @@ interface FiscalSettings {
     defaultTaxClass: string | null;
     defaultNcm: string | null;
     defaultCest: string | null;
+    defaultCfop: string | null;
+    defaultCst: string | null;
     defaultOrigin: number;
     // New fields for NexosFiscal setup
     document?: string;
@@ -59,6 +61,8 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             setValue('defaultTaxClass', data.defaultTaxClass || '');
             setValue('defaultNcm', data.defaultNcm || '');
             setValue('defaultCest', data.defaultCest || '');
+            setValue('defaultCfop', data.defaultCfop || '');
+            setValue('defaultCst', data.defaultCst || '');
             setValue('defaultOrigin', data.defaultOrigin);
             setValue('environment', data.environment);
 
@@ -280,6 +284,17 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                                 <div className="space-y-2">
                                     <Label>Cest Padrão</Label>
                                     <Input {...register('defaultCest')} placeholder="" />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>CFOP Padrão (Saída)</Label>
+                                    <Input {...register('defaultCfop')} placeholder="Ex: 5102 (Revenda)" />
+                                    <p className="text-xs text-gray-500">Usado ao dar entrada em notas de compra para evitar conflito com o CFOP do fornecedor.</p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>CST Padrão</Label>
+                                    <Input {...register('defaultCst')} placeholder="Ex: 00" />
                                 </div>
 
                                 <div className="space-y-2">
