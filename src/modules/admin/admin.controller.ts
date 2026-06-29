@@ -21,7 +21,7 @@ import { CreateTenantDto, UpdateTenantDto } from './dto/tenant.dto';
 @Controller('admin')
 @UseGuards(JwtAuthGuard, SuperAdminGuard)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) { }
+  constructor(private readonly adminService: AdminService) {}
 
   @Get('tenants')
   async getTenants() {

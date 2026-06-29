@@ -54,7 +54,11 @@ export class EnvironmentsController {
     @Param('id') id: string,
     @Body() updateEnvironmentDto: UpdateEnvironmentDto,
   ) {
-    return this.environmentsService.update(id, req.clinicId, updateEnvironmentDto);
+    return this.environmentsService.update(
+      id,
+      req.clinicId,
+      updateEnvironmentDto,
+    );
   }
 
   @Delete(':id')

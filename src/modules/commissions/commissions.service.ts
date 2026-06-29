@@ -138,7 +138,7 @@ export class CommissionsService {
     const inUseByUsers = await this.prisma.user.findFirst({
       where: { commissionRuleId: id },
     });
-    
+
     const inUseByArchitects = await this.prisma.architect.findFirst({
       where: { commissionRuleId: id },
     });

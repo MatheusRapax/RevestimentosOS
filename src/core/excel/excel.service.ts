@@ -9,7 +9,11 @@ export class ExcelService {
    * @param headerRowIndex Index of the header row (0-based)
    * @param options Additional options for sheet_to_json
    */
-  parseExcel(buffer: Buffer, headerRowIndex: number = 0, options: { raw?: boolean } = {}): any[] {
+  parseExcel(
+    buffer: Buffer,
+    headerRowIndex: number = 0,
+    options: { raw?: boolean } = {},
+  ): any[] {
     try {
       const workbook = XLSX.read(buffer, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
@@ -72,7 +76,11 @@ export class ExcelService {
    * Parse specific sheets from an Excel buffer and concatenate their rows.
    * Useful for templates spread across multiple tabs.
    */
-  parseMultipleSheets(buffer: Buffer, targetSheetNames: string[], options: { raw?: boolean } = {}): any[] {
+  parseMultipleSheets(
+    buffer: Buffer,
+    targetSheetNames: string[],
+    options: { raw?: boolean } = {},
+  ): any[] {
     try {
       const workbook = XLSX.read(buffer, { type: 'buffer' });
       let allRows: any[] = [];

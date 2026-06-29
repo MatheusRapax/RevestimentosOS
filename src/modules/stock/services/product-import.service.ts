@@ -32,7 +32,18 @@ export interface ImportProductResult {
   barcode?: string;
 }
 
-export type ImportStrategy = 'CASTELLI' | 'PIERINI' | 'EMBRAMACO' | 'BOUTIQUE BRASIL' | 'GLAM BRASIL' | 'LEXXA BAGNO' | 'MOSAIC' | 'DECA' | 'DEXCO' | 'STRUFALDI' | 'STANDARD';
+export type ImportStrategy =
+  | 'CASTELLI'
+  | 'PIERINI'
+  | 'EMBRAMACO'
+  | 'BOUTIQUE BRASIL'
+  | 'GLAM BRASIL'
+  | 'LEXXA BAGNO'
+  | 'MOSAIC'
+  | 'DECA'
+  | 'DEXCO'
+  | 'STRUFALDI'
+  | 'STANDARD';
 
 @Injectable()
 export class ProductImportService {
@@ -84,42 +95,106 @@ export class ProductImportService {
     ];
 
     const exampleM2 = [
-      'REV-001', 'Porcelanato Calacata Oro', 'M2', '50,00',
-      '60x120', 'Polido', '2,16', '3', '30', '64,80', '28,5',
-      'Piso Interno', 'Mármore', '', '', '', '69072100', '', '5102', '000', '7891234567890'
+      'REV-001',
+      'Porcelanato Calacata Oro',
+      'M2',
+      '50,00',
+      '60x120',
+      'Polido',
+      '2,16',
+      '3',
+      '30',
+      '64,80',
+      '28,5',
+      'Piso Interno',
+      'Mármore',
+      '',
+      '',
+      '',
+      '69072100',
+      '',
+      '5102',
+      '000',
+      '7891234567890',
     ];
 
     const exampleUN = [
-      'MET-001', 'Torneira Lavatório Bica Alta', 'UN', '150,00',
-      '', 'Cromado', '', '', '', '', '1,2',
-      'Banheiro', 'Metais', '15', '25', '5', '84818019', '', '5102', '000', '7891234567891'
+      'MET-001',
+      'Torneira Lavatório Bica Alta',
+      'UN',
+      '150,00',
+      '',
+      'Cromado',
+      '',
+      '',
+      '',
+      '',
+      '1,2',
+      'Banheiro',
+      'Metais',
+      '15',
+      '25',
+      '5',
+      '84818019',
+      '',
+      '5102',
+      '000',
+      '7891234567891',
     ];
 
     const exampleCX = [
-      'PIS-001', 'Piso Vinílico Click 4mm', 'CX', '180,00',
-      '18x122', 'Carvalho Natural', '2,23', '14', '40', '89,20', '12,0',
-      'Piso Interno', 'Vinílico', '', '', '', '39181000', '', '5102', '000', '7891234567892'
+      'PIS-001',
+      'Piso Vinílico Click 4mm',
+      'CX',
+      '180,00',
+      '18x122',
+      'Carvalho Natural',
+      '2,23',
+      '14',
+      '40',
+      '89,20',
+      '12,0',
+      'Piso Interno',
+      'Vinílico',
+      '',
+      '',
+      '',
+      '39181000',
+      '',
+      '5102',
+      '000',
+      '7891234567892',
     ];
 
     const instructions = [
       ['INSTRUÇÕES DE PREENCHIMENTO'],
       [''],
       ['UNIDADE DE MEDIDA — Valores aceitos:'],
-      ['  M2  → Produto vendido por m² (porcelanatos, pisos, revestimentos de parede)'],
+      [
+        '  M2  → Produto vendido por m² (porcelanatos, pisos, revestimentos de parede)',
+      ],
       ['  UN  → Produto vendido por unidade (torneiras, vasos, boxes)'],
       ['  CX  → Produto vendido por caixa (pisos vinílicos, laminados)'],
       ['  ML  → Produto vendido por metro linear (rodapés, perfis)'],
       ['  PC  → Produto vendido por peça (espelhos, painéis)'],
       [''],
       ['CUSTO (R$):'],
-      ['  → Se Unidade = M2: informe o custo por m². O preço de venda também será por m².'],
-      ['  → Para os demais tipos: informe o custo por unidade/caixa/peça diretamente.'],
+      [
+        '  → Se Unidade = M2: informe o custo por m². O preço de venda também será por m².',
+      ],
+      [
+        '  → Para os demais tipos: informe o custo por unidade/caixa/peça diretamente.',
+      ],
       [''],
       ['PREÇO DE VENDA:'],
-      ['  → Não é informado aqui. O sistema calcula usando o Markup da Marca/Categoria.'],
+      [
+        '  → Não é informado aqui. O sistema calcula usando o Markup da Marca/Categoria.',
+      ],
       [''],
       ['MARCA:'],
-      ['  → Não é informada aqui. É selecionada no formulário antes do upload do arquivo.'],
+      [
+        '  → Não é informada aqui. É selecionada no formulário antes do upload do arquivo.',
+      ],
       [''],
       ['DADOS FISCAIS:'],
       ['  → NCM: Nomenclatura Comum do Mercosul (8 dígitos, ex: 69072100).'],
@@ -130,13 +205,34 @@ export class ProductImportService {
 
     const wb = XLSX.utils.book_new();
 
-    const wsData = XLSX.utils.aoa_to_sheet([header, exampleM2, exampleUN, exampleCX]);
+    const wsData = XLSX.utils.aoa_to_sheet([
+      header,
+      exampleM2,
+      exampleUN,
+      exampleCX,
+    ]);
     wsData['!cols'] = [
-      { wch: 14 }, { wch: 35 }, { wch: 36 }, { wch: 18 },
-      { wch: 18 }, { wch: 20 }, { wch: 14 }, { wch: 14 },
-      { wch: 16 }, { wch: 14 }, { wch: 18 }, { wch: 28 },
-      { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 18 },
-      { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 24 }, // Campos Fiscais
+      { wch: 14 },
+      { wch: 35 },
+      { wch: 36 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 20 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 14 },
+      { wch: 18 },
+      { wch: 28 },
+      { wch: 20 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 24 }, // Campos Fiscais
     ];
     XLSX.utils.book_append_sheet(wb, wsData, 'Produtos');
 
@@ -165,7 +261,7 @@ export class ProductImportService {
     } else {
       rows = this.excelService.parseExcel(buffer);
     }
-    
+
     this.validateTemplate(rows, strategy);
 
     let results: ImportProductResult[] = [];
@@ -203,7 +299,7 @@ export class ProductImportService {
 
     if (results.length === 0) {
       throw new BadRequestException(
-        `Nenhum produto válido foi encontrado. O layout da planilha não parece ser compatível com o modelo selecionado (${strategy}) ou a planilha está vazia.`
+        `Nenhum produto válido foi encontrado. O layout da planilha não parece ser compatível com o modelo selecionado (${strategy}) ou a planilha está vazia.`,
       );
     }
 
@@ -211,7 +307,6 @@ export class ProductImportService {
   }
 
   // ========== PRIVATE CALCULATION UTILS ==========
-  
 
   // ========== PARSERS ==========
 
@@ -253,9 +348,12 @@ export class ProductImportService {
 
       if (!sku && !name) continue;
 
-      const rawUnit = String(row[2] || '').trim().toUpperCase();
+      const rawUnit = String(row[2] || '')
+        .trim()
+        .toUpperCase();
       const unit = rawUnit || 'UN';
-      const saleType: 'UNIT' | 'AREA' | 'BOTH' = unit === 'M2' ? 'AREA' : 'UNIT';
+      const saleType: 'UNIT' | 'AREA' | 'BOTH' =
+        unit === 'M2' ? 'AREA' : 'UNIT';
 
       const rawCost = this.excelService.parseNumber(row[3]);
       const format = String(row[4] || '').trim();
@@ -282,10 +380,12 @@ export class ProductImportService {
       //   The system quotes by boxes → qty × costPerBox
       //   costPerM2Cents is kept separately for display in the preview table
       // - All others: costCents = unit/box cost directly
-      const costPerM2Cents = unit === 'M2' && rawCost ? Math.round(rawCost * 100) : undefined;
-      const costCents = unit === 'M2' && m2Box > 0
-        ? Math.round(rawCost * m2Box * 100)  // box cost = R$/m² × m²/cx
-        : Math.round((rawCost ?? 0) * 100);
+      const costPerM2Cents =
+        unit === 'M2' && rawCost ? Math.round(rawCost * 100) : undefined;
+      const costCents =
+        unit === 'M2' && m2Box > 0
+          ? Math.round(rawCost * m2Box * 100) // box cost = R$/m² × m²/cx
+          : Math.round((rawCost ?? 0) * 100);
 
       results.push({
         sku,
@@ -328,43 +428,71 @@ export class ProductImportService {
 
     for (let i = 0; i < maxRowsToCheck; i++) {
       const row = rows[i] || [];
-      const rowStr = row.map((c: any) => String(c || '').trim().toLowerCase());
+      const rowStr = row.map((c: any) =>
+        String(c || '')
+          .trim()
+          .toLowerCase(),
+      );
 
       switch (strategy) {
         case 'STANDARD':
           // Validates the unified 18-col template by checking its mandatory header columns
           if (
             rowStr.some((c: string) => c.includes('sku')) &&
-            rowStr.some((c: string) => c.includes('nome do produto') || c.includes('nome'))
+            rowStr.some(
+              (c: string) =>
+                c.includes('nome do produto') || c.includes('nome'),
+            )
           ) {
             isValid = true;
           }
           break;
         case 'CASTELLI':
         case 'EMBRAMACO':
-          if (rowStr.includes('ref.') && rowStr.includes('descrição')) isValid = true;
+          if (rowStr.includes('ref.') && rowStr.includes('descrição'))
+            isValid = true;
           break;
         case 'PIERINI':
-          if (rowStr.includes('linha') && rowStr.includes('cód.') && rowStr.includes('descrição')) isValid = true;
+          if (
+            rowStr.includes('linha') &&
+            rowStr.includes('cód.') &&
+            rowStr.includes('descrição')
+          )
+            isValid = true;
           break;
         case 'DEXCO':
-          if (rowStr.includes('codigoproduto') || rowStr.includes('material')) isValid = true;
+          if (rowStr.includes('codigoproduto') || rowStr.includes('material'))
+            isValid = true;
           break;
         case 'STRUFALDI':
-          if (rowStr.includes('código fabricante') || rowStr.includes('descrição curta')) isValid = true;
+          if (
+            rowStr.includes('código fabricante') ||
+            rowStr.includes('descrição curta')
+          )
+            isValid = true;
           break;
         case 'MOSAIC':
         case 'DECA':
-          if (rowStr.includes('material') || rowStr.includes('codigoproduto')) isValid = true;
+          if (rowStr.includes('material') || rowStr.includes('codigoproduto'))
+            isValid = true;
           break;
         case 'BOUTIQUE BRASIL':
-          if (rowStr.includes('cód.') && (rowStr.includes('descrição') || rowStr.includes('produtos'))) isValid = true;
+          if (
+            rowStr.includes('cód.') &&
+            (rowStr.includes('descrição') || rowStr.includes('produtos'))
+          )
+            isValid = true;
           break;
         case 'GLAM BRASIL':
-          if (rowStr.includes('cód.') && (rowStr.includes('descrição') || rowStr.includes('produtos'))) isValid = true;
+          if (
+            rowStr.includes('cód.') &&
+            (rowStr.includes('descrição') || rowStr.includes('produtos'))
+          )
+            isValid = true;
           break;
         case 'LEXXA BAGNO':
-          if (rowStr.includes('referência') && rowStr.includes('descrição')) isValid = true;
+          if (rowStr.includes('referência') && rowStr.includes('descrição'))
+            isValid = true;
           break;
         default:
           isValid = true;
@@ -397,7 +525,11 @@ export class ProductImportService {
       if (row.includes('Ref.') && row.includes('Descrição')) {
         headerIndex = i;
         for (let j = 0; j < row.length; j++) {
-          if (String(row[j] || '').toLowerCase().includes('frac')) {
+          if (
+            String(row[j] || '')
+              .toLowerCase()
+              .includes('frac')
+          ) {
             fracIndex = j;
           }
         }
@@ -433,7 +565,8 @@ export class ProductImportService {
 
       // If the name column is just a number (e.g. "62.59"), this is likely a price table, not the product definition.
       // Many supplier spreadsheets include a second table at the bottom with pricing terms.
-      if (!isNaN(Number(col1.replace(',', '.'))) && col1.trim() !== '') continue;
+      if (!isNaN(Number(col1.replace(',', '.'))) && col1.trim() !== '')
+        continue;
 
       // If Col 0 is a format like "62 x 120" and the rest is empty/price 0, it is a section.
       // But sometimes the SKU might look like that? Unlikely. SKUs are usually numeric like 73720.
@@ -459,8 +592,8 @@ export class ProductImportService {
         !row[10];
 
       let cost = 0;
-      let format = String(row[2] || '').trim();
-      let line = String(row[3] || '').trim();
+      const format = String(row[2] || '').trim();
+      const line = String(row[3] || '').trim();
 
       if (isShortFormat) {
         cost = this.excelService.parseNumber(row[4]);
@@ -677,12 +810,12 @@ export class ProductImportService {
     const results: ImportProductResult[] = [];
     for (const row of rows) {
       if (!Array.isArray(row) || row.length < 10) continue;
-      
+
       const sku = String(row[2] || '').trim();
       const name = String(row[3] || '').trim();
       const color = String(row[5] || '').trim();
-      
-      let priceVal = row[18];
+
+      const priceVal = row[18];
       const cost = this.excelService.parseNumber(priceVal);
 
       if (sku && name && cost > 0 && sku !== 'REFERÊNCIA') {
@@ -721,39 +854,49 @@ export class ProductImportService {
   }
 
   private parseMosaicGroup(rows: any[]): ImportProductResult[] {
-    let skuIdx = 12, nameIdx = 20, lineIdx = 25, weightIdx1 = 29, weightIdx2 = 30;
-    let costIdx1 = 49, costIdx2 = 37, valorNfIdx = 50;
+    let skuIdx = 12,
+      nameIdx = 20,
+      lineIdx = 25,
+      weightIdx1 = 29,
+      weightIdx2 = 30;
+    let costIdx1 = 49,
+      costIdx2 = 37,
+      valorNfIdx = 50;
 
     // Detect dynamically
     for (let i = 0; i < Math.min(rows.length, 50); i++) {
       const row = rows[i];
       if (!Array.isArray(row)) continue;
-      const rowStr = row.map(c => String(c || '').trim().toLowerCase());
-      
+      const rowStr = row.map((c) =>
+        String(c || '')
+          .trim()
+          .toLowerCase(),
+      );
+
       let tmpSku = rowStr.indexOf('material');
       if (tmpSku === -1) tmpSku = rowStr.indexOf('codigoproduto');
 
       if (tmpSku !== -1) {
         skuIdx = tmpSku;
-        
+
         nameIdx = rowStr.indexOf('descricao_completa');
         if (nameIdx === -1) nameIdx = rowStr.indexOf('produto');
-        
+
         lineIdx = rowStr.indexOf('linha do item');
         if (lineIdx === -1) lineIdx = rowStr.indexOf('hierarquia3');
         if (lineIdx === -1) lineIdx = rowStr.indexOf('hierarquia 3');
         if (lineIdx === -1) lineIdx = rowStr.indexOf('grupopreco');
-        
+
         weightIdx1 = rowStr.indexOf('peso_bruto');
         if (weightIdx1 === -1) weightIdx1 = rowStr.indexOf('pesobruto');
-        
+
         weightIdx2 = rowStr.indexOf('peso liquido');
         if (weightIdx2 === -1) weightIdx2 = rowStr.indexOf('pesoliquido');
-        
+
         costIdx1 = rowStr.indexOf('preço_sugerido_consumidor');
-        
+
         costIdx2 = rowStr.indexOf('valorlista');
-        
+
         let nfIdx = rowStr.indexOf('valor da nf');
         if (nfIdx === -1) nfIdx = rowStr.indexOf('valordanf');
         valorNfIdx = nfIdx;
@@ -763,16 +906,25 @@ export class ProductImportService {
 
     const results: ImportProductResult[] = [];
     for (const row of rows) {
-      if (!Array.isArray(row) || row.length < Math.max(skuIdx, costIdx1)) continue;
-      
-      const sku = String(row[skuIdx] || '').replace(/'/g, '').trim(); 
+      if (!Array.isArray(row) || row.length < Math.max(skuIdx, costIdx1))
+        continue;
+
+      const sku = String(row[skuIdx] || '')
+        .replace(/'/g, '')
+        .trim();
       const name = String(row[nameIdx] || '').trim();
-      const line = String(row[lineIdx] || '').trim(); 
-      const weight = this.excelService.parseNumber(row[weightIdx1] || row[weightIdx2]);
-      
+      const line = String(row[lineIdx] || '').trim();
+      const weight = this.excelService.parseNumber(
+        row[weightIdx1] || row[weightIdx2],
+      );
+
       let cost = 0;
-      if (valorNfIdx !== -1 && row[valorNfIdx] !== undefined && row[valorNfIdx] !== '') {
-         cost = this.excelService.parseNumber(row[valorNfIdx]);
+      if (
+        valorNfIdx !== -1 &&
+        row[valorNfIdx] !== undefined &&
+        row[valorNfIdx] !== ''
+      ) {
+        cost = this.excelService.parseNumber(row[valorNfIdx]);
       }
       if (cost <= 0) cost = this.excelService.parseNumber(row[costIdx1]);
       if (cost <= 0) cost = this.excelService.parseNumber(row[costIdx2]);
@@ -805,7 +957,15 @@ export class ProductImportService {
 
   private parseDueFratelliLayout(
     rows: any[],
-    cols: { lineCol: number; metaLabelCol: number; metaValCol: number; skuCol: number; nameCol: number; priceStart: number; priceEnd: number },
+    cols: {
+      lineCol: number;
+      metaLabelCol: number;
+      metaValCol: number;
+      skuCol: number;
+      nameCol: number;
+      priceStart: number;
+      priceEnd: number;
+    },
   ): ImportProductResult[] {
     // PASS 1: Collect all metadata sections.
     // A section starts when "Uso:" appears in metaLabelCol. Metadata spans ~5 rows.
@@ -839,7 +999,9 @@ export class ProductImportService {
           const prevRow = rows[b];
           if (!prevRow || !Array.isArray(prevRow)) break;
           const prevLineCell = String(prevRow[cols.lineCol] || '').trim();
-          const prevLabel = String(prevRow[cols.metaLabelCol] || '').trim().toLowerCase();
+          const prevLabel = String(prevRow[cols.metaLabelCol] || '')
+            .trim()
+            .toLowerCase();
           // Stop if we hit the end of a previous section (peso row)
           if (prevLabel.includes('peso por m')) break;
           // If this row has a format dimension, this is the real section start
@@ -874,7 +1036,18 @@ export class ProductImportService {
               const p = part.trim();
               if (!p) continue;
               if (/\d+.*[xX].*\d+/.test(p)) current.format = p;
-              else if (p.length < 30 && p !== 'LINHA' && p !== 'INFORMAÇÕES' && p !== 'OBSERVAÇÕES' && !p.includes('DUEFRATELLI') && !p.includes('BRASIL') && !p.includes('Produtos classe') && !p.includes('NCM') && !p.includes('FOB')) current.line = p;
+              else if (
+                p.length < 30 &&
+                p !== 'LINHA' &&
+                p !== 'INFORMAÇÕES' &&
+                p !== 'OBSERVAÇÕES' &&
+                !p.includes('DUEFRATELLI') &&
+                !p.includes('BRASIL') &&
+                !p.includes('Produtos classe') &&
+                !p.includes('NCM') &&
+                !p.includes('FOB')
+              )
+                current.line = p;
             }
           }
         }
@@ -884,11 +1057,22 @@ export class ProductImportService {
 
       // Strip asterisk for metadata value matching (but NOT for section detection above)
       const cleanLabel = metaLabel.replace(/^\*/, '');
-      if (cleanLabel.includes('m² por caixa:') || cleanLabel.includes('m2 por caixa:')) {
-        current.boxCoverage = this.excelService.parseNumber(row[cols.metaValCol]);
-      } else if (cleanLabel.includes('m² por palete:') || cleanLabel.includes('m2 por palete:')) {
+      if (
+        cleanLabel.includes('m² por caixa:') ||
+        cleanLabel.includes('m2 por caixa:')
+      ) {
+        current.boxCoverage = this.excelService.parseNumber(
+          row[cols.metaValCol],
+        );
+      } else if (
+        cleanLabel.includes('m² por palete:') ||
+        cleanLabel.includes('m2 por palete:')
+      ) {
         const palletM2 = this.excelService.parseNumber(row[cols.metaValCol]);
-        current.palletBoxes = current.boxCoverage > 0 ? Math.round(palletM2 / current.boxCoverage) : 0;
+        current.palletBoxes =
+          current.boxCoverage > 0
+            ? Math.round(palletM2 / current.boxCoverage)
+            : 0;
       } else if (cleanLabel.includes('peso por m')) {
         current.boxWeight = this.excelService.parseNumber(row[cols.metaValCol]);
       }
@@ -904,9 +1088,14 @@ export class ProductImportService {
             current.format = p;
           } else if (
             p.length < 30 &&
-            p !== 'LINHA' && p !== 'INFORMAÇÕES' && p !== 'OBSERVAÇÕES' &&
-            !p.includes('DUEFRATELLI') && !p.includes('BRASIL') &&
-            !p.includes('Produtos classe') && !p.includes('NCM') && !p.includes('FOB')
+            p !== 'LINHA' &&
+            p !== 'INFORMAÇÕES' &&
+            p !== 'OBSERVAÇÕES' &&
+            !p.includes('DUEFRATELLI') &&
+            !p.includes('BRASIL') &&
+            !p.includes('Produtos classe') &&
+            !p.includes('NCM') &&
+            !p.includes('FOB')
           ) {
             current.line = p;
           }
@@ -925,7 +1114,8 @@ export class ProductImportService {
       const name = String(row[cols.nameCol] || '').trim();
 
       if (!sku || !name) continue;
-      if (sku === 'CÓD.' || name === 'DESCRIÇÃO' || name === 'PRODUTOS') continue;
+      if (sku === 'CÓD.' || name === 'DESCRIÇÃO' || name === 'PRODUTOS')
+        continue;
 
       // Find cost in price range
       let cost = 0;
@@ -971,55 +1161,78 @@ export class ProductImportService {
   // Boutique Brasil: LINHA=col1, INFO=col2-3, SKU=col4, Nome=col6, Preço=col9
   private parseDueFratelli(rows: any[]): ImportProductResult[] {
     return this.parseDueFratelliLayout(rows, {
-      lineCol: 1, metaLabelCol: 2, metaValCol: 3,
-      skuCol: 4, nameCol: 6, priceStart: 7, priceEnd: 10,
+      lineCol: 1,
+      metaLabelCol: 2,
+      metaValCol: 3,
+      skuCol: 4,
+      nameCol: 6,
+      priceStart: 7,
+      priceEnd: 10,
     });
   }
 
   // Glam Brasil: LINHA=col0, INFO=col1-2, SKU=col3, Nome=col5, Preço=col6
   private parseGlam(rows: any[]): ImportProductResult[] {
     return this.parseDueFratelliLayout(rows, {
-      lineCol: 0, metaLabelCol: 1, metaValCol: 2,
-      skuCol: 3, nameCol: 5, priceStart: 6, priceEnd: 8,
+      lineCol: 0,
+      metaLabelCol: 1,
+      metaValCol: 2,
+      skuCol: 3,
+      nameCol: 5,
+      priceStart: 6,
+      priceEnd: 8,
     });
   }
 
   // Dexco: Tabular layout — each row is a product with dedicated columns
   private parseDexco(rows: any[]): ImportProductResult[] {
-    let skuIdx = -1, nameIdx = -1, pcBoxIdx = -1, m2BoxIdx = -1, usoIdx = -1,
-        palletIdx = -1, formatIdx = -1, weightIdx = -1, lineIdx = -1,
-        valorNFIdx = -1, valorListaIdx = -1;
+    let skuIdx = -1,
+      nameIdx = -1,
+      pcBoxIdx = -1,
+      m2BoxIdx = -1,
+      usoIdx = -1,
+      palletIdx = -1,
+      formatIdx = -1,
+      weightIdx = -1,
+      lineIdx = -1,
+      valorNFIdx = -1,
+      valorListaIdx = -1;
 
     let startRow = 1;
     for (let i = 0; i < Math.min(rows.length, 50); i++) {
       const row = rows[i];
       if (!Array.isArray(row)) continue;
-      const rowStr = row.map(c => String(c || '').trim().toLowerCase());
-      
+      const rowStr = row.map((c) =>
+        String(c || '')
+          .trim()
+          .toLowerCase(),
+      );
+
       skuIdx = rowStr.indexOf('codigoproduto');
       if (skuIdx === -1) skuIdx = rowStr.indexOf('material');
-      
+
       if (skuIdx !== -1) {
         nameIdx = rowStr.indexOf('produto');
         if (nameIdx === -1) nameIdx = rowStr.indexOf('descricao_completa');
-        
+
         pcBoxIdx = rowStr.indexOf('pcporcx');
         m2BoxIdx = rowStr.indexOf('m2porcx');
         usoIdx = rowStr.indexOf('classeuso');
         palletIdx = rowStr.indexOf('qtdepallet');
         formatIdx = rowStr.indexOf('hierarquia3');
-        if (formatIdx === -1) formatIdx = rowStr.findIndex(r => r.includes('formato'));
+        if (formatIdx === -1)
+          formatIdx = rowStr.findIndex((r) => r.includes('formato'));
         weightIdx = rowStr.indexOf('pesobruto');
         if (weightIdx === -1) weightIdx = rowStr.indexOf('peso_bruto');
         lineIdx = rowStr.indexOf('grupopreco');
         if (lineIdx === -1) lineIdx = rowStr.indexOf('grupo preco');
-        
+
         let nfIdx = rowStr.indexOf('valor da nf');
         if (nfIdx === -1) nfIdx = rowStr.indexOf('valordanf');
         valorNFIdx = nfIdx;
-        
+
         valorListaIdx = rowStr.indexOf('valorlista');
-        
+
         startRow = i + 1;
         break;
       }
@@ -1042,11 +1255,17 @@ export class ProductImportService {
       const row = rows[i];
       if (!Array.isArray(row)) continue;
 
-      const sku = String(row[skuIdx] || '').replace(/'/g, '').trim();
+      const sku = String(row[skuIdx] || '')
+        .replace(/'/g, '')
+        .trim();
       const name = String(row[nameIdx] || '').trim();
-      
+
       let cost = 0;
-      if (valorNFIdx !== -1 && row[valorNFIdx] !== undefined && row[valorNFIdx] !== '') {
+      if (
+        valorNFIdx !== -1 &&
+        row[valorNFIdx] !== undefined &&
+        row[valorNFIdx] !== ''
+      ) {
         cost = this.excelService.parseNumber(row[valorNFIdx]);
       }
       if (cost <= 0) {
@@ -1054,13 +1273,20 @@ export class ProductImportService {
       }
 
       if (!sku || !name || cost <= 0) continue;
-      if (sku.toLowerCase() === 'codigoproduto' || sku.toLowerCase() === 'material') continue; // skip header
+      if (
+        sku.toLowerCase() === 'codigoproduto' ||
+        sku.toLowerCase() === 'material'
+      )
+        continue; // skip header
 
-      const piecesPerBox = Math.round(this.excelService.parseNumber(row[pcBoxIdx]));
+      const piecesPerBox = Math.round(
+        this.excelService.parseNumber(row[pcBoxIdx]),
+      );
       const boxCoverage = this.excelService.parseNumber(row[m2BoxIdx]);
       const usage = String(row[usoIdx] || '').trim();
       const palletM2 = this.excelService.parseNumber(row[palletIdx]);
-      const palletBoxes = boxCoverage > 0 ? Math.round(palletM2 / boxCoverage) : 0;
+      const palletBoxes =
+        boxCoverage > 0 ? Math.round(palletM2 / boxCoverage) : 0;
       const format = String(row[formatIdx] || '').trim();
       const boxWeight = this.excelService.parseNumber(row[weightIdx]);
       const line = String(row[lineIdx] || '').trim();
@@ -1105,7 +1331,8 @@ export class ProductImportService {
       const boxCoverage = this.excelService.parseNumber(row[31]);
       const piecesPerBox = Math.round(this.excelService.parseNumber(row[32]));
       const palletM2 = this.excelService.parseNumber(row[30]);
-      const palletBoxes = boxCoverage > 0 ? Math.round(palletM2 / boxCoverage) : 0;
+      const palletBoxes =
+        boxCoverage > 0 ? Math.round(palletM2 / boxCoverage) : 0;
       const boxWeight = this.excelService.parseNumber(row[9]);
       const usage = String(row[22] || '').trim(); // Tipo (Piso, Parede, etc)
 
@@ -1126,5 +1353,4 @@ export class ProductImportService {
     }
     return results;
   }
-
 }

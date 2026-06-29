@@ -21,14 +21,22 @@ import {
     Download,
     CreditCard,
     Wallet,
-
     Edit,
     Receipt,
     AlertTriangle
 } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useOrders } from '@/hooks/useOrders';
+import { FastInputModal } from './components/FastInputModal';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
     CRIADO: { label: 'Novo / Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
@@ -90,6 +98,11 @@ export default function OrdersPage() {
     const [paymentDraft, setPaymentDraft] = useState({ method: 'PIX', amountCents: 0, installments: 1 });
     const [paymentDraftAmountInputValue, setPaymentDraftAmountInputValue] = useState('');
 
+    // Fast Input Fiscal State
+    const [missingFiscalProducts, setMissingFiscalProducts] = useState<any[]>([]);
+    const [isFastInputModalOpen, setIsFastInputModalOpen] = useState(false);
+    const [isEmitConfirmOpen, setIsEmitConfirmOpen] = useState(false);
+
     useEffect(() => {
         if (isConfirmingPayment && selectedOrder) {
             setSplitPayments([]);
@@ -141,10 +154,13 @@ export default function OrdersPage() {
         setPaymentDraftAmountInputValue((newDraftAmount / 100).toFixed(2));
     };
 
+    const handleEmitFiscalClick = () => {
+        setIsEmitConfirmOpen(true);
+    };
+
     const handleEmitFiscal = async () => {
         if (!displayOrder?.id) return;
-        if (!confirm('Deseja realmente emitir a Nota Fiscal para este pedido?')) return;
-
+        setIsEmitConfirmOpen(false);
         setIsEmitting(true);
         try {
             const response = await api.post(`/fiscal/emit/${displayOrder.id}`);
@@ -153,7 +169,12 @@ export default function OrdersPage() {
             refetchDetails();
         } catch (error: any) {
             console.error('Erro ao emitir nota:', error);
-            toast.error(error.response?.data?.message || 'Erro ao emitir Nota Fiscal');
+            if (error.response?.data?.code === 'MISSING_FISCAL_DATA') {
+                setMissingFiscalProducts(error.response.data.products || []);
+                setIsFastInputModalOpen(true);
+            } else {
+                toast.error(error.response?.data?.message || 'Erro ao emitir Nota Fiscal');
+            }
         } finally {
             setIsEmitting(false);
         }
@@ -683,7 +704,7 @@ export default function OrdersPage() {
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
-                                                    onClick={handleEmitFiscal}
+                                                    onClick={handleEmitFiscalClick}
                                                     disabled={isEmitting || ['CRIADO', 'RASCUNHO', 'AGUARDANDO_PAGAMENTO', 'CANCELADO'].includes(displayOrder.status)}
                                                     title={['CRIADO', 'RASCUNHO', 'AGUARDANDO_PAGAMENTO', 'CANCELADO'].includes(displayOrder.status) ? 'O pedido deve estar pago/confirmado para emitir NFe' : ''}
                                                 >
@@ -1265,6 +1286,33 @@ export default function OrdersPage() {
                     </div>
                 </div>
             )}
+
+            <FastInputModal 
+                isOpen={isFastInputModalOpen} 
+                onClose={() => setIsFastInputModalOpen(false)} 
+                products={missingFiscalProducts}
+                onSuccess={() => handleEmitFiscal()} 
+            />
+
+            <Dialog open={isEmitConfirmOpen} onOpenChange={setIsEmitConfirmOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Emitir Nota Fiscal</DialogTitle>
+                        <DialogDescription>
+                            Deseja realmente emitir a Nota Fiscal para este pedido?
+                            Essa ação enviará os dados para o servidor da SEFAZ.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-4">
+                        <Button variant="outline" onClick={() => setIsEmitConfirmOpen(false)}>
+                            Cancelar
+                        </Button>
+                        <Button onClick={handleEmitFiscal} className="bg-blue-600 hover:bg-blue-700 text-white">
+                            Confirmar Emissão
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

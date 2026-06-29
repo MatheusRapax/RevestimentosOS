@@ -246,7 +246,7 @@ export class OrdersService {
           currentOrder.status !== OrderStatus.PAGO
         ) {
           const desc = `Pagamento Pedido #${currentOrder.number}`;
-          
+
           if (payments && payments.length > 0) {
             for (const p of payments) {
               await this.financeService.registerPayment(
@@ -513,22 +513,22 @@ export class OrdersService {
         seller: {
           include: {
             commissionRule: {
-              include: { tiers: { orderBy: { minGoalAmount: 'desc' } } }
-            }
-          }
+              include: { tiers: { orderBy: { minGoalAmount: 'desc' } } },
+            },
+          },
         },
         quote: {
           include: {
             architect: {
               include: {
                 commissionRule: {
-                  include: { tiers: { orderBy: { minGoalAmount: 'desc' } } }
-                }
-              }
-            }
-          }
-        }
-      }
+                  include: { tiers: { orderBy: { minGoalAmount: 'desc' } } },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!order) {
@@ -540,42 +540,59 @@ export class OrdersService {
     startOfMonth.setHours(0, 0, 0, 0);
 
     // Define helper to get active rule
-    const getActiveRule = async (targetType: 'SELLER' | 'ARCHITECT', specificRule: any) => {
+    const getActiveRule = async (
+      targetType: 'SELLER' | 'ARCHITECT',
+      specificRule: any,
+    ) => {
       if (specificRule) return specificRule;
       return this.prisma.commissionRule.findFirst({
         where: { clinicId, targetType, isGlobal: true, isActive: true },
-        include: { tiers: { orderBy: { minGoalAmount: 'desc' } } }
+        include: { tiers: { orderBy: { minGoalAmount: 'desc' } } },
       });
     };
 
     // Calculate Seller Commission
-    const sellerRule = await getActiveRule('SELLER', order.seller?.commissionRule);
+    const sellerRule = await getActiveRule(
+      'SELLER',
+      order.seller?.commissionRule,
+    );
     let sellerInfo = null;
-    
+
     if (sellerRule && order.sellerId) {
       // Get total sales for the month
       const totalSalesAgg = await this.prisma.order.aggregate({
         where: {
           clinicId,
           sellerId: order.sellerId,
-          status: { in: ['PAGO', 'PRONTO_PARA_ENTREGA', 'ENTREGUE', 'SAIU_PARA_ENTREGA'] },
+          status: {
+            in: [
+              'PAGO',
+              'PRONTO_PARA_ENTREGA',
+              'ENTREGUE',
+              'SAIU_PARA_ENTREGA',
+            ],
+          },
           createdAt: { gte: startOfMonth },
         },
-        _sum: { totalCents: true }
+        _sum: { totalCents: true },
       });
       const totalSales = totalSalesAgg._sum.totalCents || 0;
 
       // Find applicable tier
-      const applicableTier = sellerRule.tiers.find((t: any) => totalSales >= t.minGoalAmount) || sellerRule.tiers[sellerRule.tiers.length - 1];
+      const applicableTier =
+        sellerRule.tiers.find((t: any) => totalSales >= t.minGoalAmount) ||
+        sellerRule.tiers[sellerRule.tiers.length - 1];
       const percentage = applicableTier ? applicableTier.commissionRate : 0;
-      const commissionValueCents = Math.round(order.totalCents * (percentage / 100));
+      const commissionValueCents = Math.round(
+        order.totalCents * (percentage / 100),
+      );
 
       sellerInfo = {
         name: order.seller.name,
         ruleName: sellerRule.name,
         tierPercentage: percentage,
         commissionValueCents,
-        periodTotalSales: totalSales
+        periodTotalSales: totalSales,
       };
     }
 
@@ -584,30 +601,45 @@ export class OrdersService {
     let architectInfo = null;
 
     if (architect) {
-      const architectRule = await getActiveRule('ARCHITECT', architect.commissionRule);
+      const architectRule = await getActiveRule(
+        'ARCHITECT',
+        architect.commissionRule,
+      );
       if (architectRule) {
         // Get total indicated sales for the month
         const totalIndicatedAgg = await this.prisma.order.aggregate({
           where: {
             clinicId,
             quote: { architectId: architect.id },
-            status: { in: ['PAGO', 'PRONTO_PARA_ENTREGA', 'ENTREGUE', 'SAIU_PARA_ENTREGA'] },
+            status: {
+              in: [
+                'PAGO',
+                'PRONTO_PARA_ENTREGA',
+                'ENTREGUE',
+                'SAIU_PARA_ENTREGA',
+              ],
+            },
             createdAt: { gte: startOfMonth },
           },
-          _sum: { totalCents: true }
+          _sum: { totalCents: true },
         });
         const totalIndicated = totalIndicatedAgg._sum.totalCents || 0;
 
-        const applicableTier = architectRule.tiers.find((t: any) => totalIndicated >= t.minGoalAmount) || architectRule.tiers[architectRule.tiers.length - 1];
+        const applicableTier =
+          architectRule.tiers.find(
+            (t: any) => totalIndicated >= t.minGoalAmount,
+          ) || architectRule.tiers[architectRule.tiers.length - 1];
         const percentage = applicableTier ? applicableTier.commissionRate : 0;
-        const commissionValueCents = Math.round(order.totalCents * (percentage / 100));
+        const commissionValueCents = Math.round(
+          order.totalCents * (percentage / 100),
+        );
 
         architectInfo = {
           name: architect.name,
           ruleName: architectRule.name,
           tierPercentage: percentage,
           commissionValueCents,
-          periodTotalSales: totalIndicated
+          periodTotalSales: totalIndicated,
         };
       }
     }
@@ -615,7 +647,7 @@ export class OrdersService {
     return {
       totalOrderValue: order.totalCents,
       seller: sellerInfo,
-      architect: architectInfo
+      architect: architectInfo,
     };
   }
 

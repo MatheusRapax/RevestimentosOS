@@ -138,16 +138,31 @@ export class StockService {
     const now = new Date();
 
     const enriched = products.map((product) => {
-      const totalStock = product.lots.reduce((sum, lot) => sum + lot.quantity, 0);
-      const totalReserved = product.lots.reduce((sum, lot) =>
-        sum + lot.reservations.reduce((rSum: number, r: any) => rSum + r.quantity, 0), 0);
+      const totalStock = product.lots.reduce(
+        (sum, lot) => sum + lot.quantity,
+        0,
+      );
+      const totalReserved = product.lots.reduce(
+        (sum, lot) =>
+          sum +
+          lot.reservations.reduce(
+            (rSum: number, r: any) => rSum + r.quantity,
+            0,
+          ),
+        0,
+      );
 
       let displayPriceCents = product.priceCents;
-      if ((!displayPriceCents || displayPriceCents === 0) && product.costCents) {
+      if (
+        (!displayPriceCents || displayPriceCents === 0) &&
+        product.costCents
+      ) {
         let markup = globalMarkup;
         if (product.markup) markup = product.markup;
-        else if (product.brand?.defaultMarkup) markup = product.brand.defaultMarkup;
-        else if (product.category?.defaultMarkup) markup = product.category.defaultMarkup;
+        else if (product.brand?.defaultMarkup)
+          markup = product.brand.defaultMarkup;
+        else if (product.category?.defaultMarkup)
+          markup = product.category.defaultMarkup;
         displayPriceCents = Math.round(product.costCents * (1 + markup / 100));
       }
 
@@ -156,7 +171,9 @@ export class StockService {
       if (product.promotions?.length > 0) {
         const validPromos = product.promotions
           .map((p: any) => p.promotion)
-          .filter((p: any) => p.isActive && p.startDate <= now && p.endDate >= now)
+          .filter(
+            (p: any) => p.isActive && p.startDate <= now && p.endDate >= now,
+          )
           .sort((a: any, b: any) => b.discountPercent - a.discountPercent);
         if (validPromos.length > 0) {
           activePromotion = validPromos[0];
@@ -182,9 +199,13 @@ export class StockService {
     // in_stock / low_stock filtering in memory (requires summed stock vs minStock)
     let data = enriched;
     if (filters?.status === 'low_stock') {
-      data = enriched.filter(p => p.totalStock > 0 && p.totalStock < p.minStock);
+      data = enriched.filter(
+        (p) => p.totalStock > 0 && p.totalStock < p.minStock,
+      );
     } else if (filters?.status === 'in_stock') {
-      data = enriched.filter(p => p.totalStock >= p.minStock && p.totalStock > 0);
+      data = enriched.filter(
+        (p) => p.totalStock >= p.minStock && p.totalStock > 0,
+      );
     }
 
     return {
@@ -318,6 +339,37 @@ export class StockService {
     return this.prisma.product.update({
       where: { id },
       data: dto,
+    });
+  }
+
+  async batchUpdateFiscalData(clinicId: string, updates: any[]) {
+    // We execute inside a transaction to ensure all or nothing
+    return this.prisma.$transaction(async (tx) => {
+      const updatedProducts = [];
+      for (const update of updates) {
+        // Find to ensure it belongs to the clinic
+        const existing = await tx.product.findFirst({
+          where: { id: update.id, clinicId },
+        });
+
+        if (!existing) {
+          throw new NotFoundException(
+            `Produto ${update.id} não encontrado na clínica.`,
+          );
+        }
+
+        const updated = await tx.product.update({
+          where: { id: update.id },
+          data: {
+            ncm: update.ncm,
+            cfop: update.cfop,
+            cst: update.cst,
+            cest: update.cest || existing.cest,
+          },
+        });
+        updatedProducts.push(updated);
+      }
+      return updatedProducts;
     });
   }
 
@@ -779,7 +831,10 @@ export class StockService {
   /**
    * Bulk identify existing products for preview parsing.
    */
-  async findExistingProductsData(clinicId: string, skus: string[]): Promise<Map<string, { costCents: number }>> {
+  async findExistingProductsData(
+    clinicId: string,
+    skus: string[],
+  ): Promise<Map<string, { costCents: number }>> {
     // Return early if no skus provided to avoid Prisma error
     if (!skus || skus.length === 0) return new Map();
 
@@ -818,98 +873,103 @@ export class StockService {
     let updatedCount = 0;
     const savedItems: any[] = [];
 
-    await this.prisma.$transaction(async (tx) => {
-      let brandId: string | undefined;
+    await this.prisma.$transaction(
+      async (tx) => {
+        let brandId: string | undefined;
 
-      if (brandName) {
-        let brand = await tx.brand.findFirst({
-          where: { clinicId, name: brandName },
-        });
-
-        if (!brand) {
-          brand = await tx.brand.create({
-            data: { clinicId, name: brandName },
+        if (brandName) {
+          let brand = await tx.brand.findFirst({
+            where: { clinicId, name: brandName },
           });
+
+          if (!brand) {
+            brand = await tx.brand.create({
+              data: { clinicId, name: brandName },
+            });
+          }
+          brandId = brand.id;
         }
-        brandId = brand.id;
-      }
 
-      for (const item of items) {
-        const existing = await tx.product.findFirst({
-          where: { clinicId, sku: item.sku },
-        });
-
-        let product;
-        const saleType = (item.saleType as any) || (item.unit === 'M2' ? 'AREA' : 'UNIT');
-
-        if (existing) {
-          product = await tx.product.update({
-            where: { id: existing.id },
-            data: {
-              name: item.name,
-              unit: item.unit || existing.unit,
-              saleType,
-              costCents: item.costCents,
-              supplierId: validSupplierId || existing.supplierId,
-              brandId: brandId || existing.brandId,
-              format: item.format,
-              line: item.line,
-              usage: item.usage,
-              supplierCode: item.supplierCode,
-              boxCoverage: item.boxCoverage,
-              piecesPerBox: item.piecesPerBox,
-              palletBoxes: item.palletBoxes,
-              palletCoverage: item.palletCoverage,
-              boxWeight: item.boxWeight,
-              height: item.height !== undefined ? item.height : existing.height,
-              width: item.width !== undefined ? item.width : existing.width,
-              depth: item.depth !== undefined ? item.depth : existing.depth,
-              color: item.color !== undefined ? item.color : existing.color,
-              ncm: item.ncm || existing.ncm,
-              cest: item.cest || existing.cest,
-              cfop: item.cfop || existing.cfop,
-              cst: item.cst || existing.cst,
-              barcode: item.barcode || existing.barcode,
-              isActive: true,
-            },
+        for (const item of items) {
+          const existing = await tx.product.findFirst({
+            where: { clinicId, sku: item.sku },
           });
-          updatedCount++;
-        } else {
-          product = await tx.product.create({
-            data: {
-              clinicId,
-              name: item.name,
-              sku: item.sku,
-              unit: item.unit,
-              saleType,
-              supplierId: validSupplierId,
-              brandId,
-              costCents: item.costCents,
-              format: item.format,
-              line: item.line,
-              usage: item.usage,
-              supplierCode: item.supplierCode,
-              boxCoverage: item.boxCoverage,
-              piecesPerBox: item.piecesPerBox,
-              palletBoxes: item.palletBoxes,
-              palletCoverage: item.palletCoverage,
-              boxWeight: item.boxWeight,
-              height: item.height,
-              width: item.width,
-              depth: item.depth,
-              color: item.color,
-              ncm: item.ncm,
-              cest: item.cest,
-              cfop: item.cfop,
-              cst: item.cst,
-              barcode: item.barcode,
-            },
-          });
-          createdCount++;
+
+          let product;
+          const saleType =
+            (item.saleType as any) || (item.unit === 'M2' ? 'AREA' : 'UNIT');
+
+          if (existing) {
+            product = await tx.product.update({
+              where: { id: existing.id },
+              data: {
+                name: item.name,
+                unit: item.unit || existing.unit,
+                saleType,
+                costCents: item.costCents,
+                supplierId: validSupplierId || existing.supplierId,
+                brandId: brandId || existing.brandId,
+                format: item.format,
+                line: item.line,
+                usage: item.usage,
+                supplierCode: item.supplierCode,
+                boxCoverage: item.boxCoverage,
+                piecesPerBox: item.piecesPerBox,
+                palletBoxes: item.palletBoxes,
+                palletCoverage: item.palletCoverage,
+                boxWeight: item.boxWeight,
+                height:
+                  item.height !== undefined ? item.height : existing.height,
+                width: item.width !== undefined ? item.width : existing.width,
+                depth: item.depth !== undefined ? item.depth : existing.depth,
+                color: item.color !== undefined ? item.color : existing.color,
+                ncm: item.ncm || existing.ncm,
+                cest: item.cest || existing.cest,
+                cfop: item.cfop || existing.cfop,
+                cst: item.cst || existing.cst,
+                barcode: item.barcode || existing.barcode,
+                isActive: true,
+              },
+            });
+            updatedCount++;
+          } else {
+            product = await tx.product.create({
+              data: {
+                clinicId,
+                name: item.name,
+                sku: item.sku,
+                unit: item.unit,
+                saleType,
+                supplierId: validSupplierId,
+                brandId,
+                costCents: item.costCents,
+                format: item.format,
+                line: item.line,
+                usage: item.usage,
+                supplierCode: item.supplierCode,
+                boxCoverage: item.boxCoverage,
+                piecesPerBox: item.piecesPerBox,
+                palletBoxes: item.palletBoxes,
+                palletCoverage: item.palletCoverage,
+                boxWeight: item.boxWeight,
+                height: item.height,
+                width: item.width,
+                depth: item.depth,
+                color: item.color,
+                ncm: item.ncm,
+                cest: item.cest,
+                cfop: item.cfop,
+                cst: item.cst,
+                barcode: item.barcode,
+              },
+            });
+            createdCount++;
+          }
+          savedItems.push(product);
         }
-        savedItems.push(product);
-      }
-    }, { maxWait: 30000, timeout: 120000 });
+      },
+      { maxWait: 30000, timeout: 120000 },
+    );
 
     // Audit log
     await this.auditService.log({
@@ -924,8 +984,8 @@ export class StockService {
         updated: updatedCount,
         total: createdCount + updatedCount,
         brandName: brandName || 'Sem marca',
-        supplierId
-      }
+        supplierId,
+      },
     });
 
     return { count: createdCount + updatedCount, items: savedItems };

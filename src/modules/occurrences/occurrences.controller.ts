@@ -29,10 +29,7 @@ export class OccurrencesController {
   @Post()
   @Permissions(PERMISSIONS.RMA_MANAGE)
   create(@Req() req: any, @Body() createOccurrenceDto: CreateOccurrenceDto) {
-    return this.occurrencesService.create(
-      req.clinicId,
-      createOccurrenceDto,
-    );
+    return this.occurrencesService.create(req.clinicId, createOccurrenceDto);
   }
 
   @Get()

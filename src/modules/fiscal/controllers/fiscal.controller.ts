@@ -33,10 +33,7 @@ export class FiscalController {
 
   @Post('emit/:orderId')
   @Permissions(PERMISSIONS.FISCAL_EMIT)
-  async emitirNota(
-    @Param('orderId') orderId: string,
-    @Req() req: any,
-  ) {
+  async emitirNota(@Param('orderId') orderId: string, @Req() req: any) {
     return this.fiscalService.emitirNota(orderId, req.clinicId);
   }
 
@@ -72,28 +69,30 @@ export class FiscalController {
     @CurrentUser() user: any,
     @Query('clinicId') clinicId?: string,
   ) {
-    const targetClinicId = user.isSuperAdmin && clinicId ? clinicId : user.clinicId;
-    
+    const targetClinicId =
+      user.isSuperAdmin && clinicId ? clinicId : user.clinicId;
+
     if (!file) {
       throw new BadRequestException('Certificado (.pfx) é obrigatório.');
     }
-    
+
     return this.fiscalService.setupNexosFiscal(
       targetClinicId,
       body.name,
       body.document,
       file.buffer,
       body.password,
-      file.originalname
+      file.originalname,
     );
   }
 
   @Public()
   @Post('webhook')
   async handleWebhook(@Req() req: Request, @Res() res: Response) {
-    const secret = process.env.FISCAL_WEBHOOK_SECRET || 'uma-senha-secreta-para-hmac';
+    const secret =
+      process.env.FISCAL_WEBHOOK_SECRET || 'uma-senha-secreta-para-hmac';
     const signatureFromHeader = req.headers['x-webhook-signature'];
-    
+
     // Validate signature
     if (!signatureFromHeader) {
       return res.status(HttpStatus.UNAUTHORIZED).send('Missing signature');
@@ -116,10 +115,10 @@ export class FiscalController {
     // signature is valid, handle webhook
     const rawPayload = req.body;
     const eventFromHeader = req.headers['x-webhook-event'] as string;
-    
+
     // Normalize payload to always have { event, data }
-    const payload = (rawPayload.data) 
-      ? rawPayload 
+    const payload = rawPayload.data
+      ? rawPayload
       : { event: eventFromHeader || rawPayload.event, data: rawPayload };
 
     try {

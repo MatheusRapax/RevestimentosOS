@@ -18,6 +18,7 @@ import { RemoveStockDto } from './dto/remove-stock.dto';
 import { ListProductsDto } from './dto/list-products.dto';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { ListStockMovementsDto } from './dto/list-stock-movements.dto';
+import { BatchFiscalUpdateDto } from './dto/batch-fiscal-update.dto';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 import { PermissionsGuard } from '../../core/rbac/guards/permissions.guard';
@@ -31,7 +32,7 @@ import { RequireModules } from '../../core/auth/decorators/module.decorator';
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleGuard)
 @RequireModules('STOCK')
 export class StockController {
-  constructor(private readonly stockService: StockService) { }
+  constructor(private readonly stockService: StockService) {}
 
   // ========== BASIC CRUD (for frontend) ==========
 
@@ -87,6 +88,16 @@ export class StockController {
   @Permissions(PERMISSIONS.PRODUCT_READ)
   getProduct(@Param('id') id: string, @Request() req: any) {
     return this.stockService.findOne(id, req.clinicId);
+  }
+
+  @Patch('products/batch-fiscal')
+  @UseGuards(PermissionsGuard)
+  @Permissions(PERMISSIONS.PRODUCT_UPDATE)
+  batchUpdateFiscalData(
+    @Body() body: BatchFiscalUpdateDto,
+    @Request() req: any,
+  ) {
+    return this.stockService.batchUpdateFiscalData(req.clinicId, body.updates);
   }
 
   @Patch('products/:id')

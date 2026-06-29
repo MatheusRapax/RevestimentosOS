@@ -18,9 +18,13 @@ export class AiImportService {
   constructor(private readonly prisma: PrismaService) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (apiKey) {
-      this.logger.log(`OpenAI API Key carregada com sucesso (termina em ...${apiKey.slice(-4)})`);
+      this.logger.log(
+        `OpenAI API Key carregada com sucesso (termina em ...${apiKey.slice(-4)})`,
+      );
     } else {
-      this.logger.error('AVISO CRÍTICO: OPENAI_API_KEY não foi encontrada no .env');
+      this.logger.error(
+        'AVISO CRÍTICO: OPENAI_API_KEY não foi encontrada no .env',
+      );
     }
 
     this.openai = new OpenAI({
@@ -39,18 +43,21 @@ export class AiImportService {
   /**
    * Lê todas as abas do Excel (ou apenas uma específica se fornecida), desmescla células e converte para JSON plano
    */
-  async flattenExcelToJSON(buffer: Buffer, targetSheetName?: string): Promise<{ sheetName: string; rows: any[] }[]> {
+  async flattenExcelToJSON(
+    buffer: Buffer,
+    targetSheetName?: string,
+  ): Promise<{ sheetName: string; rows: any[] }[]> {
     const wb = xlsx.read(buffer, { type: 'buffer' });
-    const productSheets = targetSheetName 
-      ? [targetSheetName].filter(name => wb.SheetNames.includes(name))
+    const productSheets = targetSheetName
+      ? [targetSheetName].filter((name) => wb.SheetNames.includes(name))
       : this.identifyProductSheets(wb.SheetNames);
-    
+
     const allSheetsData = [];
 
     for (const sheetName of productSheets) {
       const ws = wb.Sheets[sheetName];
       const merges = ws['!merges'] || [];
-      
+
       // Desmesclar preenchendo as células virtuais com o valor do topo-esquerdo
       for (const merge of merges) {
         const { s, e } = merge;
@@ -63,14 +70,22 @@ export class AiImportService {
             if (R === s.r && C === s.c) continue;
             const cellRef = xlsx.utils.encode_cell({ c: C, r: R });
             if (!ws[cellRef]) {
-              ws[cellRef] = { t: topLeftCell.t, v: topLeftCell.v, w: topLeftCell.w };
+              ws[cellRef] = {
+                t: topLeftCell.t,
+                v: topLeftCell.v,
+                w: topLeftCell.w,
+              };
             }
           }
         }
       }
 
-      const rows: any[][] = xlsx.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
-      
+      const rows: any[][] = xlsx.utils.sheet_to_json(ws, {
+        header: 1,
+        defval: '',
+        raw: true,
+      });
+
       // Propagar categorias (linhas mescladas horizontalmente)
       let currentCategory = '';
       const processedRows = rows.map((row) => {
@@ -79,7 +94,9 @@ export class AiImportService {
         const firstVal = String(row[0] || '').trim();
         const newRow = [...row];
         if (firstVal && row.length > 3) {
-          const isCategory = row.slice(1, 4).every(val => String(val || '').trim() === firstVal);
+          const isCategory = row
+            .slice(1, 4)
+            .every((val) => String(val || '').trim() === firstVal);
           if (isCategory) {
             currentCategory = firstVal;
             (newRow as any)._isCategoryRow = true;
@@ -99,10 +116,17 @@ export class AiImportService {
    * Filtra abas que não contêm produtos (ex: Instruções, Local de Uso)
    */
   identifyProductSheets(sheets: string[]): string[] {
-    const skipKeywords = ['instru', 'local de uso', 'purificador', 'tabela de frete', 'dados', 'resumo'];
-    return sheets.filter(sheet => {
+    const skipKeywords = [
+      'instru',
+      'local de uso',
+      'purificador',
+      'tabela de frete',
+      'dados',
+      'resumo',
+    ];
+    return sheets.filter((sheet) => {
       const lower = sheet.toLowerCase();
-      return !skipKeywords.some(keyword => lower.includes(keyword));
+      return !skipKeywords.some((keyword) => lower.includes(keyword));
     });
   }
 
@@ -110,7 +134,17 @@ export class AiImportService {
    * Identifica a linha de cabeçalho verdadeira buscando palavras-chave e densidade de colunas
    */
   detectHeaders(rows: any[][]): number {
-    const keywords = ['ref', 'código', 'codigo', 'descrição', 'descricao', 'produto', 'ean', 'formato', 'linha'];
+    const keywords = [
+      'ref',
+      'código',
+      'codigo',
+      'descrição',
+      'descricao',
+      'produto',
+      'ean',
+      'formato',
+      'linha',
+    ];
     let bestRowIdx = 0;
     let maxScore = -1;
 
@@ -126,11 +160,13 @@ export class AiImportService {
       let nonEmptyCols = 0;
 
       for (const cell of cells) {
-        const val = String(cell || '').trim().toLowerCase();
+        const val = String(cell || '')
+          .trim()
+          .toLowerCase();
         if (val) {
           nonEmptyCols++;
           // Se a célula contiver uma palavra-chave, ganha mais pontos
-          if (keywords.some(kw => val.includes(kw))) {
+          if (keywords.some((kw) => val.includes(kw))) {
             score += 2;
           }
         }
@@ -148,26 +184,33 @@ export class AiImportService {
     return bestRowIdx;
   }
 
-  buildAISample(rows: any[][], headerIdx: number): { headers: string[]; sampleData: any[] } {
+  buildAISample(
+    rows: any[][],
+    headerIdx: number,
+  ): { headers: string[]; sampleData: any[] } {
     if (headerIdx >= rows.length) {
       return { headers: [], sampleData: [] };
     }
 
     const headerRow = rows[headerIdx] || [];
-    const headers = headerRow.map(h => String(h || '').trim());
+    const headers = headerRow.map((h) => String(h || '').trim());
 
     const sampleData = [];
-    for (let i = headerIdx + 1; i < rows.length && sampleData.length < 10; i++) {
+    for (
+      let i = headerIdx + 1;
+      i < rows.length && sampleData.length < 10;
+      i++
+    ) {
       const row = rows[i];
       if (!Array.isArray(row)) continue;
-      
-      const isRowEmpty = row.every(c => !String(c || '').trim());
+
+      const isRowEmpty = row.every((c) => !String(c || '').trim());
       if (!isRowEmpty) {
         // Converte os arrays de volta para objetos mapeados pelos cabeçalhos
         const obj: any = {};
         for (let j = 0; j < headers.length; j++) {
-            const key = headers[j] || String(j);
-            obj[key] = row[j];
+          const key = headers[j] || String(j);
+          obj[key] = row[j];
         }
         if ((row as any)._category) {
           obj._category = (row as any)._category;
@@ -183,21 +226,31 @@ export class AiImportService {
    * Gera um hash seguro a partir dos cabeçalhos, para detectar schema drift
    */
   generateHeadersHash(headers: string[]): string {
-    const normalized = headers.map(h => String(h || '').trim().toLowerCase()).join('|');
+    const normalized = headers
+      .map((h) =>
+        String(h || '')
+          .trim()
+          .toLowerCase(),
+      )
+      .join('|');
     return crypto.createHash('md5').update(normalized).digest('hex');
   }
 
   /**
    * Busca um mapeamento no cache (evitando re-processamento com IA)
    */
-  async getCachedMapping(supplierId: string, clinicId: string, headersHash: string) {
+  async getCachedMapping(
+    supplierId: string,
+    clinicId: string,
+    headersHash: string,
+  ) {
     const cache = await this.prisma.supplierMappingCache.findUnique({
       where: {
         supplierId_headersHash: {
           supplierId,
           headersHash,
-        }
-      }
+        },
+      },
     });
 
     if (!cache) return null;
@@ -205,7 +258,10 @@ export class AiImportService {
     try {
       return JSON.parse(cache.mappingPayload);
     } catch (e) {
-      this.logger.error(`Erro ao parsear mapping do cache para fornecedor ${supplierId}`, e);
+      this.logger.error(
+        `Erro ao parsear mapping do cache para fornecedor ${supplierId}`,
+        e,
+      );
       return null;
     }
   }
@@ -213,13 +269,19 @@ export class AiImportService {
   /**
    * Salva um mapeamento no cache
    */
-  async saveCachedMapping(supplierId: string, clinicId: string, headersHash: string, mappingPayload: any, confidenceScore: number = 1.0) {
+  async saveCachedMapping(
+    supplierId: string,
+    clinicId: string,
+    headersHash: string,
+    mappingPayload: any,
+    confidenceScore: number = 1.0,
+  ) {
     await this.prisma.supplierMappingCache.upsert({
       where: {
         supplierId_headersHash: {
           supplierId,
           headersHash,
-        }
+        },
       },
       update: {
         mappingPayload: JSON.stringify(mappingPayload),
@@ -231,7 +293,7 @@ export class AiImportService {
         headersHash,
         mappingPayload: JSON.stringify(mappingPayload),
         confidenceScore,
-      }
+      },
     });
   }
 
@@ -273,8 +335,11 @@ ${JSON.stringify(sample, null, 2)}
     const response = await this.openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'Você é um assistente mapeador de dados estruturados.' },
-        { role: 'user', content: prompt }
+        {
+          role: 'system',
+          content: 'Você é um assistente mapeador de dados estruturados.',
+        },
+        { role: 'user', content: prompt },
       ],
       response_format: {
         type: 'json_schema',
@@ -301,15 +366,32 @@ ${JSON.stringify(sample, null, 2)}
                   cfop: { type: ['string', 'null'] },
                   cst: { type: ['string', 'null'] },
                 },
-                required: ['sku', 'name', 'cost', 'unit', 'format', 'm2PerBox', 'piecesPerBox', 'palletBoxes', 'weight', 'ncm', 'cest', 'cfop', 'cst'],
-                additionalProperties: false
+                required: [
+                  'sku',
+                  'name',
+                  'cost',
+                  'unit',
+                  'format',
+                  'm2PerBox',
+                  'piecesPerBox',
+                  'palletBoxes',
+                  'weight',
+                  'ncm',
+                  'cest',
+                  'cfop',
+                  'cst',
+                ],
+                additionalProperties: false,
               },
               ambiguities: {
                 type: 'array',
                 items: {
                   type: 'object',
                   properties: {
-                    type: { type: 'string', enum: ['MULTIPLE_PRICES', 'UNKNOWN_UNIT', 'MERGED_DATA'] },
+                    type: {
+                      type: 'string',
+                      enum: ['MULTIPLE_PRICES', 'UNKNOWN_UNIT', 'MERGED_DATA'],
+                    },
                     message: { type: 'string' },
                     options: {
                       type: 'array',
@@ -318,22 +400,22 @@ ${JSON.stringify(sample, null, 2)}
                         properties: {
                           label: { type: 'string' },
                           column: { type: 'string' },
-                          sampleValue: { type: 'string' }
+                          sampleValue: { type: 'string' },
                         },
                         required: ['label', 'column', 'sampleValue'],
-                        additionalProperties: false
-                      }
-                    }
+                        additionalProperties: false,
+                      },
+                    },
                   },
                   required: ['type', 'message', 'options'],
-                  additionalProperties: false
-                }
-              }
+                  additionalProperties: false,
+                },
+              },
             },
             required: ['mapping', 'ambiguities'],
-            additionalProperties: false
-          }
-        }
+            additionalProperties: false,
+          },
+        },
       },
       temperature: 0,
     });
@@ -346,10 +428,10 @@ ${JSON.stringify(sample, null, 2)}
    * Chama a OpenAI em lotes para classificar itens (M2 vs UN)
    */
   async callOpenAIClassify(items: any[]): Promise<AIClassifiedItemDto[]> {
-    // Para simplificar a POC e não estourar o contexto, vamos fazer o processamento batch simulado se items for grande, 
+    // Para simplificar a POC e não estourar o contexto, vamos fazer o processamento batch simulado se items for grande,
     // mas na versão real idealmente usamos loteamento de 50 itens.
-    
-    // Por enquanto, o mapeamento inicial nos dá a base. A classificação linha-a-linha 
+
+    // Por enquanto, o mapeamento inicial nos dá a base. A classificação linha-a-linha
     // é opcional se o mapping já identificou bem a coluna unit e m2PerBox.
     return [];
   }
@@ -357,9 +439,13 @@ ${JSON.stringify(sample, null, 2)}
   /**
    * Aplica localmente o mapeamento, sem custo de tokens
    */
-  applyMapping(rows: any[], mapping: AIColumnMappingDto, headers: string[]): any[] {
+  applyMapping(
+    rows: any[],
+    mapping: AIColumnMappingDto,
+    headers: string[],
+  ): any[] {
     const mappedRows = [];
-    
+
     // Create an index map for quick lookup
     const headerMap: Record<string, number> = {};
     headers.forEach((h, idx) => {
@@ -376,16 +462,17 @@ ${JSON.stringify(sample, null, 2)}
     for (const row of rows) {
       if (!row || Object.keys(row).length === 0) continue;
       if (row['_isCategoryRow']) continue;
-      
+
       const skuValRaw = getVal(row, mapping.sku);
       const nameValRaw = getVal(row, mapping.name);
 
       const skuVal = skuValRaw ? String(skuValRaw).trim() : null;
       const nameVal = nameValRaw ? String(nameValRaw).trim() : null;
-      
+
       // Combinar o nome com a category propagada, se existir
       const category = row['_category'] ? String(row['_category']).trim() : '';
-      const finalName = category && nameVal ? `${category} - ${nameVal}` : nameVal;
+      const finalName =
+        category && nameVal ? `${category} - ${nameVal}` : nameVal;
 
       if (!skuVal && !nameVal) continue; // Ignora linhas em branco
 
@@ -415,11 +502,13 @@ ${JSON.stringify(sample, null, 2)}
   private sanitizeNumber(val: any): number {
     if (!val) return 0;
     if (typeof val === 'number') return val;
-    
-    let str = String(val).replace(/\\r\\n/g, '').trim();
+
+    let str = String(val)
+      .replace(/\\r\\n/g, '')
+      .trim();
     // Remover símbolos de moeda e letras, preservando apenas dígitos, vírgula, ponto e sinal negativo
     str = str.replace(/[^\d,\.-]/g, '');
-    
+
     if (str.includes(',') && str.includes('.')) {
       // Formato brasileiro com milhar e decimal: "1.234,56"
       str = str.replace(/\./g, '').replace(',', '.');
@@ -427,7 +516,7 @@ ${JSON.stringify(sample, null, 2)}
       // Formato decimal com vírgula: "123,45"
       str = str.replace(',', '.');
     }
-    
+
     const num = parseFloat(str);
     return isNaN(num) ? 0 : num;
   }
@@ -439,79 +528,81 @@ ${JSON.stringify(sample, null, 2)}
     mappedItems: any[],
     classifications: AIClassifiedItemDto[],
   ): ImportProductItemDto[] {
-    return mappedItems.map(item => {
-      const rawCost = this.sanitizeNumber(item.cost);
-      const m2PerBox = this.sanitizeNumber(item.m2PerBox);
-      const piecesPerBox = this.sanitizeNumber(item.piecesPerBox);
-      const palletBoxes = this.sanitizeNumber(item.palletBoxes);
-      
-      // Regra de Inferência Básica:
-      let unit = String(item.unit || '').toUpperCase();
-      // Sanitize unit if the AI mistakenly passed a number (like m2 value)
-      if (unit && !isNaN(parseFloat(unit))) {
-        unit = '';
-      }
+    return mappedItems
+      .map((item) => {
+        const rawCost = this.sanitizeNumber(item.cost);
+        const m2PerBox = this.sanitizeNumber(item.m2PerBox);
+        const piecesPerBox = this.sanitizeNumber(item.piecesPerBox);
+        const palletBoxes = this.sanitizeNumber(item.palletBoxes);
 
-      if (!unit) {
-        if (m2PerBox > 0) unit = 'M2';
-        else unit = 'UN';
-      }
-      if (unit === 'CX' && m2PerBox > 0) {
-        unit = 'M2'; // CX cobra M2
-      }
+        // Regra de Inferência Básica:
+        let unit = String(item.unit || '').toUpperCase();
+        // Sanitize unit if the AI mistakenly passed a number (like m2 value)
+        if (unit && !isNaN(parseFloat(unit))) {
+          unit = '';
+        }
 
-      let costCents = 0;
-      let costPerM2Cents = 0;
+        if (!unit) {
+          if (m2PerBox > 0) unit = 'M2';
+          else unit = 'UN';
+        }
+        if (unit === 'CX' && m2PerBox > 0) {
+          unit = 'M2'; // CX cobra M2
+        }
 
-      // Cálculo de custo da caixa
-      if (unit === 'M2' && m2PerBox > 0) {
-        // rawCost é preço por m2. Precisamos multiplicar pelo m2PerBox para ter o valor da caixa
-        costCents = Math.round(rawCost * m2PerBox * 100);
-        costPerM2Cents = Math.round(rawCost * 100);
-      } else {
-        costCents = Math.round(rawCost * 100);
-        costPerM2Cents = costCents;
-      }
+        let costCents = 0;
+        let costPerM2Cents = 0;
 
-      return {
-        sku: item.sku || '',
-        name: item.name || 'Sem nome',
-        brand: 'A Definir', // Será setado na chamada principal
-        unit: unit as any,
-        saleType: unit === 'M2' ? 'AREA' : 'UNIT',
-        costCents,
-        costPerM2Cents, // Para o front mostrar
-        boxCoverage: m2PerBox, // Fix: Use boxCoverage instead of m2PerBox to match DTO
-        piecesPerBox,
-        palletBoxes,
-        palletCoverage: 0,
-        ean: '',
-        ncm: item.ncm || '',
-        cest: item.cest || '',
-        cfop: item.cfop || '',
-        cst: item.cst || '',
-        format: item.format || '',
-        color: '',
-      };
-    }).filter(item => {
-      // Filtragem rígida para remover linhas que são apenas categorias, cabeçalhos repetidos ou vazios
-      if (!item.name || item.name === 'Sem nome') return false;
-      if (item.costCents === 0 && item.costPerM2Cents === 0) return false;
-      
-      const skuLower = item.sku.toLowerCase().trim();
-      const nameLower = item.name.toLowerCase().trim();
-      
-      // Ignorar se o SKU for visivelmente um cabeçalho
-      if (/^(ref\.?|sku|cód\.?|código)$/i.test(skuLower)) return false;
-      // Ignorar se o Nome for visivelmente um cabeçalho
-      if (/^(descrição|nome|produto)$/i.test(nameLower)) return false;
-      if (nameLower === 'descrição e formato') return false;
+        // Cálculo de custo da caixa
+        if (unit === 'M2' && m2PerBox > 0) {
+          // rawCost é preço por m2. Precisamos multiplicar pelo m2PerBox para ter o valor da caixa
+          costCents = Math.round(rawCost * m2PerBox * 100);
+          costPerM2Cents = Math.round(rawCost * 100);
+        } else {
+          costCents = Math.round(rawCost * 100);
+          costPerM2Cents = costCents;
+        }
 
-      // Remover formatos vazios que não são produtos (ex: "62 x 120 - Ret.")
-      // Um produto de verdade costuma ter um preço > 0, o que já é coberto, mas por segurança:
-      if (!item.sku && !item.name.includes(' ')) return false;
+        return {
+          sku: item.sku || '',
+          name: item.name || 'Sem nome',
+          brand: 'A Definir', // Será setado na chamada principal
+          unit: unit as any,
+          saleType: unit === 'M2' ? 'AREA' : 'UNIT',
+          costCents,
+          costPerM2Cents, // Para o front mostrar
+          boxCoverage: m2PerBox, // Fix: Use boxCoverage instead of m2PerBox to match DTO
+          piecesPerBox,
+          palletBoxes,
+          palletCoverage: 0,
+          ean: '',
+          ncm: item.ncm || '',
+          cest: item.cest || '',
+          cfop: item.cfop || '',
+          cst: item.cst || '',
+          format: item.format || '',
+          color: '',
+        };
+      })
+      .filter((item) => {
+        // Filtragem rígida para remover linhas que são apenas categorias, cabeçalhos repetidos ou vazios
+        if (!item.name || item.name === 'Sem nome') return false;
+        if (item.costCents === 0 && item.costPerM2Cents === 0) return false;
 
-      return true;
-    });
+        const skuLower = item.sku.toLowerCase().trim();
+        const nameLower = item.name.toLowerCase().trim();
+
+        // Ignorar se o SKU for visivelmente um cabeçalho
+        if (/^(ref\.?|sku|cód\.?|código)$/i.test(skuLower)) return false;
+        // Ignorar se o Nome for visivelmente um cabeçalho
+        if (/^(descrição|nome|produto)$/i.test(nameLower)) return false;
+        if (nameLower === 'descrição e formato') return false;
+
+        // Remover formatos vazios que não são produtos (ex: "62 x 120 - Ret.")
+        // Um produto de verdade costuma ter um preço > 0, o que já é coberto, mas por segurança:
+        if (!item.sku && !item.name.includes(' ')) return false;
+
+        return true;
+      });
   }
 }

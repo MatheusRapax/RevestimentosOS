@@ -556,7 +556,8 @@ export class StockEntryService {
       }
 
       // Append justification to notes
-      entry.notes = `${entry.notes || ''}\n[Aprovação de Divergência]: ${options.justification}`.trim();
+      entry.notes =
+        `${entry.notes || ''}\n[Aprovação de Divergência]: ${options.justification}`.trim();
     }
 
     // Start Transaction

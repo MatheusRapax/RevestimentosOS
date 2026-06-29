@@ -195,13 +195,20 @@ export class QuotesService {
         },
       },
       include: {
-        customer: { select: { id: true, name: true, document: true } },
+        customer: true,
         architect: { select: { id: true, name: true } },
         seller: { select: { id: true, name: true } },
         items: {
           include: {
             product: {
-              select: { id: true, name: true, sku: true, boxCoverage: true, format: true, unit: true },
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                boxCoverage: true,
+                format: true,
+                unit: true,
+              },
             },
             environment: true,
           },
@@ -221,7 +228,7 @@ export class QuotesService {
     return this.prisma.quote.findMany({
       where,
       include: {
-        customer: { select: { id: true, name: true } },
+        customer: true,
         architect: { select: { id: true, name: true } },
         seller: { select: { id: true, name: true } },
         items: { select: { id: true, discountCents: true, environment: true } },
@@ -335,21 +342,19 @@ export class QuotesService {
       );
     }
 
-    const { 
-      customerId, 
-      architectId, 
+    const {
+      customerId,
+      architectId,
       deliveryFeeCents,
       deliveryFee,
       globalMarginPercent,
-      ...rest 
+      ...rest
     } = updateQuoteDto;
 
     const data: any = {
       ...rest,
       deliveryFee: deliveryFeeCents ?? deliveryFee,
-      validUntil: rest.validUntil
-        ? new Date(rest.validUntil)
-        : undefined,
+      validUntil: rest.validUntil ? new Date(rest.validUntil) : undefined,
     };
 
     if (customerId) {
@@ -368,7 +373,7 @@ export class QuotesService {
       where: { id },
       data,
       include: {
-        customer: { select: { id: true, name: true } },
+        customer: true,
         items: true,
       },
     });

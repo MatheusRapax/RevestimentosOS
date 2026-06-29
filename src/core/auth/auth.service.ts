@@ -15,7 +15,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-  ) { }
+  ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
     const { email, password, name } = registerDto;
@@ -115,6 +115,7 @@ export class AuthService {
     }
 
     // Retornar usuário sem a senha, mas COM as clinicas (para manter sessão atualizada)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userWithoutPassword } = user;
     const clinics = await this.getUserClinics(user.id);
 
@@ -164,7 +165,8 @@ export class AuthService {
     return clinicUsers.map((cu) => ({
       ...cu.clinic,
       role: cu.role?.key,
-      permissions: cu.role?.rolePermissions.map((rp) => rp.permission.key) || [],
+      permissions:
+        cu.role?.rolePermissions.map((rp) => rp.permission.key) || [],
     }));
   }
 

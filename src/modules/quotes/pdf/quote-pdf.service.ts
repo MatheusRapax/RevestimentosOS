@@ -14,7 +14,12 @@ type QuoteWithRelations = Quote & {
   seller: { id: string; name: string | null };
   architect: Architect | null;
   items: (QuoteItem & {
-    product: { name: string; sku: string | null; unit: string | null; format: string | null };
+    product: {
+      name: string;
+      sku: string | null;
+      unit: string | null;
+      format: string | null;
+    };
     environment?: { name: string } | null;
   })[];
 };
@@ -99,13 +104,14 @@ export class QuotePdfService {
       .fontSize(22)
       .font('Helvetica-Bold')
       .text('ORÇAMENTO', 50, y, { align: 'right', width: 500 });
-      
+
     doc
       .fontSize(12)
       .font('Helvetica')
       .fillColor(primaryColor)
       .text(`Nº #${String(quote.number).padStart(4, '0')}`, 50, doc.y, {
-        align: 'right', width: 500
+        align: 'right',
+        width: 500,
       });
 
     // Dados da empresa
@@ -115,35 +121,46 @@ export class QuotePdfService {
     const companyCnpj = template?.companyCnpj || '';
 
     const companyInfoY = y;
-    
+
     // Logo
     if (template?.companyLogo) {
       try {
         const logoData = template.companyLogo;
         const isBase64 = logoData.startsWith('data:image/');
-        
+
         if (isBase64) {
-             const base64Data = logoData.split(',')[1];
-             const buffer = Buffer.from(base64Data, 'base64');
-             doc.image(buffer, 50, companyInfoY, { width: 80, height: 60, fit: [80, 60] });
+          const base64Data = logoData.split(',')[1];
+          const buffer = Buffer.from(base64Data, 'base64');
+          doc.image(buffer, 50, companyInfoY, {
+            width: 80,
+            height: 60,
+            fit: [80, 60],
+          });
         } else if (logoData.startsWith('http')) {
-             // For remote URLs, you would typically need to fetch them first.
-             // PDFKit sync .image() depends on local files or buffers.
-             // We'll skip complex http fetching here for simplicity as the 
-             // frontend upload provides base64 directly to the template.
-             // If local file path is stored, pdfkit handles it natively.
-             doc.image(logoData, 50, companyInfoY, { width: 80, height: 60, fit: [80, 60] });
+          // For remote URLs, you would typically need to fetch them first.
+          // PDFKit sync .image() depends on local files or buffers.
+          // We'll skip complex http fetching here for simplicity as the
+          // frontend upload provides base64 directly to the template.
+          // If local file path is stored, pdfkit handles it natively.
+          doc.image(logoData, 50, companyInfoY, {
+            width: 80,
+            height: 60,
+            fit: [80, 60],
+          });
         } else {
-             doc.image(logoData, 50, companyInfoY, { width: 80, height: 60, fit: [80, 60] });
+          doc.image(logoData, 50, companyInfoY, {
+            width: 80,
+            height: 60,
+            fit: [80, 60],
+          });
         }
       } catch (err) {
         console.error('Failed to load logo on PDF', err);
       }
     }
 
-
     const textStartX = template?.companyLogo ? 140 : 50;
-    
+
     doc
       .fontSize(14)
       .font('Helvetica-Bold')
@@ -277,9 +294,13 @@ export class QuotePdfService {
         const showUnitPrice = template?.showUnitPrice ?? true;
 
         const qtyText = showQuantity ? `${item.quantityBoxes}` : '';
-        const finalArea = item.resultingArea ?? item.areaWithMargin ?? item.inputArea;
-        const areaText = showUnitArea && finalArea ? `${finalArea.toFixed(2)}` : '';
-        const unitCostText = showUnitPrice ? this.formatCurrency(item.unitPriceCents) : '';
+        const finalArea =
+          item.resultingArea ?? item.areaWithMargin ?? item.inputArea;
+        const areaText =
+          showUnitArea && finalArea ? `${finalArea.toFixed(2)}` : '';
+        const unitCostText = showUnitPrice
+          ? this.formatCurrency(item.unitPriceCents)
+          : '';
         const unit = item.product.unit || '-';
         const format = item.product.format || '-';
         const sku = item.product.sku || '-';
@@ -295,7 +316,7 @@ export class QuotePdfService {
           areaText,
           unitCostText,
           this.formatCurrency(item.totalCents),
-          template
+          template,
         );
 
         currentY += rowHeight + 5; // Altura da linha ajustada com o conteúdo
@@ -325,7 +346,7 @@ export class QuotePdfService {
       '',
       'Subtotal',
       this.formatCurrency(quote.subtotalCents),
-      template
+      template,
     );
 
     if (quote.discountCents > 0) {
@@ -341,7 +362,7 @@ export class QuotePdfService {
         '',
         'Desconto',
         `-${this.formatCurrency(quote.discountCents)}`,
-        template
+        template,
       );
       currentY += 20;
     }
@@ -359,7 +380,7 @@ export class QuotePdfService {
         '',
         'Frete',
         this.formatCurrency(quote.deliveryFee),
-        template
+        template,
       );
       currentY += 20;
     }
@@ -377,7 +398,7 @@ export class QuotePdfService {
       '',
       'TOTAL',
       this.formatCurrency(quote.totalCents),
-      template
+      template,
     );
 
     return currentY + 40; // Retorna posição final Y
@@ -391,7 +412,7 @@ export class QuotePdfService {
   ) {
     doc.rect(50, y - 5, 500, 20).fill(accentColor);
     doc.font('Helvetica-Bold').fillColor('#FFFFFF');
-    
+
     const showQuantity = template?.showQuantity ?? true;
     const showUnitArea = template?.showUnitArea ?? true;
     const showUnitPrice = template?.showUnitPrice ?? true;
@@ -408,7 +429,7 @@ export class QuotePdfService {
       showUnitPrice ? 'V. Unit.' : '',
       'Total',
       template,
-      true
+      true,
     );
   }
 
@@ -424,21 +445,21 @@ export class QuotePdfService {
     // Dados Bancários e Termos (Lado a Lado se ambos existirem)
     const hasBank = template?.showBankDetails && template.bankName;
     const hasTerms = template?.showTerms && template.termsAndConditions;
-    
+
     if (hasBank || hasTerms) {
       if (currentY > 650) {
         doc.addPage();
         currentY = 50;
       }
-      
+
       const startBoxY = currentY;
       let maxBankY = currentY;
       let maxTermsY = currentY;
-      
+
       if (hasBank) {
         // Draw Bank Details Box
         doc.rect(50, currentY, 240, 100).fillAndStroke('#f9fafb', '#e5e7eb');
-        
+
         let bankY = currentY + 10;
         doc
           .fontSize(10)
@@ -446,60 +467,88 @@ export class QuotePdfService {
           .fillColor(primaryColor)
           .text('Dados Bancários', 60, bankY);
         doc.font('Helvetica').fillColor('#000000');
-        
+
         bankY += 15;
         doc.fontSize(8);
-        doc.font('Helvetica-Bold').text('Banco:', 60, bankY, { continued: true }).font('Helvetica').text(` ${template.bankName}`);
-        
+        doc
+          .font('Helvetica-Bold')
+          .text('Banco:', 60, bankY, { continued: true })
+          .font('Helvetica')
+          .text(` ${template.bankName}`);
+
         bankY += 12;
         if (template.bankAgency) {
-          doc.font('Helvetica-Bold').text('Agência:', 60, bankY, { continued: true }).font('Helvetica').text(` ${template.bankAgency}`);
+          doc
+            .font('Helvetica-Bold')
+            .text('Agência:', 60, bankY, { continued: true })
+            .font('Helvetica')
+            .text(` ${template.bankAgency}`);
           bankY += 12;
         }
-        
+
         if (template.bankAccount) {
-          doc.font('Helvetica-Bold').text('Conta:', 60, bankY, { continued: true }).font('Helvetica').text(` ${template.bankAccount}`);
+          doc
+            .font('Helvetica-Bold')
+            .text('Conta:', 60, bankY, { continued: true })
+            .font('Helvetica')
+            .text(` ${template.bankAccount}`);
           bankY += 12;
         }
-        
+
         if (template.bankAccountHolder) {
-          doc.font('Helvetica-Bold').text('Titular:', 60, bankY, { continued: true }).font('Helvetica').text(` ${template.bankAccountHolder}`);
+          doc
+            .font('Helvetica-Bold')
+            .text('Titular:', 60, bankY, { continued: true })
+            .font('Helvetica')
+            .text(` ${template.bankAccountHolder}`);
           bankY += 12;
         }
-        
+
         if (template.pixKey) {
           bankY += 5;
-          doc.moveTo(60, bankY - 3).lineTo(280, bankY - 3).strokeColor('#e5e7eb').stroke();
-          doc.font('Helvetica-Bold').text('PIX:', 60, bankY, { continued: true }).font('Helvetica').text(` ${template.pixKey}`);
+          doc
+            .moveTo(60, bankY - 3)
+            .lineTo(280, bankY - 3)
+            .strokeColor('#e5e7eb')
+            .stroke();
+          doc
+            .font('Helvetica-Bold')
+            .text('PIX:', 60, bankY, { continued: true })
+            .font('Helvetica')
+            .text(` ${template.pixKey}`);
           bankY += 12;
         }
         maxBankY = bankY + 10;
       }
-      
+
       if (hasTerms) {
         // Draw Terms Box
         const termsX = hasBank ? 300 : 50;
         const termsWidth = hasBank ? 250 : 500;
-        
-        doc.rect(termsX, currentY, termsWidth, 100).fillAndStroke('#f9fafb', '#e5e7eb');
-        
+
+        doc
+          .rect(termsX, currentY, termsWidth, 100)
+          .fillAndStroke('#f9fafb', '#e5e7eb');
+
         let termsY = currentY + 10;
         doc
           .fontSize(10)
           .font('Helvetica-Bold')
           .fillColor(primaryColor)
           .text('Termos e Condições', termsX + 10, termsY);
-          
+
         termsY += 15;
         doc.fontSize(8).font('Helvetica').fillColor('#4b5563');
-        
+
         const termsText = template.termsAndConditions || '';
-        const textHeight = doc.heightOfString(termsText, { width: termsWidth - 20 });
+        const textHeight = doc.heightOfString(termsText, {
+          width: termsWidth - 20,
+        });
         doc.text(termsText, termsX + 10, termsY, { width: termsWidth - 20 });
-        
+
         maxTermsY = termsY + textHeight + 10;
       }
-      
+
       currentY = Math.max(maxBankY, maxTermsY, startBoxY + 100) + 20;
     }
 
@@ -561,7 +610,7 @@ export class QuotePdfService {
     vUnit: string,
     total: string,
     template: QuoteTemplate | null,
-    isHeader = false
+    isHeader = false,
   ): number {
     const showQuantity = template?.showQuantity ?? true;
     const showUnitArea = template?.showUnitArea ?? true;
@@ -574,7 +623,9 @@ export class QuotePdfService {
 
     // Calcula altura necessária para a descrição (pode ter quebra de linha automática)
     const descWidth = 135;
-    const descHeight = doc.heightOfString(descricao || ' ', { width: descWidth });
+    const descHeight = doc.heightOfString(descricao || ' ', {
+      width: descWidth,
+    });
     const rowHeight = Math.max(15, descHeight);
 
     // Renderiza as células
@@ -584,22 +635,22 @@ export class QuotePdfService {
     doc.text(formato, 265, y, { width: 50, ellipsis: true });
 
     let currentX = 320;
-    
+
     if (showQuantity) {
       doc.text(qtd, currentX, y, { width: 40, align: 'right' });
       currentX += 45; // Avança
     }
-    
+
     if (showUnitArea) {
       doc.text(m2, currentX, y, { width: 45, align: 'right' });
       currentX += 50; // Avança
     }
-    
+
     if (showUnitPrice) {
       doc.text(vUnit, currentX, y, { width: 60, align: 'right' });
       currentX += 65; // Avança
     }
-    
+
     // Total (550 é o limite direito, então width = 550 - currentX)
     doc.text(total, currentX, y, { width: 550 - currentX, align: 'right' });
 

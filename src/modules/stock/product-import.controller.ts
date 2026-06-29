@@ -34,8 +34,14 @@ export class ProductImportController {
   @Get('template')
   downloadTemplate(@Res() res: Response) {
     const buffer = this.importService.generateTemplateBuffer();
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="Template_Importacao_Produtos.xlsx"');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="Template_Importacao_Produtos.xlsx"',
+    );
     res.send(buffer);
   }
 
@@ -51,14 +57,21 @@ export class ProductImportController {
 
     const clinicId = queryClinicId || req.user?.clinicId;
     if (!clinicId) {
-      throw new BadRequestException('clinicId é obrigatório para visualização da importação');
+      throw new BadRequestException(
+        'clinicId é obrigatório para visualização da importação',
+      );
     }
 
     const items = this.importService.processFile(file.buffer, strategy);
-    
+
     // Identificar itens novos vs atualizações
-    const skus = items.map((i) => i.sku).filter((sku) => sku && sku.trim() !== '');
-    const existingSkusMap = await this.stockService.findExistingProductsData(clinicId, skus);
+    const skus = items
+      .map((i) => i.sku)
+      .filter((sku) => sku && sku.trim() !== '');
+    const existingSkusMap = await this.stockService.findExistingProductsData(
+      clinicId,
+      skus,
+    );
 
     const enrichedItems = items.map((item) => ({
       ...item,
@@ -71,9 +84,7 @@ export class ProductImportController {
 
   @Post('extract-sheets')
   @UseInterceptors(FileInterceptor('file'))
-  async extractSheets(
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  async extractSheets(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('File is required');
     const sheets = this.aiImportService.extractSheetNames(file.buffer);
     return { sheets };
@@ -90,19 +101,27 @@ export class ProductImportController {
     @Req() req: any,
   ) {
     if (!file) throw new BadRequestException('File is required');
-    if (!supplierId) throw new BadRequestException('supplierId is required for AI mapping');
+    if (!supplierId)
+      throw new BadRequestException('supplierId is required for AI mapping');
 
     const clinicId = queryClinicId || req.user?.clinicId;
     if (!clinicId) throw new BadRequestException('clinicId is required');
 
     // 1. Flatten the Excel
-    const sheetsData = await this.aiImportService.flattenExcelToJSON(file.buffer, targetSheetName);
-    if (sheetsData.length === 0) throw new BadRequestException('No valid product sheets found');
+    const sheetsData = await this.aiImportService.flattenExcelToJSON(
+      file.buffer,
+      targetSheetName,
+    );
+    if (sheetsData.length === 0)
+      throw new BadRequestException('No valid product sheets found');
 
     // For simplicity, we process the first valid sheet (which is the targetSheetName if provided)
     const targetSheet = sheetsData[0];
     const headerIdx = this.aiImportService.detectHeaders(targetSheet.rows);
-    const { headers, sampleData } = this.aiImportService.buildAISample(targetSheet.rows, headerIdx);
+    const { headers, sampleData } = this.aiImportService.buildAISample(
+      targetSheet.rows,
+      headerIdx,
+    );
 
     const headersHash = this.aiImportService.generateHeadersHash(headers);
     let mapping: any = null;
@@ -116,7 +135,13 @@ export class ProductImportController {
         throw new BadRequestException('Invalid forceMapping JSON');
       }
       // Since mapping is forced, we assume no ambiguities and we can overwrite cache if needed
-      await this.aiImportService.saveCachedMapping(supplierId, clinicId, headersHash, mapping, 1.0);
+      await this.aiImportService.saveCachedMapping(
+        supplierId,
+        clinicId,
+        headersHash,
+        mapping,
+        1.0,
+      );
     } else {
       // 3. Try Cache (TEMPORARILY DISABLED TO FORCE NEW PROMPT)
       // mapping = await this.aiImportService.getCachedMapping(supplierId, clinicId, headersHash);
@@ -124,31 +149,50 @@ export class ProductImportController {
 
       // 4. Fallback to AI
       if (!mapping) {
-        const aiResult = await this.aiImportService.callOpenAIMapping({ headers, sampleData });
+        const aiResult = await this.aiImportService.callOpenAIMapping({
+          headers,
+          sampleData,
+        });
         mapping = aiResult.mapping;
         ambiguities = aiResult.ambiguities || [];
 
         // Save AI "best guess" mapping, even with ambiguities (so user can see preview if they skip resolution)
         if (mapping) {
-          await this.aiImportService.saveCachedMapping(supplierId, clinicId, headersHash, mapping, 1.0);
+          await this.aiImportService.saveCachedMapping(
+            supplierId,
+            clinicId,
+            headersHash,
+            mapping,
+            1.0,
+          );
         }
       }
     }
 
     // 5. Apply Mapping Local
     const rowsOnly = targetSheet.rows.slice(headerIdx + 1);
-    const mappedItems = this.aiImportService.applyMapping(rowsOnly, mapping, headers);
+    const mappedItems = this.aiImportService.applyMapping(
+      rowsOnly,
+      mapping,
+      headers,
+    );
 
     // 6. Apply Business Logic to generate final Preview Items
-    const finalItems = this.aiImportService.generateImportResult(mappedItems, []);
+    const finalItems = this.aiImportService.generateImportResult(
+      mappedItems,
+      [],
+    );
 
     // 7. Enrich with "isNew" flag, "anomalies" and "oldCostCents" for UI preview
-    const skus = finalItems.map((i) => i.sku).filter((sku) => sku && sku.trim() !== '');
-    const existingProductsMap = await this.stockService.findExistingProductsData(clinicId, skus);
+    const skus = finalItems
+      .map((i) => i.sku)
+      .filter((sku) => sku && sku.trim() !== '');
+    const existingProductsMap =
+      await this.stockService.findExistingProductsData(clinicId, skus);
 
     const hasAmbiguities = ambiguities && ambiguities.length > 0;
     const confidence = hasAmbiguities ? 'MEDIUM' : 'HIGH';
-    
+
     const skuIndicesMap = new Map<string, number[]>();
     finalItems.forEach((item, index) => {
       if (item.sku) {
@@ -169,18 +213,18 @@ export class ProductImportController {
       }
 
       const anomalies = [];
-      
+
       // Check duplicates
       if (item.sku) {
         const indices = skuIndicesMap.get(item.sku);
         if (indices && indices.length > 1) {
           anomalies.push({
-             type: 'DUPLICATE_SKU',
-             relatedIndices: indices.filter(i => i !== index)
+            type: 'DUPLICATE_SKU',
+            relatedIndices: indices.filter((i) => i !== index),
           });
         }
       }
-      
+
       // Price anomaly check (> 50%)
       if (!isNew && oldCostCents !== undefined && oldCostCents > 0) {
         const diff = Math.abs(item.costCents - oldCostCents);
@@ -205,15 +249,12 @@ export class ProductImportController {
       headers,
       sampleData,
       items: enrichedItems,
-      count: enrichedItems.length
+      count: enrichedItems.length,
     };
   }
 
   @Post('ai-classify')
-  async aiClassifyItems(
-    @Body() body: { items: any[] },
-    @Req() req: any,
-  ) {
+  async aiClassifyItems(@Body() body: { items: any[] }, @Req() req: any) {
     if (!body.items || !Array.isArray(body.items)) {
       throw new BadRequestException('items array is required');
     }
@@ -221,8 +262,10 @@ export class ProductImportController {
     // Na versão final, isso chamaria a OpenAI para itens ambíguos.
     // Como a POC atual usa inferência estática baseada em m2PerBox > 0
     // este endpoint servirá como ponte para classificação linha-a-linha no futuro.
-    const classified = await this.aiImportService.callOpenAIClassify(body.items);
-    
+    const classified = await this.aiImportService.callOpenAIClassify(
+      body.items,
+    );
+
     return { classified };
   }
 
@@ -239,7 +282,9 @@ export class ProductImportController {
 
       // Use the existing logic in StockService
       // Use explicit brandName if provided, otherwise fallback to strategy if it's not STANDARD
-      const brandToSave = dto.brandName || (dto.strategy !== 'STANDARD' ? dto.strategy : undefined);
+      const brandToSave =
+        dto.brandName ||
+        (dto.strategy !== 'STANDARD' ? dto.strategy : undefined);
 
       const saved = await this.stockService.importParsedProducts(
         clinicId,

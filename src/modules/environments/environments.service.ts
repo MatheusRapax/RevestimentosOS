@@ -36,7 +36,11 @@ export class EnvironmentsService {
     return environment;
   }
 
-  async update(id: string, clinicId: string, updateEnvironmentDto: UpdateEnvironmentDto) {
+  async update(
+    id: string,
+    clinicId: string,
+    updateEnvironmentDto: UpdateEnvironmentDto,
+  ) {
     await this.findOne(id, clinicId);
 
     return this.prisma.environment.update({

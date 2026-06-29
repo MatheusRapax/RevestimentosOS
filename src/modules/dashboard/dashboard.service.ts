@@ -61,7 +61,7 @@ export class DashboardService {
       where: {
         userId_clinicId: { userId, clinicId },
       },
-      select: { shortcuts: true }
+      select: { shortcuts: true },
     });
 
     return config?.shortcuts || [];
