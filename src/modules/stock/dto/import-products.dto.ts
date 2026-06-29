@@ -86,6 +86,26 @@ export class ImportProductItemDto {
   @IsBoolean()
   @IsOptional()
   isNew?: boolean;
+
+  @IsString()
+  @IsOptional()
+  ncm?: string;
+
+  @IsString()
+  @IsOptional()
+  cest?: string;
+
+  @IsString()
+  @IsOptional()
+  cfop?: string;
+
+  @IsString()
+  @IsOptional()
+  cst?: string;
+
+  @IsString()
+  @IsOptional()
+  ean?: string;
 }
 
 export class ImportProductsDto {

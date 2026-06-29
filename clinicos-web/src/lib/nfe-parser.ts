@@ -58,7 +58,9 @@ export interface NFeItem {
     ean: string;
     lotNumber?: string;
     expirationDate?: string;
-    // NCM, CFOP, etc could be added here
+    ncm?: string;
+    cest?: string;
+    cfop?: string;
 }
 
 export async function parseNFeXML(file: File): Promise<NFeData> {
@@ -221,6 +223,9 @@ export async function parseNFeXML(file: File): Promise<NFeData> {
                             unitValue: parseFloat(getTagValue(prod, "vUnCom")),
                             totalValue: parseFloat(getTagValue(prod, "vProd")),
                             ean: getTagValue(prod, "cEAN"),
+                            ncm: getTagValue(prod, "NCM"),
+                            cest: getTagValue(prod, "CEST"),
+                            cfop: getTagValue(prod, "CFOP"),
                             lotNumber,
                             expirationDate
                         });

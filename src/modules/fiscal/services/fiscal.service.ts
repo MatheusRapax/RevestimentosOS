@@ -148,7 +148,23 @@ export class FiscalService {
     if (!order.customer.document)
       throw new Error('CPF/CNPJ do cliente não cadastrado.');
 
-    // 3. Prepare Payload
+    // 3. PreFlight Check: Fiscal Data Governance (Fast Input trigger)
+    const itemsMissingFiscalData = order.items.filter(
+      (item) => !item.product.ncm || !item.product.cfop || !item.product.cst
+    );
+
+    if (itemsMissingFiscalData.length > 0) {
+      throw new BadRequestException({
+        message: 'Existem produtos sem dados fiscais (NCM, CFOP ou CST). A emissão foi bloqueada.',
+        code: 'MISSING_FISCAL_DATA',
+        products: itemsMissingFiscalData.map(i => ({
+          id: i.product.id,
+          name: i.product.name
+        }))
+      });
+    }
+
+    // 4. Prepare Payload
     const baseUrl =
       this.configService.get('APP_URL') || 'https://api.revestimentos.com.br';
     
@@ -185,14 +201,15 @@ export class FiscalService {
         return {
           codigo: item.product.id.substring(0, 20),
           descricao: item.product.name,
-          ncm: item.product.ncm || config?.defaultNcm || '00000000',
-          cfop: '5102',
+          ncm: item.product.ncm,
+          cest: item.product.cest || null,
+          cfop: item.product.cfop,
           unidade: isM2 ? 'M2' : (item.product.unit || 'UN'),
           quantidade: qty,
           valorUnitario: Number(unitPrice.toFixed(2)),
           valorTotal: Number(totalValue.toFixed(2)),
           impostos: {
-             icms: { cst: '00', aliquota: 18.0, baseCalculo: Number(totalValue.toFixed(2)) },
+             icms: { cst: item.product.cst, aliquota: 18.0, baseCalculo: Number(totalValue.toFixed(2)) },
              pis: { cst: '01', aliquota: 1.65, baseCalculo: Number(totalValue.toFixed(2)) },
              cofins: { cst: '01', aliquota: 7.60, baseCalculo: Number(totalValue.toFixed(2)) }
           }

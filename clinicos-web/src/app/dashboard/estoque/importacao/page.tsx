@@ -801,6 +801,11 @@ export default function ImportProductsPage() {
                                             <TableHead className="w-[80px]">Kg/Cx</TableHead>
                                             <TableHead className="text-right w-[120px]">Custo/m² (R$)</TableHead>
                                             <TableHead className="text-right w-[120px]">Custo/Cx (R$)</TableHead>
+                                            <TableHead className="w-[100px]">NCM</TableHead>
+                                            <TableHead className="w-[100px]">CEST</TableHead>
+                                            <TableHead className="w-[80px]">CFOP</TableHead>
+                                            <TableHead className="w-[80px]">CST</TableHead>
+                                            <TableHead className="w-[130px]">Cód. Barras</TableHead>
                                             <TableHead className="w-[60px]"></TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -985,6 +990,41 @@ export default function ImportProductsPage() {
                                                     ) : (
                                                         <span className="text-xs text-muted-foreground">—</span>
                                                     )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Input
+                                                        value={item.ncm || ''}
+                                                        onChange={(e) => updateItem(idx, 'ncm', e.target.value)}
+                                                        className="h-8 w-[90px]" placeholder="NCM"
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Input
+                                                        value={item.cest || ''}
+                                                        onChange={(e) => updateItem(idx, 'cest', e.target.value)}
+                                                        className="h-8 w-[90px]" placeholder="CEST"
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Input
+                                                        value={item.cfop || ''}
+                                                        onChange={(e) => updateItem(idx, 'cfop', e.target.value)}
+                                                        className="h-8 w-[70px]" placeholder="CFOP"
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Input
+                                                        value={item.cst || ''}
+                                                        onChange={(e) => updateItem(idx, 'cst', e.target.value)}
+                                                        className="h-8 w-[70px]" placeholder="CST"
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Input
+                                                        value={item.barcode || ''}
+                                                        onChange={(e) => updateItem(idx, 'barcode', e.target.value)}
+                                                        className="h-8 w-[120px]" placeholder="EAN/GTIN"
+                                                    />
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center space-x-1">

@@ -25,6 +25,11 @@ export interface ImportProductResult {
   unit?: string;
   /** saleType derivado da unidade: M2 → AREA, demais → UNIT */
   saleType?: 'UNIT' | 'AREA' | 'BOTH';
+  ncm?: string;
+  cest?: string;
+  cfop?: string;
+  cst?: string;
+  barcode?: string;
 }
 
 export type ImportStrategy = 'CASTELLI' | 'PIERINI' | 'EMBRAMACO' | 'BOUTIQUE BRASIL' | 'GLAM BRASIL' | 'LEXXA BAGNO' | 'MOSAIC' | 'DECA' | 'DEXCO' | 'STRUFALDI' | 'STANDARD';
@@ -71,24 +76,29 @@ export class ProductImportService {
       'Largura (cm)',
       'Altura (cm)',
       'Profundidade (cm)',
+      'NCM',
+      'CEST',
+      'CFOP',
+      'CST',
+      'EAN / Código de Barras',
     ];
 
     const exampleM2 = [
       'REV-001', 'Porcelanato Calacata Oro', 'M2', '50,00',
       '60x120', 'Polido', '2,16', '3', '30', '64,80', '28,5',
-      'Piso Interno', 'Mármore', '', '', '',
+      'Piso Interno', 'Mármore', '', '', '', '69072100', '', '5102', '000', '7891234567890'
     ];
 
     const exampleUN = [
       'MET-001', 'Torneira Lavatório Bica Alta', 'UN', '150,00',
       '', 'Cromado', '', '', '', '', '1,2',
-      'Banheiro', 'Metais', '15', '25', '5',
+      'Banheiro', 'Metais', '15', '25', '5', '84818019', '', '5102', '000', '7891234567891'
     ];
 
     const exampleCX = [
       'PIS-001', 'Piso Vinílico Click 4mm', 'CX', '180,00',
       '18x122', 'Carvalho Natural', '2,23', '14', '40', '89,20', '12,0',
-      'Piso Interno', 'Vinílico', '', '', '',
+      'Piso Interno', 'Vinílico', '', '', '', '39181000', '', '5102', '000', '7891234567892'
     ];
 
     const instructions = [
@@ -110,6 +120,12 @@ export class ProductImportService {
       [''],
       ['MARCA:'],
       ['  → Não é informada aqui. É selecionada no formulário antes do upload do arquivo.'],
+      [''],
+      ['DADOS FISCAIS:'],
+      ['  → NCM: Nomenclatura Comum do Mercosul (8 dígitos, ex: 69072100).'],
+      ['  → CEST: Código Especificador da Substituição Tributária.'],
+      ['  → CFOP: Código Fiscal de Operações e Prestações (ex: 5102).'],
+      ['  → CST: Código de Situação Tributária (ex: 000, 020, 060).'],
     ];
 
     const wb = XLSX.utils.book_new();
@@ -120,6 +136,7 @@ export class ProductImportService {
       { wch: 18 }, { wch: 20 }, { wch: 14 }, { wch: 14 },
       { wch: 16 }, { wch: 14 }, { wch: 18 }, { wch: 28 },
       { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 18 },
+      { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 24 }, // Campos Fiscais
     ];
     XLSX.utils.book_append_sheet(wb, wsData, 'Produtos');
 
@@ -218,6 +235,11 @@ export class ProductImportService {
    * Col 13: Largura (cm)
    * Col 14: Altura (cm)
    * Col 15: Profundidade (cm)
+   * Col 16: NCM
+   * Col 17: CEST
+   * Col 18: CFOP
+   * Col 19: CST
+   * Col 20: EAN / Código de Barras
    */
   private parseStandardLayout(rows: any[]): ImportProductResult[] {
     const results: ImportProductResult[] = [];
@@ -249,6 +271,11 @@ export class ProductImportService {
       const width = this.excelService.parseNumber(row[13]);
       const height = this.excelService.parseNumber(row[14]);
       const depth = this.excelService.parseNumber(row[15]);
+      const ncm = String(row[16] || '').trim();
+      const cest = String(row[17] || '').trim();
+      const cfop = String(row[18] || '').trim();
+      const cst = String(row[19] || '').trim();
+      const barcode = String(row[20] || '').trim();
 
       // Cost logic:
       // - M2 products: costCents = box cost in cents (rawCost × m2PerBox × 100)
@@ -280,6 +307,11 @@ export class ProductImportService {
         depth: depth || undefined,
         costPerM2Cents,
         costCents,
+        ncm,
+        cest,
+        cfop,
+        cst,
+        barcode,
       });
     }
 
@@ -477,6 +509,11 @@ export class ProductImportService {
         usage: String(row[9] || '').trim(),
         costCents: this.calcCostCents(finalCost, boxCoverage),
         costPerM2Cents: Math.round(finalCost * 100),
+        ncm: '',
+        cest: '',
+        cfop: '',
+        cst: '',
+        barcode: '',
       });
     }
     return results;
@@ -626,6 +663,11 @@ export class ProductImportService {
         boxWeight: boxWeight,
         costCents: this.calcCostCents(parsedCost, coverage),
         costPerM2Cents: Math.round(parsedCost * 100),
+        ncm: '',
+        cest: '',
+        cfop: '',
+        cst: '',
+        barcode: '',
       });
     }
 
@@ -667,6 +709,11 @@ export class ProductImportService {
           height,
           width,
           depth,
+          ncm: '',
+          cest: '',
+          cfop: '',
+          cst: '',
+          barcode: '',
         });
       }
     }
@@ -745,6 +792,11 @@ export class ProductImportService {
           usage: '',
           costCents: Math.round(cost * 100),
           costPerM2Cents: Math.round(cost * 100),
+          ncm: '',
+          cest: '',
+          cfop: '',
+          cst: '',
+          barcode: '',
         });
       }
     }

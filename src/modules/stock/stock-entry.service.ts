@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateStockEntryDto } from './dto/create-stock-entry.dto';
@@ -443,10 +444,22 @@ export class StockEntryService {
   }
 
   // === CRITICAL: CONFIRM ENTRY TRANSACTION ===
-  async confirmEntry(clinicId: string, entryId: string, userId: string) {
+  async confirmEntry(
+    clinicId: string,
+    entryId: string,
+    userId: string,
+    options?: {
+      updateMasterData?: boolean;
+      forceConfirm?: boolean;
+      justification?: string;
+    },
+  ) {
     const entry = await this.prisma.stockEntry.findUnique({
       where: { id: entryId, clinicId },
-      include: { items: true },
+      include: {
+        items: { include: { product: true } },
+        purchaseOrder: { include: { items: true } },
+      },
     });
 
     if (!entry) throw new NotFoundException('Entrada não encontrada');
@@ -489,6 +502,63 @@ export class StockEntryService {
         'Informe a Data de Chegada para confirmar.',
       );
 
+    // Price Divergence Check (3-Way Matching)
+    const divergences: string[] = [];
+    if (entry.purchaseOrder) {
+      for (const item of entry.items) {
+        const poItem = entry.purchaseOrder.items.find(
+          (pi) => pi.productId === item.productId,
+        );
+        if (poItem) {
+          const entryCents = Math.round((item.unitCost || 0) * 100);
+          const poCents = poItem.unitPriceCents;
+          if (entryCents !== poCents) {
+            divergences.push(
+              `Produto ${item.product.name} - Pedido: R$ ${(poCents / 100).toFixed(2).replace('.', ',')} | NF: R$ ${(entryCents / 100).toFixed(2).replace('.', ',')}`,
+            );
+          }
+        }
+      }
+    }
+
+    if (divergences.length > 0) {
+      if (!options?.forceConfirm) {
+        throw new BadRequestException({
+          message:
+            'Divergência de preços detectada entre o pedido de compra e a nota fiscal.',
+          divergences,
+          code: 'PRICE_DIVERGENCE',
+        });
+      }
+
+      if (!options?.justification) {
+        throw new BadRequestException(
+          'Justificativa é obrigatória para aprovar divergência de preços.',
+        );
+      }
+
+      // Check roles
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          clinicUsers: { where: { clinicId }, include: { role: true } },
+        },
+      });
+      const userRole = user?.clinicUsers[0]?.role?.name;
+      if (
+        !user?.isSuperAdmin &&
+        userRole !== 'ADMIN' &&
+        userRole !== 'MANAGER'
+      ) {
+        throw new ForbiddenException(
+          'Apenas Gerentes ou Administradores podem aprovar divergências de preço.',
+        );
+      }
+
+      // Append justification to notes
+      entry.notes = `${entry.notes || ''}\n[Aprovação de Divergência]: ${options.justification}`.trim();
+    }
+
     // Start Transaction
     const result = await this.prisma.$transaction(async (tx) => {
       // 1. Mark Entry as CONFIRMED
@@ -498,6 +568,8 @@ export class StockEntryService {
           status: EntryStatus.CONFIRMED,
           confirmedAt: new Date(),
           confirmedBy: userId,
+          notes: entry.notes,
+          hasPriceDivergence: divergences.length > 0,
         },
       });
 
@@ -557,25 +629,37 @@ export class StockEntryService {
           },
         });
 
-        // 2c. Update Product Cost (Last Cost Strategy)
-        // unitCost is the cost-per-m² (as entered by user on the NF).
-        // For area-based products (boxCoverage > 0), we must multiply to get the box cost.
+        // 2c. Update Product Cost (Last Cost Strategy) and Fiscal Data
+        const prod = await tx.product.findUnique({
+          where: { id: item.productId },
+          select: { boxCoverage: true },
+        });
+        const coverage = prod?.boxCoverage ?? 0;
+
+        let finalCostCents: number | undefined;
         if (item.unitCost) {
-          const prod = await tx.product.findUnique({
-            where: { id: item.productId },
-            select: { boxCoverage: true },
-          });
-          const coverage = prod?.boxCoverage ?? 0;
-          const finalCostCents =
+          finalCostCents =
             coverage > 0
               ? Math.round(item.unitCost * coverage * 100)
               : Math.round(item.unitCost * 100);
+        }
+
+        const updateData: any = { updatedAt: new Date() };
+        if (finalCostCents !== undefined) {
+          updateData.costCents = finalCostCents;
+        }
+
+        if (options?.updateMasterData) {
+          if (item.ncm) updateData.ncm = item.ncm;
+          if (item.cest) updateData.cest = item.cest;
+          if (item.cfop) updateData.cfop = item.cfop;
+          if (item.cst) updateData.cst = item.cst;
+        }
+
+        if (Object.keys(updateData).length > 1) {
           await tx.product.update({
             where: { id: item.productId },
-            data: {
-              costCents: finalCostCents,
-              updatedAt: new Date(),
-            },
+            data: updateData,
           });
         }
       }

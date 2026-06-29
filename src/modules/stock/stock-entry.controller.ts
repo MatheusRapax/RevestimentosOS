@@ -95,8 +95,17 @@ export class StockEntryController {
   }
 
   @Post(':id/confirm')
-  confirm(@Request() req: any, @Param('id') id: string) {
-    return this.service.confirmEntry(req.clinicId, id, req.user.id);
+  confirm(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body()
+    body?: {
+      updateMasterData?: boolean;
+      forceConfirm?: boolean;
+      justification?: string;
+    },
+  ) {
+    return this.service.confirmEntry(req.clinicId, id, req.user.id, body);
   }
 
   @Post(':id/cancel')

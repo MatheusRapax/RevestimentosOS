@@ -4,6 +4,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { HeaderForm } from './components/header-form';
 import { FiscalTotalsForm } from './components/fiscal-totals-form';
 import { ItemsGrid } from './components/items-grid';
@@ -25,6 +29,10 @@ export default function NewEntryPage() {
     const [draftData, setDraftData] = useState<CreateEntryData | null>(null);
     const [showFiscalData, setShowFiscalData] = useState(false);
     const [pendingXmlItems, setPendingXmlItems] = useState<NFeItem[]>([]);
+    const [updateMasterData, setUpdateMasterData] = useState(false);
+    const [showDivergenceModal, setShowDivergenceModal] = useState(false);
+    const [divergences, setDivergences] = useState<string[]>([]);
+    const [justification, setJustification] = useState('');
 
     const handleCreateDraft = async (data: CreateEntryData) => {
         try {
@@ -37,13 +45,23 @@ export default function NewEntryPage() {
         }
     };
 
-    const handleConfirm = async () => {
+    const handleConfirm = async (forceConfirm = false) => {
         if (!draftId) return;
         try {
-            await confirmEntry(draftId);
+            await confirmEntry(draftId, {
+                updateMasterData,
+                forceConfirm,
+                justification: forceConfirm ? justification : undefined
+            });
+            setShowDivergenceModal(false);
             router.push('/dashboard/estoque/movimentacoes');
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            if (err.response?.data?.code === 'PRICE_DIVERGENCE') {
+                setDivergences(err.response.data.divergences || []);
+                setShowDivergenceModal(true);
+            } else {
+                console.error(err);
+            }
         }
     };
 
@@ -204,17 +222,32 @@ export default function NewEntryPage() {
                             />
 
                             <div className="flex justify-between items-center bg-muted/20 p-4 rounded-md">
-                                <div className="text-lg">
-                                    Total: <strong>
-                                        {currentEntry?.totalValue ?
-                                            new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentEntry.totalValue)
-                                            : 'R$ 0,00'}
-                                    </strong>
+                                <div className="space-y-4">
+                                    <div className="text-lg">
+                                        Total: <strong>
+                                            {currentEntry?.totalValue ?
+                                                new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentEntry.totalValue)
+                                                : 'R$ 0,00'}
+                                        </strong>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="updateMasterData"
+                                            checked={updateMasterData}
+                                            onCheckedChange={(checked) => setUpdateMasterData(!!checked)}
+                                        />
+                                        <label
+                                            htmlFor="updateMasterData"
+                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                        >
+                                            Atualizar dados fiscais (NCM, CEST, CFOP) dos produtos com os dados da Nota
+                                        </label>
+                                    </div>
                                 </div>
                                 <Button
                                     size="lg"
                                     className="bg-green-600 hover:bg-green-700"
-                                    onClick={handleConfirm}
+                                    onClick={() => handleConfirm(false)}
                                     disabled={isLoading || !currentEntry?.items?.length}
                                 >
                                     <CheckCircle className="h-4 w-4 mr-2" />
@@ -225,6 +258,51 @@ export default function NewEntryPage() {
                     </Card>
                 </>
             )}
+
+            {/* Modal de Divergência de Preço */}
+            <Dialog open={showDivergenceModal} onOpenChange={setShowDivergenceModal}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-red-600 flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5" />
+                            Divergência de Preço Detectada
+                        </DialogTitle>
+                        <DialogDescription>
+                            Os valores dos seguintes itens na Nota Fiscal estão diferentes do Pedido de Compra original. 
+                            Uma justificativa gerencial é obrigatória.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="py-4 space-y-4">
+                        <div className="bg-muted p-3 rounded-md text-sm space-y-2 max-h-[200px] overflow-y-auto">
+                            {divergences.map((div, i) => (
+                                <div key={i} className="text-destructive font-medium">{div}</div>
+                            ))}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="justification">Justificativa da Aprovação</Label>
+                            <Textarea 
+                                id="justification" 
+                                placeholder="Explique o motivo da divergência de preço para aprovar..."
+                                value={justification}
+                                onChange={(e) => setJustification(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowDivergenceModal(false)}>Cancelar</Button>
+                        <Button 
+                            variant="destructive" 
+                            onClick={() => handleConfirm(true)}
+                            disabled={isLoading || justification.trim().length < 5}
+                        >
+                            Aprovar Divergência
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

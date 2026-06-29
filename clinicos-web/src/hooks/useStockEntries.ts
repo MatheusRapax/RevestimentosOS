@@ -20,6 +20,7 @@ export interface StockEntryItem {
 
     // Fiscal
     ncm?: string;
+    cest?: string;
     cfop?: string;
     cst?: string;
     valueICMS?: number;
@@ -131,6 +132,7 @@ export interface AddItemData {
 
     // Fiscal Item Data
     ncm?: string;
+    cest?: string;
     cfop?: string;
     cst?: string;
     valueICMS?: number;
@@ -238,11 +240,11 @@ export function useStockEntries() {
         }
     };
 
-    const confirmEntry = async (entryId: string) => {
+    const confirmEntry = async (entryId: string, options?: { updateMasterData?: boolean; forceConfirm?: boolean; justification?: string }) => {
         setError(null);
         try {
             setIsLoading(true);
-            await api.post(`/stock/entries/${entryId}/confirm`);
+            await api.post(`/stock/entries/${entryId}/confirm`, options);
             await getEntry(entryId); // Should technically move to confirmed list logic
         } catch (err: any) {
             setError(err.response?.data?.message || 'Erro ao confirmar entrada');

@@ -296,8 +296,12 @@ ${JSON.stringify(sample, null, 2)}
                   piecesPerBox: { type: ['string', 'null'] },
                   palletBoxes: { type: ['string', 'null'] },
                   weight: { type: ['string', 'null'] },
+                  ncm: { type: ['string', 'null'] },
+                  cest: { type: ['string', 'null'] },
+                  cfop: { type: ['string', 'null'] },
+                  cst: { type: ['string', 'null'] },
                 },
-                required: ['sku', 'name', 'cost', 'unit', 'format', 'm2PerBox', 'piecesPerBox', 'palletBoxes', 'weight'],
+                required: ['sku', 'name', 'cost', 'unit', 'format', 'm2PerBox', 'piecesPerBox', 'palletBoxes', 'weight', 'ncm', 'cest', 'cfop', 'cst'],
                 additionalProperties: false
               },
               ambiguities: {
@@ -396,6 +400,10 @@ ${JSON.stringify(sample, null, 2)}
         piecesPerBox: getVal(row, mapping.piecesPerBox),
         palletBoxes: getVal(row, mapping.palletBoxes),
         weight: getVal(row, mapping.weight),
+        ncm: getVal(row, mapping.ncm),
+        cest: getVal(row, mapping.cest),
+        cfop: getVal(row, mapping.cfop),
+        cst: getVal(row, mapping.cst),
       });
     }
     return mappedRows;
@@ -478,8 +486,10 @@ ${JSON.stringify(sample, null, 2)}
         palletBoxes,
         palletCoverage: 0,
         ean: '',
-        ncm: '',
-        cest: '',
+        ncm: item.ncm || '',
+        cest: item.cest || '',
+        cfop: item.cfop || '',
+        cst: item.cst || '',
         format: item.format || '',
         color: '',
       };

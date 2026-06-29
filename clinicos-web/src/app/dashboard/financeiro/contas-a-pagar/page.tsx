@@ -246,6 +246,12 @@ export default function ContasAPagarPage() {
                                             {expense.recipientName && (
                                                 <p className="text-sm text-gray-500">{expense.recipientName}</p>
                                             )}
+                                            {expense.stockEntry?.hasPriceDivergence && (
+                                                <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+                                                    <AlertTriangle className="h-3 w-3" />
+                                                    Divergência de Preço Aprovada
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className="text-sm text-gray-600">

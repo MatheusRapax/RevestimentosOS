@@ -186,20 +186,20 @@ model Clinic {
   occurrences              Occurrence[]
 
   // Sales Module Relations
-  customers         Customer[]
-  architects        Architect[]
-  quotes            Quote[]
-  orders            Order[]
-  purchaseOrders    PurchaseOrder[]
-  stockReservations StockReservation[]
-  deliveries        Delivery[]
-  invoices          Invoice[]
-  expenses          Expense[]
-  suppliers         Supplier[]
-  quoteTemplates    QuoteTemplate[]
-  promotions        Promotion[]
-  environments      Environment[]
-  CommissionRule    CommissionRule[]
+  customers             Customer[]
+  architects            Architect[]
+  quotes                Quote[]
+  orders                Order[]
+  purchaseOrders        PurchaseOrder[]
+  stockReservations     StockReservation[]
+  deliveries            Delivery[]
+  invoices              Invoice[]
+  expenses              Expense[]
+  suppliers             Supplier[]
+  quoteTemplates        QuoteTemplate[]
+  promotions            Promotion[]
+  environments          Environment[]
+  CommissionRule        CommissionRule[]
   supplierMappingCaches SupplierMappingCache[]
 }
 
@@ -479,9 +479,11 @@ model Product {
   manualPrice Boolean @default(false) // Se true, ignora o motor de precificação
   isAdhoc     Boolean @default(false) // Se true, é um produto criado avulso para um orçamento específico
 
-  // Campos Fiscais (Webmania)
+  // Campos Fiscais
   ncm      String? // Nomenclatura Comum do Mercosul (8 digits)
   cest     String? // Código Especificador da Substituição Tributária
+  cfop     String? // Código Fiscal de Operações e Prestações
+  cst      String? // Código de Situação Tributária
   origin   Int? // Origem da Mercadoria (0, 1, 2...)
   mva      Float? // Margem de Valor Agregado (%)
   taxClass String? // Classe de Imposto (Webmania ID)
@@ -496,10 +498,10 @@ model Product {
   palletCoverage Float? // m² cobertos por palete
 
   // Campos Dimensionais Adicionais (Louças, Metais, etc)
-  height         Float? // Altura em cm/m
-  width          Float? // Largura em cm/m
-  depth          Float? // Profundidade em cm/m
-  color          String? // Cor / Acabamento
+  height Float? // Altura em cm/m
+  width  Float? // Largura em cm/m
+  depth  Float? // Profundidade em cm/m
+  color  String? // Cor / Acabamento
 
   // Campos de Padronização e Importação (Phase 7)
   supplierId String?
@@ -734,6 +736,7 @@ model StockEntry {
 
   totalValue Float? // Sum of items (Legacy - consider deprecating or syncing with totalNoteValue)
   notes      String?
+  hasPriceDivergence Boolean @default(false)
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -765,6 +768,7 @@ model StockEntryItem {
   ncm  String? // Nomenclatura Comum do Mercosul
   cfop String? // Código Fiscal de Operações e Prestações (e.g. 5102, 1102)
   cst  String? // Código de Situação Tributária
+  cest String? // Código Especificador da Substituição Tributária
 
   // --- Item Values ---
   discountValueCents  Int? @default(0)
@@ -1489,7 +1493,7 @@ model Supplier {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clinic         Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  clinic         Clinic                 @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   purchaseOrders PurchaseOrder[]
   products       Product[]
   occurrences    Occurrence[]
@@ -1501,18 +1505,18 @@ model Supplier {
 
 // Business: SupplierMappingCache model (Cache do AI de Mapeamento)
 model SupplierMappingCache {
-  id              String   @id @default(uuid())
+  id              String @id @default(uuid())
   supplierId      String
   clinicId        String
-  headersHash     String   // Hash das colunas da planilha (para detectar schema drift)
-  mappingPayload  String   @db.Text // AIColumnMappingDto em JSON
-  confidenceScore Float    @default(0) // Confiança da IA na classificação
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  headersHash     String // Hash das colunas da planilha (para detectar schema drift)
+  mappingPayload  String @db.Text // AIColumnMappingDto em JSON
+  confidenceScore Float  @default(0) // Confiança da IA na classificação
 
-  supplier        Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  clinic          Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  clinic   Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 
   @@unique([supplierId, headersHash])
   @@index([clinicId])

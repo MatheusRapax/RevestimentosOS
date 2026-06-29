@@ -109,6 +109,13 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
         if (item.lotNumber) setLotNumber(item.lotNumber);
         if (item.expirationDate) setExpirationDate(item.expirationDate);
 
+        // Populate fiscal data from XML
+        const newFiscalData: Partial<AddItemData> = {};
+        if (item.ncm) newFiscalData.ncm = item.ncm;
+        if (item.cest) newFiscalData.cest = item.cest;
+        if (item.cfop) newFiscalData.cfop = item.cfop;
+        setFiscalData(newFiscalData);
+
         const match = products.find(p => p.name.toLowerCase() === item.name.toLowerCase());
         if (match) {
             setProductId(match.id);

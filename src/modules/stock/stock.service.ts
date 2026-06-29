@@ -865,6 +865,11 @@ export class StockService {
               width: item.width !== undefined ? item.width : existing.width,
               depth: item.depth !== undefined ? item.depth : existing.depth,
               color: item.color !== undefined ? item.color : existing.color,
+              ncm: item.ncm || existing.ncm,
+              cest: item.cest || existing.cest,
+              cfop: item.cfop || existing.cfop,
+              cst: item.cst || existing.cst,
+              barcode: item.barcode || existing.barcode,
               isActive: true,
             },
           });
@@ -893,6 +898,11 @@ export class StockService {
               width: item.width,
               depth: item.depth,
               color: item.color,
+              ncm: item.ncm,
+              cest: item.cest,
+              cfop: item.cfop,
+              cst: item.cst,
+              barcode: item.barcode,
             },
           });
           createdCount++;

@@ -69,6 +69,22 @@ export class AIColumnMappingDto {
   @IsString()
   @IsOptional()
   palletBoxes: string | null;
+
+  @IsString()
+  @IsOptional()
+  ncm: string | null;
+
+  @IsString()
+  @IsOptional()
+  cest: string | null;
+
+  @IsString()
+  @IsOptional()
+  cfop: string | null;
+
+  @IsString()
+  @IsOptional()
+  cst: string | null;
 }
 
 export class AIRemappingRequestDto {
