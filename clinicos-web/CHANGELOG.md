@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.20](///compare/v0.1.19...v0.1.20) (2026-06-29)
+
+
+### Features
+
+* **fiscal:** implementar pipeline de governanca fiscal e 3-way matching 5db6cda
+
+
+### Bug Fixes
+
+* **fiscal:** estabilização do fluxo de emissão de NF-e e sincronização de dados 4b5b4fa
+
 ### [0.1.19](///compare/v0.1.18...v0.1.19) (2026-06-28)
 
 
