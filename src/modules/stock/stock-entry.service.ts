@@ -566,6 +566,14 @@ export class StockEntryService {
     const defaultCfop = fiscalConfig?.defaultCfop || null;
     const defaultCst = fiscalConfig?.defaultCst || null;
 
+    // Pre-load all products to avoid N+1 queries in the loop
+    const productIds = entry.items.map((i) => i.productId);
+    const productsMaster = await this.prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, boxCoverage: true, cfop: true, cst: true },
+    });
+    const productMap = new Map(productsMaster.map((p) => [p.id, p]));
+
     // Start Transaction
     const result = await this.prisma.$transaction(async (tx) => {
       // 1. Mark Entry as CONFIRMED
@@ -637,10 +645,7 @@ export class StockEntryService {
         });
 
         // 2c. Update Product Cost (Last Cost Strategy) and Fiscal Data
-        const prod = await tx.product.findUnique({
-          where: { id: item.productId },
-          select: { boxCoverage: true, cfop: true, cst: true },
-        });
+        const prod = productMap.get(item.productId);
         const coverage = prod?.boxCoverage ?? 0;
 
         let finalCostCents: number | undefined;
@@ -651,7 +656,7 @@ export class StockEntryService {
               : Math.round(item.unitCost * 100);
         }
 
-        const updateData: any = { updatedAt: new Date() };
+        const updateData: Prisma.ProductUpdateInput = { updatedAt: new Date() };
         if (finalCostCents !== undefined) {
           updateData.costCents = finalCostCents;
         }
@@ -659,7 +664,7 @@ export class StockEntryService {
         if (options?.updateMasterData) {
           if (item.ncm) updateData.ncm = item.ncm;
           if (item.cest) updateData.cest = item.cest;
-          
+
           // NUNCA usamos o CFOP/CST do fornecedor, usamos o padrão da loja de revenda
           if (!prod?.cfop && defaultCfop) {
             updateData.cfop = defaultCfop;

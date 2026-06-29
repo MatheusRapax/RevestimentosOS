@@ -54,6 +54,11 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
     const [fiscalData, setFiscalData] = useState<Partial<AddItemData>>({});
     const [showFiscal, setShowFiscal] = useState(false);
 
+    // Pagination state to prevent extreme lag with large XMLs
+    const [pendingPage, setPendingPage] = useState(1);
+    const [itemsPage, setItemsPage] = useState(1);
+    const ITEMS_PER_PAGE = 50;
+
     useEffect(() => {
         fetchProducts();
     }, []);
@@ -150,6 +155,13 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
 
     const selectedProduct = products.find(p => p.id === productId);
 
+    // Pagination logic
+    const paginatedPending = pendingItems?.slice((pendingPage - 1) * ITEMS_PER_PAGE, pendingPage * ITEMS_PER_PAGE);
+    const totalPendingPages = pendingItems ? Math.ceil(pendingItems.length / ITEMS_PER_PAGE) : 0;
+
+    const paginatedItems = items?.slice((itemsPage - 1) * ITEMS_PER_PAGE, itemsPage * ITEMS_PER_PAGE);
+    const totalItemsPages = items ? Math.ceil(items.length / ITEMS_PER_PAGE) : 0;
+
     return (
         <div className="space-y-4 border p-4 rounded-md">
 
@@ -162,10 +174,19 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
 
             {pendingItems && pendingItems.length > 0 && (
                 <div className="mb-6 border-b pb-6">
-                    <h3 className="text-sm font-semibold mb-2 text-orange-600 flex items-center">
-                        <AlertTriangle className="h-4 w-4 mr-2" />
-                        Itens Pendentes (Importado do XML)
-                    </h3>
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-semibold text-orange-600 flex items-center">
+                            <AlertTriangle className="h-4 w-4 mr-2" />
+                            Itens Pendentes (Importado do XML) - {pendingItems.length} itens
+                        </h3>
+                        {totalPendingPages > 1 && (
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setPendingPage(p => Math.max(1, p - 1))} disabled={pendingPage === 1}>Anterior</Button>
+                                <span className="text-xs text-muted-foreground">Pág {pendingPage} de {totalPendingPages}</span>
+                                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setPendingPage(p => Math.min(totalPendingPages, p + 1))} disabled={pendingPage === totalPendingPages}>Próxima</Button>
+                            </div>
+                        )}
+                    </div>
                     <div className="rounded-md border bg-orange-50/50">
                         <Table>
                             <TableHeader>
@@ -178,8 +199,10 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {pendingItems.map((item, idx) => (
-                                    <TableRow key={idx} className={resolvingIndex === idx ? "bg-blue-50" : ""}>
+                                {paginatedPending?.map((item, localIdx) => {
+                                    const realIdx = (pendingPage - 1) * ITEMS_PER_PAGE + localIdx;
+                                    return (
+                                        <TableRow key={realIdx} className={resolvingIndex === realIdx ? "bg-blue-50" : ""}>
                                         <TableCell className="text-xs">{item.code}</TableCell>
                                         <TableCell className="text-xs font-medium">{item.name}</TableCell>
                                         <TableCell className="text-xs">{item.quantity} {item.unit}</TableCell>
@@ -187,15 +210,16 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                                         <TableCell>
                                             <Button
                                                 size="sm"
-                                                variant={resolvingIndex === idx ? "default" : "outline"}
+                                                variant={resolvingIndex === realIdx ? "default" : "outline"}
                                                 className="h-7 text-xs"
-                                                onClick={() => handleResolve(idx, item)}
+                                                onClick={() => handleResolve(realIdx, item)}
                                             >
-                                                {resolvingIndex === idx ? "Preenchendo..." : "Usar"}
+                                                {resolvingIndex === realIdx ? "Preenchendo..." : "Usar"}
                                             </Button>
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                     </div>
@@ -340,7 +364,7 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            items?.map((item) => (
+                            paginatedItems?.map((item) => (
                                 <TableRow key={item.id}>
                                     <TableCell className="font-medium">{item.product.name}</TableCell>
                                     <TableCell className="text-sm">
@@ -450,6 +474,14 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                     </TableBody>
                 </Table>
             </div>
+            
+            {totalItemsPages > 1 && (
+                <div className="flex items-center justify-end gap-2 mt-4">
+                    <Button variant="outline" size="sm" onClick={() => setItemsPage(p => Math.max(1, p - 1))} disabled={itemsPage === 1}>Anterior</Button>
+                    <span className="text-xs text-muted-foreground">Página {itemsPage} de {totalItemsPages} ({items?.length} itens)</span>
+                    <Button variant="outline" size="sm" onClick={() => setItemsPage(p => Math.min(totalItemsPages, p + 1))} disabled={itemsPage === totalItemsPages}>Próxima</Button>
+                </div>
+            )}
         </div>
     );
 }

@@ -290,6 +290,18 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                                     <Label>CFOP Padrão (Saída)</Label>
                                     <Input {...register('defaultCfop')} placeholder="Ex: 5102 (Revenda)" />
                                     <p className="text-xs text-gray-500">Usado ao dar entrada em notas de compra para evitar conflito com o CFOP do fornecedor.</p>
+                                    {(() => {
+                                        const currentCfop = watch('defaultCfop');
+                                        if (currentCfop && currentCfop.length >= 4 && !['5102', '5405', '6102', '6405'].includes(currentCfop)) {
+                                            return (
+                                                <div className="flex items-start gap-2 text-yellow-600 bg-yellow-50 p-2 rounded border border-yellow-200 mt-2 text-xs">
+                                                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                                                    <p>Atenção: O CFOP <strong>{currentCfop}</strong> não é um código padrão de revenda (ex: 5102, 5405). Se configurado errado, suas vendas poderão ser rejeitadas pela Sefaz.</p>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
                                 </div>
 
                                 <div className="space-y-2">
