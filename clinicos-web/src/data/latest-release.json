@@ -1,4 +1,4 @@
 {
-  "version": "1.0.1",
-  "content": "All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines."
+  "version": "1.1.0",
+  "content": "### Features\n\n* **stock:** implementar override de divergências e auditar conciliação dd7d069\n\n\n### Bug Fixes\n\n* adicionar tipagem de purchaseOrderId no useStockEntries aa06ef1"
 }
