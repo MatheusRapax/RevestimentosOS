@@ -143,6 +143,9 @@ export interface AddItemData {
     discountValueCents?: number;
     freightValueCents?: number;
     insuranceValueCents?: number;
+
+    purchaseOrderId?: string;
+    purchaseOrderItemId?: string;
 }
 
 export function useStockEntries() {
