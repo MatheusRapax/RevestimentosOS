@@ -12,7 +12,11 @@ export class PurchaseOrdersService {
     const where: any = { clinicId };
 
     if (filters?.status) {
-      where.status = filters.status;
+      if (filters.status.includes(',')) {
+        where.status = { in: filters.status.split(',').map((s) => s.trim()) as any };
+      } else {
+        where.status = filters.status as any;
+      }
     }
     if (filters?.supplierId) {
       where.supplierId = filters.supplierId;

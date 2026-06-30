@@ -72,4 +72,12 @@ export class AddStockEntryItemDto {
   @IsNumber()
   @IsOptional()
   rateIPI?: number;
+
+  @IsString()
+  @IsOptional()
+  purchaseOrderId?: string;
+
+  @IsString()
+  @IsOptional()
+  purchaseOrderItemId?: string;
 }

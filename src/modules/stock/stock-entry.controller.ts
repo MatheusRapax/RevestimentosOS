@@ -103,6 +103,8 @@ export class StockEntryController {
       updateMasterData?: boolean;
       forceConfirm?: boolean;
       justification?: string;
+      supervisorEmail?: string;
+      supervisorPassword?: string;
     },
   ) {
     return this.service.confirmEntry(req.clinicId, id, req.user.id, body);

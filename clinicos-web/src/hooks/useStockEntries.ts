@@ -82,6 +82,7 @@ export interface CreateEntryData {
     type?: string;
     invoiceNumber?: string;
     series?: string;
+    supplierId?: string;
     supplierName?: string;
     emissionDate?: string;
     arrivalDate?: string;
@@ -240,14 +241,18 @@ export function useStockEntries() {
         }
     };
 
-    const confirmEntry = async (entryId: string, options?: { updateMasterData?: boolean; forceConfirm?: boolean; justification?: string }) => {
+    const confirmEntry = async (entryId: string, options?: { updateMasterData?: boolean; forceConfirm?: boolean; justification?: string; supervisorEmail?: string; supervisorPassword?: string }) => {
         setError(null);
         try {
             setIsLoading(true);
             await api.post(`/stock/entries/${entryId}/confirm`, options);
             await getEntry(entryId); // Should technically move to confirmed list logic
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erro ao confirmar entrada');
+            const code = err.response?.data?.code;
+            const status = err.response?.status;
+            if (code !== 'PO_DIVERGENCE' && status !== 401 && status !== 403) {
+                setError(err.response?.data?.message || 'Erro ao confirmar entrada');
+            }
             throw err;
         } finally {
             setIsLoading(false);

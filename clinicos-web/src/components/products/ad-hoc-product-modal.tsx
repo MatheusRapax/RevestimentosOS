@@ -45,9 +45,11 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
 
         if (costNum > 0 && markupNum > 0) {
             const calculated = costNum * (1 + (markupNum / 100));
-            setFinalPrice(calculated.toFixed(2));
+            const cents = Math.round(calculated * 100);
+            setFinalPrice((cents / 100).toFixed(2));
         } else if (costNum > 0) {
-            setFinalPrice(costNum.toFixed(2));
+            const cents = Math.round(costNum * 100);
+            setFinalPrice((cents / 100).toFixed(2));
         } else {
             setFinalPrice('0.00');
         }

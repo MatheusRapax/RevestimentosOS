@@ -163,9 +163,10 @@ export default function CreateStockItemDialog({ open, onClose, onSuccess }: Prop
         }
 
         const price = realBoxCost * (1 + markup / 100);
+        const priceInCents = Math.round(price * 100);
         setFormData(prev => ({
             ...prev,
-            priceCents: price.toFixed(2)
+            priceCents: (priceInCents / 100).toFixed(2)
         }));
 
     }, [

@@ -785,6 +785,10 @@ model StockEntryItem {
   expirationDate DateTime?
   manufacturer   String?
 
+  // --- Purchase Order Link ---
+  purchaseOrderId     String?
+  purchaseOrderItemId String?
+
   stockEntry StockEntry @relation(fields: [stockEntryId], references: [id], onDelete: Cascade)
   product    Product    @relation(fields: [productId], references: [id])
 
@@ -1634,6 +1638,7 @@ model PurchaseOrderItem {
   id              String  @id @default(uuid())
   purchaseOrderId String
   productId       String?
+  supplierId      String? // Permite comprar o mesmo pedido em fornecedores diferentes
 
   // Dados do produto (podem não existir no sistema ainda)
   productCode      String

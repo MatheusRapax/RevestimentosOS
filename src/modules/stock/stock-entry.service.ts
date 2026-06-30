@@ -3,7 +3,9 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateStockEntryDto } from './dto/create-stock-entry.dto';
 import { AddStockEntryItemDto } from './dto/add-stock-entry-item.dto';
@@ -257,6 +259,8 @@ export class StockEntryService {
         rateICMS: dto.rateICMS,
         valueIPI: dto.valueIPI,
         rateIPI: dto.rateIPI,
+        purchaseOrderId: dto.purchaseOrderId,
+        purchaseOrderItemId: dto.purchaseOrderItemId,
       },
     });
 
@@ -452,6 +456,8 @@ export class StockEntryService {
       updateMasterData?: boolean;
       forceConfirm?: boolean;
       justification?: string;
+      supervisorEmail?: string;
+      supervisorPassword?: string;
     },
   ) {
     const entry = await this.prisma.stockEntry.findUnique({
@@ -502,9 +508,24 @@ export class StockEntryService {
         'Informe a Data de Chegada para confirmar.',
       );
 
-    // Price Divergence Check (3-Way Matching)
+    // Pre-load PO Items to check divergences
+    const linkedPoItemIds = entry.items
+      .map((i: any) => i.purchaseOrderItemId)
+      .filter(Boolean) as string[];
+    let poItemsMap = new Map<string, any>();
+    if (linkedPoItemIds.length > 0) {
+      const poItems = await this.prisma.purchaseOrderItem.findMany({
+        where: { id: { in: linkedPoItemIds } },
+      });
+      poItemsMap = new Map(poItems.map((p) => [p.id, p]));
+    }
+
+    // Divergence Check (Price & Quantity)
     const divergences: string[] = [];
-    if (entry.purchaseOrder) {
+    const quantityDivergences: string[] = [];
+
+    // Legacy Header PO check
+    if (entry.purchaseOrder && linkedPoItemIds.length === 0) {
       for (const item of entry.items) {
         const poItem = entry.purchaseOrder.items.find(
           (pi) => pi.productId === item.productId,
@@ -521,13 +542,40 @@ export class StockEntryService {
       }
     }
 
-    if (divergences.length > 0) {
+    // Item-level PO check
+    for (const item of entry.items) {
+      const poItem = poItemsMap.get((item as any).purchaseOrderItemId || '');
+      if (poItem) {
+        // Price Check
+        const entryCents = Math.round((item.unitCost || 0) * 100);
+        const poCents = poItem.unitPriceCents;
+        if (entryCents !== poCents) {
+          divergences.push(
+            `Produto ${item.product.name} - Pedido: R$ ${(poCents / 100).toFixed(2).replace('.', ',')} | NF: R$ ${(entryCents / 100).toFixed(2).replace('.', ',')}`,
+          );
+        }
+
+        // Quantity Check (Divergência Positiva)
+        if (poItem.quantityReceived + item.quantity > poItem.quantityOrdered) {
+          quantityDivergences.push(
+            `Produto ${item.product.name} - Pedido: ${poItem.quantityOrdered} | Recebido Total: ${poItem.quantityReceived + item.quantity} (Excesso de ${poItem.quantityReceived + item.quantity - poItem.quantityOrdered})`,
+          );
+        }
+      } else if (linkedPoItemIds.length > 0 || entry.purchaseOrderId) {
+        // Item avulso em uma nota vinculada a pedido
+        divergences.push(
+          `Item Avulso: O produto ${item.product.name} não faz parte do pedido de compra, mas foi incluído na nota.`,
+        );
+      }
+    }
+
+    if (divergences.length > 0 || quantityDivergences.length > 0) {
       if (!options?.forceConfirm) {
         throw new BadRequestException({
           message:
-            'Divergência de preços detectada entre o pedido de compra e a nota fiscal.',
-          divergences,
-          code: 'PRICE_DIVERGENCE',
+            'Divergência detectada entre o pedido de compra e a nota fiscal.',
+          divergences: [...divergences, ...quantityDivergences],
+          code: 'PO_DIVERGENCE',
         });
       }
 
@@ -537,27 +585,73 @@ export class StockEntryService {
         );
       }
 
-      // Check roles
-      const user = await this.prisma.user.findUnique({
+      let authorizedUserId = userId;
+      let authorizedBySupervisor = false;
+
+      // Check current user role
+      const currentUser = await this.prisma.user.findUnique({
         where: { id: userId },
         include: {
           clinicUsers: { where: { clinicId }, include: { role: true } },
         },
       });
-      const userRole = user?.clinicUsers[0]?.role?.name;
-      if (
-        !user?.isSuperAdmin &&
-        userRole !== 'ADMIN' &&
-        userRole !== 'MANAGER'
-      ) {
+      const currentUserRole = currentUser?.clinicUsers[0]?.role?.key;
+      let isAuthorized = currentUser?.isSuperAdmin || currentUserRole === 'ADMIN' || currentUserRole === 'MANAGER';
+
+      // Check supervisor override
+      if (!isAuthorized && options?.supervisorEmail && options?.supervisorPassword) {
+        const supervisor = await this.prisma.user.findUnique({
+          where: { email: options.supervisorEmail },
+          include: {
+            clinicUsers: { where: { clinicId }, include: { role: true } },
+          },
+        });
+
+        if (!supervisor || !supervisor.isActive) {
+          throw new UnauthorizedException('Supervisor não encontrado ou inativo.');
+        }
+
+        const isPasswordValid = await bcrypt.compare(options.supervisorPassword, supervisor.password);
+        if (!isPasswordValid) {
+          throw new UnauthorizedException('Senha do supervisor incorreta.');
+        }
+
+        const supervisorRole = supervisor.clinicUsers[0]?.role?.key;
+        if (!supervisor.isSuperAdmin && supervisorRole !== 'ADMIN' && supervisorRole !== 'MANAGER') {
+          throw new ForbiddenException('O usuário informado não possui nível de Gerente ou Administrador.');
+        }
+
+        isAuthorized = true;
+        authorizedUserId = supervisor.id;
+        authorizedBySupervisor = true;
+      }
+
+      if (!isAuthorized) {
         throw new ForbiddenException(
-          'Apenas Gerentes ou Administradores podem aprovar divergências de preço.',
+          'Apenas Gerentes ou Administradores podem aprovar divergências de preço ou quantidade.',
         );
       }
 
       // Append justification to notes
       entry.notes =
-        `${entry.notes || ''}\n[Aprovação de Divergência]: ${options.justification}`.trim();
+        `${entry.notes || ''}\n[Aprovação de Divergência]: ${options.justification}${authorizedBySupervisor ? ` (Autorizado por Supervisor: ${options.supervisorEmail})` : ''}`.trim();
+
+      // Create Audit Log
+      await this.prisma.auditLog.create({
+        data: {
+          clinicId,
+          userId: authorizedUserId,
+          action: 'UPDATE',
+          entity: 'StockEntry',
+          entityId: entry.id,
+          message: 'Aprovação de Divergência de Pedido de Compra',
+          details: {
+            justification: options.justification,
+            divergences: [...divergences, ...quantityDivergences],
+            authorizedBySupervisor
+          }
+        }
+      });
     }
     // Buscar CFOP/CST padrão da loja para usar ao atualizar master data
     const fiscalConfig = await this.prisma.clinicFiscalConfig.findUnique({
@@ -584,9 +678,12 @@ export class StockEntryService {
           confirmedAt: new Date(),
           confirmedBy: userId,
           notes: entry.notes,
-          hasPriceDivergence: divergences.length > 0,
+          hasPriceDivergence:
+            divergences.length > 0 || quantityDivergences.length > 0,
         },
       });
+
+      const affectedPurchaseOrders = new Set<string>();
 
       // 2. Process each item
       for (const item of entry.items) {
@@ -680,10 +777,42 @@ export class StockEntryService {
             data: updateData,
           });
         }
+
+        // 2d. Update PurchaseOrderItem if linked
+        if (
+          (item as any).purchaseOrderItemId &&
+          (item as any).purchaseOrderId
+        ) {
+          await tx.purchaseOrderItem.update({
+            where: { id: (item as any).purchaseOrderItemId },
+            data: { quantityReceived: { increment: item.quantity } },
+          });
+          affectedPurchaseOrders.add((item as any).purchaseOrderId);
+        }
       }
 
-      // 3. Complete Purchase Order if applicable
-      if (entry.purchaseOrderId) {
+      // 3. Complete Purchase Order if applicable (Item level logic)
+      for (const poId of affectedPurchaseOrders) {
+        // Find all items of this PO to see if it's fully received
+        const poItems = await tx.purchaseOrderItem.findMany({
+          where: { purchaseOrderId: poId },
+        });
+
+        const isFullyReceived = poItems.every(
+          (pi) => pi.quantityReceived >= pi.quantityOrdered,
+        );
+
+        await tx.purchaseOrder.update({
+          where: { id: poId },
+          data: {
+            status: isFullyReceived ? 'RECEIVED' : 'PARTIAL',
+            receivedAt: isFullyReceived ? new Date() : undefined,
+          },
+        });
+      }
+
+      // Legacy Header level PO (if any entry has only header purchaseOrderId but no items linked)
+      if (entry.purchaseOrderId && affectedPurchaseOrders.size === 0) {
         await tx.purchaseOrder.update({
           where: { id: entry.purchaseOrderId },
           data: {
@@ -741,23 +870,7 @@ export class StockEntryService {
       }
     }
 
-    // 4. Update linked Purchase Order status (Outside Transaction)
-    if (entry.purchaseOrderId) {
-      try {
-        await this.prisma.purchaseOrder.update({
-          where: { id: entry.purchaseOrderId },
-          data: {
-            status: 'RECEIVED',
-            receivedAt: new Date(),
-          },
-        });
-      } catch (error) {
-        console.error(
-          `Failed to update PurchaseOrder ${entry.purchaseOrderId} status:`,
-          error,
-        );
-      }
-    }
+    // 4. Removed redundant PO update logic here since it's already handled transactionally above
 
     return result;
   }

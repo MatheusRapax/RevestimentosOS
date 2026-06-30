@@ -6,6 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { HeaderForm } from './components/header-form';
@@ -16,6 +26,8 @@ import { ArrowLeft, CheckCircle, AlertTriangle, Trash2, ChevronDown, ChevronUp }
 import { NFeItem } from '@/lib/nfe-parser';
 import { InstallmentsList } from './components/installments-list';
 import Link from 'next/link';
+import api from '@/lib/api';
+import { useEffect } from 'react';
 
 export default function NewEntryPage() {
     const router = useRouter();
@@ -30,9 +42,30 @@ export default function NewEntryPage() {
     const [showFiscalData, setShowFiscalData] = useState(false);
     const [pendingXmlItems, setPendingXmlItems] = useState<NFeItem[]>([]);
     const [updateMasterData, setUpdateMasterData] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showDivergenceModal, setShowDivergenceModal] = useState(false);
     const [divergences, setDivergences] = useState<string[]>([]);
     const [justification, setJustification] = useState('');
+    const [supervisorEmail, setSupervisorEmail] = useState('');
+    const [supervisorPassword, setSupervisorPassword] = useState('');
+    const [modalError, setModalError] = useState('');
+    const [availablePOs, setAvailablePOs] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (draftData?.supplierId) {
+            api.get('/purchase-orders', {
+                params: {
+                    supplierId: draftData.supplierId,
+                    status: 'SENT,CONFIRMED,PARTIAL' // Database ENUMs
+                }
+            }).then(res => {
+                const open = res.data.filter((po: any) => ['SENT', 'CONFIRMED', 'PARTIAL'].includes(po.status));
+                setAvailablePOs(open);
+            }).catch(err => console.error("Failed to fetch POs for supplier", err));
+        } else {
+            setAvailablePOs([]);
+        }
+    }, [draftData?.supplierId]);
 
     const handleCreateDraft = async (data: CreateEntryData) => {
         try {
@@ -47,18 +80,26 @@ export default function NewEntryPage() {
 
     const handleConfirm = async (forceConfirm = false) => {
         if (!draftId) return;
+        setModalError('');
         try {
             await confirmEntry(draftId, {
                 updateMasterData,
                 forceConfirm,
-                justification: forceConfirm ? justification : undefined
+                justification: forceConfirm ? justification : undefined,
+                supervisorEmail: forceConfirm ? supervisorEmail : undefined,
+                supervisorPassword: forceConfirm ? supervisorPassword : undefined,
             });
             setShowDivergenceModal(false);
             router.push('/dashboard/estoque/movimentacoes');
         } catch (err: any) {
-            if (err.response?.data?.code === 'PRICE_DIVERGENCE') {
+            const code = err.response?.data?.code;
+            const status = err.response?.status;
+            
+            if (code === 'PRICE_DIVERGENCE' || code === 'PO_DIVERGENCE') {
                 setDivergences(err.response.data.divergences || []);
                 setShowDivergenceModal(true);
+            } else if (status === 401 || status === 403) {
+                setModalError(err.response?.data?.message || 'Acesso negado');
             } else {
                 console.error(err);
             }
@@ -80,13 +121,13 @@ export default function NewEntryPage() {
 
     const handleDeleteDraft = async () => {
         if (!draftId) return;
-        if (!confirm('Tem certeza que deseja excluir este rascunho? Esta ação não pode ser desfeita.')) return;
 
         try {
             await deleteEntry(draftId);
             setDraftId(null);
             setDraftData(null);
             setPendingXmlItems([]);
+            setShowDeleteConfirm(false);
         } catch (err) {
             console.error(err);
         }
@@ -142,7 +183,7 @@ export default function NewEntryPage() {
                                     <Button
                                         variant="destructive"
                                         size="sm"
-                                        onClick={handleDeleteDraft}
+                                        onClick={() => setShowDeleteConfirm(true)}
                                         disabled={isLoading}
                                     >
                                         <Trash2 className="h-4 w-4 mr-2" />
@@ -219,6 +260,7 @@ export default function NewEntryPage() {
                                 isLoading={isLoading}
                                 pendingItems={pendingXmlItems}
                                 onResolvePending={handleResolvePending}
+                                availablePOs={availablePOs}
                             />
 
                             <div className="flex justify-between items-center bg-muted/20 p-4 rounded-md">
@@ -259,17 +301,17 @@ export default function NewEntryPage() {
                 </>
             )}
 
-            {/* Modal de Divergência de Preço */}
+            {/* Modal de Divergência */}
             <Dialog open={showDivergenceModal} onOpenChange={setShowDivergenceModal}>
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle className="text-red-600 flex items-center gap-2">
                             <AlertTriangle className="h-5 w-5" />
-                            Divergência de Preço Detectada
+                            Divergência Detectada (Preço / Quantidade)
                         </DialogTitle>
                         <DialogDescription>
-                            Os valores dos seguintes itens na Nota Fiscal estão diferentes do Pedido de Compra original. 
-                            Uma justificativa gerencial é obrigatória.
+                            Foram encontradas divergências entre esta Nota Fiscal e o Pedido de Compra original. 
+                            Uma justificativa gerencial é obrigatória para autorizar a entrada no estoque.
                         </DialogDescription>
                     </DialogHeader>
                     
@@ -284,11 +326,47 @@ export default function NewEntryPage() {
                             <Label htmlFor="justification">Justificativa da Aprovação</Label>
                             <Textarea 
                                 id="justification" 
-                                placeholder="Explique o motivo da divergência de preço para aprovar..."
+                                placeholder="Explique o motivo da divergência para aprovar..."
                                 value={justification}
                                 onChange={(e) => setJustification(e.target.value)}
                             />
                         </div>
+
+                        <div className="pt-2 border-t space-y-4">
+                            <p className="text-xs text-muted-foreground">
+                                Se você não for Gerente ou Administrador, solicite a liberação de um supervisor abaixo:
+                            </p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="supervisorEmail">E-mail do Supervisor</Label>
+                                    <input
+                                        id="supervisorEmail"
+                                        type="email"
+                                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                        placeholder="admin@loja.com"
+                                        value={supervisorEmail}
+                                        onChange={(e) => setSupervisorEmail(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="supervisorPassword">Senha do Supervisor</Label>
+                                    <input
+                                        id="supervisorPassword"
+                                        type="password"
+                                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                        value={supervisorPassword}
+                                        onChange={(e) => setSupervisorPassword(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {modalError && (
+                            <div className="bg-destructive/15 text-destructive p-3 rounded-md flex items-center gap-2 text-sm font-medium">
+                                <AlertTriangle className="h-4 w-4" />
+                                {modalError}
+                            </div>
+                        )}
                     </div>
 
                     <DialogFooter>
@@ -303,6 +381,29 @@ export default function NewEntryPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Modal de Confirmação de Exclusão */}
+            <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta ação não pode ser desfeita. Isso excluirá permanentemente o rascunho 
+                            da entrada de estoque e os vínculos dos itens.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={handleDeleteDraft}
+                            disabled={isLoading}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            Sim, excluir rascunho
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

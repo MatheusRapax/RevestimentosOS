@@ -5,14 +5,16 @@ import { toast } from 'sonner';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { maskAccessKey } from '@/lib/masks';
+import { maskAccessKey, maskCNPJ } from '@/lib/masks';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CreateEntryData } from '@/hooks/useStockEntries';
 import { Loader2 } from 'lucide-react';
 
 import { NFeItem } from '@/lib/nfe-parser';
-import { Upload } from 'lucide-react';
+import { Upload, Search, PlusCircle } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
 
 interface HeaderFormProps {
     onSubmit: (data: CreateEntryData) => Promise<void>;
@@ -24,10 +26,14 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
     const [type, setType] = useState('INVOICE');
     const [invoiceNumber, setInvoiceNumber] = useState('');
     const [series, setSeries] = useState('');
+    const [supplierId, setSupplierId] = useState('');
     const [supplierName, setSupplierName] = useState('');
+    const [supplierCnpj, setSupplierCnpj] = useState('');
     const [emissionDate, setEmissionDate] = useState('');
     const [arrivalDate, setArrivalDate] = useState(new Date().toISOString().split('T')[0]);
     const [notes, setNotes] = useState('');
+    const [isRegisteringSupplier, setIsRegisteringSupplier] = useState(false);
+    const [isFetchingCnpj, setIsFetchingCnpj] = useState(false);
 
     // Fiscal
     const [accessKey, setAccessKey] = useState('');
@@ -42,6 +48,15 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
 
     const [isLoadingXML, setIsLoadingXML] = useState(false);
 
+    // Fetch existing suppliers
+    const { data: suppliers = [], refetch: refetchSuppliers } = useQuery({
+        queryKey: ['suppliers', 'active'],
+        queryFn: async () => {
+            const response = await api.get('/suppliers', { params: { isActive: 'true' } });
+            return Array.isArray(response.data) ? response.data : (response.data?.data || []);
+        }
+    });
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -53,7 +68,23 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
 
             setInvoiceNumber(data.invoiceNumber);
             setSeries(data.series);
-            setSupplierName(data.supplier.name);
+            
+            const xmlCnpj = data.supplier?.cnpj?.replace(/\D/g, '');
+            const xmlName = data.supplier?.name;
+            
+            setSupplierName(xmlName || '');
+            if (xmlCnpj) {
+                setSupplierCnpj(maskCNPJ(xmlCnpj));
+                // Check if supplier already exists by CNPJ
+                const matched = suppliers.find((s: any) => s.cnpj && s.cnpj.replace(/\D/g, '') === xmlCnpj);
+                if (matched) {
+                    setSupplierId(matched.id);
+                    toast.success(`Fornecedor ${matched.name} encontrado no sistema!`);
+                } else {
+                    setSupplierId('');
+                    toast.info(`Fornecedor do XML não está cadastrado. Você pode cadastrá-lo agora.`);
+                }
+            }
             if (data.emissionDate) {
                 setEmissionDate(data.emissionDate.toISOString().split('T')[0]);
             }
@@ -89,6 +120,7 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
             type,
             invoiceNumber,
             series,
+            supplierId: supplierId || undefined,
             supplierName,
             emissionDate: emissionDate || undefined,
             arrivalDate,
@@ -198,18 +230,147 @@ export function HeaderForm({ onSubmit, isLoading, onXmlImported }: HeaderFormPro
                         className={type === 'INVOICE' && !series ? 'border-red-300' : ''}
                     />
                 </div>
+            </div>
 
-                <div className="space-y-2">
-                    <Label className="flex items-center gap-1">
-                        Fornecedor <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                        value={supplierName}
-                        onChange={e => setSupplierName(e.target.value)}
-                        placeholder="Nome do Fornecedor"
-                        className={!supplierName ? 'border-red-300' : ''}
-                    />
+            {/* Supplier Section */}
+            <div className="border border-dashed border-gray-300 rounded-md p-4 bg-gray-50/50">
+                <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-sm font-medium text-gray-700">Fornecedor</h3>
+                    {supplierId ? (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Vinculado ao Sistema</span>
+                    ) : (
+                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">Não Vinculado (Entrada Avulsa)</span>
+                    )}
                 </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label>Selecione um Fornecedor Cadastrado</Label>
+                        <Select 
+                            value={supplierId} 
+                            onValueChange={(val) => {
+                                if (val === 'none') {
+                                    setSupplierId('');
+                                    setSupplierName('');
+                                    setSupplierCnpj('');
+                                } else {
+                                    setSupplierId(val);
+                                    const sup = suppliers.find((s: any) => s.id === val);
+                                    if (sup) {
+                                        setSupplierName(sup.name);
+                                        setSupplierCnpj(sup.cnpj ? maskCNPJ(sup.cnpj) : '');
+                                    }
+                                }
+                            }}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">-- Preencher Manualmente --</SelectItem>
+                                {suppliers.map((s: any) => (
+                                    <SelectItem key={s.id} value={s.id}>
+                                        {s.name} {s.cnpj ? `(${s.cnpj})` : ''}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {!supplierId && (
+                        <div className="space-y-2">
+                            <Label>Ou digite o CNPJ para buscar</Label>
+                            <div className="flex gap-2">
+                                <Input
+                                    value={supplierCnpj}
+                                    onChange={e => setSupplierCnpj(maskCNPJ(e.target.value))}
+                                    placeholder="00.000.000/0000-00"
+                                    maxLength={18}
+                                />
+                                <Button 
+                                    type="button" 
+                                    variant="secondary"
+                                    onClick={async () => {
+                                        if (!supplierCnpj) return;
+                                        setIsFetchingCnpj(true);
+                                        try {
+                                            const cleanCnpj = supplierCnpj.replace(/\D/g, '');
+                                            // Check DB first
+                                            const matched = suppliers.find((s: any) => s.cnpj && s.cnpj.replace(/\D/g, '') === cleanCnpj);
+                                            if (matched) {
+                                                setSupplierId(matched.id);
+                                                setSupplierName(matched.name);
+                                                toast.success('Fornecedor encontrado no sistema!');
+                                                return;
+                                            }
+                                            // Fetch from BrasilAPI
+                                            const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
+                                            if (res.ok) {
+                                                const data = await res.json();
+                                                setSupplierName(data.razao_social || data.nome_fantasia);
+                                                toast.success('Dados carregados da Receita Federal!');
+                                            } else {
+                                                toast.error('CNPJ não encontrado na Receita.');
+                                            }
+                                        } catch (err) {
+                                            toast.error('Erro ao buscar CNPJ.');
+                                        } finally {
+                                            setIsFetchingCnpj(false);
+                                        }
+                                    }}
+                                    disabled={isFetchingCnpj}
+                                >
+                                    {isFetchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div className="space-y-2 md:col-span-2">
+                        <Label className="flex items-center gap-1">
+                            Razão Social / Nome <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                            value={supplierName}
+                            onChange={e => setSupplierName(e.target.value)}
+                            placeholder="Nome do Fornecedor"
+                            className={!supplierName ? 'border-red-300' : ''}
+                            disabled={!!supplierId}
+                        />
+                    </div>
+                </div>
+
+                {!supplierId && supplierName && (
+                    <div className="mt-4 flex justify-end">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="bg-green-50 text-green-700 hover:bg-green-100 border-green-200"
+                            onClick={async () => {
+                                setIsRegisteringSupplier(true);
+                                try {
+                                    const res = await api.post('/suppliers', {
+                                        name: supplierName,
+                                        cnpj: supplierCnpj || undefined
+                                    });
+                                    toast.success('Fornecedor cadastrado com sucesso!');
+                                    setSupplierId(res.data.id);
+                                    refetchSuppliers();
+                                } catch (err) {
+                                    toast.error('Erro ao cadastrar fornecedor.');
+                                } finally {
+                                    setIsRegisteringSupplier(false);
+                                }
+                            }}
+                            disabled={isRegisteringSupplier}
+                        >
+                            {isRegisteringSupplier ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />}
+                            Salvar Fornecedor no Sistema
+                        </Button>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
