@@ -1,4 +1,4 @@
 {
-  "version": "1.1.0",
-  "content": "### Features\n\n* **stock:** implementar override de divergências e auditar conciliação dd7d069\n\n\n### Bug Fixes\n\n* adicionar tipagem de purchaseOrderId no useStockEntries aa06ef1"
+  "version": "1.1.1",
+  "content": "### Bug Fixes\n\n* estabilização do pipeline de importação IA, orçamentos e cadastro de clientes 42966e1"
 }
