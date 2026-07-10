@@ -354,6 +354,14 @@ export default function ImportProductsPage() {
 
     const isM2 = (item: any) => item.unit === 'M2';
 
+    const handleApproveAnomaly = (itemIdx: number, anomalyIdx: number) => {
+        const newItems = [...parsedItems];
+        if (newItems[itemIdx] && newItems[itemIdx].anomalies) {
+            newItems[itemIdx].anomalies.splice(anomalyIdx, 1);
+        }
+        setParsedItems(newItems);
+    };
+
     const handleExportPreview = () => {
         if (!parsedItems || parsedItems.length === 0) return;
         
