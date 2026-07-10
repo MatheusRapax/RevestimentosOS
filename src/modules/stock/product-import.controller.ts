@@ -143,27 +143,33 @@ export class ProductImportController {
         1.0,
       );
     } else {
-      // 3. Try Cache (TEMPORARILY DISABLED TO FORCE NEW PROMPT)
-      // mapping = await this.aiImportService.getCachedMapping(supplierId, clinicId, headersHash);
-      mapping = null;
+      // 3. Try Cache
+      mapping = await this.aiImportService.getCachedMapping(supplierId, clinicId, headersHash);
 
       // 4. Fallback to AI
       if (!mapping) {
-        const aiResult = await this.aiImportService.callOpenAIMapping({
-          headers,
-          sampleData,
-        });
-        mapping = aiResult.mapping;
-        ambiguities = aiResult.ambiguities || [];
+        try {
+          const aiResult = await this.aiImportService.callOpenAIMapping({
+            headers,
+            sampleData,
+          });
+          mapping = aiResult.mapping;
+          ambiguities = aiResult.ambiguities || [];
 
-        // Save AI "best guess" mapping, even with ambiguities (so user can see preview if they skip resolution)
-        if (mapping) {
-          await this.aiImportService.saveCachedMapping(
-            supplierId,
-            clinicId,
-            headersHash,
-            mapping,
-            1.0,
+          // Save AI "best guess" mapping, even with ambiguities (so user can see preview if they skip resolution)
+          if (mapping) {
+            await this.aiImportService.saveCachedMapping(
+              supplierId,
+              clinicId,
+              headersHash,
+              mapping,
+              1.0,
+            );
+          }
+        } catch (error) {
+          console.error('OpenAI Mapping Error:', error.message);
+          throw new BadRequestException(
+            'Não foi possível interpretar a planilha automaticamente. Por favor, verifique se o arquivo possui um cabeçalho claro ou tente importar usando o Template Padrão.',
           );
         }
       }
@@ -223,6 +229,12 @@ export class ProductImportController {
             relatedIndices: indices.filter((i) => i !== index),
           });
         }
+      } else {
+        anomalies.push({ type: 'MISSING_SKU' });
+      }
+
+      if (!item.costCents || item.costCents <= 0) {
+        anomalies.push({ type: 'MISSING_COST' });
       }
 
       // Price anomaly check (> 50%)

@@ -72,6 +72,10 @@ export default function ImportProductsPage() {
     const [parsedItems, setParsedItems] = useState<any[]>([]);
     const [invalidTemplateError, setInvalidTemplateError] = useState<string | null>(null);
     const [showPreConfirmation, setShowPreConfirmation] = useState(false);
+    
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20;
 
     // Estados de Seleção de Aba
     const [availableSheets, setAvailableSheets] = useState<string[]>([]);
@@ -661,7 +665,12 @@ export default function ImportProductsPage() {
                                                     .map((opt: any, optIdx: number) => {
                                                     const header = opt.column;
                                                     // Fallback to option's sampleValue if ambiguitySampleData doesn't have it
-                                                    const sampleRow = ambiguitySampleData.find(row => row[header] !== undefined && row[header] !== null && row[header] !== '');
+                                                    const sampleRow = ambiguitySampleData.find(row => 
+                                                        row[header] !== undefined && 
+                                                        row[header] !== null && 
+                                                        String(row[header]).trim() !== '' &&
+                                                        String(row[header]).trim() !== String(header).trim()
+                                                    );
                                                     const sampleValue = sampleRow ? sampleRow[header] : (opt.sampleValue || 'N/A');
                                                     
                                                     // Evitar erro de key vazia se o header for vazio ou duplicado
@@ -732,7 +741,7 @@ export default function ImportProductsPage() {
                                 </Button>
                                 <Button 
                                     onClick={handleExecuteClick} 
-                                    disabled={isLoading || parsedItems.length === 0 || parsedItems.some(item => (importMode === 'AI' && item.confidence !== 'HIGH') || (item.anomalies && item.anomalies.length > 0) || !item.sku || !item.name || !item.costCents)}
+                                    disabled={isLoading || parsedItems.length === 0 || parsedItems.some(item => (importMode === 'AI' && item.confidence !== 'HIGH') || (item.anomalies && item.anomalies.length > 0))}
                                 >
                                     {isLoading ? 'Salvando...' : 'Confirmar Importação'}
                                 </Button>
@@ -800,7 +809,7 @@ export default function ImportProductsPage() {
                                             <TableHead className="w-[80px]">Cx/Pal</TableHead>
                                             <TableHead className="w-[80px]">Kg/Cx</TableHead>
                                             <TableHead className="text-right w-[120px]">Custo/m² (R$)</TableHead>
-                                            <TableHead className="text-right w-[120px]">Custo/Cx (R$)</TableHead>
+                                            <TableHead className="text-right w-[120px]">Custo Cx/Un (R$)</TableHead>
                                             <TableHead className="w-[100px]">NCM</TableHead>
                                             <TableHead className="w-[100px]">CEST</TableHead>
                                             <TableHead className="w-[80px]">CFOP</TableHead>
@@ -810,8 +819,10 @@ export default function ImportProductsPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {parsedItems.map((item, idx) => (
-                                            <TableRow key={idx}>
+                                        {parsedItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item, relIdx) => {
+                                            const idx = (currentPage - 1) * itemsPerPage + relIdx;
+                                            return (
+                                            <TableRow key={idx} className={item.anomalies && item.anomalies.length > 0 ? "bg-amber-50/50 dark:bg-amber-900/10" : ""}>
                                                 <TableCell>
                                                     <Input
                                                         value={item.sku}
@@ -953,42 +964,48 @@ export default function ImportProductsPage() {
                                                         className="h-8 w-[60px]" placeholder="0.0"
                                                     />
                                                 </TableCell>
-                                                {/* Custo/m² — editable (what the user typed in the spreadsheet) */}
+                                                {/* Custo/m² — editável apenas se for M2 */}
                                                 <TableCell className="text-right">
-                                                    <Input
-                                                        type="number" step="0.01"
-                                                        title="Custo por m² (da planilha)"
-                                                        value={
-                                                            isM2(item) && item.costPerM2Cents != null
-                                                                ? (item.costPerM2Cents / 100).toFixed(2)
-                                                                : (item.costCents / 100).toFixed(2)
-                                                        }
-                                                        onChange={(e) => {
-                                                            const val = Number(e.target.value);
-                                                            const coverage = item.boxCoverage || 0;
-                                                            const newItems = [...parsedItems];
-                                                            if (isM2(item)) {
+                                                    {isM2(item) ? (
+                                                        <Input
+                                                            type="number" step="0.01"
+                                                            title="Custo por m² (da planilha)"
+                                                            value={item.costPerM2Cents != null ? (item.costPerM2Cents / 100).toFixed(2) : ''}
+                                                            onChange={(e) => {
+                                                                const val = Number(e.target.value);
+                                                                const coverage = item.boxCoverage || 0;
+                                                                const newItems = [...parsedItems];
                                                                 newItems[idx].costPerM2Cents = Math.round(val * 100);
-                                                                // box cost = m² cost × m²/cx
                                                                 newItems[idx].costCents = coverage > 0
                                                                     ? Math.round(val * coverage * 100)
                                                                     : Math.round(val * 100);
-                                                            } else {
-                                                                newItems[idx].costCents = Math.round(val * 100);
-                                                            }
-                                                            setParsedItems(newItems);
-                                                        }}
-                                                        className="h-8 w-[90px] text-right"
-                                                    />
+                                                                setParsedItems(newItems);
+                                                            }}
+                                                            className="h-8 w-[90px] text-right"
+                                                        />
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground">—</span>
+                                                    )}
                                                 </TableCell>
-                                                {/* Custo/Cx — read-only derived value (shown for reference) */}
+                                                {/* Custo Cx/Un — editável se for unidade, apenas leitura se for M2 */}
                                                 <TableCell className="text-right">
-                                                    {isM2(item) && item.boxCoverage && item.boxCoverage > 0 ? (
+                                                    {isM2(item) ? (
                                                         <span className="font-semibold text-emerald-700 text-sm">
                                                             R$ {(item.costCents / 100).toFixed(2)}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-xs text-muted-foreground">—</span>
+                                                        <Input
+                                                            type="number" step="0.01"
+                                                            title="Custo Unitário (da planilha)"
+                                                            value={(item.costCents / 100).toFixed(2)}
+                                                            onChange={(e) => {
+                                                                const val = Number(e.target.value);
+                                                                const newItems = [...parsedItems];
+                                                                newItems[idx].costCents = Math.round(val * 100);
+                                                                setParsedItems(newItems);
+                                                            }}
+                                                            className="h-8 w-[90px] text-right"
+                                                        />
                                                     )}
                                                 </TableCell>
                                                 <TableCell>
@@ -1050,10 +1067,38 @@ export default function ImportProductsPage() {
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
+                                            );
+                                        })}
                                     </TableBody>
                                 </Table>
                             </div>
+
+                            {/* Pagination Controls */}
+                            {parsedItems.length > itemsPerPage && (
+                                <div className="flex items-center justify-between mt-4">
+                                    <div className="text-sm text-muted-foreground">
+                                        Mostrando {(currentPage - 1) * itemsPerPage + 1} até {Math.min(currentPage * itemsPerPage, parsedItems.length)} de {parsedItems.length} itens
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                            disabled={currentPage === 1}
+                                        >
+                                            Anterior
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(p => Math.min(Math.ceil(parsedItems.length / itemsPerPage), p + 1))}
+                                            disabled={currentPage === Math.ceil(parsedItems.length / itemsPerPage)}
+                                        >
+                                            Próxima
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 )}
@@ -1134,31 +1179,47 @@ export default function ImportProductsPage() {
                                             {item.anomalies.map((anomaly: any, i: number) => {
                                                 const type = typeof anomaly === 'string' ? anomaly : anomaly.type;
                                                 const isDuplicate = type === 'DUPLICATE_SKU';
+                                                
+                                                let label = type;
+                                                if (isDuplicate) label = '❌ SKU Duplicado';
+                                                else if (type === 'PRICE_VARIATION') label = '⚠️ Variação de Preço (>50%)';
+                                                else if (type === 'MISSING_SKU') label = '❌ SKU Ausente / Vazio';
+                                                else if (type === 'MISSING_COST') label = '❌ Custo Zerado / Ausente';
+
                                                 return (
                                                     <div key={i} className="text-xs bg-white dark:bg-slate-900 p-2 rounded border">
-                                                        <span className="font-semibold text-red-600 block mb-1">
-                                                            {isDuplicate ? '❌ SKU Duplicado' : '⚠️ Variação de Preço (>50%)'}
-                                                        </span>
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <span className="font-semibold text-red-600 block mb-1">
+                                                                {label}
+                                                            </span>
+                                                            {type !== 'MISSING_SKU' && type !== 'MISSING_COST' && (
+                                                                <Button size="sm" variant="outline" className="text-[10px] h-6 px-2 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200" onClick={() => handleApproveAnomaly(idx, i)}>
+                                                                    Aprovar Exceção
+                                                                </Button>
+                                                            )}
+                                                        </div>
+
                                                         {isDuplicate && anomaly.relatedIndices && (
                                                             <span className="text-muted-foreground block mb-2">
                                                                 Este SKU também aparece nas linhas: {anomaly.relatedIndices.map((r: number) => r + 1).join(', ')}
                                                             </span>
                                                         )}
-                                                        {isDuplicate ? (
-                                                            <div className="space-y-1">
-                                                                <Label className="text-xs">Editar SKU (deve ser único):</Label>
+                                                        
+                                                        {isDuplicate || type === 'MISSING_SKU' ? (
+                                                            <div className="space-y-1 mt-2">
+                                                                <Label className="text-xs">Definir SKU Único:</Label>
                                                                 <Input 
-                                                                    value={item.sku} 
+                                                                    value={item.sku || ''} 
                                                                     onChange={(e) => updateItem(idx, 'sku', e.target.value)}
                                                                     className="h-7 text-xs font-mono"
                                                                 />
                                                             </div>
                                                         ) : (
-                                                            <div className="space-y-1">
-                                                                <Label className="text-xs">Confirmar Custo (R$ {item.costCents / 100}):</Label>
+                                                            <div className="space-y-1 mt-2">
+                                                                <Label className="text-xs">Confirmar Custo (R$):</Label>
                                                                 <Input 
                                                                     type="number"
-                                                                    value={item.costCents / 100} 
+                                                                    value={(item.costCents || 0) / 100} 
                                                                     onChange={(e) => updateItem(idx, 'costCents', parseFloat(e.target.value) * 100)}
                                                                     className="h-7 text-xs font-mono"
                                                                 />

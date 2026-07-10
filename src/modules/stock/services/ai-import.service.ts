@@ -327,6 +327,8 @@ Instruções críticas e PROIBIÇÕES:
 - As chaves de mapping devem conter o NOME EXATO da coluna original do fornecedor. Se a coluna não existir na planilha, defina como null.
 - A coluna do custo deve ser apenas daquela que representa um preço em Reais/Dinheiro.
 - "m2PerBox" é estritamente a coluna que informa quantos metros quadrados vem em uma caixa.
+- CÓDIGO DE BARRAS: Se a planilha tiver apenas uma coluna de código de barras (ex: "CÓD. BARRAS", "EAN", "GTIN"), você PODE e DEVE mapeá-la tanto para "sku" quanto para "ean".
+- DIMENSÕES VS FORMATO: "format" refere-se ao formato comercial da cerâmica (ex: "60x60", "82x82"). Se a planilha tiver colunas separadas para "Altura", "Largura" ou "Profundidade", mapeie-as para "height", "width" e "depth", respectivamente, NÃO para "format".
 
 Amostra de Dados:
 ${JSON.stringify(sample, null, 2)}
@@ -366,6 +368,9 @@ ${JSON.stringify(sample, null, 2)}
                   cfop: { type: ['string', 'null'] },
                   cst: { type: ['string', 'null'] },
                   ean: { type: ['string', 'null'] },
+                  height: { type: ['string', 'null'] },
+                  width: { type: ['string', 'null'] },
+                  depth: { type: ['string', 'null'] },
                 },
                 required: [
                   'sku',
@@ -382,6 +387,9 @@ ${JSON.stringify(sample, null, 2)}
                   'cfop',
                   'cst',
                   'ean',
+                  'height',
+                  'width',
+                  'depth',
                 ],
                 additionalProperties: false,
               },
@@ -422,8 +430,19 @@ ${JSON.stringify(sample, null, 2)}
       temperature: 0,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || '{}');
-    return { mapping: result.mapping, ambiguities: result.ambiguities };
+    let rawContent = response.choices[0].message.content || '{}';
+    // Remove potential markdown code blocks if the AI ignored structured output format
+    if (rawContent.startsWith('```')) {
+      rawContent = rawContent.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    }
+
+    try {
+      const result = JSON.parse(rawContent);
+      return { mapping: result.mapping, ambiguities: result.ambiguities };
+    } catch (error) {
+      console.error('❌ Falha ao processar JSON da OpenAI. Conteúdo bruto:', rawContent);
+      throw new Error('Falha ao processar o formato retornado pela IA.');
+    }
   }
 
   /**
@@ -468,7 +487,10 @@ ${JSON.stringify(sample, null, 2)}
       const skuValRaw = getVal(row, mapping.sku);
       const nameValRaw = getVal(row, mapping.name);
 
-      const skuVal = skuValRaw ? String(skuValRaw).trim() : null;
+      let skuVal = skuValRaw ? String(skuValRaw).trim() : '';
+      let eanValRaw = getVal(row, mapping.ean);
+      let eanVal = eanValRaw ? String(eanValRaw).trim() : '';
+
       const nameVal = nameValRaw ? String(nameValRaw).trim() : null;
 
       // Combinar o nome com a category propagada, se existir
@@ -477,6 +499,15 @@ ${JSON.stringify(sample, null, 2)}
         category && nameVal ? `${category} - ${nameVal}` : nameVal;
 
       if (!skuVal && !nameVal) continue; // Ignora linhas em branco
+      
+      // Fallback fallback: se não tem SKU mas tem EAN, usa EAN como SKU e vice-versa
+      if (!skuVal && eanVal) skuVal = eanVal;
+      if (!eanVal && skuVal) {
+          // Apenas copia SKU para EAN se o SKU parecer um código de barras válido (ex: 8 a 14 dígitos numéricos)
+          if (/^\d{8,14}$/.test(skuVal)) {
+              eanVal = skuVal;
+          }
+      }
 
       mappedRows.push({
         _originalRow: row,
@@ -493,7 +524,10 @@ ${JSON.stringify(sample, null, 2)}
         cest: getVal(row, mapping.cest),
         cfop: getVal(row, mapping.cfop),
         cst: getVal(row, mapping.cst),
-        ean: getVal(row, mapping.ean),
+        ean: eanVal,
+        height: getVal(row, mapping.height),
+        width: getVal(row, mapping.width),
+        depth: getVal(row, mapping.depth),
       });
     }
     return mappedRows;
@@ -554,7 +588,7 @@ ${JSON.stringify(sample, null, 2)}
         }
 
         let costCents = 0;
-        let costPerM2Cents = 0;
+        let costPerM2Cents: number | undefined = 0;
 
         // Cálculo de custo da caixa
         if (unit === 'M2' && m2PerBox > 0) {
@@ -563,7 +597,7 @@ ${JSON.stringify(sample, null, 2)}
           costPerM2Cents = Math.round(rawCost * 100);
         } else {
           costCents = Math.round(rawCost * 100);
-          costPerM2Cents = costCents;
+          costPerM2Cents = undefined;
         }
 
         return {
@@ -585,6 +619,9 @@ ${JSON.stringify(sample, null, 2)}
           cst: item.cst || '',
           format: item.format || '',
           color: '',
+          height: item.height || '',
+          width: item.width || '',
+          depth: item.depth || '',
         };
       })
       .filter((item) => {

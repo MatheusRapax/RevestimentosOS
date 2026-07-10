@@ -107,11 +107,10 @@ export function ProductDetailsSheet({ product, isOpen, onClose }: ProductDetails
                                             <DetailItem label="Linha" value={product.line} />
                                             <DetailItem label="Uso" value={product.usage} />
                                             <DetailItem label="Superfície" value={product.surface || '-'} />
-                                            <DetailItem label="Dimensões" value={
-                                                product.height || product.width || product.depth 
-                                                    ? `${product.height ?? 0} x ${product.width ?? 0} x ${product.depth ?? 0}`
-                                                    : null
-                                            } />
+                                            <DetailItem label="Unidade" value={product.unit} />
+                                            <DetailItem label="Altura" value={product.height} />
+                                            <DetailItem label="Largura" value={product.width} />
+                                            <DetailItem label="Profundidade" value={product.depth} />
                                         </div>
                                     </div>
 
@@ -137,12 +136,29 @@ export function ProductDetailsSheet({ product, isOpen, onClose }: ProductDetails
                                         Financeiro
                                     </h4>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                        <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
-                                            <span className="text-xs text-gray-500 block mb-0.5">Custo</span>
-                                            <span className="font-semibold text-gray-900">
-                                                {product.costCents ? `R$ ${(product.costCents / 100).toFixed(2)}` : '-'}
-                                            </span>
-                                        </div>
+                                        {product.unit === 'M2' ? (
+                                            <>
+                                                <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
+                                                    <span className="text-xs text-gray-500 block mb-0.5">Custo m²</span>
+                                                    <span className="font-semibold text-gray-900">
+                                                        {product.costPerM2Cents ? `R$ ${(product.costPerM2Cents / 100).toFixed(2)}` : '-'}
+                                                    </span>
+                                                </div>
+                                                <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
+                                                    <span className="text-xs text-gray-500 block mb-0.5">Custo Caixa</span>
+                                                    <span className="font-semibold text-gray-900">
+                                                        {product.costCents ? `R$ ${(product.costCents / 100).toFixed(2)}` : '-'}
+                                                    </span>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
+                                                <span className="text-xs text-gray-500 block mb-0.5">Custo Unitário</span>
+                                                <span className="font-semibold text-gray-900">
+                                                    {product.costCents ? `R$ ${(product.costCents / 100).toFixed(2)}` : '-'}
+                                                </span>
+                                            </div>
+                                        )}
                                         <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
                                             <span className="text-xs text-gray-500 block mb-0.5">Preço Venda</span>
                                             <span className="font-semibold text-gray-900">
@@ -175,13 +191,6 @@ export function ProductDetailsSheet({ product, isOpen, onClose }: ProductDetails
                                                                 {lot.shade && <Badge variant="secondary" className="text-xs bg-white border border-gray-200">Ton: {lot.shade}</Badge>}
                                                                 {lot.caliber && <Badge variant="secondary" className="text-xs bg-white border border-gray-200">Cal: {lot.caliber}</Badge>}
                                                             </div>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <span className="text-xs text-gray-500 block">Validade</span>
-                                                            <span className="text-sm font-medium flex items-center justify-end gap-1">
-                                                                <Calendar className="h-3 w-3 text-gray-400" />
-                                                                {format(new Date(lot.expirationDate), 'dd/MM/yyyy')}
-                                                            </span>
                                                         </div>
                                                     </div>
 
