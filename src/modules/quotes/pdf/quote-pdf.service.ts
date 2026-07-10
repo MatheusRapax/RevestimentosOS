@@ -19,6 +19,7 @@ type QuoteWithRelations = Quote & {
       sku: string | null;
       unit: string | null;
       format: string | null;
+      boxCoverage: number | null;
     };
     environment?: { name: string } | null;
   })[];
@@ -298,10 +299,17 @@ export class QuotePdfService {
           item.resultingArea ?? item.areaWithMargin ?? item.inputArea;
         const areaText =
           showUnitArea && finalArea ? `${finalArea.toFixed(2)}` : '';
-        const unitCostText = showUnitPrice
-          ? this.formatCurrency(item.unitPriceCents)
-          : '';
         const unit = item.product.unit || '-';
+
+        let unitCostText = '';
+        if (showUnitPrice) {
+          if (unit === 'M2' && item.product.boxCoverage && item.product.boxCoverage > 0) {
+            const pricePerM2Cents = Math.round(item.unitPriceCents / item.product.boxCoverage);
+            unitCostText = this.formatCurrency(pricePerM2Cents) + ' /m²';
+          } else {
+            unitCostText = this.formatCurrency(item.unitPriceCents);
+          }
+        }
         const format = item.product.format || '-';
         const sku = item.product.sku || '-';
 

@@ -365,6 +365,7 @@ ${JSON.stringify(sample, null, 2)}
                   cest: { type: ['string', 'null'] },
                   cfop: { type: ['string', 'null'] },
                   cst: { type: ['string', 'null'] },
+                  ean: { type: ['string', 'null'] },
                 },
                 required: [
                   'sku',
@@ -380,6 +381,7 @@ ${JSON.stringify(sample, null, 2)}
                   'cest',
                   'cfop',
                   'cst',
+                  'ean',
                 ],
                 additionalProperties: false,
               },
@@ -491,6 +493,7 @@ ${JSON.stringify(sample, null, 2)}
         cest: getVal(row, mapping.cest),
         cfop: getVal(row, mapping.cfop),
         cst: getVal(row, mapping.cst),
+        ean: getVal(row, mapping.ean),
       });
     }
     return mappedRows;
@@ -575,7 +578,7 @@ ${JSON.stringify(sample, null, 2)}
           piecesPerBox,
           palletBoxes,
           palletCoverage: 0,
-          ean: '',
+          ean: item.ean || '',
           ncm: item.ncm || '',
           cest: item.cest || '',
           cfop: item.cfop || '',

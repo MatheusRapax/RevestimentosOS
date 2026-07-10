@@ -214,10 +214,10 @@ export default function ClientesPage() {
 
             const payload = {
                 ...formData,
-                ...formData,
-                document: unmask(formData.document),
-                phone: unmask(formData.phone),
-                zipCode: unmask(formData.zipCode),
+                email: formData.email?.trim() || undefined,
+                document: unmask(formData.document) || undefined,
+                phone: unmask(formData.phone) || undefined,
+                zipCode: unmask(formData.zipCode) || undefined,
                 birthDate: formData.birthDate ? new Date(formData.birthDate.split('/').reverse().join('-')).toISOString() : undefined,
                 architectId: formData.architectId && formData.architectId !== 'none' ? formData.architectId : undefined,
             };

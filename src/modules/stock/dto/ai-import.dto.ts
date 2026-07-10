@@ -85,6 +85,10 @@ export class AIColumnMappingDto {
   @IsString()
   @IsOptional()
   cst: string | null;
+
+  @IsString()
+  @IsOptional()
+  ean: string | null;
 }
 
 export class AIRemappingRequestDto {
