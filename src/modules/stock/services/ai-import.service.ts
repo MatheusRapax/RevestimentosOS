@@ -41,7 +41,42 @@ export class AiImportService {
   }
 
   /**
-   * Lê todas as abas do Excel (ou apenas uma específica se fornecida), desmescla células e converte para JSON plano
+   * Detecta se a planilha usa layout multi-seção:
+   * padrão onde linhas de título (merge horizontal largo) separam blocos
+   * de mini-tabelas com cabeçalho repetido entre elas.
+   *
+   * Critério: ≥2 merges horizontais que cobrem ≥50% das colunas totais,
+   * todos em linhas distintas → indica seções por categoria/formato.
+   */
+  private detectSectionedLayout(
+    merges: { s: { r: number; c: number }; e: { r: number; c: number } }[],
+    totalCols: number,
+  ): { isSectioned: boolean; sectionRowIndices: Set<number> } {
+    const threshold = Math.max(3, Math.floor(totalCols * 0.5));
+    const wideHorizontalMerges = merges.filter(
+      (m) =>
+        m.e.r === m.s.r && // só horizontal
+        m.e.c - m.s.c + 1 >= threshold, // abrange ≥50% das colunas
+    );
+
+    const sectionRowIndices = new Set<number>(
+      wideHorizontalMerges.map((m) => m.s.r),
+    );
+
+    return {
+      isSectioned: sectionRowIndices.size >= 2,
+      sectionRowIndices,
+    };
+  }
+
+  /**
+   * Lê todas as abas do Excel (ou apenas uma específica se fornecida),
+   * desmescla células e converte para JSON plano.
+   *
+   * Quando detecta layout multi-seção (mini-tabelas separadas por títulos),
+   * normaliza tudo em uma única tabela plana, injetando _sectionFormat em
+   * cada linha de dado com o título da seção a que pertence.
+   * Cabeçalhos repetidos entre seções são removidos automaticamente.
    */
   async flattenExcelToJSON(
     buffer: Buffer,
@@ -56,10 +91,11 @@ export class AiImportService {
 
     for (const sheetName of productSheets) {
       const ws = wb.Sheets[sheetName];
-      const merges = ws['!merges'] || [];
+      const rawMerges: { s: { r: number; c: number }; e: { r: number; c: number } }[] =
+        (ws['!merges'] || []).map((m: any) => ({ s: { r: m.s.r, c: m.s.c }, e: { r: m.e.r, c: m.e.c } }));
 
-      // Desmesclar preenchendo as células virtuais com o valor do topo-esquerdo
-      for (const merge of merges) {
+      // --- Desmesclar: preenche células virtuais com o valor do topo-esquerdo ---
+      for (const merge of rawMerges) {
         const { s, e } = merge;
         const topLeftCellRef = xlsx.utils.encode_cell({ c: s.c, r: s.r });
         const topLeftCell = ws[topLeftCellRef];
@@ -70,11 +106,7 @@ export class AiImportService {
             if (R === s.r && C === s.c) continue;
             const cellRef = xlsx.utils.encode_cell({ c: C, r: R });
             if (!ws[cellRef]) {
-              ws[cellRef] = {
-                t: topLeftCell.t,
-                v: topLeftCell.v,
-                w: topLeftCell.w,
-              };
+              ws[cellRef] = { t: topLeftCell.t, v: topLeftCell.v, w: topLeftCell.w };
             }
           }
         }
@@ -86,27 +118,122 @@ export class AiImportService {
         raw: true,
       });
 
-      // Propagar categorias (linhas mescladas horizontalmente)
-      let currentCategory = '';
-      const processedRows = rows.map((row) => {
-        // Se uma linha tiver a primeira célula preenchida e as próximas X células iguais à primeira
-        // é um forte indício de que era uma linha de categoria (merge horizontal extenso)
-        const firstVal = String(row[0] || '').trim();
-        const newRow = [...row];
-        if (firstVal && row.length > 3) {
-          const isCategory = row
-            .slice(1, 4)
-            .every((val) => String(val || '').trim() === firstVal);
-          if (isCategory) {
-            currentCategory = firstVal;
-            (newRow as any)._isCategoryRow = true;
-          }
-        }
-        (newRow as any)._category = currentCategory;
-        return newRow;
-      });
+      const totalCols = rows.reduce((max, row) => Math.max(max, row.length), 0);
+      const { isSectioned, sectionRowIndices } = this.detectSectionedLayout(rawMerges, totalCols);
 
-      allSheetsData.push({ sheetName, rows: processedRows });
+      if (!isSectioned) {
+        // --- Comportamento original: propagar categoria por heurística de igualdade de células ---
+        let currentCategory = '';
+        const processedRows = rows.map((row) => {
+          const firstVal = String(row[0] || '').trim();
+          const newRow = [...row];
+          if (firstVal && row.length > 3) {
+            const isCategory = row
+              .slice(1, 4)
+              .every((val) => String(val || '').trim() === firstVal);
+            if (isCategory) {
+              currentCategory = firstVal;
+              (newRow as any)._isCategoryRow = true;
+            }
+          }
+          (newRow as any)._category = currentCategory;
+          return newRow;
+        });
+        allSheetsData.push({ sheetName, rows: processedRows });
+        continue;
+      }
+
+      // --- Layout multi-seção detectado: normalização estrutural ---
+      this.logger.log(
+        `[${sheetName}] Layout multi-seção detectado (${sectionRowIndices.size} seções). Normalizando...`,
+      );
+
+      // Identificar o cabeçalho canônico: primeira linha de header após a 1ª linha de seção
+      const keywords = ['ref', 'código', 'codigo', 'descrição', 'descricao', 'produto', 'ean', 'tab 1', 'tab1'];
+      const isHeaderRow = (row: any[]): boolean => {
+        const vals = row.map((c) => String(c || '').trim().toLowerCase());
+        const nonEmpty = vals.filter((v) => v).length;
+        const keywordHits = vals.filter((v) => keywords.some((kw) => v.includes(kw))).length;
+        return nonEmpty >= 3 && keywordHits >= 1;
+      };
+
+      // Encontrar a fingerprint do cabeçalho canônico:
+      // Usa os primeiros tokens não-vazios (resistente a colunas extras e espaçamento)
+      let canonicalHeaderTokens: string[] = [];
+      let canonicalHeaderFound = false;
+      for (let i = 0; i < rows.length; i++) {
+        if (sectionRowIndices.has(i)) continue;
+        if (isHeaderRow(rows[i])) {
+          canonicalHeaderTokens = rows[i]
+            .map((c) => String(c || '').trim().toLowerCase())
+            .filter((v) => v)  // apenas tokens não-vazios
+            .slice(0, 8);       // compara apenas os primeiros 8 (mais robustos)
+          canonicalHeaderFound = true;
+          break;
+        }
+      }
+
+      const matchesCanonicalHeader = (row: any[]): boolean => {
+        if (!canonicalHeaderFound) return false;
+        const tokens = row
+          .map((c) => String(c || '').trim().toLowerCase())
+          .filter((v) => v)
+          .slice(0, 8);
+        // Considera match se pelo menos 80% dos tokens correspondem
+        const matches = tokens.filter((t, idx) => t === canonicalHeaderTokens[idx]).length;
+        return tokens.length > 0 && matches / Math.max(tokens.length, canonicalHeaderTokens.length) >= 0.8;
+      };
+
+      // Propagar sectionFormat e filtrar linhas de seção e cabeçalhos repetidos.
+      // IMPORTANTE: a 1ª ocorrência do cabeçalho canônico é MANTIDA no topo
+      // para que detectHeaders o encontre corretamente. Apenas as repetições são removidas.
+      let currentSectionFormat = '';
+      let canonicalHeaderKept = false;
+      const normalizedRows: any[] = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+
+        // É linha de título de seção?
+        if (sectionRowIndices.has(i)) {
+          const titleVal = String(row[0] || '').trim();
+          if (titleVal) currentSectionFormat = titleVal;
+          continue; // descarta a linha de título
+        }
+
+        // É cabeçalho (canônico ou repetido)?
+        if (canonicalHeaderFound && isHeaderRow(row) && matchesCanonicalHeader(row)) {
+          if (!canonicalHeaderKept) {
+            // Mantém a 1ª ocorrência (cabeçalho canônico) sem _sectionFormat
+            canonicalHeaderKept = true;
+            normalizedRows.push([...row]);
+          }
+          // Descarta todas as ocorrências subsequentes (cabeçalhos repetidos)
+          continue;
+        }
+
+        // É linha de banner/título antes da 1ª seção? (1 única célula com texto muito longo)
+        if (!currentSectionFormat) {
+          const nonEmpty = row.filter((c) => String(c || '').trim()).length;
+          const firstVal = String(row[0] || '').trim();
+          if (nonEmpty <= 2 && firstVal.length > 40) continue; // título da política comercial
+        }
+
+        // É linha completamente vazia?
+        if (row.every((c) => !String(c || '').trim())) continue;
+
+        // Linha de dado: injeta o formato da seção atual
+        const newRow = [...row];
+        (newRow as any)._sectionFormat = currentSectionFormat;
+        (newRow as any)._category = currentSectionFormat; // compatibilidade
+        normalizedRows.push(newRow);
+      }
+
+
+      this.logger.log(
+        `[${sheetName}] Normalização concluída: ${normalizedRows.length} linhas de dados.`,
+      );
+      allSheetsData.push({ sheetName, rows: normalizedRows });
     }
 
     return allSheetsData;
@@ -131,7 +258,11 @@ export class AiImportService {
   }
 
   /**
-   * Identifica a linha de cabeçalho verdadeira buscando palavras-chave e densidade de colunas
+   * Identifica a linha de cabeçalho verdadeira buscando palavras-chave e densidade de colunas.
+   *
+   * Após normalização multi-seção, o cabeçalho estará na primeira linha
+   * (cabeçalhos repetidos já foram removidos). Para planilhas não normalizadas,
+   * busca em todas as linhas até encontrar o melhor candidato.
    */
   detectHeaders(rows: any[][]): number {
     const keywords = [
@@ -144,35 +275,38 @@ export class AiImportService {
       'ean',
       'formato',
       'linha',
+      'tab 1',
+      'tab1',
     ];
     let bestRowIdx = 0;
     let maxScore = -1;
 
-    // Procura nas primeiras 15 linhas (para lidar com cabeçalhos com muita informação inútil acima)
-    const searchLimit = Math.min(15, rows.length);
+    // Busca em toda a planilha (não limita a 15 linhas),
+    // mas aplica penalidade para linhas que parecem dados (têm números)
+    const searchLimit = Math.min(40, rows.length);
     for (let i = 0; i < searchLimit; i++) {
       const row = rows[i];
       if (!row) continue;
 
-      const cells = row;
+      // Pula linhas marcadas como seção pelo normalizador
+      if ((row as any)._isCategoryRow) continue;
 
       let score = 0;
       let nonEmptyCols = 0;
+      let numericCols = 0;
 
-      for (const cell of cells) {
-        const val = String(cell || '')
-          .trim()
-          .toLowerCase();
+      for (const cell of row) {
+        const val = String(cell || '').trim().toLowerCase();
         if (val) {
           nonEmptyCols++;
-          // Se a célula contiver uma palavra-chave, ganha mais pontos
-          if (keywords.some((kw) => val.includes(kw))) {
-            score += 2;
-          }
+          if (keywords.some((kw) => val.includes(kw))) score += 3;
+          if (!isNaN(parseFloat(val)) && isFinite(Number(val))) numericCols++;
         }
       }
 
-      // Pontuação total = densidade de colunas preenchidas + peso de palavras-chave
+      // Penaliza linhas dominadas por números (provável linha de dado)
+      if (nonEmptyCols > 0 && numericCols / nonEmptyCols > 0.5) score -= 5;
+
       score += nonEmptyCols;
 
       if (score > maxScore) {
@@ -195,10 +329,19 @@ export class AiImportService {
     const headerRow = rows[headerIdx] || [];
     const headers = headerRow.map((h) => String(h || '').trim());
 
+    // Verificar se é layout normalizado (todas as linhas já são dados, sem cabeçalho repetido)
+    // Nesse caso, o headerIdx pode ser 0 e as linhas subsequentes já são dados limpos
+    const hasSectionFormat = rows.some((r) => (r as any)._sectionFormat);
+
     const sampleData = [];
+    // Para layouts normalizados, amostrar de múltiplas seções (até 3 seções, 3 linhas cada)
+    // Para layouts normais, comportamento original
+    const sampleTarget = hasSectionFormat ? 15 : 10;
+    const seenFormats = new Set<string>();
+
     for (
       let i = headerIdx + 1;
-      i < rows.length && sampleData.length < 10;
+      i < rows.length && sampleData.length < sampleTarget;
       i++
     ) {
       const row = rows[i];
@@ -206,11 +349,19 @@ export class AiImportService {
 
       const isRowEmpty = row.every((c) => !String(c || '').trim());
       if (!isRowEmpty) {
-        // Converte os arrays de volta para objetos mapeados pelos cabeçalhos
         const obj: any = {};
         for (let j = 0; j < headers.length; j++) {
           const key = headers[j] || String(j);
           obj[key] = row[j];
+        }
+        // Propagar _sectionFormat como campo especial na amostra
+        if ((row as any)._sectionFormat) {
+          obj._sectionFormat = (row as any)._sectionFormat;
+          // Limitar amostras por seção para cobrir diversidade
+          const fmt = (row as any)._sectionFormat;
+          const countInFormat = [...seenFormats].filter((f) => f === fmt).length;
+          if (countInFormat >= 3 && seenFormats.size < 3) continue;
+          seenFormats.add(fmt);
         }
         if ((row as any)._category) {
           obj._category = (row as any)._category;
@@ -304,6 +455,22 @@ export class AiImportService {
     mapping: AIColumnMappingDto;
     ambiguities: any[];
   }> {
+    // Verificar se a amostra contém o campo _sectionFormat (layout normalizado)
+    const hasSectionFormat = sample.sampleData?.some(
+      (row: any) => row._sectionFormat,
+    );
+
+    const sectionFormatInstruction = hasSectionFormat
+      ? `
+- FORMATO POR SEÇÃO: Os dados desta planilha foram normalizados de um layout multi-seção.
+  Cada linha de dado possui o campo "_sectionFormat" que contém o título da seção a que pertence
+  (ex: "Formato 60x60 - Retificado", "Formato 76x76 - Polido").
+  Você DEVE mapear "format" para o valor literal "_sectionFormat" — esse é o campo que contém
+  o formato comercial do produto, NÃO é uma coluna da planilha original.
+  NÃO mapeie nenhuma outra coluna para "format" se "_sectionFormat" estiver presente nos dados.
+`
+      : '';
+
     const prompt = `
 Você é um especialista em importação de tabelas de preço do setor de revestimentos cerâmicos e acabamentos para construção civil no Brasil.
 
@@ -321,14 +488,15 @@ Regras do domínio:
 
 Instruções críticas e PROIBIÇÕES:
 - CUIDADO EXTREMO: A coluna de "cost" DEVE apontar para a coluna que contém o PREÇO FINANCEIRO (ex: 20,50, R$, etc). A coluna "m2/Cx" ou "M2" contém medidas físicas, NÃO É O CUSTO. NUNCA mapeie "m2/Cx", "Pç/Cx" ou similares para o campo "cost".
-- MÚLTIPLOS PREÇOS: Se você identificar 2 ou mais colunas que representam valores financeiros, preços, custos ou faturamentos (ex: "Preço Fob", "Preço Cif", "Vlr Líquido", "ICMS", "IPI", "Custo", "R$"), você NÃO DEVE adivinhar qual é o certo. Você DEVE OBRIGATORIAMENTE gerar uma ambiguidade do tipo MULTIPLE_PRICES incluindo TODAS as colunas que podem ser preços. NÃO OMITA NENHUMA.
+- MÚLTIPLOS PREÇOS: Se você identificar 2 ou mais colunas que representam valores financeiros, preços, custos ou faturamentos (ex: "Preço Fob", "Preço Cif", "Vlr Líquido", "TAB 1", "TAB 2", "Custo", "R$"), você NÃO DEVE adivinhar qual é o certo. Você DEVE OBRIGATORIAMENTE gerar uma ambiguidade do tipo MULTIPLE_PRICES incluindo TODAS as colunas que podem ser preços. NÃO OMITA NENHUMA.
 - Se não for possível determinar a unidade (nem M2 nem UN), e não houver "m2/Cx", retorne ambiguidade UNKNOWN_UNIT.
-- Se os dados estiverem muito confusos devido a células mescladas, retorne MERGED_DATA.
+- DADOS MESCLADOS: Só retorne ambiguidade MERGED_DATA se os dados estiverem IRRECUPERÁVEIS após o pré-processamento. Se o campo "_sectionFormat" estiver presente, os dados JÁ foram normalizados e NÃO são confusos — NÃO retorne MERGED_DATA nesse caso.
 - As chaves de mapping devem conter o NOME EXATO da coluna original do fornecedor. Se a coluna não existir na planilha, defina como null.
 - A coluna do custo deve ser apenas daquela que representa um preço em Reais/Dinheiro.
 - "m2PerBox" é estritamente a coluna que informa quantos metros quadrados vem em uma caixa.
 - CÓDIGO DE BARRAS: Se a planilha tiver apenas uma coluna de código de barras (ex: "CÓD. BARRAS", "EAN", "GTIN"), você PODE e DEVE mapeá-la tanto para "sku" quanto para "ean".
 - DIMENSÕES VS FORMATO: "format" refere-se ao formato comercial da cerâmica (ex: "60x60", "82x82"). Se a planilha tiver colunas separadas para "Altura", "Largura" ou "Profundidade", mapeie-as para "height", "width" e "depth", respectivamente, NÃO para "format".
+${sectionFormatInstruction}
 
 Amostra de Dados:
 ${JSON.stringify(sample, null, 2)}
@@ -476,6 +644,9 @@ ${JSON.stringify(sample, null, 2)}
     const getVal = (row: any, key: string | null) => {
       if (!key) return null;
       const normalizedKey = String(key).trim().toLowerCase();
+      // Campos especiais injetados pelo normalizador (não são colunas reais da planilha)
+      if (normalizedKey === '_sectionformat') return (row as any)._sectionFormat ?? null;
+      if (normalizedKey === '_category') return (row as any)._category ?? null;
       const idx = headerMap[normalizedKey];
       return idx !== undefined && row[idx] !== undefined ? row[idx] : null;
     };
@@ -515,7 +686,7 @@ ${JSON.stringify(sample, null, 2)}
         name: finalName,
         cost: getVal(row, mapping.cost),
         unit: getVal(row, mapping.unit),
-        format: getVal(row, mapping.format),
+        format: getVal(row, mapping.format) || (row as any)._sectionFormat || null,
         m2PerBox: getVal(row, mapping.m2PerBox),
         piecesPerBox: getVal(row, mapping.piecesPerBox),
         palletBoxes: getVal(row, mapping.palletBoxes),

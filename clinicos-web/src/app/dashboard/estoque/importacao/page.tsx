@@ -1200,7 +1200,7 @@ export default function ImportProductsPage() {
                                                             <span className="font-semibold text-red-600 block mb-1">
                                                                 {label}
                                                             </span>
-                                                            {type !== 'MISSING_SKU' && type !== 'MISSING_COST' && (
+                                                            {type !== 'MISSING_SKU' && type !== 'MISSING_COST' && type !== 'DUPLICATE_SKU' && (
                                                                 <Button size="sm" variant="outline" className="text-[10px] h-6 px-2 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200" onClick={() => handleApproveAnomaly(idx, i)}>
                                                                     Aprovar Exceção
                                                                 </Button>
