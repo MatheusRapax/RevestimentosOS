@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0](///compare/v1.2.0...v1.3.0) (2026-07-17)
+
+
+### Features
+
+* **import:** suporte a planilhas multi-seção com normalização estrutural universal bcc05cf
+
+
+### Bug Fixes
+
+* **import-preview:** correção de sintaxe JSX e função de aprovação de anomalias 1808a17
+
 ## [1.2.0](///compare/v1.1.1...v1.2.0) (2026-07-10)
 
 
