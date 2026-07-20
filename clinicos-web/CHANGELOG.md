@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.2](///compare/v1.4.1...v1.4.2) (2026-07-20)
+
+
+### Bug Fixes
+
+* **prisma:** add quote payment methods migration 332b3a9
+* **quotes:** correções na edição de frete e remoção de desconto global 7a0c1f2
+
 ### [1.4.1](///compare/v1.4.0...v1.4.1) (2026-07-20)
 
 

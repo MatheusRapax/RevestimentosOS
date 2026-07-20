@@ -1,4 +1,4 @@
 {
-  "version": "1.4.1",
-  "content": "### Bug Fixes\n\n* **quotes:** sincroniza layout de impressão web e corrige quebra de página do PDF aeb1ca7"
+  "version": "1.4.2",
+  "content": "### Bug Fixes\n\n* **prisma:** add quote payment methods migration 332b3a9\n* **quotes:** correções na edição de frete e remoção de desconto global 7a0c1f2"
 }
