@@ -10,10 +10,12 @@ import {
 import { PrismaService } from '../../../core/prisma/prisma.service';
 
 type QuoteWithRelations = Quote & {
+  discountPercent?: number | null;
   customer: Customer;
   seller: { id: string; name: string | null };
   architect: Architect | null;
   items: (QuoteItem & {
+    discountPercent?: number | null;
     product: {
       name: string;
       sku: string | null;
@@ -313,6 +315,10 @@ export class QuotePdfService {
         const format = item.product.format || '-';
         const sku = item.product.sku || '-';
 
+        const discountText = item.discountCents > 0
+          ? `-${this.formatCurrency(item.discountCents)}${item.discountPercent ? ` (${item.discountPercent}%)` : ''}`
+          : '-';
+
         const rowHeight = this.generateTableRow(
           doc,
           currentY,
@@ -323,6 +329,7 @@ export class QuotePdfService {
           qtyText,
           areaText,
           unitCostText,
+          discountText,
           this.formatCurrency(item.totalCents),
           template,
         );
@@ -342,33 +349,37 @@ export class QuotePdfService {
       currentY = 50;
     }
 
-    const subtotalPosition = currentY;
+    const itemDiscounts = quote.items.reduce((sum, i) => sum + (i.discountCents || 0), 0);
+    const grossSubtotal = quote.subtotalCents + itemDiscounts;
+
     this.generateTableRow(
       doc,
-      subtotalPosition,
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
+      currentY,
+      '', '', '', '', '', '', '',
       'Subtotal',
-      this.formatCurrency(quote.subtotalCents),
+      this.formatCurrency(grossSubtotal),
       template,
     );
+    currentY += 20;
+
+    if (itemDiscounts > 0) {
+      this.generateTableRow(
+        doc, currentY,
+        '', '', '', '', '', '', '',
+        'Desc. por item',
+        `-${this.formatCurrency(itemDiscounts)}`,
+        template,
+      );
+      currentY += 20;
+    }
 
     if (quote.discountCents > 0) {
-      const discountPosition = subtotalPosition + 20;
+      const pct = quote.discountPercent;
+      const globalDiscLabel = pct ? `Desconto (${pct}%)` : 'Desconto';
       this.generateTableRow(
-        doc,
-        discountPosition,
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        'Desconto',
+        doc, currentY,
+        '', '', '', '', '', '', '',
+        globalDiscLabel,
         `-${this.formatCurrency(quote.discountCents)}`,
         template,
       );
@@ -376,16 +387,9 @@ export class QuotePdfService {
     }
 
     if (quote.deliveryFee > 0) {
-      const deliveryPosition = subtotalPosition + 40;
       this.generateTableRow(
-        doc,
-        deliveryPosition,
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
+        doc, currentY,
+        '', '', '', '', '', '', '',
         'Frete',
         this.formatCurrency(quote.deliveryFee),
         template,
@@ -393,17 +397,12 @@ export class QuotePdfService {
       currentY += 20;
     }
 
-    currentY += 30;
+    currentY += 15;
     doc.font('Helvetica-Bold').fillColor(primaryColor);
     this.generateTableRow(
       doc,
       currentY,
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
+      '', '', '', '', '', '', '',
       'TOTAL',
       this.formatCurrency(quote.totalCents),
       template,
@@ -435,6 +434,7 @@ export class QuotePdfService {
       showQuantity ? 'Qtd Cx' : '',
       showUnitArea ? 'Qtd M²' : '',
       showUnitPrice ? 'V. Unit.' : '',
+      'Desconto',
       'Total',
       template,
       true,
@@ -616,6 +616,7 @@ export class QuotePdfService {
     qtd: string,
     m2: string,
     vUnit: string,
+    desconto: string,
     total: string,
     template: QuoteTemplate | null,
     isHeader = false,
@@ -624,42 +625,42 @@ export class QuotePdfService {
     const showUnitArea = template?.showUnitArea ?? true;
     const showUnitPrice = template?.showUnitPrice ?? true;
 
-    doc.fontSize(10);
+    doc.fontSize(9);
     if (!isHeader) {
       doc.font('Helvetica');
     }
 
-    // Calcula altura necessária para a descrição (pode ter quebra de linha automática)
-    const descWidth = 135;
-    const descHeight = doc.heightOfString(descricao || ' ', {
-      width: descWidth,
-    });
+    const descWidth = 125;
+    const descHeight = doc.heightOfString(descricao || ' ', { width: descWidth });
     const rowHeight = Math.max(15, descHeight);
 
-    // Renderiza as células
     doc.text(unidade, 50, y, { width: 25, ellipsis: true });
-    doc.text(codigo, 80, y, { width: 40, ellipsis: true });
-    doc.text(descricao, 125, y, { width: descWidth });
-    doc.text(formato, 265, y, { width: 50, ellipsis: true });
+    doc.text(codigo, 80, y, { width: 38, ellipsis: true });
+    doc.text(descricao, 120, y, { width: descWidth });
+    doc.text(formato, 250, y, { width: 40, ellipsis: true });
 
-    let currentX = 320;
+    let currentX = 295;
 
     if (showQuantity) {
-      doc.text(qtd, currentX, y, { width: 40, align: 'right' });
-      currentX += 45; // Avança
+      doc.text(qtd, currentX, y, { width: 35, align: 'right' });
+      currentX += 38;
     }
 
     if (showUnitArea) {
-      doc.text(m2, currentX, y, { width: 45, align: 'right' });
-      currentX += 50; // Avança
+      doc.text(m2, currentX, y, { width: 38, align: 'right' });
+      currentX += 42;
     }
 
     if (showUnitPrice) {
-      doc.text(vUnit, currentX, y, { width: 60, align: 'right' });
-      currentX += 65; // Avança
+      doc.text(vUnit, currentX, y, { width: 55, align: 'right' });
+      currentX += 58;
     }
 
-    // Total (550 é o limite direito, então width = 550 - currentX)
+    // Desconto
+    doc.text(desconto, currentX, y, { width: 55, align: 'right' });
+    currentX += 58;
+
+    // Total
     doc.text(total, currentX, y, { width: 550 - currentX, align: 'right' });
 
     return rowHeight;

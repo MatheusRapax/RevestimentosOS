@@ -18,11 +18,12 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-import { Plus, Package, Edit, Trash2, Search, Upload, Settings2 } from 'lucide-react';
+import { Plus, Package, Edit, Trash2, Search, Upload, Settings2, Sparkles } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import CreateStockItemDialog from '@/components/stock/create-stock-item-dialog';
 import EditStockItemDialog from '@/components/stock/edit-stock-item-dialog';
+import { PromoteAdhocDialog } from '@/components/products/promote-adhoc-dialog';
 
 // Column definitions
 const COLUMN_DEFINITIONS = [
@@ -99,6 +100,10 @@ export default function ProdutosPage() {
     // Edit dialog
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<Product | null>(null);
+
+    // Promote adhoc dialog
+    const [isPromoteOpen, setIsPromoteOpen] = useState(false);
+    const [promotingProduct, setPromotingProduct] = useState<Product | null>(null);
 
     // Delete confirmation
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -208,8 +213,13 @@ export default function ProdutosPage() {
     }, [successMessage]);
 
     const handleEdit = (item: Product) => {
-        setEditingItem(item);
-        setIsEditDialogOpen(true);
+        if (item.isAdhoc) {
+            setPromotingProduct(item);
+            setIsPromoteOpen(true);
+        } else {
+            setEditingItem(item);
+            setIsEditDialogOpen(true);
+        }
     };
 
     const handleDeleteClick = (itemId: string) => {
@@ -431,7 +441,7 @@ export default function ProdutosPage() {
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {filteredProducts.map((product) => (
-                                    <tr key={product.id} className={`hover:bg-gray-50 ${selectedIds.has(product.id) ? 'bg-blue-50' : ''}`}>
+                                    <tr key={product.id} className={`hover:bg-gray-50 cursor-pointer ${selectedIds.has(product.id) ? 'bg-blue-50' : product.isAdhoc ? 'bg-amber-50/60' : ''}`}>
                                         <td className="px-3 py-3 text-center">
                                             <Checkbox
                                                 checked={selectedIds.has(product.id)}
@@ -453,10 +463,14 @@ export default function ProdutosPage() {
                                         <td className="px-3 py-3 text-center">
                                             <button
                                                 onClick={() => handleEdit(product)}
-                                                className="text-gray-400 hover:text-gray-600 p-1"
-                                                title="Editar"
+                                                className={`p-1 ${product.isAdhoc ? 'text-amber-500 hover:text-amber-700' : 'text-gray-400 hover:text-gray-600'}`}
+                                                title={product.isAdhoc ? 'Gerenciar produto avulso' : 'Editar'}
                                             >
-                                                <Edit className="h-4 w-4" />
+                                                {product.isAdhoc ? (
+                                                    <Sparkles className="h-4 w-4" />
+                                                ) : (
+                                                    <Edit className="h-4 w-4" />
+                                                )}
                                             </button>
                                         </td>
                                     </tr>
@@ -520,6 +534,17 @@ export default function ProdutosPage() {
                     setEditingItem(null);
                     fetchProducts(page, searchTerm);
                     setSuccessMessage('Produto atualizado com sucesso!');
+                }}
+            />
+
+            {/* Promote Adhoc Dialog */}
+            <PromoteAdhocDialog
+                open={isPromoteOpen}
+                product={promotingProduct}
+                onOpenChange={(v) => { setIsPromoteOpen(v); if (!v) setPromotingProduct(null); }}
+                onPromoted={() => {
+                    fetchProducts(page, searchTerm);
+                    setSuccessMessage('Produto ativado no catálogo com sucesso!');
                 }}
             />
 

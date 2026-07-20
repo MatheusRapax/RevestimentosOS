@@ -30,6 +30,7 @@ import { StockLotSelector } from '@/components/stock/StockLotSelector';
 import { ProductCombobox } from '@/components/quotes/product-combobox';
 import { AdHocProductModal } from '@/components/products/ad-hoc-product-modal';
 import { QuickCustomerDialog } from '@/components/customers/quick-customer-dialog';
+import { QuickArchitectDialog } from '@/components/architects/quick-architect-dialog';
 
 interface Customer {
     id: string;
@@ -100,10 +101,16 @@ export default function NovoOrcamentoPage() {
     // Computed state
     const [isAdhocModalOpen, setIsAdhocModalOpen] = useState(false);
     const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
+    const [isQuickArchitectOpen, setIsQuickArchitectOpen] = useState(false);
 
     const handleQuickCustomerCreated = (customer: Customer) => {
         setCustomers(prev => [...prev, customer]);
         setCustomerId(customer.id);
+    };
+
+    const handleQuickArchitectCreated = (architect: Architect) => {
+        setArchitects(prev => [...prev, architect]);
+        setArchitectId(architect.id);
     };
 
     // Calculated totals
@@ -428,19 +435,30 @@ export default function NovoOrcamentoPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="architect">Arquiteto (opcional)</Label>
-                        <Select value={architectId} onValueChange={setArchitectId}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecione o arquiteto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Nenhum</SelectItem>
-                                {architects.map((architect) => (
-                                    <SelectItem key={architect.id} value={architect.id}>
-                                        {architect.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <div className="flex gap-2">
+                            <Select value={architectId} onValueChange={setArchitectId}>
+                                <SelectTrigger className="flex-1">
+                                    <SelectValue placeholder="Selecione o arquiteto" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Nenhum</SelectItem>
+                                    {architects.map((architect) => (
+                                        <SelectItem key={architect.id} value={architect.id}>
+                                            {architect.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                title="Criar novo arquiteto rapidamente"
+                                onClick={() => setIsQuickArchitectOpen(true)}
+                            >
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </Card>
@@ -842,6 +860,12 @@ export default function NovoOrcamentoPage() {
                 open={isQuickCustomerOpen}
                 onOpenChange={setIsQuickCustomerOpen}
                 onCreated={handleQuickCustomerCreated}
+            />
+
+            <QuickArchitectDialog
+                open={isQuickArchitectOpen}
+                onOpenChange={setIsQuickArchitectOpen}
+                onCreated={handleQuickArchitectCreated}
             />
         </div>
     );

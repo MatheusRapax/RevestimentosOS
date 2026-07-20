@@ -59,6 +59,7 @@ interface QuoteItem {
     areaWithMargin?: number;
     quantityBoxes: number;
     unitPriceCents: number;
+    discountPercent?: number;
     discountCents: number;
     totalCents: number;
     notes?: string;
@@ -630,7 +631,14 @@ export default function QuoteDetailPage() {
                                         {formatCurrency(item.unitPriceCents)}
                                     </td>
                                     <td className="px-4 py-3 text-right">
-                                        {item.discountCents > 0 ? formatCurrency(item.discountCents) : '-'}
+                                        {item.discountCents > 0 ? (
+                                            <div>
+                                                <span className="text-red-600 font-medium">-{formatCurrency(item.discountCents)}</span>
+                                                {item.discountPercent && item.discountPercent > 0 && (
+                                                    <div className="text-xs text-red-400">{item.discountPercent}%</div>
+                                                )}
+                                            </div>
+                                        ) : '-'}
                                     </td>
                                     <td className="px-4 py-3 text-right font-medium">
                                         {formatCurrency(item.totalCents)}
@@ -691,22 +699,37 @@ export default function QuoteDetailPage() {
                 <div className="space-y-2 max-w-sm ml-auto text-right">
                     {(() => {
                         const itemDiscounts = quote.items.reduce((acc, item) => acc + item.discountCents, 0);
-                        const totalDiscount = quote.discountCents + itemDiscounts;
-                        // quote.subtotalCents is currently "Net Items Total" (after item discounts)
-                        // So Gross Subtotal = quote.subtotalCents + itemDiscounts
+                        const globalDiscount = quote.discountCents;
                         const grossSubtotal = quote.subtotalCents + itemDiscounts;
 
                         return (
                             <>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Subtotal:</span>
+                                    <span className="text-gray-600">Subtotal bruto:</span>
                                     <span>{formatCurrency(grossSubtotal)}</span>
                                 </div>
 
-                                {totalDiscount > 0 && (
-                                    <div className="flex justify-between text-red-600">
-                                        <span>Desconto Total:</span>
-                                        <span>-{formatCurrency(totalDiscount)}</span>
+                                {itemDiscounts > 0 && (
+                                    <div className="flex justify-between text-red-500 text-sm">
+                                        <span>Descontos por item:</span>
+                                        <span>-{formatCurrency(itemDiscounts)}</span>
+                                    </div>
+                                )}
+
+                                {globalDiscount > 0 && (
+                                    <div className="flex justify-between text-red-600 text-sm">
+                                        <span>
+                                            Desconto global
+                                            {quote.discountPercent ? ` (${quote.discountPercent}%)` : ''}:
+                                        </span>
+                                        <span>-{formatCurrency(globalDiscount)}</span>
+                                    </div>
+                                )}
+
+                                {(itemDiscounts > 0 || globalDiscount > 0) && (
+                                    <div className="flex justify-between text-red-700 font-medium border-t pt-1">
+                                        <span>Total de descontos:</span>
+                                        <span>-{formatCurrency(itemDiscounts + globalDiscount)}</span>
                                     </div>
                                 )}
 
