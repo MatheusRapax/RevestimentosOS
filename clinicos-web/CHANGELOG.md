@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.1](///compare/v1.4.0...v1.4.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* **quotes:** sincroniza layout de impressão web e corrige quebra de página do PDF aeb1ca7
+
 ## [1.4.0](///compare/v1.3.0...v1.4.0) (2026-07-20)
 
 

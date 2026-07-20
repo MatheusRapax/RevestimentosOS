@@ -1,4 +1,4 @@
 {
-  "version": "1.4.0",
-  "content": "### Features\n\n* **quotes:** aprimora transparência de descontos em UI e PDF e estabiliza criação de produtos df5a67b"
+  "version": "1.4.1",
+  "content": "### Bug Fixes\n\n* **quotes:** sincroniza layout de impressão web e corrige quebra de página do PDF aeb1ca7"
 }
