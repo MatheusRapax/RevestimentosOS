@@ -37,6 +37,8 @@ export interface QuoteTemplate {
     showUnitArea: boolean;
     showUnitPrice: boolean;
     footerText?: string;
+    paymentMethodsInfo?: string;
+    showPaymentMethods: boolean;
     createdAt: string;
     updatedAt: string;
 }
@@ -69,6 +71,8 @@ export interface CreateQuoteTemplateData {
     showUnitArea?: boolean;
     showUnitPrice?: boolean;
     footerText?: string;
+    paymentMethodsInfo?: string;
+    showPaymentMethods?: boolean;
 }
 
 export function useQuoteTemplates() {

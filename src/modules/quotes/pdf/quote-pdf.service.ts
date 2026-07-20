@@ -450,95 +450,186 @@ export class QuotePdfService {
     let currentY = startY;
     const primaryColor = template?.primaryColor || '#000000';
 
-    // Dados Bancários e Termos (Lado a Lado se ambos existirem)
+    // Dados Bancários, Formas de Pagamento e Termos
     const hasBank = template?.showBankDetails && template.bankName;
+    const hasPaymentMethods = template?.showPaymentMethods && template.paymentMethodsInfo;
     const hasTerms = template?.showTerms && template.termsAndConditions;
 
-    if (hasBank || hasTerms) {
-      if (currentY > 650) {
-        doc.addPage();
-        currentY = 50;
-      }
-
-      const startBoxY = currentY;
-      let maxBankY = currentY;
-      let maxTermsY = currentY;
-
+    // --- PRE-CALCULAR ALTURA NECESSÁRIA DO RODAPÉ ---
+    let requiredHeight = 0;
+    let boxesHeight = 0;
+    
+    if (hasBank || hasPaymentMethods || hasTerms) {
+      const leftColWidth = (hasBank || hasPaymentMethods) && hasTerms ? 240 : 500;
+      const rightColWidth = 500 - leftColWidth - 10;
+      
+      let estimatedLeft = 0;
       if (hasBank) {
-        // Draw Bank Details Box
-        doc.rect(50, currentY, 240, 100).fillAndStroke('#f9fafb', '#e5e7eb');
+        estimatedLeft += 50; 
+        if (template.bankAgency) estimatedLeft += 12;
+        if (template.bankAccount) estimatedLeft += 12;
+        if (template.bankAccountHolder) estimatedLeft += 12;
+        if (template.pixKey) estimatedLeft += 17;
+        estimatedLeft += 25; 
+      }
+      if (hasPaymentMethods) {
+        const textHeight = doc.fontSize(8).heightOfString(template.paymentMethodsInfo || '', { width: leftColWidth - 20 });
+        estimatedLeft += 25 + textHeight + 10;
+      }
+      
+      let estimatedRight = 0;
+      if (hasTerms) {
+        const termsWidth = (hasBank || hasPaymentMethods) ? rightColWidth : 500;
+        const textHeight = doc.fontSize(8).heightOfString(template.termsAndConditions || '', { width: termsWidth - 20 });
+        estimatedRight = 25 + textHeight + 10;
+      }
+      
+      boxesHeight = Math.max(estimatedLeft, estimatedRight);
+      requiredHeight += boxesHeight;
+    }
+    
+    if (template?.showSignatureLines) {
+      requiredHeight += 75;
+    }
+    
+    requiredHeight += 40; // Validade
+    if (template?.footerText) {
+      requiredHeight += 20;
+    }
 
-        let bankY = currentY + 10;
+    // Se não couber na página atual (considerando margem inferior segura ~780), quebra de página de uma vez.
+    if (currentY + requiredHeight > 780 && requiredHeight < 700) {
+      doc.addPage();
+      currentY = 50;
+    }
+
+    if (hasBank || hasPaymentMethods || hasTerms) {
+      const startBoxY = currentY;
+      
+      const leftColX = 50;
+      const leftColWidth = (hasBank || hasPaymentMethods) && hasTerms ? 240 : 500;
+      const rightColX = leftColX + leftColWidth + 10;
+      const rightColWidth = 500 - leftColWidth - 10;
+
+      let leftY = currentY;
+      let rightY = currentY;
+
+      // Draw Bank Details on left
+      if (hasBank) {
+        let bankTextY = leftY + 10;
+        
+        let estimatedHeight = 35; // Header + Banco
+        if (template.bankAgency) estimatedHeight += 12;
+        if (template.bankAccount) estimatedHeight += 12;
+        if (template.bankAccountHolder) estimatedHeight += 12;
+        if (template.pixKey) estimatedHeight += 17;
+
+        doc.rect(leftColX, leftY, leftColWidth, estimatedHeight + 15).fillAndStroke('#f9fafb', '#e5e7eb');
+
         doc
           .fontSize(10)
           .font('Helvetica-Bold')
           .fillColor(primaryColor)
-          .text('Dados Bancários', 60, bankY);
+          .text('Dados Bancários', leftColX + 10, bankTextY);
         doc.font('Helvetica').fillColor('#000000');
 
-        bankY += 15;
+        bankTextY += 15;
         doc.fontSize(8);
         doc
           .font('Helvetica-Bold')
-          .text('Banco:', 60, bankY, { continued: true })
+          .text('Banco:', leftColX + 10, bankTextY, { continued: true })
           .font('Helvetica')
           .text(` ${template.bankName}`);
 
-        bankY += 12;
+        bankTextY += 12;
         if (template.bankAgency) {
           doc
             .font('Helvetica-Bold')
-            .text('Agência:', 60, bankY, { continued: true })
+            .text('Agência:', leftColX + 10, bankTextY, { continued: true })
             .font('Helvetica')
             .text(` ${template.bankAgency}`);
-          bankY += 12;
+          bankTextY += 12;
         }
 
         if (template.bankAccount) {
           doc
             .font('Helvetica-Bold')
-            .text('Conta:', 60, bankY, { continued: true })
+            .text('Conta:', leftColX + 10, bankTextY, { continued: true })
             .font('Helvetica')
             .text(` ${template.bankAccount}`);
-          bankY += 12;
+          bankTextY += 12;
         }
 
         if (template.bankAccountHolder) {
           doc
             .font('Helvetica-Bold')
-            .text('Titular:', 60, bankY, { continued: true })
+            .text('Titular:', leftColX + 10, bankTextY, { continued: true })
             .font('Helvetica')
             .text(` ${template.bankAccountHolder}`);
-          bankY += 12;
+          bankTextY += 12;
         }
 
         if (template.pixKey) {
-          bankY += 5;
+          bankTextY += 5;
           doc
-            .moveTo(60, bankY - 3)
-            .lineTo(280, bankY - 3)
+            .moveTo(leftColX + 10, bankTextY - 3)
+            .lineTo(leftColX + leftColWidth - 10, bankTextY - 3)
             .strokeColor('#e5e7eb')
             .stroke();
           doc
             .font('Helvetica-Bold')
-            .text('PIX:', 60, bankY, { continued: true })
+            .text('PIX:', leftColX + 10, bankTextY, { continued: true })
             .font('Helvetica')
             .text(` ${template.pixKey}`);
-          bankY += 12;
+          bankTextY += 12;
         }
-        maxBankY = bankY + 10;
+        leftY = leftY + estimatedHeight + 15 + 10;
       }
 
-      if (hasTerms) {
-        // Draw Terms Box
-        const termsX = hasBank ? 300 : 50;
-        const termsWidth = hasBank ? 250 : 500;
+      // Draw Payment Methods on left
+      if (hasPaymentMethods) {
+        const titleHeight = 25;
+        const textHeight = doc.fontSize(8).heightOfString(template.paymentMethodsInfo || '', { width: leftColWidth - 20 });
+        const boxHeight = titleHeight + textHeight + 10;
+        
+        doc.rect(leftColX, leftY, leftColWidth, boxHeight).fillAndStroke('#f9fafb', '#e5e7eb');
 
+        let payTextY = leftY + 10;
         doc
-          .rect(termsX, currentY, termsWidth, 100)
+          .fontSize(10)
+          .font('Helvetica-Bold')
+          .fillColor(primaryColor)
+          .text('Formas de Pagamento', leftColX + 10, payTextY);
+          
+        payTextY += 15;
+        doc
+          .fontSize(8)
+          .font('Helvetica')
+          .fillColor('#4b5563')
+          .text(template.paymentMethodsInfo || '', leftColX + 10, payTextY, { width: leftColWidth - 20 });
+
+        leftY = leftY + boxHeight + 10;
+      }
+
+      // Draw Terms on right (or full width if no left col)
+      if (hasTerms) {
+        const termsX = (hasBank || hasPaymentMethods) ? rightColX : leftColX;
+        const termsWidth = (hasBank || hasPaymentMethods) ? rightColWidth : 500;
+        
+        const titleHeight = 25;
+        const termsText = template.termsAndConditions || '';
+        const textHeight = doc.fontSize(8).heightOfString(termsText, { width: termsWidth - 20 });
+        
+        let boxHeight = titleHeight + textHeight + 10;
+        if ((hasBank || hasPaymentMethods) && (leftY - startBoxY - 10) > boxHeight) {
+             boxHeight = leftY - startBoxY - 10; // match left side
+        }
+        
+        doc
+          .rect(termsX, rightY, termsWidth, boxHeight)
           .fillAndStroke('#f9fafb', '#e5e7eb');
 
-        let termsY = currentY + 10;
+        let termsY = rightY + 10;
         doc
           .fontSize(10)
           .font('Helvetica-Bold')
@@ -548,24 +639,16 @@ export class QuotePdfService {
         termsY += 15;
         doc.fontSize(8).font('Helvetica').fillColor('#4b5563');
 
-        const termsText = template.termsAndConditions || '';
-        const textHeight = doc.heightOfString(termsText, {
-          width: termsWidth - 20,
-        });
         doc.text(termsText, termsX + 10, termsY, { width: termsWidth - 20 });
 
-        maxTermsY = termsY + textHeight + 10;
+        rightY = rightY + boxHeight + 10;
       }
 
-      currentY = Math.max(maxBankY, maxTermsY, startBoxY + 100) + 20;
+      currentY = Math.max(leftY, rightY) + 10;
     }
 
     // Assinaturas
     if (template?.showSignatureLines) {
-      if (currentY > 750) {
-        doc.addPage();
-        currentY = 50;
-      }
       currentY += 40; // Espaço para assinar
 
       doc.lineWidth(1).strokeColor('#000000');
@@ -582,10 +665,6 @@ export class QuotePdfService {
     }
 
     // Validade e Footer Text
-    if (currentY > 780) {
-      doc.addPage();
-      currentY = 50;
-    }
 
     const validityText =
       template?.validityText ||

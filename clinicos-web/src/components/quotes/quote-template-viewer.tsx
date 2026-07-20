@@ -16,6 +16,9 @@ interface QuoteItem {
     totalCents: number;
     resultingArea?: number;
     inputArea?: number;
+    areaWithMargin?: number;
+    discountCents?: number;
+    discountPercent?: number;
 }
 
 interface Quote {
@@ -30,6 +33,7 @@ interface Quote {
     items: QuoteItem[];
     subtotalCents: number;
     discountCents: number;
+    discountPercent?: number;
     deliveryFee: number;
     totalCents: number;
     seller: {
@@ -70,24 +74,27 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
         items: [
             {
                 id: '1',
-                product: { name: 'Porcelanato Bianco 60x60', sku: 'P6060', boxCoverage: 2.1 },
+                product: { name: 'Porcelanato Bianco 60x60', sku: 'P6060', boxCoverage: 2.1, unit: 'M2', format: '60x60' },
                 quantityBoxes: 5,
                 unitPriceCents: 8990,
                 totalCents: 44950,
                 resultingArea: 10.5,
+                discountCents: 0,
             },
             {
                 id: '2',
-                product: { name: 'Rejunte Cinza Platina 1kg', sku: 'R1KG' },
+                product: { name: 'Rejunte Cinza Platina 1kg', sku: 'R1KG', unit: 'UN' },
                 quantityBoxes: 2,
                 unitPriceCents: 2500,
-                totalCents: 5000,
+                totalCents: 4500,
+                discountCents: 500,
+                discountPercent: 10,
             },
         ],
         subtotalCents: 49950,
         discountCents: 0,
         deliveryFee: 0,
-        totalCents: 49950,
+        totalCents: 49450,
         seller: { name: 'Vendedor Exemplo' }
     };
 
@@ -167,31 +174,52 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
             <table className="w-full mb-4 text-xs border-collapse">
                 <thead>
                     <tr style={{ backgroundColor: template.accentColor || '#4CAF50', color: 'white' }}>
-                        <th className="p-2 text-left">Produto</th>
-                        {template.showQuantity !== false && <th className="p-2 text-center">Qtd</th>}
-                        {template.showUnitPrice !== false && <th className="p-2 text-right">Unit.</th>}
-                        <th className="p-2 text-right">Total</th>
+                        <th className="p-2 text-left w-10">Unid.</th>
+                        <th className="p-2 text-left">Descrição</th>
+                        <th className="p-2 text-left w-16">Cód.</th>
+                        <th className="p-2 text-left w-16">Formato</th>
+                        {template.showQuantity !== false && <th className="p-2 text-center w-12">Qtd Cx</th>}
+                        {template.showUnitArea !== false && <th className="p-2 text-center w-12">Qtd M²</th>}
+                        {template.showUnitPrice !== false && <th className="p-2 text-right w-16">V. Unit.</th>}
+                        <th className="p-2 text-right w-16">Desconto</th>
+                        <th className="p-2 text-right w-20">Total</th>
                     </tr>
                 </thead>
                 <tbody>
                     {data.items.map((item) => {
+                        const unit = item.product?.unit || '-';
                         const isAreaProduct = !!item.resultingArea && !!item.product?.boxCoverage;
-                        const displayQty = isAreaProduct
-                            ? `${item.resultingArea?.toFixed(2)} m²`
-                            : `${item.quantityBoxes} ${item.product?.unit || 'un'}`;
-                        const displayUnitPrice = isAreaProduct && item.product?.boxCoverage
-                            ? `${formatCurrency(item.unitPriceCents / item.product.boxCoverage)} /m²`
-                            : formatCurrency(item.unitPriceCents);
+                        
+                        const qtyBoxes = item.quantityBoxes > 0 ? `${item.quantityBoxes}` : '';
+                        
+                        const finalArea = item.resultingArea ?? item.areaWithMargin ?? item.inputArea;
+                        const areaText = finalArea ? `${finalArea.toFixed(2)}` : '';
+
+                        let unitCostText = '';
+                        if (template.showUnitPrice !== false) {
+                            if (unit === 'M2' && item.product.boxCoverage && item.product.boxCoverage > 0) {
+                                const pricePerM2Cents = Math.round(item.unitPriceCents / item.product.boxCoverage);
+                                unitCostText = `${formatCurrency(pricePerM2Cents)} /m²`;
+                            } else {
+                                unitCostText = formatCurrency(item.unitPriceCents);
+                            }
+                        }
+
+                        const discountCents = item.discountCents || 0;
+                        const discountText = discountCents > 0 
+                            ? `-${formatCurrency(discountCents)}${item.discountPercent ? ` (${item.discountPercent}%)` : ''}`
+                            : '-';
 
                         return (
                             <tr key={item.id} className="border-b">
-                                <td className="p-2">
-                                    <span className="font-semibold">{item.product.name}</span>
-                                    <br />
-                                    <span className="text-[10px] text-gray-500">{item.product.sku}</span>
-                                </td>
-                                {template.showQuantity !== false && <td className="p-2 text-center">{displayQty}</td>}
-                                {template.showUnitPrice !== false && <td className="p-2 text-right">{displayUnitPrice}</td>}
+                                <td className="p-2 text-left text-gray-600">{unit}</td>
+                                <td className="p-2 font-semibold">{item.product.name}</td>
+                                <td className="p-2 text-gray-500">{item.product.sku || '-'}</td>
+                                <td className="p-2 text-gray-500">{item.product.format || '-'}</td>
+                                {template.showQuantity !== false && <td className="p-2 text-center">{qtyBoxes}</td>}
+                                {template.showUnitArea !== false && <td className="p-2 text-center">{areaText}</td>}
+                                {template.showUnitPrice !== false && <td className="p-2 text-right">{unitCostText}</td>}
+                                <td className="p-2 text-right text-red-600">{discountText !== '-' ? discountText : ''}</td>
                                 <td className="p-2 text-right">{formatCurrency(item.totalCents)}</td>
                             </tr>
                         );
@@ -200,37 +228,56 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                 <tfoot>
                     <tr className="font-semibold border-t">
                         <td colSpan={
-                            1 +
+                            4 +
                             (template.showQuantity !== false ? 1 : 0) +
-                            (template.showUnitPrice !== false ? 1 : 0)
+                            (template.showUnitArea !== false ? 1 : 0) +
+                            (template.showUnitPrice !== false ? 1 : 0) + 1
                         } className="p-2 text-right">Subtotal:</td>
-                        <td className="p-2 text-right">{formatCurrency(data.subtotalCents)}</td>
+                        <td className="p-2 text-right">
+                            {formatCurrency(data.subtotalCents + data.items.reduce((sum, i) => sum + (i.discountCents || 0), 0))}
+                        </td>
                     </tr>
+                    {data.items.reduce((sum, i) => sum + (i.discountCents || 0), 0) > 0 && (
+                        <tr className="text-red-600">
+                            <td colSpan={
+                                4 +
+                                (template.showQuantity !== false ? 1 : 0) +
+                                (template.showUnitArea !== false ? 1 : 0) +
+                                (template.showUnitPrice !== false ? 1 : 0) + 1
+                            } className="p-2 text-right">Desc. por item:</td>
+                            <td className="p-2 text-right">-{formatCurrency(data.items.reduce((sum, i) => sum + (i.discountCents || 0), 0))}</td>
+                        </tr>
+                    )}
                     {data.discountCents > 0 && (
                         <tr className="text-red-600">
                             <td colSpan={
-                                1 +
+                                4 +
                                 (template.showQuantity !== false ? 1 : 0) +
-                                (template.showUnitPrice !== false ? 1 : 0)
-                            } className="p-2 text-right">Desconto:</td>
+                                (template.showUnitArea !== false ? 1 : 0) +
+                                (template.showUnitPrice !== false ? 1 : 0) + 1
+                            } className="p-2 text-right">
+                                {data.discountPercent ? `Desconto (${data.discountPercent}%)` : 'Desconto'}:
+                            </td>
                             <td className="p-2 text-right">-{formatCurrency(data.discountCents)}</td>
                         </tr>
                     )}
                     {data.deliveryFee > 0 && (
                         <tr>
                             <td colSpan={
-                                1 +
+                                4 +
                                 (template.showQuantity !== false ? 1 : 0) +
-                                (template.showUnitPrice !== false ? 1 : 0)
+                                (template.showUnitArea !== false ? 1 : 0) +
+                                (template.showUnitPrice !== false ? 1 : 0) + 1
                             } className="p-2 text-right">Frete:</td>
                             <td className="p-2 text-right">{formatCurrency(data.deliveryFee)}</td>
                         </tr>
                     )}
                     <tr className="font-bold text-lg border-t" style={{ color: template.primaryColor || '#000000' }}>
                         <td colSpan={
-                            1 +
+                            4 +
                             (template.showQuantity !== false ? 1 : 0) +
-                            (template.showUnitPrice !== false ? 1 : 0)
+                            (template.showUnitArea !== false ? 1 : 0) +
+                            (template.showUnitPrice !== false ? 1 : 0) + 1
                         } className="p-2 text-right">TOTAL:</td>
                         <td className="p-2 text-right">{formatCurrency(data.totalCents)}</td>
                     </tr>
@@ -238,21 +285,36 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
             </table>
 
             <div className="flex gap-4">
-                {/* Dados Bancários */}
-                {template.showBankDetails && template.bankName && (
-                    <div className="flex-1 border rounded p-3 mb-4 bg-gray-50 break-inside-avoid">
-                        <p className="font-semibold mb-1" style={{ color: template.primaryColor || '#000000' }}>
-                            Dados Bancários
-                        </p>
-                        <div className="text-xs space-y-1">
-                            <p><strong>Banco:</strong> {template.bankName}</p>
-                            {template.bankAgency && <p><strong>Agência:</strong> {template.bankAgency}</p>}
-                            {template.bankAccount && <p><strong>Conta:</strong> {template.bankAccount}</p>}
-                            {template.bankAccountHolder && <p><strong>Titular:</strong> {template.bankAccountHolder}</p>}
-                            {template.pixKey && <p className="mt-2 pt-1 border-t border-gray-200"><strong>PIX:</strong> {template.pixKey}</p>}
+                {/* Coluna Esquerda: Banco e Pagamentos */}
+                <div className="flex-1 flex flex-col gap-4">
+                    {/* Dados Bancários */}
+                    {template.showBankDetails && template.bankName && (
+                        <div className="border rounded p-3 bg-gray-50 break-inside-avoid flex-1">
+                            <p className="font-semibold mb-1" style={{ color: template.primaryColor || '#000000' }}>
+                                Dados Bancários
+                            </p>
+                            <div className="text-xs space-y-1">
+                                <p><strong>Banco:</strong> {template.bankName}</p>
+                                {template.bankAgency && <p><strong>Agência:</strong> {template.bankAgency}</p>}
+                                {template.bankAccount && <p><strong>Conta:</strong> {template.bankAccount}</p>}
+                                {template.bankAccountHolder && <p><strong>Titular:</strong> {template.bankAccountHolder}</p>}
+                                {template.pixKey && <p className="mt-2 pt-1 border-t border-gray-200"><strong>PIX:</strong> {template.pixKey}</p>}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
+
+                    {/* Formas de Pagamento */}
+                    {template.showPaymentMethods && template.paymentMethodsInfo && (
+                        <div className="border rounded p-3 bg-gray-50 break-inside-avoid flex-1">
+                            <p className="font-semibold mb-1" style={{ color: template.primaryColor || '#000000' }}>
+                                Formas de Pagamento
+                            </p>
+                            <p className="text-xs text-gray-600 whitespace-pre-line">
+                                {template.paymentMethodsInfo}
+                            </p>
+                        </div>
+                    )}
+                </div>
 
                 {/* Termos (lado a lado se couber, ou em coluna) */}
                 {template.showTerms && template.termsAndConditions && (

@@ -1232,6 +1232,11 @@ model QuoteTemplate {
   validityDays       Int     @default(10)
   validityText       String? // Ex: "Este orçamento possui validade de 10 dias úteis..."
 
+  // Formas de Pagamento
+  paymentMethodsInfo String? @db.Text
+  showPaymentMethods Boolean @default(true)
+
+
   // Prazo de entrega padrão
   defaultDeliveryDays String? // Ex: "7dd", "15 dias úteis"
 

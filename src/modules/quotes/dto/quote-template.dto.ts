@@ -73,6 +73,15 @@ export class CreateQuoteTemplateDto {
   @IsString()
   validityText?: string;
 
+  // Formas de Pagamento
+  @IsOptional()
+  @IsString()
+  paymentMethodsInfo?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  showPaymentMethods?: boolean;
+
   // Prazo de entrega
   @IsOptional()
   @IsString()

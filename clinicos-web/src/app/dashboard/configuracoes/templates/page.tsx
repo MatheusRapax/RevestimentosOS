@@ -74,6 +74,7 @@ export default function TemplatesPage() {
             showSignatureLines: true,
             showBankDetails: true,
             showTerms: true,
+            showPaymentMethods: true,
         });
         setIsCreating(true);
     };
@@ -102,6 +103,8 @@ export default function TemplatesPage() {
             showSignatureLines: template.showSignatureLines,
             showBankDetails: template.showBankDetails,
             showTerms: template.showTerms,
+            showPaymentMethods: template.showPaymentMethods,
+            paymentMethodsInfo: template.paymentMethodsInfo || '',
             footerText: template.footerText || '',
         });
         setEditingTemplate(template);
@@ -493,6 +496,15 @@ export default function TemplatesPage() {
                                 />
                             </div>
                             <div className="space-y-2">
+                                <Label>Formas de Pagamento</Label>
+                                <Textarea
+                                    value={formData.paymentMethodsInfo || ''}
+                                    onChange={(e) => updateField('paymentMethodsInfo', e.target.value)}
+                                    placeholder="Ex: PIX com 10% de desconto; Cartão em até 12x sem juros..."
+                                    rows={4}
+                                />
+                            </div>
+                            <div className="space-y-2">
                                 <Label>Texto do Rodapé</Label>
                                 <Textarea
                                     value={formData.footerText || ''}
@@ -561,6 +573,13 @@ export default function TemplatesPage() {
                                         <Switch
                                             checked={formData.showTerms ?? true}
                                             onCheckedChange={(v) => updateField('showTerms', v)}
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <Label>Mostrar Formas de Pagamento</Label>
+                                        <Switch
+                                            checked={formData.showPaymentMethods ?? true}
+                                            onCheckedChange={(v) => updateField('showPaymentMethods', v)}
                                         />
                                     </div>
                                 </div>
