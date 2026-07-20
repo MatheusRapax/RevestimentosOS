@@ -145,9 +145,9 @@ export default function EditOrcamentoPage() {
                     setCustomerId(quote.customerId);
                     if (quote.architectId) setArchitectId(quote.architectId);
                     setNotes(quote.notes || '');
-                    setDeliveryFeeCents(quote.deliveryFeeCents || 0);
+                    setDeliveryFeeCents(quote.deliveryFee ?? quote.deliveryFeeCents ?? 0);
                     setGlobalDiscountPercent(quote.discountPercent || 0);
-                    if (quote.globalMarginPercent) setGlobalMarginPercent(quote.globalMarginPercent);
+                    if (quote.globalMarginPercent !== null && quote.globalMarginPercent !== undefined) setGlobalMarginPercent(quote.globalMarginPercent);
                     if (quote.validUntil) setValidUntil(new Date(quote.validUntil));
                     
                     const mappedItems = quote.items.map((item: any) => ({
@@ -390,8 +390,9 @@ export default function EditOrcamentoPage() {
                 architectId: architectId && architectId !== 'none' ? architectId : undefined,
                 notes: notes || undefined,
                 deliveryFeeCents,
-                globalMarginPercent: globalMarginPercent || undefined,
-                discountPercent: globalDiscountPercent || undefined,
+                globalMarginPercent: globalMarginPercent !== undefined ? globalMarginPercent : null,
+                discountPercent: globalDiscountPercent !== undefined ? globalDiscountPercent : 0,
+                discountCents: globalDiscountPercent === 0 ? 0 : undefined,
                 validUntil: validUntil.toISOString(),
             };
 

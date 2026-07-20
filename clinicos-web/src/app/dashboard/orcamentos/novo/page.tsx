@@ -354,8 +354,8 @@ export default function NovoOrcamentoPage() {
                 architectId: architectId && architectId !== 'none' ? architectId : undefined,
                 notes: notes || undefined,
                 deliveryFeeCents,
-                globalMarginPercent: globalMarginPercent || undefined,
-                discountPercent: globalDiscountPercent || undefined,
+                globalMarginPercent: globalMarginPercent !== undefined ? globalMarginPercent : null,
+                discountPercent: globalDiscountPercent !== undefined ? globalDiscountPercent : 0,
                 items: items.map(item => ({
                     productId: item.productId,
                     inputArea: item.inputArea || undefined,
