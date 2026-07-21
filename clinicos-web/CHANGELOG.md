@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.5.0](///compare/v1.4.2...v1.5.0) (2026-07-21)
+
+
+### Features
+
+* **quotes:** show original and discounted unit price in quote UI and PDF 7342e22
+
+
+### Bug Fixes
+
+* **products:** fix manual price override for M2 products 397c096
+
 ### [1.4.2](///compare/v1.4.1...v1.4.2) (2026-07-20)
 
 

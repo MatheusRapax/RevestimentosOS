@@ -1,4 +1,4 @@
 {
-  "version": "1.4.2",
-  "content": "### Bug Fixes\n\n* **prisma:** add quote payment methods migration 332b3a9\n* **quotes:** correções na edição de frete e remoção de desconto global 7a0c1f2"
+  "version": "1.5.0",
+  "content": "### Features\n\n* **quotes:** show original and discounted unit price in quote UI and PDF 7342e22\n\n\n### Bug Fixes\n\n* **products:** fix manual price override for M2 products 397c096"
 }
