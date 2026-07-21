@@ -123,6 +123,10 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                 ? ((item.costCents / coverage) / 100).toFixed(2)
                 : item.costCents ? (item.costCents / 100).toFixed(2) : '';
 
+            const displayPrice = coverage > 0 && item.priceCents
+                ? ((item.priceCents / coverage) / 100).toFixed(2)
+                : item.priceCents ? (item.priceCents / 100).toFixed(2) : '';
+
             setFormData({
                 name: item.name,
                 description: item.description || '',
@@ -143,7 +147,7 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                 palletWeight: item.palletWeight?.toString() || '',
                 palletCoverage: item.palletCoverage?.toString() || '',
                 costCents: displayCost,
-                priceCents: item.priceCents ? (item.priceCents / 100).toFixed(2) : '',
+                priceCents: displayPrice,
                 supplierCode: item.supplierCode || '',
                 categoryId: item.categoryId || '',
                 brandId: item.brandId || '',
@@ -204,7 +208,8 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                 }
 
                 const price = realBoxCost * (1 + markup / 100);
-                const priceInCents = Math.round(price * 100);
+                const displayPrice = coverage > 0 ? price / coverage : price;
+                const priceInCents = Math.round(displayPrice * 100);
                 setFormData(prev => ({
                     ...prev,
                     priceCents: (priceInCents / 100).toFixed(2)
@@ -239,6 +244,11 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                 ? Math.round(userCost * coverage * 100)
                 : Math.round(userCost * 100);
 
+            const userPrice = formData.priceCents ? parseFloat(formData.priceCents) : 0;
+            const finalPriceCents = coverage > 0
+                ? Math.round(userPrice * coverage * 100)
+                : Math.round(userPrice * 100);
+
             const payload = {
                 name: formData.name,
                 description: formData.description || undefined,
@@ -259,7 +269,7 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                 palletWeight: formData.palletWeight ? parseFloat(formData.palletWeight) : undefined,
                 palletCoverage: formData.palletCoverage ? parseFloat(formData.palletCoverage) : undefined,
                 costCents: finalCostCents || undefined,
-                priceCents: formData.priceCents ? Math.round(parseFloat(formData.priceCents) * 100) : undefined,
+                priceCents: finalPriceCents || undefined,
                 supplierCode: formData.supplierCode || undefined,
                 categoryId: formData.categoryId || undefined,
                 brandId: formData.brandId || undefined,
@@ -623,7 +633,11 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                                 <Label htmlFor="edit-manual-price">Preço Manual</Label>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="edit-priceCents">Preço Venda (R$)</Label>
+                                <Label htmlFor="edit-priceCents">
+                                    {formData.boxCoverage && parseFloat(formData.boxCoverage) > 0
+                                        ? 'Preço Venda (R$/m²)'
+                                        : 'Preço Venda (R$)'}
+                                </Label>
                                 <Input
                                     id="edit-priceCents"
                                     type="number"
@@ -631,10 +645,15 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                                     min="0"
                                     value={formData.priceCents}
                                     onChange={(e) => setFormData({ ...formData, priceCents: e.target.value })}
-                                    placeholder="Ex: 89.90"
+                                    placeholder={formData.boxCoverage && parseFloat(formData.boxCoverage) > 0 ? 'Ex: 89.90 (por m²)' : 'Ex: 89.90'}
                                     disabled={!formData.manualPrice}
                                     className={!formData.manualPrice ? "bg-gray-50" : ""}
                                 />
+                                {formData.boxCoverage && parseFloat(formData.boxCoverage) > 0 && formData.priceCents && (
+                                    <p className="text-[10px] text-green-700 font-medium pt-1">
+                                        Venda da Cx: R$ {(parseFloat(formData.priceCents) * parseFloat(formData.boxCoverage)).toFixed(2)}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>

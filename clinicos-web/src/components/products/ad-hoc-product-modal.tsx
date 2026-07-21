@@ -119,7 +119,9 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
 
             const parsedFinal = parseFloat(finalPrice);
             if (parsedFinal > 0) {
-                payload.priceCents = Math.round(parsedFinal * 100);
+                payload.priceCents = needsCoverage && coverageNum > 0 
+                    ? Math.round(parsedFinal * coverageNum * 100)
+                    : Math.round(parsedFinal * 100);
                 if (!markup) payload.manualPrice = true;
             }
 

@@ -419,7 +419,8 @@ export default function EditOrcamentoPage() {
                     marginPercent: typeof item.marginPercent === 'number' ? item.marginPercent : undefined,
                     quantityBoxes: item.inputArea ? undefined : item.quantityBoxes,
                     unitPriceCents: item.unitPriceCents,
-                    discountPercent: item.discountPercent || undefined,
+                    discountPercent: item.discountPercent !== undefined ? item.discountPercent : 0,
+                    discountCents: item.discountPercent === 0 ? 0 : undefined,
                     preferredLotId: item.preferredLotId || undefined,
                     environmentId: item.environmentId || undefined,
                 });
@@ -433,7 +434,8 @@ export default function EditOrcamentoPage() {
                     marginPercent: typeof item.marginPercent === 'number' ? item.marginPercent : undefined,
                     quantityBoxes: item.inputArea ? undefined : item.quantityBoxes,
                     unitPriceCents: item.unitPriceCents,
-                    discountPercent: item.discountPercent || undefined,
+                    discountPercent: item.discountPercent !== undefined ? item.discountPercent : 0,
+                    discountCents: item.discountPercent === 0 ? 0 : undefined,
                     preferredLotId: item.preferredLotId || undefined,
                     environmentId: item.environmentId || undefined,
                 });

@@ -66,6 +66,22 @@ export class QuotePdfService {
       // --- Items Table ---
       currentY = this.generateTable(doc, quote, template, currentY);
 
+      // --- Observações ---
+      if (quote.notes) {
+        doc.fontSize(9).font('Helvetica');
+        const notesHeight = doc.heightOfString(quote.notes, { width: 500 }) + 25;
+        
+        if (currentY + notesHeight > 750) {
+          doc.addPage();
+          currentY = 50;
+        }
+
+        doc.fontSize(10).font('Helvetica-Bold').fillColor(primaryColor).text('Observações:', 50, currentY);
+        currentY += 15;
+        doc.fontSize(9).font('Helvetica').fillColor('#333333').text(quote.notes, 50, currentY, { width: 500 });
+        currentY += doc.heightOfString(quote.notes, { width: 500 }) + 15;
+      }
+
       // --- Footer ---
       // Verifica se tem espaço para o footer, senão cria nova página
       if (currentY > 600) {
