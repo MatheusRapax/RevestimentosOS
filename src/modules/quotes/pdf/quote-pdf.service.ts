@@ -321,11 +321,22 @@ export class QuotePdfService {
 
         let unitCostText = '';
         if (showUnitPrice) {
+          let originalPriceCents = item.unitPriceCents;
+          let discountedPriceCents = item.unitPriceCents - (item.discountCents / (item.quantityBoxes || 1));
+          
           if (unit === 'M2' && item.product.boxCoverage && item.product.boxCoverage > 0) {
-            const pricePerM2Cents = Math.round(item.unitPriceCents / item.product.boxCoverage);
-            unitCostText = this.formatCurrency(pricePerM2Cents) + ' /m²';
+            originalPriceCents = Math.round(item.unitPriceCents / item.product.boxCoverage);
+            discountedPriceCents = Math.round(discountedPriceCents / item.product.boxCoverage);
+          }
+
+          if (item.discountCents > 0) {
+             unitCostText = `De: ${this.formatCurrency(originalPriceCents)}\nPor: ${this.formatCurrency(discountedPriceCents)}`;
           } else {
-            unitCostText = this.formatCurrency(item.unitPriceCents);
+             unitCostText = this.formatCurrency(originalPriceCents);
+          }
+          
+          if (unit === 'M2' && item.product.boxCoverage && item.product.boxCoverage > 0) {
+             unitCostText = unitCostText.split('\n').map(line => line + ' /m²').join('\n');
           }
         }
         const format = item.product.format || '-';
@@ -727,7 +738,8 @@ export class QuotePdfService {
 
     const descWidth = 125;
     const descHeight = doc.heightOfString(descricao || ' ', { width: descWidth });
-    const rowHeight = Math.max(15, descHeight);
+    const vUnitHeight = showUnitPrice ? doc.heightOfString(vUnit || ' ', { width: 55 }) : 0;
+    const rowHeight = Math.max(15, descHeight, vUnitHeight);
 
     doc.text(unidade, 50, y, { width: 25, ellipsis: true });
     doc.text(codigo, 80, y, { width: 38, ellipsis: true });

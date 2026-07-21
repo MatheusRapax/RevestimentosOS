@@ -628,7 +628,18 @@ export default function QuoteDetailPage() {
                                         {item.quantityBoxes}
                                     </td>
                                     <td className="px-4 py-3 text-right">
-                                        {formatCurrency(item.unitPriceCents)}
+                                        {item.discountCents > 0 ? (
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-xs text-gray-400 line-through">
+                                                    {formatCurrency(item.unitPriceCents)}
+                                                </span>
+                                                <span className="font-medium text-green-700">
+                                                    {formatCurrency(item.unitPriceCents - (item.discountCents / (item.quantityBoxes || 1)))}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            formatCurrency(item.unitPriceCents)
+                                        )}
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                         {item.discountCents > 0 ? (
