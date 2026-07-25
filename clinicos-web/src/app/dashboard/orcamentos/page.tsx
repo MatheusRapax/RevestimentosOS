@@ -26,6 +26,7 @@ import {
     XCircle,
     RotateCcw,
     UserCheck,
+    Copy,
 } from 'lucide-react';
 import Link from 'next/link';
 import { CompleteCustomerDialog } from '@/components/customers/complete-customer-dialog';
@@ -66,6 +67,7 @@ export default function OrcamentosPage() {
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
     const [isCompleteCustomerOpen, setIsCompleteCustomerOpen] = useState(false);
     const [pendingCustomer, setPendingCustomer] = useState<Quote['customer'] | null>(null);
+    const [quoteToDuplicate, setQuoteToDuplicate] = useState<Quote | null>(null);
 
     const fetchQuotes = async () => {
         try {
@@ -206,6 +208,20 @@ export default function OrcamentosPage() {
         }
     };
 
+    const handleDuplicateQuote = async () => {
+        if (!quoteToDuplicate) return;
+        try {
+            setLoadingAction(quoteToDuplicate.id);
+            const response = await api.post(`/quotes/${quoteToDuplicate.id}/duplicate`);
+            setSuccessMessage('Orçamento duplicado com sucesso!');
+            window.location.href = `/dashboard/orcamentos/${response.data.id}/editar`;
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Erro ao duplicar orçamento');
+            setQuoteToDuplicate(null);
+            setLoadingAction(null);
+        }
+    };
+
     const getActionButtons = (quote: Quote) => {
         const buttons = [];
         const isLoading = loadingAction === quote.id;
@@ -231,6 +247,20 @@ export default function OrcamentosPage() {
                     Ver
                 </Button>
             </Link>
+        );
+
+        buttons.push(
+            <Button
+                key="duplicate"
+                size="sm"
+                variant="outline"
+                title="Duplicar"
+                onClick={() => setQuoteToDuplicate(quote)}
+                disabled={isLoading}
+            >
+                <Copy className="h-3 w-3 mr-1" />
+                Duplicar
+            </Button>
         );
 
         if (quote.status === 'EM_ORCAMENTO') {
@@ -454,6 +484,39 @@ export default function OrcamentosPage() {
                     </Card>
                 )}
             </div>
+
+            <Dialog open={!!quoteToDuplicate} onOpenChange={(open) => !open && setQuoteToDuplicate(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Duplicar Orçamento</DialogTitle>
+                        <DialogDescription>
+                            Você tem certeza que deseja duplicar o orçamento #{quoteToDuplicate?.number}?
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-2">
+                        <p className="text-sm text-gray-600">
+                            Um novo orçamento em status de <strong>Rascunho</strong> será criado com os mesmos itens e dados do cliente. Após a duplicação, você será redirecionado para a página de edição do novo orçamento.
+                        </p>
+                    </div>
+                    <div className="flex gap-2 justify-end mt-4">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setQuoteToDuplicate(null)}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleDuplicateQuote}
+                            disabled={loadingAction === quoteToDuplicate?.id}
+                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                        >
+                            {loadingAction === quoteToDuplicate?.id ? 'Duplicando...' : 'Confirmar e Duplicar'}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <CompleteCustomerDialog
                 open={isCompleteCustomerOpen}

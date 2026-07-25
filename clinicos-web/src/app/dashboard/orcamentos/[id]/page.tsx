@@ -22,7 +22,8 @@ import {
     Clock,
     Download,
     Edit,
-    UserCheck
+    UserCheck,
+    Copy
 } from 'lucide-react';
 import { CompleteCustomerDialog } from '@/components/customers/complete-customer-dialog';
 import {
@@ -156,6 +157,7 @@ export default function QuoteDetailPage() {
     const { templates, isLoading: isLoadingTemplates } = useQuoteTemplates();
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
     const [isCompleteCustomerOpen, setIsCompleteCustomerOpen] = useState(false);
+    const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
 
     // Set default template when templates load
     useEffect(() => {
@@ -229,6 +231,21 @@ export default function QuoteDetailPage() {
             router.push(`/dashboard/pedidos`);
         } catch (err: any) {
             setError(err.response?.data?.message || 'Erro ao converter orçamento em pedido');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleDuplicateQuote = async () => {
+        if (!quote) return;
+        try {
+            setActionLoading('duplicate');
+            const response = await api.post(`/quotes/${quote.id}/duplicate`);
+            toast.success('Orçamento duplicado com sucesso!');
+            router.push(`/dashboard/orcamentos/${response.data.id}/editar`);
+            setIsDuplicateDialogOpen(false);
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Erro ao duplicar orçamento');
         } finally {
             setActionLoading(null);
         }
@@ -419,6 +436,49 @@ export default function QuoteDetailPage() {
                                 >
                                     <Download className="mr-2 h-4 w-4" />
                                     {actionLoading === 'pdf' ? 'Gerando PDF...' : 'Baixar PDF'}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button
+                                variant="outline"
+                                disabled={actionLoading === 'duplicate'}
+                                className="bg-purple-50 text-purple-700 hover:bg-purple-100 hover:text-purple-800 border-purple-200"
+                            >
+                                <Copy className="mr-2 h-4 w-4" />
+                                {actionLoading === 'duplicate' ? 'Duplicando...' : 'Duplicar'}
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Duplicar Orçamento</DialogTitle>
+                                <DialogDescription>
+                                    Você tem certeza que deseja duplicar este orçamento?
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-2">
+                                <p className="text-sm text-gray-600">
+                                    Um novo orçamento em status de <strong>Rascunho</strong> será criado com os mesmos itens e dados do cliente. Após a duplicação, você será redirecionado para a página de edição do novo orçamento.
+                                </p>
+                            </div>
+                            <DialogFooter className="flex gap-2 sm:justify-end">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setIsDuplicateDialogOpen(false)}
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={handleDuplicateQuote}
+                                    disabled={actionLoading === 'duplicate'}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                                >
+                                    {actionLoading === 'duplicate' ? 'Duplicando...' : 'Confirmar e Duplicar'}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>

@@ -873,4 +873,100 @@ export class QuotesService {
 
     return this.findOne(id, clinicId);
   }
+
+  async duplicateQuote(id: string, clinicId: string, userId: string) {
+    const originalQuote = await this.findOne(id, clinicId);
+
+    // Generate next sequential number
+    const lastQuote = await this.prisma.quote.findFirst({
+      where: { clinicId },
+      orderBy: { number: 'desc' },
+      select: { number: true },
+    });
+    const nextNumber = (lastQuote?.number || 0) + 1;
+
+    // Fetch all current products for the items to update prices
+    const productIds = originalQuote.items.map((i) => i.productId);
+    const currentProducts = await this.prisma.product.findMany({
+      where: { id: { in: productIds }, clinicId },
+    });
+
+    const productsMap = new Map(currentProducts.map((p) => [p.id, p]));
+
+    // Re-process items with current prices
+    const processedItems = await Promise.all(
+      originalQuote.items.map(async (item) => {
+        const product = productsMap.get(item.productId);
+        if (!product) {
+          throw new BadRequestException(
+            `Produto ${item.productId} não está mais disponível.`,
+          );
+        }
+
+        const itemDto: CreateQuoteItemDto = {
+          productId: item.productId,
+          inputArea: item.inputArea ?? undefined,
+          marginPercent: item.marginPercent ?? undefined,
+          quantityBoxes: item.quantityBoxes,
+          unitPriceCents: product.priceCents ?? item.unitPriceCents,
+          discountCents: item.discountCents,
+          discountPercent: item.discountPercent ?? undefined,
+          environmentId: item.environmentId ?? undefined,
+          notes: item.notes ?? undefined,
+        };
+
+        return this.processQuoteItem(
+          clinicId,
+          itemDto,
+          originalQuote.globalMarginPercent ?? undefined,
+        );
+      }),
+    );
+
+    const subtotalCents = processedItems.reduce(
+      (sum, item) => sum + item.totalCents,
+      0,
+    );
+
+    let discountCents = originalQuote.discountCents || 0;
+    if (originalQuote.discountPercent && originalQuote.discountPercent > 0) {
+      discountCents = Math.round(
+        subtotalCents * (originalQuote.discountPercent / 100),
+      );
+    } else {
+      discountCents = Math.min(discountCents, subtotalCents);
+    }
+
+    const deliveryFee = originalQuote.deliveryFee;
+    const totalCents = Math.max(0, subtotalCents - discountCents + deliveryFee);
+
+    const newQuote = await this.prisma.quote.create({
+      data: {
+        clinicId,
+        number: nextNumber,
+        customerId: originalQuote.customerId,
+        architectId: originalQuote.architectId,
+        sellerId: userId,
+        status: QuoteStatus.EM_ORCAMENTO,
+        validUntil: null,
+        subtotalCents,
+        discountCents,
+        discountPercent: originalQuote.discountPercent,
+        globalMarginPercent: originalQuote.globalMarginPercent,
+        deliveryFee,
+        totalCents,
+        notes: originalQuote.notes,
+        internalNotes: originalQuote.internalNotes,
+        items: {
+          create: processedItems.map((pi, index) => ({
+            ...pi,
+            discountPercent: originalQuote.items[index].discountPercent,
+            preferredLotId: null, // explicitamente removemos a reserva de lote
+          })),
+        },
+      },
+    });
+
+    return newQuote;
+  }
 }

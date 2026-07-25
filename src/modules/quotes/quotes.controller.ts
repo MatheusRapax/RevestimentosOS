@@ -156,4 +156,10 @@ export class QuotesController {
   ) {
     return this.quotesService.removeItem(id, itemId, req.clinicId);
   }
+
+  @Post(':id/duplicate')
+  @Permissions(PERMISSIONS.QUOTE_CREATE)
+  duplicateQuote(@Request() req: any, @Param('id') id: string) {
+    return this.quotesService.duplicateQuote(id, req.clinicId, req.user.id);
+  }
 }
