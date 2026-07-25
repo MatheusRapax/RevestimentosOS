@@ -1,4 +1,4 @@
 {
-  "version": "1.5.0",
-  "content": "### Features\n\n* **quotes:** show original and discounted unit price in quote UI and PDF 7342e22\n\n\n### Bug Fixes\n\n* **products:** fix manual price override for M2 products 397c096"
+  "version": "1.6.0",
+  "content": "### Features\n\n* **quotes:** implementar funcionalidade de duplicação de orçamentos c3014bd"
 }
