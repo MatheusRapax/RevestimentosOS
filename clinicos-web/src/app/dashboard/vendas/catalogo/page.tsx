@@ -39,8 +39,8 @@ const ProductCard = ({ product, onClick }: { product: Product, onClick: (p: Prod
     const isM2 = product.unit?.toLowerCase() === 'm2' || product.unit?.toLowerCase() === 'm²';
     const boxCoverage = product.boxCoverage || 1;
     const basePrice = product.priceCents || 0;
-    
-    const displayPricePerBox = basePrice * boxCoverage;
+    const displayPricePerBox = basePrice;
+    const displayPricePerM2 = (isM2 && product.boxCoverage && product.boxCoverage > 0) ? (basePrice / product.boxCoverage) : basePrice;
     
     let displayUnit = 'unidade';
     if (isM2) {
@@ -101,7 +101,7 @@ const ProductCard = ({ product, onClick }: { product: Product, onClick: (p: Prod
                                 Preço / {displayUnit}
                             </p>
                             <p className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-emerald-600 tracking-tight truncate">
-                                {formatCurrency(basePrice)}
+                                {formatCurrency(isM2 ? displayPricePerM2 : basePrice)}
                             </p>
                         </div>
                         

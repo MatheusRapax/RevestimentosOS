@@ -63,8 +63,11 @@ export function SalesProductDialog({ isOpen, product, onClose }: SalesProductDia
 
     const isM2 = product.unit?.toLowerCase() === 'm2' || product.unit?.toLowerCase() === 'm²';
     const boxCoverage = product.boxCoverage || 1;
+    
+    // O banco de dados armazena o valor da CAIXA no priceCents para produtos em m2.
     const basePrice = product.priceCents || 0;
-    const displayPricePerBox = basePrice * boxCoverage;
+    const displayPricePerBox = basePrice;
+    const displayPricePerM2 = (isM2 && product.boxCoverage && product.boxCoverage > 0) ? (basePrice / product.boxCoverage) : basePrice;
     
     let displayUnit = 'unidade';
     if (isM2) {
@@ -132,7 +135,7 @@ export function SalesProductDialog({ isOpen, product, onClose }: SalesProductDia
                                     </div>
                                     
                                     <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tighter drop-shadow-md">
-                                        {formatCurrency(basePrice)}
+                                        {formatCurrency(isM2 ? displayPricePerM2 : basePrice)}
                                     </p>
                                 </div>
 
