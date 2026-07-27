@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/use-auth';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -25,9 +26,17 @@ import {
     Clock,
     XCircle,
     RotateCcw,
-    UserCheck,
     Copy,
+    MoreHorizontal,
+    Pencil,
 } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
 import { CompleteCustomerDialog } from '@/components/customers/complete-customer-dialog';
 
@@ -56,6 +65,7 @@ interface Quote {
 }
 
 export default function OrcamentosPage() {
+    const { user, activeClinic: activeClinicId } = useAuth();
     const queryClient = useQueryClient();
     const [quotes, setQuotes] = useState<Quote[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -68,6 +78,17 @@ export default function OrcamentosPage() {
     const [isCompleteCustomerOpen, setIsCompleteCustomerOpen] = useState(false);
     const [pendingCustomer, setPendingCustomer] = useState<Quote['customer'] | null>(null);
     const [quoteToDuplicate, setQuoteToDuplicate] = useState<Quote | null>(null);
+    const [quoteToReject, setQuoteToReject] = useState<Quote | null>(null);
+    const [rejectReason, setRejectReason] = useState('');
+    const [quoteToDelete, setQuoteToDelete] = useState<Quote | null>(null);
+
+    const activeClinic = user?.clinics.find(c => c.id === activeClinicId);
+    const userPermissions = activeClinic?.permissions || [];
+    const isSuperAdmin = user?.isSuperAdmin;
+
+    const hasPermission = (permission: string) => {
+        return isSuperAdmin || userPermissions.includes(permission);
+    };
 
     const fetchQuotes = async () => {
         try {
@@ -218,99 +239,218 @@ export default function OrcamentosPage() {
         } catch (err: any) {
             setError(err.response?.data?.message || 'Erro ao duplicar orçamento');
             setQuoteToDuplicate(null);
+            setQuoteToDuplicate(null);
+            setLoadingAction(null);
+        }
+    };
+
+    const handleDeleteQuote = async () => {
+        if (!quoteToDelete) return;
+        try {
+            setLoadingAction(quoteToDelete.id);
+            await api.delete(`/quotes/${quoteToDelete.id}`);
+            setSuccessMessage('Orçamento excluído com sucesso!');
+            fetchQuotes();
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Erro ao excluir orçamento');
+        } finally {
+            setQuoteToDelete(null);
+            setLoadingAction(null);
+        }
+    };
+
+    const handleRejectQuote = async () => {
+        if (!quoteToReject || !rejectReason.trim()) return;
+        try {
+            setLoadingAction(quoteToReject.id);
+            await api.post(`/quotes/${quoteToReject.id}/reject`, { reason: rejectReason });
+            setSuccessMessage('Orçamento rejeitado com sucesso!');
+            fetchQuotes();
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Erro ao rejeitar orçamento');
+        } finally {
+            setQuoteToReject(null);
+            setRejectReason('');
+            setLoadingAction(null);
+        }
+    };
+
+    const handleReopenQuote = async (quoteId: string) => {
+        try {
+            setLoadingAction(quoteId);
+            const response = await api.post(`/quotes/${quoteId}/reopen`);
+            setSuccessMessage('Orçamento reaberto com sucesso!');
+            window.location.href = `/dashboard/orcamentos/${response.data.id}/editar`;
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Erro ao reabrir orçamento');
+        } finally {
             setLoadingAction(null);
         }
     };
 
     const getActionButtons = (quote: Quote) => {
-        const buttons = [];
+        const dropdownItems = [];
         const isLoading = loadingAction === quote.id;
 
-        buttons.push(
-            <Button
-                key="pdf"
-                size="sm"
-                variant="outline"
-                title="Abrir PDF"
-                onClick={() => handleOpenPdf(quote.id)}
-                disabled={isLoading}
-            >
-                <FileText className="h-3 w-3 mr-1" />
-                PDF
-            </Button>
-        );
-
-        buttons.push(
-            <Link key="view" href={`/dashboard/orcamentos/${quote.id}`}>
-                <Button size="sm" variant="outline" disabled={isLoading}>
-                    <Eye className="h-3 w-3 mr-1" />
-                    Ver
-                </Button>
-            </Link>
-        );
-
-        buttons.push(
-            <Button
-                key="duplicate"
-                size="sm"
-                variant="outline"
-                title="Duplicar"
-                onClick={() => setQuoteToDuplicate(quote)}
-                disabled={isLoading}
-            >
-                <Copy className="h-3 w-3 mr-1" />
-                Duplicar
-            </Button>
-        );
+        if (hasPermission('quote.create')) {
+            dropdownItems.push(
+                <DropdownMenuItem
+                    key="duplicate"
+                    disabled={isLoading}
+                    onClick={() => setQuoteToDuplicate(quote)}
+                    className="cursor-pointer"
+                >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Duplicar
+                </DropdownMenuItem>
+            );
+        }
 
         if (quote.status === 'EM_ORCAMENTO') {
-            buttons.push(
-                <Button
-                    key="send"
-                    size="sm"
-                    variant="outline"
-                    disabled={isLoading}
-                    onClick={() => handleSendQuote(quote.id)}
-                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                >
-                    <Send className="h-3 w-3 mr-1" />
-                    Enviar
-                </Button>
-            );
+            if (hasPermission('quote.update') || hasPermission('quote.send') || hasPermission('quote.delete')) {
+                dropdownItems.push(<DropdownMenuSeparator key="sep-draft" />);
+            }
+
+            if (hasPermission('quote.update')) {
+                dropdownItems.push(
+                    <DropdownMenuItem
+                        key="edit"
+                        disabled={isLoading}
+                        onClick={() => window.location.href = `/dashboard/orcamentos/${quote.id}/editar`}
+                        className="text-amber-600 focus:text-amber-700 cursor-pointer focus:bg-amber-50"
+                    >
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Editar
+                    </DropdownMenuItem>
+                );
+            }
+
+            if (hasPermission('quote.send')) {
+                dropdownItems.push(
+                    <DropdownMenuItem
+                        key="send"
+                        disabled={isLoading}
+                        onClick={() => handleSendQuote(quote.id)}
+                        className="text-blue-600 focus:text-blue-700 cursor-pointer"
+                    >
+                        <Send className="h-4 w-4 mr-2" />
+                        Enviar
+                    </DropdownMenuItem>
+                );
+            }
+
+            if (hasPermission('quote.delete')) {
+                dropdownItems.push(
+                    <DropdownMenuItem
+                        key="delete"
+                        disabled={isLoading}
+                        onClick={() => setQuoteToDelete(quote)}
+                        className="text-red-600 focus:text-red-700 cursor-pointer focus:bg-red-50"
+                    >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Excluir
+                    </DropdownMenuItem>
+                );
+            }
         }
 
         if (quote.status === 'AGUARDANDO_APROVACAO') {
-            buttons.push(
-                <Button
-                    key="approve"
-                    size="sm"
-                    variant="outline"
-                    disabled={isLoading}
-                    onClick={() => handleApproveQuote(quote)}
-                    className="text-green-600 border-green-200 hover:bg-green-50"
-                >
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Aprovar
-                </Button>
-            );
+            dropdownItems.push(<DropdownMenuSeparator key="sep-awaiting" />);
+            
+            if (hasPermission('quote.update')) {
+                dropdownItems.push(
+                    <DropdownMenuItem
+                        key="approve"
+                        disabled={isLoading}
+                        onClick={() => handleApproveQuote(quote)}
+                        className="text-green-600 focus:text-green-700 cursor-pointer focus:bg-green-50"
+                    >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Aprovar
+                    </DropdownMenuItem>
+                );
+            }
+
+            if (hasPermission('quote.update')) {
+                dropdownItems.push(
+                    <DropdownMenuItem
+                        key="reopen"
+                        disabled={isLoading}
+                        onClick={() => handleReopenQuote(quote.id)}
+                        className="text-amber-600 focus:text-amber-700 cursor-pointer focus:bg-amber-50"
+                    >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Editar
+                    </DropdownMenuItem>
+                );
+            }
+
+            if (hasPermission('quote.update')) {
+                dropdownItems.push(
+                    <DropdownMenuItem
+                        key="reject"
+                        disabled={isLoading}
+                        onClick={() => setQuoteToReject(quote)}
+                        className="text-red-600 focus:text-red-700 cursor-pointer focus:bg-red-50"
+                    >
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Rejeitar
+                    </DropdownMenuItem>
+                );
+            }
         }
 
         if (quote.status === 'APROVADO') {
-            buttons.push(
-                <Button
+            dropdownItems.push(<DropdownMenuSeparator key="sep-approved" />);
+            dropdownItems.push(
+                <DropdownMenuItem
                     key="convert"
-                    size="sm"
                     disabled={isLoading}
                     onClick={() => handleConvertToOrder(quote.id)}
-                    className="bg-purple-600 hover:bg-purple-700"
+                    className="text-purple-600 focus:text-purple-700 cursor-pointer focus:bg-purple-50"
                 >
-                    <ShoppingCart className="h-3 w-3 mr-1" />
+                    <ShoppingCart className="h-4 w-4 mr-2" />
                     Converter em Pedido
-                </Button>
+                </DropdownMenuItem>
             );
         }
 
-        return buttons;
+        return (
+            <>
+                <Button
+                    key="pdf"
+                    size="sm"
+                    variant="outline"
+                    title="Abrir PDF"
+                    onClick={() => handleOpenPdf(quote.id)}
+                    disabled={isLoading}
+                >
+                    <FileText className="h-3 w-3 mr-1" />
+                    PDF
+                </Button>
+
+                <Link key="view" href={`/dashboard/orcamentos/${quote.id}`}>
+                    <Button size="sm" variant="outline" disabled={isLoading} title="Ver Detalhes">
+                        <Eye className="h-3 w-3 mr-1" />
+                        Ver
+                    </Button>
+                </Link>
+
+                {dropdownItems.length > 0 && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={isLoading}>
+                                <span className="sr-only">Abrir menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                            {dropdownItems}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+            </>
+        );
     };
 
     if (isLoading && quotes.length === 0) {
@@ -490,29 +630,71 @@ export default function OrcamentosPage() {
                     <DialogHeader>
                         <DialogTitle>Duplicar Orçamento</DialogTitle>
                         <DialogDescription>
-                            Você tem certeza que deseja duplicar o orçamento #{quoteToDuplicate?.number}?
+                            Deseja criar um novo orçamento (rascunho) baseado nos itens do orçamento #{quoteToDuplicate?.number}?
+                            Os preços dos produtos serão atualizados para a tabela vigente.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="py-2">
-                        <p className="text-sm text-gray-600">
-                            Um novo orçamento em status de <strong>Rascunho</strong> será criado com os mesmos itens e dados do cliente. Após a duplicação, você será redirecionado para a página de edição do novo orçamento.
-                        </p>
-                    </div>
-                    <div className="flex gap-2 justify-end mt-4">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setQuoteToDuplicate(null)}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleDuplicateQuote}
+                    <div className="flex justify-end gap-2 mt-4">
+                        <Button variant="outline" onClick={() => setQuoteToDuplicate(null)}>Cancelar</Button>
+                        <Button 
+                            onClick={handleDuplicateQuote} 
                             disabled={loadingAction === quoteToDuplicate?.id}
-                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
                         >
                             {loadingAction === quoteToDuplicate?.id ? 'Duplicando...' : 'Confirmar e Duplicar'}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!quoteToDelete} onOpenChange={(open) => !open && setQuoteToDelete(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Excluir Orçamento</DialogTitle>
+                        <DialogDescription>
+                            Tem certeza que deseja excluir o orçamento #{quoteToDelete?.number}? Esta ação não pode ser desfeita.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-end gap-2 mt-4">
+                        <Button variant="outline" onClick={() => setQuoteToDelete(null)}>Cancelar</Button>
+                        <Button 
+                            onClick={handleDeleteQuote} 
+                            disabled={loadingAction === quoteToDelete?.id}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            {loadingAction === quoteToDelete?.id ? 'Excluindo...' : 'Excluir Orçamento'}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!quoteToReject} onOpenChange={(open) => !open && setQuoteToReject(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Rejeitar/Cancelar Orçamento</DialogTitle>
+                        <DialogDescription>
+                            Por favor, informe o motivo pelo qual este orçamento não foi aprovado.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Justificativa
+                        </label>
+                        <textarea
+                            className="w-full min-h-[100px] rounded-md border border-gray-300 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="Ex: Cliente achou o frete caro, Desistiu da obra, etc..."
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex justify-end gap-2 mt-4">
+                        <Button variant="outline" onClick={() => setQuoteToReject(null)}>Cancelar</Button>
+                        <Button 
+                            onClick={handleRejectQuote} 
+                            disabled={loadingAction === quoteToReject?.id || !rejectReason.trim()}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            {loadingAction === quoteToReject?.id ? 'Salvando...' : 'Confirmar Rejeição'}
                         </Button>
                     </div>
                 </DialogContent>

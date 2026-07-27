@@ -60,8 +60,8 @@ export class QuotePdfService {
       currentY = 150; // Aproximadamente validado visualmente
 
       // --- Customer Info ---
-      this.generateCustomerInfo(doc, quote, template, currentY);
-      currentY = 240; // Espaço após customer info
+      currentY = this.generateCustomerInfo(doc, quote, template, currentY);
+      currentY += 10; // Espaço após customer info
 
       // --- Items Table ---
       currentY = this.generateTable(doc, quote, template, currentY);
@@ -137,6 +137,7 @@ export class QuotePdfService {
     const companyName = template?.companyName || 'Empresa';
     const companyAddress = template?.companyAddress || '';
     const companyPhone = template?.companyPhone || '';
+    const companyEmail = template?.companyEmail || '';
     const companyCnpj = template?.companyCnpj || '';
 
     const companyInfoY = y;
@@ -192,8 +193,12 @@ export class QuotePdfService {
       doc.text(companyAddress, textStartX, infoY);
       infoY += 12;
     }
-    if (companyPhone) {
-      doc.text(`Tel: ${companyPhone}`, textStartX, infoY);
+    if (companyPhone || companyEmail) {
+      let contactLine = '';
+      if (companyPhone) contactLine += `Tel: ${companyPhone}`;
+      if (companyPhone && companyEmail) contactLine += ' | ';
+      if (companyEmail) contactLine += companyEmail;
+      doc.text(contactLine, textStartX, infoY);
       infoY += 12;
     }
     if (companyCnpj) {
@@ -206,10 +211,23 @@ export class QuotePdfService {
     quote: QuoteWithRelations,
     template: QuoteTemplate | null,
     y: number,
-  ) {
+  ): number {
     const primaryColor = template?.primaryColor || '#000000';
 
-    doc.rect(50, y, 500, 80).stroke(primaryColor);
+    let leftLines = 1;
+    if (quote.customer.document) leftLines++;
+    if (quote.customer.phone) leftLines++;
+    if (quote.customer.email) leftLines++;
+    if (quote.customer.address) leftLines += 2;
+    
+    let rightLines = 2;
+    if (quote.validUntil || template?.validityDays) rightLines++;
+    if (template?.defaultDeliveryDays) rightLines++;
+    
+    const maxLines = Math.max(leftLines, rightLines);
+    const boxHeight = Math.max(80, maxLines * 15 + 30);
+
+    doc.rect(50, y, 500, boxHeight).stroke(primaryColor);
 
     const contentY = y + 10;
     doc
@@ -221,10 +239,23 @@ export class QuotePdfService {
       .font('Helvetica')
       .fillColor('#000000')
       .text(quote.customer.name, 60, contentY + 15);
-    if (quote.customer.document)
-      doc.text(`CPF/CNPJ: ${quote.customer.document}`, 60, contentY + 30);
-    if (quote.customer.phone)
-      doc.text(`Tel: ${quote.customer.phone}`, 60, contentY + 45);
+    
+    let custY = contentY + 30;
+    if (quote.customer.document) {
+      doc.text(`CPF/CNPJ: ${quote.customer.document}`, 60, custY);
+      custY += 15;
+    }
+    if (quote.customer.phone) {
+      doc.text(`Tel: ${quote.customer.phone}`, 60, custY);
+      custY += 15;
+    }
+    if (quote.customer.email) {
+      doc.text(`Email: ${quote.customer.email}`, 60, custY);
+      custY += 15;
+    }
+    if (quote.customer.address) {
+      doc.text(`Endereço: ${quote.customer.address}`, 60, custY, { width: 280 });
+    }
 
     const metaX = 350;
     doc
@@ -241,21 +272,34 @@ export class QuotePdfService {
       );
     doc.text(`Vendedor: ${quote.seller?.name || 'N/A'}`, metaX, contentY + 30);
 
+    let rightY = contentY + 45;
     if (quote.validUntil) {
       doc.text(
         `Válido até: ${quote.validUntil.toLocaleDateString('pt-BR')}`,
         metaX,
-        contentY + 45,
+        rightY,
       );
+      rightY += 15;
     } else if (template?.validityDays) {
       const validUntil = new Date(quote.createdAt);
       validUntil.setDate(validUntil.getDate() + template.validityDays);
       doc.text(
         `Válido até: ${validUntil.toLocaleDateString('pt-BR')}`,
         metaX,
-        contentY + 45,
+        rightY,
+      );
+      rightY += 15;
+    }
+
+    if (template?.defaultDeliveryDays) {
+      doc.text(
+        `Prazo de Entrega: ${template.defaultDeliveryDays}`,
+        metaX,
+        rightY,
       );
     }
+    
+    return y + boxHeight;
   }
 
   private generateTable(
@@ -478,7 +522,7 @@ export class QuotePdfService {
     const primaryColor = template?.primaryColor || '#000000';
 
     // Dados Bancários, Formas de Pagamento e Termos
-    const hasBank = template?.showBankDetails && template.bankName;
+    const hasBank = template?.showBankDetails && (template.bankName || template.pixKey);
     const hasPaymentMethods = template?.showPaymentMethods && template.paymentMethodsInfo;
     const hasTerms = template?.showTerms && template.termsAndConditions;
 
@@ -496,6 +540,7 @@ export class QuotePdfService {
         if (template.bankAgency) estimatedLeft += 12;
         if (template.bankAccount) estimatedLeft += 12;
         if (template.bankAccountHolder) estimatedLeft += 12;
+        if (template.bankCnpj) estimatedLeft += 12;
         if (template.pixKey) estimatedLeft += 17;
         estimatedLeft += 25; 
       }
@@ -549,6 +594,7 @@ export class QuotePdfService {
         if (template.bankAgency) estimatedHeight += 12;
         if (template.bankAccount) estimatedHeight += 12;
         if (template.bankAccountHolder) estimatedHeight += 12;
+        if (template.bankCnpj) estimatedHeight += 12;
         if (template.pixKey) estimatedHeight += 17;
 
         doc.rect(leftColX, leftY, leftColWidth, estimatedHeight + 15).fillAndStroke('#f9fafb', '#e5e7eb');
@@ -562,13 +608,14 @@ export class QuotePdfService {
 
         bankTextY += 15;
         doc.fontSize(8);
-        doc
-          .font('Helvetica-Bold')
-          .text('Banco:', leftColX + 10, bankTextY, { continued: true })
-          .font('Helvetica')
-          .text(` ${template.bankName}`);
-
-        bankTextY += 12;
+        if (template.bankName) {
+          doc
+            .font('Helvetica-Bold')
+            .text('Banco:', leftColX + 10, bankTextY, { continued: true })
+            .font('Helvetica')
+            .text(` ${template.bankName}`);
+          bankTextY += 12;
+        }
         if (template.bankAgency) {
           doc
             .font('Helvetica-Bold')
@@ -593,6 +640,15 @@ export class QuotePdfService {
             .text('Titular:', leftColX + 10, bankTextY, { continued: true })
             .font('Helvetica')
             .text(` ${template.bankAccountHolder}`);
+          bankTextY += 12;
+        }
+
+        if (template.bankCnpj) {
+          doc
+            .font('Helvetica-Bold')
+            .text('CNPJ:', leftColX + 10, bankTextY, { continued: true })
+            .font('Helvetica')
+            .text(` ${template.bankCnpj}`);
           bankTextY += 12;
         }
 

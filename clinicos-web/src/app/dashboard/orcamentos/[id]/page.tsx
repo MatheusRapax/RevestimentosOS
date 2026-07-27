@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -23,8 +24,19 @@ import {
     Download,
     Edit,
     UserCheck,
-    Copy
+    Copy,
+    RotateCcw,
+    Ban,
+    MoreHorizontal
 } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import { Textarea } from '@/components/ui/textarea';
 import { CompleteCustomerDialog } from '@/components/customers/complete-customer-dialog';
 import {
     Dialog,
@@ -114,6 +126,13 @@ interface Quote {
     notes?: string;
     internalNotes?: string;
     items: QuoteItem[];
+    history?: {
+        id: string;
+        action: string;
+        notes?: string;
+        createdAt: string;
+        user: { name: string };
+    }[];
     createdAt: string;
     updatedAt: string;
     validUntil?: string;
@@ -158,6 +177,17 @@ export default function QuoteDetailPage() {
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
     const [isCompleteCustomerOpen, setIsCompleteCustomerOpen] = useState(false);
     const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
+    const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+    const [rejectReason, setRejectReason] = useState('');
+
+    const { user, activeClinic: activeClinicId } = useAuth();
+    const activeClinic = user?.clinics.find(c => c.id === activeClinicId);
+    const userPermissions = activeClinic?.permissions || [];
+    const isSuperAdmin = user?.isSuperAdmin;
+
+    const hasPermission = (permission: string) => {
+        return isSuperAdmin || userPermissions.includes(permission);
+    };
 
     // Set default template when templates load
     useEffect(() => {
@@ -213,6 +243,41 @@ export default function QuoteDetailPage() {
             }
         } catch (err: any) {
             setError(err.response?.data?.message || 'Erro ao aprovar orçamento');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleReopenQuote = async () => {
+        if (!quote) return;
+        try {
+            setActionLoading('reopen');
+            const response = await api.post(`/quotes/${quote.id}/reopen`);
+            toast.success('Orçamento reaberto com sucesso!');
+            router.push(`/dashboard/orcamentos/${response.data.id}/editar`);
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Erro ao reabrir orçamento');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleRejectQuote = async () => {
+        if (!quote) return;
+        if (!rejectReason.trim()) {
+            toast.error('Informe a justificativa da rejeição.');
+            return;
+        }
+
+        try {
+            setActionLoading('reject');
+            await api.post(`/quotes/${quote.id}/reject`, { reason: rejectReason });
+            toast.success('Orçamento rejeitado com sucesso!');
+            setIsRejectDialogOpen(false);
+            setRejectReason('');
+            fetchQuote();
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Erro ao rejeitar orçamento');
         } finally {
             setActionLoading(null);
         }
@@ -382,10 +447,10 @@ export default function QuoteDetailPage() {
 
             {/* Actions */}
             <Card className="p-4">
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
                         <DialogTrigger asChild>
-                            <Button variant="outline">
+                            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                                 <Printer className="mr-2 h-4 w-4" />
                                 Imprimir / PDF
                             </Button>
@@ -441,20 +506,95 @@ export default function QuoteDetailPage() {
                         </DialogContent>
                     </Dialog>
 
-                    <Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button
-                                variant="outline"
-                                disabled={actionLoading === 'duplicate'}
-                                className="bg-purple-50 text-purple-700 hover:bg-purple-100 hover:text-purple-800 border-purple-200"
-                            >
-                                <Copy className="mr-2 h-4 w-4" />
-                                {actionLoading === 'duplicate' ? 'Duplicando...' : 'Duplicar'}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="h-10 w-10 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
                             </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Duplicar Orçamento</DialogTitle>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-56">
+                            
+                            {quote.status === 'EM_ORCAMENTO' && hasPermission('quote.update') && (
+                                <DropdownMenuItem onClick={() => router.push(`/dashboard/orcamentos/${quote.id}/editar`)}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Editar Orçamento
+                                </DropdownMenuItem>
+                            )}
+                            
+                            {quote.status === 'EM_ORCAMENTO' && hasPermission('quote.send') && (
+                                <DropdownMenuItem onClick={handleSendQuote} disabled={actionLoading === 'send'}>
+                                    <Send className="mr-2 h-4 w-4" />
+                                    {actionLoading === 'send' ? 'Enviando...' : 'Enviar ao Cliente'}
+                                </DropdownMenuItem>
+                            )}
+
+                            {(quote.status === 'EM_ORCAMENTO' || quote.status === 'AGUARDANDO_APROVACAO') && hasPermission('quote.read') && (
+                                <DropdownMenuItem onClick={handleCheckAvailability} disabled={actionLoading === 'check_stock'}>
+                                    <Package className="mr-2 h-4 w-4" />
+                                    {actionLoading === 'check_stock' ? 'Verificando...' : 'Checar Estoque'}
+                                </DropdownMenuItem>
+                            )}
+
+                            {availability && (availability.status === 'FULL' || availability.status === 'PARTIAL') && hasPermission('quote.update') && (
+                                <DropdownMenuItem onClick={handleReserveStock} disabled={actionLoading === 'reserve'} className="text-orange-600 focus:text-orange-700">
+                                    <Package className="mr-2 h-4 w-4" />
+                                    {actionLoading === 'reserve' ? 'Reservando...' : 'Reservar Estoque'}
+                                </DropdownMenuItem>
+                            )}
+
+                            {(quote.status === 'EM_ORCAMENTO' || quote.status === 'AGUARDANDO_APROVACAO') && hasPermission('quote.update') && (
+                                <DropdownMenuItem onClick={handleApproveQuote} disabled={actionLoading === 'approve'} className="text-green-600 focus:text-green-700">
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    {actionLoading === 'approve' ? 'Aprovando...' : 'Aprovar Orçamento'}
+                                </DropdownMenuItem>
+                            )}
+
+                            {quote.status === 'AGUARDANDO_APROVACAO' && hasPermission('quote.update') && (
+                                <>
+                                    <DropdownMenuItem onClick={handleReopenQuote} disabled={actionLoading === 'reopen'} className="text-amber-600 focus:text-amber-700">
+                                        <RotateCcw className="mr-2 h-4 w-4" />
+                                        {actionLoading === 'reopen' ? 'Reabrindo...' : 'Reabrir para Edição'}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setIsRejectDialogOpen(true)} className="text-red-600 focus:text-red-700">
+                                        <Ban className="mr-2 h-4 w-4" />
+                                        Cancelar / Rejeitar
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+
+                            {hasPermission('quote.create') && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => setIsDuplicateDialogOpen(true)}>
+                                        <Copy className="mr-2 h-4 w-4" />
+                                        Duplicar Orçamento
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+
+                            {quote.status === 'APROVADO' && hasPermission('quote.convert') && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={handleConvertToOrder} disabled={actionLoading === 'convert'} className="text-green-600 focus:text-green-700">
+                                        <Package className="mr-2 h-4 w-4" />
+                                        {actionLoading === 'convert' ? 'Convertendo...' : 'Converter em Pedido'}
+                                    </DropdownMenuItem>
+                                    {!quote.customer.document && !quote.customer.address && hasPermission('customer.update') && (
+                                        <DropdownMenuItem onClick={() => setIsCompleteCustomerOpen(true)} className="text-amber-600 focus:text-amber-700">
+                                            <UserCheck className="mr-2 h-4 w-4" />
+                                            Completar Dados do Cliente
+                                        </DropdownMenuItem>
+                                    )}
+                                </>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {hasPermission('quote.create') && (
+                        <Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Duplicar Orçamento</DialogTitle>
                                 <DialogDescription>
                                     Você tem certeza que deseja duplicar este orçamento?
                                 </DialogDescription>
@@ -483,66 +623,49 @@ export default function QuoteDetailPage() {
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
-
-                    {quote.status === 'EM_ORCAMENTO' && (
-                        <>
-                            <Button
-                                onClick={() => router.push(`/dashboard/orcamentos/${quote.id}/editar`)}
-                                variant="outline"
-                                className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200"
-                            >
-                                <Edit className="mr-2 h-4 w-4" />
-                                Editar Orçamento
-                            </Button>
-                            <Button onClick={handleSendQuote} variant="outline" disabled={actionLoading === 'send'}>
-                                <Send className="mr-2 h-4 w-4" />
-                                {actionLoading === 'send' ? 'Enviando...' : 'Enviar ao Cliente'}
-                            </Button>
-                        </>
                     )}
 
-
-
-                    {(quote.status === 'EM_ORCAMENTO' || quote.status === 'AGUARDANDO_APROVACAO') && (
-                        <>
-                            <Button onClick={handleCheckAvailability} variant="outline" disabled={actionLoading === 'check_stock'}>
-                                <Package className="mr-2 h-4 w-4" />
-                                {actionLoading === 'check_stock' ? 'Verificando...' : 'Checar Estoque'}
-                            </Button>
-
-                            {/* Show Reserve button if Availability was checked and result allows it (FULL or PARTIAL) */}
-                            {availability && (availability.status === 'FULL' || availability.status === 'PARTIAL') && (
-                                <Button onClick={handleReserveStock} disabled={actionLoading === 'reserve'} className="bg-orange-600 hover:bg-orange-700 text-white">
-                                    <Package className="mr-2 h-4 w-4" />
-                                    {actionLoading === 'reserve' ? 'Reservando...' : 'Reservar Estoque'}
-                                </Button>
-                            )}
-
-                            <Button onClick={handleApproveQuote} disabled={actionLoading === 'approve'}>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                {actionLoading === 'approve' ? 'Aprovando...' : 'Aprovar Orçamento'}
-                            </Button>
-                        </>
-                    )}
-
-                    {quote.status === 'APROVADO' && (
-                        <>
-                            <Button onClick={handleConvertToOrder} disabled={actionLoading === 'convert'} className="bg-green-600 hover:bg-green-700">
-                                <Package className="mr-2 h-4 w-4" />
-                                {actionLoading === 'convert' ? 'Convertendo...' : 'Converter em Pedido'}
-                            </Button>
-                            {!quote.customer.document && !quote.customer.address && (
+                    <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Rejeitar / Cancelar Orçamento</DialogTitle>
+                                <DialogDescription>
+                                    Você tem certeza que deseja cancelar este orçamento? Informe o motivo abaixo.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4">
+                                <label className="text-sm font-medium mb-2 block">
+                                    Justificativa (obrigatória)
+                                </label>
+                                <Textarea
+                                    value={rejectReason}
+                                    onChange={(e) => setRejectReason(e.target.value)}
+                                    placeholder="Ex: Cliente achou caro, Produto fora de linha..."
+                                    rows={4}
+                                />
+                            </div>
+                            <DialogFooter className="flex gap-2 sm:justify-end">
                                 <Button
+                                    type="button"
                                     variant="outline"
-                                    onClick={() => setIsCompleteCustomerOpen(true)}
-                                    className="border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                    onClick={() => {
+                                        setIsRejectDialogOpen(false);
+                                        setRejectReason('');
+                                    }}
                                 >
-                                    <UserCheck className="mr-2 h-4 w-4" />
-                                    Completar Dados do Cliente
+                                    Voltar
                                 </Button>
-                            )}
-                        </>
-                    )}
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    onClick={handleRejectQuote}
+                                    disabled={actionLoading === 'reject'}
+                                >
+                                    {actionLoading === 'reject' ? 'Cancelando...' : 'Confirmar Cancelamento'}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
             </Card>
 
@@ -838,6 +961,97 @@ export default function QuoteDetailPage() {
                     )}
                 </div>
             )}
+
+            {/* Template Preview */}
+            {(() => {
+                const currentTemplate = templates.find(t => t.id === selectedTemplateId) || templates.find(t => t.isDefault) || templates[0];
+                if (!currentTemplate) return null;
+
+                return (
+                    <Card className="p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <FileText className="h-5 w-5" />
+                                Condições Comerciais (Prévia da Impressão)
+                            </h3>
+                            <div className="text-sm text-gray-500">
+                                Template: <span className="font-medium text-gray-900">{currentTemplate.name}</span>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {currentTemplate.showTerms && currentTemplate.termsAndConditions && (
+                                <div>
+                                    <h4 className="text-sm font-semibold mb-2" style={{ color: currentTemplate.primaryColor || '#000000' }}>Termos e Condições</h4>
+                                    <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded border whitespace-pre-line">
+                                        {currentTemplate.termsAndConditions}
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="space-y-4">
+                                <div>
+                                    <h4 className="text-sm font-semibold mb-1" style={{ color: currentTemplate.primaryColor || '#000000' }}>Validade do Orçamento</h4>
+                                    <p className="text-sm text-gray-600">
+                                        Até: <strong>{quote.validUntil ? formatDate(quote.validUntil) : (
+                                            (() => {
+                                                const vDate = new Date(quote.createdAt);
+                                                vDate.setDate(vDate.getDate() + (Number(currentTemplate.validityDays) || 10));
+                                                return formatDate(vDate.toISOString());
+                                            })()
+                                        )}</strong>
+                                        <span className="block mt-1 text-xs italic text-gray-500">
+                                            {currentTemplate.validityText || `Este orçamento é válido por ${currentTemplate.validityDays || 10} dias.`}
+                                        </span>
+                                    </p>
+                                </div>
+                                {currentTemplate.showFooter && currentTemplate.footerText && (
+                                    <div>
+                                        <h4 className="text-sm font-semibold mb-1" style={{ color: currentTemplate.primaryColor || '#000000' }}>Rodapé da Página</h4>
+                                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded border whitespace-pre-line">
+                                            {currentTemplate.footerText}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </Card>
+                );
+            })()}
+
+            {/* History Timeline */}
+            <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Histórico de Movimentação
+                </h3>
+                {quote.history && quote.history.length > 0 ? (
+                    <div className="relative border-l border-gray-200 ml-3">
+                        {quote.history.map((event, index) => (
+                            <div key={event.id} className="mb-6 ml-6 relative">
+                                <div className="absolute -left-[30px] bg-blue-500 rounded-full h-3 w-3 mt-1.5 border-2 border-white ring-1 ring-blue-500"></div>
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-gray-900">
+                                            {event.action} - <span className="font-normal text-gray-500">{event.user.name}</span>
+                                        </h4>
+                                        {event.notes && (
+                                            <p className="mt-1 text-sm text-gray-600 bg-gray-50 p-2 rounded-md italic">
+                                                &quot;{event.notes}&quot;
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="text-xs text-gray-500 whitespace-nowrap">
+                                        {new Date(event.createdAt).toLocaleString('pt-BR')}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-gray-500 text-sm">Nenhum histórico registrado.</p>
+                )}
+            </Card>
 
             <CompleteCustomerDialog
                 open={isCompleteCustomerOpen}

@@ -193,6 +193,13 @@ export class QuotesService {
         items: {
           create: processedItems,
         },
+        history: {
+          create: {
+            userId: sellerId,
+            action: 'CRIADO',
+            notes: 'Orçamento criado',
+          }
+        }
       },
       include: {
         customer: true,
@@ -266,6 +273,12 @@ export class QuotesService {
             environment: true,
           },
         },
+        history: {
+          include: {
+            user: { select: { name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        }
       },
     });
 
@@ -379,7 +392,7 @@ export class QuotesService {
     });
   }
 
-  async sendQuote(id: string, clinicId: string) {
+  async sendQuote(id: string, clinicId: string, userId: string) {
     const quote = await this.findOne(id, clinicId);
 
     if (quote.status !== QuoteStatus.EM_ORCAMENTO) {
@@ -393,11 +406,18 @@ export class QuotesService {
       data: {
         status: QuoteStatus.AGUARDANDO_APROVACAO,
         sentAt: new Date(),
+        history: {
+          create: {
+            userId,
+            action: 'ENVIADO',
+            notes: 'Orçamento enviado para avaliação do cliente',
+          }
+        }
       },
     });
   }
 
-  async approveQuote(id: string, clinicId: string) {
+  async approveQuote(id: string, clinicId: string, userId: string) {
     const quote = await this.findOne(id, clinicId);
 
     if (quote.status !== QuoteStatus.AGUARDANDO_APROVACAO) {
@@ -411,6 +431,76 @@ export class QuotesService {
       data: {
         status: QuoteStatus.APROVADO,
         approvedAt: new Date(),
+        history: {
+          create: {
+            userId,
+            action: 'APROVADO',
+            notes: 'Orçamento aprovado pelo cliente',
+          }
+        }
+      },
+    });
+  }
+
+  async rejectQuote(id: string, clinicId: string, userId: string, reason: string) {
+    const quote = await this.findOne(id, clinicId);
+
+    if (quote.status !== QuoteStatus.AGUARDANDO_APROVACAO) {
+      throw new BadRequestException(
+        'Apenas orçamentos enviados podem ser rejeitados',
+      );
+    }
+
+    if (!reason || reason.trim() === '') {
+      throw new BadRequestException('A justificativa é obrigatória para rejeitar um orçamento');
+    }
+
+    // SYNC: Cancel linked reservations if any
+    await this.prisma.stockReservation.updateMany({
+      where: {
+        quoteId: id,
+        status: 'ACTIVE',
+      },
+      data: {
+        status: 'CANCELLED',
+      },
+    });
+
+    return this.prisma.quote.update({
+      where: { id },
+      data: {
+        status: QuoteStatus.REJEITADO,
+        history: {
+          create: {
+            userId,
+            action: 'REJEITADO',
+            notes: reason,
+          }
+        }
+      },
+    });
+  }
+
+  async reopenQuote(id: string, clinicId: string, userId: string) {
+    const quote = await this.findOne(id, clinicId);
+
+    if (quote.status !== QuoteStatus.AGUARDANDO_APROVACAO) {
+      throw new BadRequestException(
+        'Apenas orçamentos enviados podem ser reabertos para edição',
+      );
+    }
+
+    return this.prisma.quote.update({
+      where: { id },
+      data: {
+        status: QuoteStatus.EM_ORCAMENTO,
+        history: {
+          create: {
+            userId,
+            action: 'REABERTO',
+            notes: 'Orçamento reaberto para edição',
+          }
+        }
       },
     });
   }
@@ -437,7 +527,16 @@ export class QuotesService {
       // Atualiza status do orçamento
       await tx.quote.update({
         where: { id },
-        data: { status: QuoteStatus.CONVERTIDO },
+        data: { 
+          status: QuoteStatus.CONVERTIDO,
+          history: {
+            create: {
+              userId: sellerId,
+              action: 'CONVERTIDO',
+              notes: 'Orçamento convertido em pedido de venda',
+            }
+          }
+        },
       });
 
       // Cria o pedido

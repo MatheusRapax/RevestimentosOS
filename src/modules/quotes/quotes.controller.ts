@@ -92,13 +92,13 @@ export class QuotesController {
   @Post(':id/send')
   @Permissions(PERMISSIONS.QUOTE_SEND)
   sendQuote(@Request() req: any, @Param('id') id: string) {
-    return this.quotesService.sendQuote(id, req.clinicId);
+    return this.quotesService.sendQuote(id, req.clinicId, req.user.id);
   }
 
   @Post(':id/approve')
   @Permissions(PERMISSIONS.QUOTE_UPDATE)
   approveQuote(@Request() req: any, @Param('id') id: string) {
-    return this.quotesService.approveQuote(id, req.clinicId);
+    return this.quotesService.approveQuote(id, req.clinicId, req.user.id);
   }
 
   @Post(':id/convert')
@@ -117,6 +117,22 @@ export class QuotesController {
   @Permissions(PERMISSIONS.QUOTE_DELETE)
   remove(@Request() req: any, @Param('id') id: string) {
     return this.quotesService.deleteQuote(id, req.clinicId);
+  }
+
+  @Post(':id/reject')
+  @Permissions(PERMISSIONS.QUOTE_UPDATE)
+  rejectQuote(
+    @Request() req: any, 
+    @Param('id') id: string,
+    @Body('reason') reason: string
+  ) {
+    return this.quotesService.rejectQuote(id, req.clinicId, req.user.id, reason);
+  }
+
+  @Post(':id/reopen')
+  @Permissions(PERMISSIONS.QUOTE_UPDATE)
+  reopenQuote(@Request() req: any, @Param('id') id: string) {
+    return this.quotesService.reopenQuote(id, req.clinicId, req.user.id);
   }
 
   // ========== ITEM MANAGEMENT ENDPOINTS ==========

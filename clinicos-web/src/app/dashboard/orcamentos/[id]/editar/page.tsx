@@ -102,7 +102,7 @@ export default function EditOrcamentoPage() {
     const [globalMarginPercent, setGlobalMarginPercent] = useState(0);
     const [globalDiscountPercent, setGlobalDiscountPercent] = useState(0);
     const [items, setItems] = useState<QuoteItem[]>([]);
-    const [validUntil, setValidUntil] = useState<Date>(new Date());
+    const [validUntil, setValidUntil] = useState<Date | null>(null);
 
     // Computed state
     const [isAdhocModalOpen, setIsAdhocModalOpen] = useState(false);
@@ -393,7 +393,7 @@ export default function EditOrcamentoPage() {
                 globalMarginPercent: globalMarginPercent !== undefined ? globalMarginPercent : null,
                 discountPercent: globalDiscountPercent !== undefined ? globalDiscountPercent : 0,
                 discountCents: globalDiscountPercent === 0 ? 0 : undefined,
-                validUntil: validUntil.toISOString(),
+                validUntil: validUntil ? validUntil.toISOString() : null,
             };
 
             await api.patch(`/quotes/${quoteId}`, quoteData);

@@ -138,7 +138,8 @@ model User {
   commissionRule   CommissionRule? @relation("UserCommissionRule", fields: [commissionRuleId], references: [id])
 
   // Super Admin
-  isSuperAdmin Boolean @default(false)
+  isSuperAdmin Boolean        @default(false)
+  QuoteHistory QuoteHistory[]
 }
 
 // Clinic model for multi-tenant support
@@ -734,8 +735,8 @@ model StockEntry {
   emissionDate DateTime?
   arrivalDate  DateTime  @default(now())
 
-  totalValue Float? // Sum of items (Legacy - consider deprecating or syncing with totalNoteValue)
-  notes      String?
+  totalValue         Float? // Sum of items (Legacy - consider deprecating or syncing with totalNoteValue)
+  notes              String?
   hasPriceDivergence Boolean @default(false)
 
   createdAt   DateTime  @default(now())
@@ -1236,7 +1237,6 @@ model QuoteTemplate {
   paymentMethodsInfo String? @db.Text
   showPaymentMethods Boolean @default(true)
 
-
   // Prazo de entrega padrão
   defaultDeliveryDays String? // Ex: "7dd", "15 dias úteis"
 
@@ -1316,6 +1316,7 @@ model Quote {
 
   clinic            Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   items             QuoteItem[]
+  history           QuoteHistory[]
   order             Order? // Pedido gerado (se convertido)
   stockReservations StockReservation[]
 
@@ -1363,6 +1364,19 @@ model QuoteItem {
 
   @@index([quoteId])
   @@index([productId])
+}
+
+model QuoteHistory {
+  id        String   @id @default(uuid())
+  quoteId   String
+  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String // 'CRIADO', 'ENVIADO', 'REJEITADO', 'APROVADO', 'REABERTO', 'CONVERTIDO', 'ALTERADO'
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([quoteId])
 }
 
 enum FulfillmentStatus {

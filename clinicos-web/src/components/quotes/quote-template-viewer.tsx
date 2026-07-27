@@ -19,6 +19,7 @@ interface QuoteItem {
     areaWithMargin?: number;
     discountCents?: number;
     discountPercent?: number;
+    environment?: { name: string } | null;
 }
 
 interface Quote {
@@ -39,6 +40,7 @@ interface Quote {
     seller: {
         name: string;
     };
+    notes?: string;
 }
 
 interface QuoteTemplateViewerProps {
@@ -154,18 +156,38 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
             </div>
 
             {/* Cliente */}
-            <div className="border rounded p-3 mb-4 bg-gray-50">
-                <p className="font-semibold mb-1" style={{ color: template.primaryColor || '#000000' }}>
-                    Dados do Cliente
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                    <div>
+            <div className="border rounded p-3 mb-4 bg-gray-50 grid grid-cols-2 gap-4">
+                <div>
+                    <p className="font-semibold mb-1" style={{ color: template.primaryColor || '#000000' }}>
+                        Dados do Cliente
+                    </p>
+                    <div className="text-xs">
                         <p><strong>Nome:</strong> {data.customer.name}</p>
                         {data.customer.document && <p><strong>CPF/CNPJ:</strong> {data.customer.document}</p>}
-                    </div>
-                    <div>
                         {data.customer.phone && <p><strong>Telefone:</strong> {data.customer.phone}</p>}
                         {data.customer.email && <p><strong>Email:</strong> {data.customer.email}</p>}
+                        {(data as any).customer?.address && (
+                            <p><strong>Endereço:</strong> {(data as any).customer.address}</p>
+                        )}
+                    </div>
+                </div>
+                <div>
+                    <p className="font-semibold mb-1" style={{ color: template.primaryColor || '#000000' }}>
+                        Detalhes
+                    </p>
+                    <div className="text-xs">
+                        <p><strong>Data:</strong> {formatDate(data.createdAt)}</p>
+                        <p><strong>Vendedor:</strong> {data.seller?.name || 'N/A'}</p>
+                        <p><strong>Válido até:</strong> {(data as any).validUntil ? formatDate((data as any).validUntil) : (
+                            () => {
+                                const vDate = new Date(data.createdAt);
+                                vDate.setDate(vDate.getDate() + (Number(template.validityDays) || 10));
+                                return formatDate(vDate.toISOString());
+                            }
+                        )()}</p>
+                        {(template as any).defaultDeliveryDays && (
+                            <p><strong>Prazo de Entrega:</strong> {(template as any).defaultDeliveryDays}</p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -186,44 +208,73 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                     </tr>
                 </thead>
                 <tbody>
-                    {data.items.map((item) => {
-                        const unit = item.product?.unit || '-';
-                        const isAreaProduct = !!item.resultingArea && !!item.product?.boxCoverage;
-                        
-                        const qtyBoxes = item.quantityBoxes > 0 ? `${item.quantityBoxes}` : '';
-                        
-                        const finalArea = item.resultingArea ?? item.areaWithMargin ?? item.inputArea;
-                        const areaText = finalArea ? `${finalArea.toFixed(2)}` : '';
-
-                        let unitCostText = '';
-                        if (template.showUnitPrice !== false) {
-                            if (unit === 'M2' && item.product.boxCoverage && item.product.boxCoverage > 0) {
-                                const pricePerM2Cents = Math.round(item.unitPriceCents / item.product.boxCoverage);
-                                unitCostText = `${formatCurrency(pricePerM2Cents)} /m²`;
-                            } else {
-                                unitCostText = formatCurrency(item.unitPriceCents);
+                    {(() => {
+                        const itemsByEnvironment: Record<string, QuoteItem[]> = {};
+                        data.items.forEach((item) => {
+                            const envName = item.environment?.name || 'Geral / Sem Ambiente';
+                            if (!itemsByEnvironment[envName]) {
+                                itemsByEnvironment[envName] = [];
                             }
-                        }
+                            itemsByEnvironment[envName].push(item);
+                        });
 
-                        const discountCents = item.discountCents || 0;
-                        const discountText = discountCents > 0 
-                            ? `-${formatCurrency(discountCents)}${item.discountPercent ? ` (${item.discountPercent}%)` : ''}`
-                            : '-';
+                        return Object.entries(itemsByEnvironment).map(([envName, items]) => (
+                            <React.Fragment key={envName}>
+                                <tr className="bg-gray-100 font-semibold">
+                                    <td colSpan={9} className="p-2 text-left" style={{ color: template.primaryColor || '#000000' }}>
+                                        Ambiente: {envName}
+                                    </td>
+                                </tr>
+                                {items.map((item) => {
+                                    const unit = item.product?.unit || '-';
+                                    
+                                    const qtyBoxes = item.quantityBoxes > 0 ? `${item.quantityBoxes}` : '';
+                                    
+                                    const finalArea = item.resultingArea ?? item.areaWithMargin ?? item.inputArea;
+                                    const areaText = finalArea ? `${finalArea.toFixed(2)}` : '';
 
-                        return (
-                            <tr key={item.id} className="border-b">
-                                <td className="p-2 text-left text-gray-600">{unit}</td>
-                                <td className="p-2 font-semibold">{item.product.name}</td>
-                                <td className="p-2 text-gray-500">{item.product.sku || '-'}</td>
-                                <td className="p-2 text-gray-500">{item.product.format || '-'}</td>
-                                {template.showQuantity !== false && <td className="p-2 text-center">{qtyBoxes}</td>}
-                                {template.showUnitArea !== false && <td className="p-2 text-center">{areaText}</td>}
-                                {template.showUnitPrice !== false && <td className="p-2 text-right">{unitCostText}</td>}
-                                <td className="p-2 text-right text-red-600">{discountText !== '-' ? discountText : ''}</td>
-                                <td className="p-2 text-right">{formatCurrency(item.totalCents)}</td>
-                            </tr>
-                        );
-                    })}
+                                    let unitCostText = '';
+                                    if (template.showUnitPrice !== false) {
+                                        let originalPriceCents = item.unitPriceCents;
+                                        let discountedPriceCents = item.unitPriceCents - ((item.discountCents || 0) / (item.quantityBoxes || 1));
+
+                                        if (unit === 'M2' && item.product.boxCoverage && item.product.boxCoverage > 0) {
+                                            originalPriceCents = Math.round(originalPriceCents / item.product.boxCoverage);
+                                            discountedPriceCents = Math.round(discountedPriceCents / item.product.boxCoverage);
+                                        }
+
+                                        if ((item.discountCents || 0) > 0) {
+                                            unitCostText = `De: ${formatCurrency(originalPriceCents)}\nPor: ${formatCurrency(discountedPriceCents)}`;
+                                        } else {
+                                            unitCostText = formatCurrency(originalPriceCents);
+                                        }
+
+                                        if (unit === 'M2' && item.product.boxCoverage && item.product.boxCoverage > 0) {
+                                            unitCostText = unitCostText.split('\n').map(line => line + ' /m²').join('\n');
+                                        }
+                                    }
+
+                                    const discountText = (item.discountCents || 0) > 0 
+                                        ? `-${formatCurrency(item.discountCents)}${item.discountPercent ? ` (${item.discountPercent}%)` : ''}`
+                                        : '-';
+
+                                    return (
+                                        <tr key={item.id} className="border-b last:border-0 hover:bg-gray-50 align-top">
+                                            <td className="p-2 text-left text-[10px] break-all">{unit}</td>
+                                            <td className="p-2 text-left">{item.product.name}</td>
+                                            <td className="p-2 text-left text-[10px] break-all">{item.product.sku || '-'}</td>
+                                            <td className="p-2 text-left text-[10px] break-all">{item.product.format || '-'}</td>
+                                            {template.showQuantity !== false && <td className="p-2 text-center">{qtyBoxes}</td>}
+                                            {template.showUnitArea !== false && <td className="p-2 text-center">{areaText}</td>}
+                                            {template.showUnitPrice !== false && <td className="p-2 text-right whitespace-pre-line text-[10px]">{unitCostText}</td>}
+                                            <td className="p-2 text-right text-[10px]">{discountText}</td>
+                                            <td className="p-2 text-right font-medium">{formatCurrency(item.totalCents)}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </React.Fragment>
+                        ));
+                    })()}
                 </tbody>
                 <tfoot>
                     <tr className="font-semibold border-t">
@@ -284,20 +335,33 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                 </tfoot>
             </table>
 
+            {/* Observações */}
+            {data.notes && (
+                <div className="mb-4 break-inside-avoid">
+                    <p className="font-semibold mb-1 text-xs" style={{ color: template.primaryColor || '#000000' }}>
+                        Observações:
+                    </p>
+                    <p className="text-xs text-gray-600 whitespace-pre-line">
+                        {data.notes}
+                    </p>
+                </div>
+            )}
+
             <div className="flex gap-4">
                 {/* Coluna Esquerda: Banco e Pagamentos */}
                 <div className="flex-1 flex flex-col gap-4">
                     {/* Dados Bancários */}
-                    {template.showBankDetails && template.bankName && (
+                    {template.showBankDetails && (template.bankName || template.pixKey) && (
                         <div className="border rounded p-3 bg-gray-50 break-inside-avoid flex-1">
                             <p className="font-semibold mb-1" style={{ color: template.primaryColor || '#000000' }}>
                                 Dados Bancários
                             </p>
                             <div className="text-xs space-y-1">
-                                <p><strong>Banco:</strong> {template.bankName}</p>
+                                {template.bankName && <p><strong>Banco:</strong> {template.bankName}</p>}
                                 {template.bankAgency && <p><strong>Agência:</strong> {template.bankAgency}</p>}
                                 {template.bankAccount && <p><strong>Conta:</strong> {template.bankAccount}</p>}
                                 {template.bankAccountHolder && <p><strong>Titular:</strong> {template.bankAccountHolder}</p>}
+                                {(template as any).bankCnpj && <p><strong>CNPJ:</strong> {(template as any).bankCnpj}</p>}
                                 {template.pixKey && <p className="mt-2 pt-1 border-t border-gray-200"><strong>PIX:</strong> {template.pixKey}</p>}
                             </div>
                         </div>
