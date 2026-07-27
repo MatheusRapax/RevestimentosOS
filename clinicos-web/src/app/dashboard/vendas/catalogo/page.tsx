@@ -359,7 +359,7 @@ export default function VendasCatalogoPage() {
             {error && (
                 <div className="rounded-xl bg-red-50 p-4 border border-red-100">
                     <p className="text-red-600 font-medium">{error}</p>
-                    <Button onClick={() => fetchProducts(page, searchTerm)} className="mt-3 bg-white text-red-700 hover:bg-red-50 border-red-200" variant="outline" size="sm">
+                    <Button onClick={() => fetchProducts(page, searchTerm, unitFilter, formatFilter, colorFilter, lineFilter, usageFilter, brandFilter)} className="mt-3 bg-white text-red-700 hover:bg-red-50 border-red-200" variant="outline" size="sm">
                         Tentar novamente
                     </Button>
                 </div>

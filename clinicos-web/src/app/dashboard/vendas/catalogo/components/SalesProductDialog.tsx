@@ -25,6 +25,7 @@ interface Product {
     priceCents?: number;
     supplierCode?: string;
     isAdhoc?: boolean;
+    lots?: any[];
 }
 
 interface SalesProductDialogProps {
