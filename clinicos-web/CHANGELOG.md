@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.1](///compare/v1.7.0...v1.7.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* **catalog:** resolve typescript build errors on lots interface and fetch params 4fa40d1
+
 ## [1.7.0](///compare/v1.6.0...v1.7.0) (2026-07-27)
 
 
