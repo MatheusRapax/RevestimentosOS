@@ -1,4 +1,4 @@
 {
-  "version": "1.7.2",
-  "content": "### Bug Fixes\n\n* **db:** add missing quote history migration and increase nextjs body size limit d8c8a49"
+  "version": "1.7.3",
+  "content": "### Bug Fixes\n\n* **config:** move serverActions config to experimental block in nextjs config 6e3308b\n* **ui:** correct math for m2 pricing based on box price from database 5b42bf9"
 }

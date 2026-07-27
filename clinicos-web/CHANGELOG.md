@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.3](///compare/v1.7.2...v1.7.3) (2026-07-27)
+
+
+### Bug Fixes
+
+* **config:** move serverActions config to experimental block in nextjs config 6e3308b
+* **ui:** correct math for m2 pricing based on box price from database 5b42bf9
+
 ### [1.7.2](///compare/v1.7.1...v1.7.2) (2026-07-27)
 
 
