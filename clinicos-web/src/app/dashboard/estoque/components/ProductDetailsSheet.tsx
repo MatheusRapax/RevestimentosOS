@@ -136,35 +136,61 @@ export function ProductDetailsSheet({ product, isOpen, onClose }: ProductDetails
                                         Financeiro
                                     </h4>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                        {product.unit === 'M2' ? (
+                                        {(product.unit === 'M2' || product.unit === 'm²' || product.unit === 'm2') && product.boxCoverage ? (
                                             <>
+                                                {/* Custo m2 e Custo Caixa (só exibe se tiver costCents) */}
+                                                {product.costCents !== undefined && product.costCents !== null && (
+                                                    <>
+                                                        <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
+                                                            <span className="text-xs text-gray-500 block mb-0.5">Custo m²</span>
+                                                            <span className="font-semibold text-gray-900">
+                                                                R$ {((product.costCents / product.boxCoverage) / 100).toFixed(2)}
+                                                            </span>
+                                                        </div>
+                                                        <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
+                                                            <span className="text-xs text-gray-500 block mb-0.5">Custo Caixa</span>
+                                                            <span className="font-semibold text-gray-900">
+                                                                R$ {(product.costCents / 100).toFixed(2)}
+                                                            </span>
+                                                        </div>
+                                                    </>
+                                                )}
+
+                                                {/* Venda m2 e Venda Caixa */}
                                                 <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
-                                                    <span className="text-xs text-gray-500 block mb-0.5">Custo m²</span>
+                                                    <span className="text-xs text-gray-500 block mb-0.5">Preço Venda m²</span>
                                                     <span className="font-semibold text-gray-900">
-                                                        {product.costPerM2Cents ? `R$ ${(product.costPerM2Cents / 100).toFixed(2)}` : '-'}
+                                                        {product.priceCents ? `R$ ${((product.priceCents / product.boxCoverage) / 100).toFixed(2)}` : '-'}
                                                     </span>
                                                 </div>
                                                 <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
-                                                    <span className="text-xs text-gray-500 block mb-0.5">Custo Caixa</span>
+                                                    <span className="text-xs text-gray-500 block mb-0.5">Preço Venda Caixa</span>
                                                     <span className="font-semibold text-gray-900">
-                                                        {product.costCents ? `R$ ${(product.costCents / 100).toFixed(2)}` : '-'}
+                                                        {product.priceCents ? `R$ ${(product.priceCents / 100).toFixed(2)}` : '-'}
                                                     </span>
                                                 </div>
                                             </>
                                         ) : (
-                                            <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
-                                                <span className="text-xs text-gray-500 block mb-0.5">Custo Unitário</span>
-                                                <span className="font-semibold text-gray-900">
-                                                    {product.costCents ? `R$ ${(product.costCents / 100).toFixed(2)}` : '-'}
-                                                </span>
-                                            </div>
+                                            <>
+                                                {/* Unitário (só exibe se tiver costCents) */}
+                                                {product.costCents !== undefined && product.costCents !== null && (
+                                                    <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
+                                                        <span className="text-xs text-gray-500 block mb-0.5">Custo Unitário</span>
+                                                        <span className="font-semibold text-gray-900">
+                                                            R$ ${(product.costCents / 100).toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {/* Venda Unitário */}
+                                                <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
+                                                    <span className="text-xs text-gray-500 block mb-0.5">Preço Venda</span>
+                                                    <span className="font-semibold text-gray-900">
+                                                        {product.priceCents ? `R$ ${(product.priceCents / 100).toFixed(2)}` : '-'}
+                                                    </span>
+                                                </div>
+                                            </>
                                         )}
-                                        <div className="bg-gray-50 p-2.5 rounded border border-gray-100">
-                                            <span className="text-xs text-gray-500 block mb-0.5">Preço Venda</span>
-                                            <span className="font-semibold text-gray-900">
-                                                {product.priceCents ? `R$ ${(product.priceCents / 100).toFixed(2)}` : '-'}
-                                            </span>
-                                        </div>
                                     </div>
                                 </div>
                             </TabsContent>

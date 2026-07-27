@@ -1005,7 +1005,7 @@ export default function QuoteDetailPage() {
                                         </span>
                                     </p>
                                 </div>
-                                {currentTemplate.showFooter && currentTemplate.footerText && (
+                                {currentTemplate.footerText && (
                                     <div>
                                         <h4 className="text-sm font-semibold mb-1" style={{ color: currentTemplate.primaryColor || '#000000' }}>Rodapé da Página</h4>
                                         <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded border whitespace-pre-line">

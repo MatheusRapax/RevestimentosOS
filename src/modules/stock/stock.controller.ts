@@ -83,6 +83,13 @@ export class StockController {
     return this.stockService.listProducts(req.clinicId, query);
   }
 
+  @Get('products/filters')
+  @UseGuards(PermissionsGuard)
+  @Permissions(PERMISSIONS.PRODUCT_READ)
+  getProductFilters(@Request() req: any) {
+    return this.stockService.getProductFilters(req.clinicId);
+  }
+
   @Get('products/:id')
   @UseGuards(PermissionsGuard)
   @Permissions(PERMISSIONS.PRODUCT_READ)

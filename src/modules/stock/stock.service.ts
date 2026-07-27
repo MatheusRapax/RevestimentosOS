@@ -74,6 +74,12 @@ export class StockService {
       status?: string;
       page?: number;
       limit?: number;
+      unit?: string;
+      format?: string;
+      color?: string;
+      line?: string;
+      usage?: string;
+      brandId?: string;
     },
   ) {
     const page = Math.max(1, filters?.page ?? 1);
@@ -91,6 +97,13 @@ export class StockService {
     if (!filters?.includeAdhoc) {
       where.isAdhoc = false;
     }
+
+    if (filters?.unit) where.unit = { equals: filters.unit, mode: 'insensitive' };
+    if (filters?.format) where.format = { equals: filters.format, mode: 'insensitive' };
+    if (filters?.color) where.color = { equals: filters.color, mode: 'insensitive' };
+    if (filters?.line) where.line = { equals: filters.line, mode: 'insensitive' };
+    if (filters?.usage) where.usage = { equals: filters.usage, mode: 'insensitive' };
+    if (filters?.brandId) where.brandId = filters.brandId;
 
     // Expanded search: name, sku, barcode, format, line, usage, supplierCode
     if (filters?.search) {
@@ -216,6 +229,44 @@ export class StockService {
         limit,
         totalPages: Math.ceil(totalCount / limit),
       },
+    };
+  }
+
+  async getProductFilters(clinicId: string) {
+    const formats = await this.prisma.product.findMany({
+      where: { clinicId, format: { not: null } },
+      distinct: ['format'],
+      select: { format: true },
+    });
+    const colors = await this.prisma.product.findMany({
+      where: { clinicId, color: { not: null } },
+      distinct: ['color'],
+      select: { color: true },
+    });
+    const lines = await this.prisma.product.findMany({
+      where: { clinicId, line: { not: null } },
+      distinct: ['line'],
+      select: { line: true },
+    });
+    const usages = await this.prisma.product.findMany({
+      where: { clinicId, usage: { not: null } },
+      distinct: ['usage'],
+      select: { usage: true },
+    });
+    
+    // Fetch all active brands for this clinic
+    const brands = await this.prisma.brand.findMany({
+      where: { clinicId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' }
+    });
+
+    return {
+      formats: formats.map((f) => f.format).filter((x) => x && x.trim() !== '').sort(),
+      colors: colors.map((c) => c.color).filter((x) => x && x.trim() !== '').sort(),
+      lines: lines.map((l) => l.line).filter((x) => x && x.trim() !== '').sort(),
+      usages: usages.map((u) => u.usage).filter((x) => x && x.trim() !== '').sort(),
+      brands,
     };
   }
 

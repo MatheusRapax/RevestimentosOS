@@ -23,6 +23,30 @@ export class ListProductsDto {
   @Transform(({ value }) => value === 'true' || value === true)
   includeAdhoc?: boolean;
 
+  @IsOptional()
+  @IsString()
+  unit?: string;
+
+  @IsOptional()
+  @IsString()
+  format?: string;
+
+  @IsOptional()
+  @IsString()
+  color?: string;
+
+  @IsOptional()
+  @IsString()
+  line?: string;
+
+  @IsOptional()
+  @IsString()
+  usage?: string;
+
+  @IsOptional()
+  @IsString()
+  brandId?: string;
+
   /** Filter by stock availability: 'in_stock' | 'low_stock' | 'out_of_stock' */
   @IsOptional()
   @IsString()

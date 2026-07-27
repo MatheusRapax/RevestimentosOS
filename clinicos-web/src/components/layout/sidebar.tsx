@@ -53,6 +53,7 @@ const menuSections = [
             { href: '/dashboard/arquitetos', label: 'Arquitetos', icon: PenTool, module: 'ARCHITECTS', permission: 'architect.read' },
             { href: '/dashboard/orcamentos', label: 'Orçamentos', icon: FileText, module: 'SALES', permission: 'quote.read' },
             { href: '/dashboard/pedidos', label: 'Pedidos', icon: ShoppingCart, module: 'SALES', permission: 'order.read' },
+            { href: '/dashboard/vendas/catalogo', label: 'Catálogo de Produtos', icon: Tags, module: 'SALES', permission: 'product.read' },
             { href: '/dashboard/vendas/promocoes', label: 'Promoções', icon: Percent, module: 'PROMOTIONS', permission: 'promotion.read' },
         ],
     },
@@ -61,7 +62,7 @@ const menuSections = [
         icon: Package,
         items: [
             { href: '/dashboard/estoque', label: 'Visão Geral', icon: LayoutDashboard, module: 'STOCK', permission: 'stock.view' },
-            { href: '/dashboard/estoque/produtos', label: 'Produtos', icon: Package, module: 'STOCK', permission: 'product.read' },
+            { href: '/dashboard/estoque/produtos', label: 'Produtos', icon: Package, module: 'STOCK', permission: 'product.update' },
             { href: '/dashboard/estoque/movimentacoes', label: 'Movimentações', icon: ArrowLeftRight, module: 'STOCK', permission: 'stock.view' },
             { href: '/dashboard/estoque/ocorrencias', label: 'Avarias (RMA)', icon: AlertTriangle, module: 'RMA', permission: 'rma.read' },
             { href: '/dashboard/entregas', label: 'Expedição / Entregas', icon: Truck, module: 'DELIVERIES', permission: 'delivery.read' },

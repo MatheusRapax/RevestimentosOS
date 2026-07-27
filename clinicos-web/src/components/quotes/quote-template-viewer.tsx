@@ -255,7 +255,7 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                                     }
 
                                     const discountText = (item.discountCents || 0) > 0 
-                                        ? `-${formatCurrency(item.discountCents)}${item.discountPercent ? ` (${item.discountPercent}%)` : ''}`
+                                        ? `-${formatCurrency(item.discountCents || 0)}${item.discountPercent ? ` (${item.discountPercent}%)` : ''}`
                                         : '-';
 
                                     return (
