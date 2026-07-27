@@ -1,4 +1,4 @@
 {
-  "version": "1.6.0",
-  "content": "### Features\n\n* **quotes:** implementar funcionalidade de duplicação de orçamentos c3014bd"
+  "version": "1.7.0",
+  "content": "### Features\n\n* **quotes:** refatoração do ciclo de vida e estabilização de regras de negócio 7b575c7\n* **vendas:** modernização do catálogo de produtos e sistema de filtros avançados 88b7967"
 }
