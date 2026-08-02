@@ -9,6 +9,9 @@ import {
   UseInterceptors,
   UploadedFile,
   Query,
+  Delete,
+  Put,
+  NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -115,5 +118,24 @@ export class AdminController {
       limit: limit ? parseInt(limit) : undefined,
       offset: offset ? parseInt(offset) : undefined,
     });
+  }
+
+  @Get('mapping-caches')
+  async getMappingCaches() {
+    return this.adminService.getMappingCaches();
+  }
+
+  @Delete('mapping-caches/:id')
+  async deleteMappingCache(@Param('id') id: string) {
+    await this.adminService.deleteMappingCache(id);
+    return { success: true };
+  }
+
+  @Put('mapping-caches/:id')
+  async updateMappingCache(
+    @Param('id') id: string,
+    @Body() body: { mappingPayload: Record<string, string | null> },
+  ) {
+    return this.adminService.updateMappingCache(id, body.mappingPayload);
   }
 }

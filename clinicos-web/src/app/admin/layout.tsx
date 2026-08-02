@@ -78,6 +78,12 @@ export default function AdminLayout({
                         🔐 Papéis e Permissões
                     </Link>
                     <Link
+                        href="/admin/mapping-caches"
+                        className="flex items-center gap-3 px-4 py-3 rounded-md hover:bg-slate-800 transition-colors text-sm font-medium"
+                    >
+                        🧠 Mapping Cache IA
+                    </Link>
+                    <Link
                         href="/admin/fiscal"
                         className="flex items-center gap-3 px-4 py-3 rounded-md hover:bg-slate-800 transition-colors text-sm font-medium"
                     >

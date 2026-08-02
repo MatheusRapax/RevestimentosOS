@@ -391,4 +391,47 @@ export class AdminService {
       orderBy: { key: 'asc' },
     });
   }
+
+  async getMappingCaches() {
+    const caches = await this.prisma.supplierMappingCache.findMany({
+      include: {
+        supplier: { select: { id: true, name: true, cnpj: true } },
+        clinic: { select: { id: true, name: true, slug: true } },
+      },
+      orderBy: [{ clinicId: 'asc' }, { updatedAt: 'desc' }],
+    });
+
+    // Agrupar por clínica
+    const grouped: Record<string, { clinic: any; caches: any[] }> = {};
+    for (const cache of caches) {
+      const key = cache.clinicId;
+      if (!grouped[key]) {
+        grouped[key] = { clinic: cache.clinic, caches: [] };
+      }
+      grouped[key].caches.push({
+        id: cache.id,
+        supplierId: cache.supplierId,
+        supplierName: cache.supplier.name,
+        supplierCnpj: cache.supplier.cnpj,
+        headersHash: cache.headersHash,
+        mappingPayload: JSON.parse(cache.mappingPayload),
+        confidenceScore: cache.confidenceScore,
+        createdAt: cache.createdAt,
+        updatedAt: cache.updatedAt,
+      });
+    }
+
+    return Object.values(grouped);
+  }
+
+  async deleteMappingCache(id: string) {
+    return this.prisma.supplierMappingCache.delete({ where: { id } });
+  }
+
+  async updateMappingCache(id: string, mappingPayload: Record<string, string | null>) {
+    return this.prisma.supplierMappingCache.update({
+      where: { id },
+      data: { mappingPayload: JSON.stringify(mappingPayload), confidenceScore: 1.0 },
+    });
+  }
 }
