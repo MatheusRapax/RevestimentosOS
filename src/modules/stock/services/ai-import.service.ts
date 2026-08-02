@@ -91,8 +91,13 @@ export class AiImportService {
 
     for (const sheetName of productSheets) {
       const ws = wb.Sheets[sheetName];
-      const rawMerges: { s: { r: number; c: number }; e: { r: number; c: number } }[] =
-        (ws['!merges'] || []).map((m: any) => ({ s: { r: m.s.r, c: m.s.c }, e: { r: m.e.r, c: m.e.c } }));
+      const rawMerges: {
+        s: { r: number; c: number };
+        e: { r: number; c: number };
+      }[] = (ws['!merges'] || []).map((m: any) => ({
+        s: { r: m.s.r, c: m.s.c },
+        e: { r: m.e.r, c: m.e.c },
+      }));
 
       // --- Desmesclar: preenche células virtuais com o valor do topo-esquerdo ---
       for (const merge of rawMerges) {
@@ -106,7 +111,11 @@ export class AiImportService {
             if (R === s.r && C === s.c) continue;
             const cellRef = xlsx.utils.encode_cell({ c: C, r: R });
             if (!ws[cellRef]) {
-              ws[cellRef] = { t: topLeftCell.t, v: topLeftCell.v, w: topLeftCell.w };
+              ws[cellRef] = {
+                t: topLeftCell.t,
+                v: topLeftCell.v,
+                w: topLeftCell.w,
+              };
             }
           }
         }
@@ -119,7 +128,10 @@ export class AiImportService {
       });
 
       const totalCols = rows.reduce((max, row) => Math.max(max, row.length), 0);
-      const { isSectioned, sectionRowIndices } = this.detectSectionedLayout(rawMerges, totalCols);
+      const { isSectioned, sectionRowIndices } = this.detectSectionedLayout(
+        rawMerges,
+        totalCols,
+      );
 
       if (!isSectioned) {
         // --- Comportamento original: propagar categoria por heurística de igualdade de células ---
@@ -149,11 +161,27 @@ export class AiImportService {
       );
 
       // Identificar o cabeçalho canônico: primeira linha de header após a 1ª linha de seção
-      const keywords = ['ref', 'código', 'codigo', 'descrição', 'descricao', 'produto', 'ean', 'tab 1', 'tab1'];
+      const keywords = [
+        'ref',
+        'código',
+        'codigo',
+        'descrição',
+        'descricao',
+        'produto',
+        'ean',
+        'tab 1',
+        'tab1',
+      ];
       const isHeaderRow = (row: any[]): boolean => {
-        const vals = row.map((c) => String(c || '').trim().toLowerCase());
+        const vals = row.map((c) =>
+          String(c || '')
+            .trim()
+            .toLowerCase(),
+        );
         const nonEmpty = vals.filter((v) => v).length;
-        const keywordHits = vals.filter((v) => keywords.some((kw) => v.includes(kw))).length;
+        const keywordHits = vals.filter((v) =>
+          keywords.some((kw) => v.includes(kw)),
+        ).length;
         return nonEmpty >= 3 && keywordHits >= 1;
       };
 
@@ -165,9 +193,13 @@ export class AiImportService {
         if (sectionRowIndices.has(i)) continue;
         if (isHeaderRow(rows[i])) {
           canonicalHeaderTokens = rows[i]
-            .map((c) => String(c || '').trim().toLowerCase())
-            .filter((v) => v)  // apenas tokens não-vazios
-            .slice(0, 8);       // compara apenas os primeiros 8 (mais robustos)
+            .map((c) =>
+              String(c || '')
+                .trim()
+                .toLowerCase(),
+            )
+            .filter((v) => v) // apenas tokens não-vazios
+            .slice(0, 8); // compara apenas os primeiros 8 (mais robustos)
           canonicalHeaderFound = true;
           break;
         }
@@ -176,12 +208,21 @@ export class AiImportService {
       const matchesCanonicalHeader = (row: any[]): boolean => {
         if (!canonicalHeaderFound) return false;
         const tokens = row
-          .map((c) => String(c || '').trim().toLowerCase())
+          .map((c) =>
+            String(c || '')
+              .trim()
+              .toLowerCase(),
+          )
           .filter((v) => v)
           .slice(0, 8);
         // Considera match se pelo menos 80% dos tokens correspondem
-        const matches = tokens.filter((t, idx) => t === canonicalHeaderTokens[idx]).length;
-        return tokens.length > 0 && matches / Math.max(tokens.length, canonicalHeaderTokens.length) >= 0.8;
+        const matches = tokens.filter(
+          (t, idx) => t === canonicalHeaderTokens[idx],
+        ).length;
+        return (
+          tokens.length > 0 &&
+          matches / Math.max(tokens.length, canonicalHeaderTokens.length) >= 0.8
+        );
       };
 
       // Propagar sectionFormat e filtrar linhas de seção e cabeçalhos repetidos.
@@ -202,7 +243,11 @@ export class AiImportService {
         }
 
         // É cabeçalho (canônico ou repetido)?
-        if (canonicalHeaderFound && isHeaderRow(row) && matchesCanonicalHeader(row)) {
+        if (
+          canonicalHeaderFound &&
+          isHeaderRow(row) &&
+          matchesCanonicalHeader(row)
+        ) {
           if (!canonicalHeaderKept) {
             // Mantém a 1ª ocorrência (cabeçalho canônico) sem _sectionFormat
             canonicalHeaderKept = true;
@@ -228,7 +273,6 @@ export class AiImportService {
         (newRow as any)._category = currentSectionFormat; // compatibilidade
         normalizedRows.push(newRow);
       }
-
 
       this.logger.log(
         `[${sheetName}] Normalização concluída: ${normalizedRows.length} linhas de dados.`,
@@ -296,7 +340,9 @@ export class AiImportService {
       let numericCols = 0;
 
       for (const cell of row) {
-        const val = String(cell || '').trim().toLowerCase();
+        const val = String(cell || '')
+          .trim()
+          .toLowerCase();
         if (val) {
           nonEmptyCols++;
           if (keywords.some((kw) => val.includes(kw))) score += 3;
@@ -359,7 +405,9 @@ export class AiImportService {
           obj._sectionFormat = (row as any)._sectionFormat;
           // Limitar amostras por seção para cobrir diversidade
           const fmt = (row as any)._sectionFormat;
-          const countInFormat = [...seenFormats].filter((f) => f === fmt).length;
+          const countInFormat = [...seenFormats].filter(
+            (f) => f === fmt,
+          ).length;
           if (countInFormat >= 3 && seenFormats.size < 3) continue;
           seenFormats.add(fmt);
         }
@@ -494,7 +542,7 @@ Instruções críticas e PROIBIÇÕES:
 - As chaves de mapping devem conter o NOME EXATO da coluna original do fornecedor. Se a coluna não existir na planilha, defina como null.
 - A coluna do custo deve ser apenas daquela que representa um preço em Reais/Dinheiro.
 - "m2PerBox" é estritamente a coluna que informa quantos metros quadrados vem em uma caixa.
-- CÓDIGO DE BARRAS: Se a planilha tiver apenas uma coluna de código de barras (ex: "CÓD. BARRAS", "EAN", "GTIN"), você PODE e DEVE mapeá-la tanto para "sku" quanto para "ean".
+- CÓDIGO DE BARRAS VS SKU: Se houver uma coluna de "EAN" ou "GTIN" e TAMBÉM uma coluna como "Código Fabricante", "Ref", "Referência" ou "Código", o SKU DEVE ser mapeado para o "Código Fabricante"/"Ref", e o EAN para "EAN". SÓ mapeie EAN para SKU se for a ÚNICA coluna identificadora.
 - DIMENSÕES VS FORMATO: "format" refere-se ao formato comercial da cerâmica (ex: "60x60", "82x82"). Se a planilha tiver colunas separadas para "Altura", "Largura" ou "Profundidade", mapeie-as para "height", "width" e "depth", respectivamente, NÃO para "format".
 ${sectionFormatInstruction}
 
@@ -608,7 +656,10 @@ ${JSON.stringify(sample, null, 2)}
       const result = JSON.parse(rawContent);
       return { mapping: result.mapping, ambiguities: result.ambiguities };
     } catch (error) {
-      console.error('❌ Falha ao processar JSON da OpenAI. Conteúdo bruto:', rawContent);
+      console.error(
+        '❌ Falha ao processar JSON da OpenAI. Conteúdo bruto:',
+        rawContent,
+      );
       throw new Error('Falha ao processar o formato retornado pela IA.');
     }
   }
@@ -635,17 +686,26 @@ ${JSON.stringify(sample, null, 2)}
   ): any[] {
     const mappedRows = [];
 
+    const normalizeString = (str: string) =>
+      String(str || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ');
+
     // Create an index map for quick lookup
     const headerMap: Record<string, number> = {};
     headers.forEach((h, idx) => {
-      if (h) headerMap[String(h).trim().toLowerCase()] = idx;
+      if (h) headerMap[normalizeString(h)] = idx;
     });
 
     const getVal = (row: any, key: string | null) => {
       if (!key) return null;
-      const normalizedKey = String(key).trim().toLowerCase();
+      const normalizedKey = normalizeString(key);
       // Campos especiais injetados pelo normalizador (não são colunas reais da planilha)
-      if (normalizedKey === '_sectionformat') return (row as any)._sectionFormat ?? null;
+      if (normalizedKey === '_sectionformat')
+        return (row as any)._sectionFormat ?? null;
       if (normalizedKey === '_category') return (row as any)._category ?? null;
       const idx = headerMap[normalizedKey];
       return idx !== undefined && row[idx] !== undefined ? row[idx] : null;
@@ -659,7 +719,7 @@ ${JSON.stringify(sample, null, 2)}
       const nameValRaw = getVal(row, mapping.name);
 
       let skuVal = skuValRaw ? String(skuValRaw).trim() : '';
-      let eanValRaw = getVal(row, mapping.ean);
+      const eanValRaw = getVal(row, mapping.ean);
       let eanVal = eanValRaw ? String(eanValRaw).trim() : '';
 
       const nameVal = nameValRaw ? String(nameValRaw).trim() : null;
@@ -670,14 +730,14 @@ ${JSON.stringify(sample, null, 2)}
         category && nameVal ? `${category} - ${nameVal}` : nameVal;
 
       if (!skuVal && !nameVal) continue; // Ignora linhas em branco
-      
+
       // Fallback fallback: se não tem SKU mas tem EAN, usa EAN como SKU e vice-versa
       if (!skuVal && eanVal) skuVal = eanVal;
       if (!eanVal && skuVal) {
-          // Apenas copia SKU para EAN se o SKU parecer um código de barras válido (ex: 8 a 14 dígitos numéricos)
-          if (/^\d{8,14}$/.test(skuVal)) {
-              eanVal = skuVal;
-          }
+        // Apenas copia SKU para EAN se o SKU parecer um código de barras válido (ex: 8 a 14 dígitos numéricos)
+        if (/^\d{8,14}$/.test(skuVal)) {
+          eanVal = skuVal;
+        }
       }
 
       mappedRows.push({
@@ -686,7 +746,8 @@ ${JSON.stringify(sample, null, 2)}
         name: finalName,
         cost: getVal(row, mapping.cost),
         unit: getVal(row, mapping.unit),
-        format: getVal(row, mapping.format) || (row as any)._sectionFormat || null,
+        format:
+          getVal(row, mapping.format) || (row as any)._sectionFormat || null,
         m2PerBox: getVal(row, mapping.m2PerBox),
         piecesPerBox: getVal(row, mapping.piecesPerBox),
         palletBoxes: getVal(row, mapping.palletBoxes),
@@ -754,9 +815,11 @@ ${JSON.stringify(sample, null, 2)}
           if (m2PerBox > 0) unit = 'M2';
           else unit = 'UN';
         }
-        if (unit === 'CX' && m2PerBox > 0) {
-          unit = 'M2'; // CX cobra M2
-        }
+        
+        // Removemos a conversão forçada de CX para M2 para respeitar ML ou CX puros
+        // if (unit === 'CX' && m2PerBox > 0) {
+        //   unit = 'M2'; // CX cobra M2
+        // }
 
         let costCents = 0;
         let costPerM2Cents: number | undefined = 0;
@@ -798,7 +861,7 @@ ${JSON.stringify(sample, null, 2)}
       .filter((item) => {
         // Filtragem rígida para remover linhas que são apenas categorias, cabeçalhos repetidos ou vazios
         if (!item.name || item.name === 'Sem nome') return false;
-        if (item.costCents === 0 && item.costPerM2Cents === 0) return false;
+        if (item.costCents === 0 && (item.costPerM2Cents === 0 || item.costPerM2Cents === undefined)) return false;
 
         const skuLower = item.sku.toLowerCase().trim();
         const nameLower = item.name.toLowerCase().trim();

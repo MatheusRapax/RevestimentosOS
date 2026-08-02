@@ -198,8 +198,8 @@ export class QuotesService {
             userId: sellerId,
             action: 'CRIADO',
             notes: 'Orçamento criado',
-          }
-        }
+          },
+        },
       },
       include: {
         customer: true,
@@ -278,7 +278,7 @@ export class QuotesService {
             user: { select: { name: true } },
           },
           orderBy: { createdAt: 'desc' },
-        }
+        },
       },
     });
 
@@ -411,8 +411,8 @@ export class QuotesService {
             userId,
             action: 'ENVIADO',
             notes: 'Orçamento enviado para avaliação do cliente',
-          }
-        }
+          },
+        },
       },
     });
   }
@@ -436,13 +436,18 @@ export class QuotesService {
             userId,
             action: 'APROVADO',
             notes: 'Orçamento aprovado pelo cliente',
-          }
-        }
+          },
+        },
       },
     });
   }
 
-  async rejectQuote(id: string, clinicId: string, userId: string, reason: string) {
+  async rejectQuote(
+    id: string,
+    clinicId: string,
+    userId: string,
+    reason: string,
+  ) {
     const quote = await this.findOne(id, clinicId);
 
     if (quote.status !== QuoteStatus.AGUARDANDO_APROVACAO) {
@@ -452,7 +457,9 @@ export class QuotesService {
     }
 
     if (!reason || reason.trim() === '') {
-      throw new BadRequestException('A justificativa é obrigatória para rejeitar um orçamento');
+      throw new BadRequestException(
+        'A justificativa é obrigatória para rejeitar um orçamento',
+      );
     }
 
     // SYNC: Cancel linked reservations if any
@@ -475,8 +482,8 @@ export class QuotesService {
             userId,
             action: 'REJEITADO',
             notes: reason,
-          }
-        }
+          },
+        },
       },
     });
   }
@@ -499,8 +506,8 @@ export class QuotesService {
             userId,
             action: 'REABERTO',
             notes: 'Orçamento reaberto para edição',
-          }
-        }
+          },
+        },
       },
     });
   }
@@ -527,15 +534,15 @@ export class QuotesService {
       // Atualiza status do orçamento
       await tx.quote.update({
         where: { id },
-        data: { 
+        data: {
           status: QuoteStatus.CONVERTIDO,
           history: {
             create: {
               userId: sellerId,
               action: 'CONVERTIDO',
               notes: 'Orçamento convertido em pedido de venda',
-            }
-          }
+            },
+          },
         },
       });
 

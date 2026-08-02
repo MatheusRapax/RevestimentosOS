@@ -69,16 +69,25 @@ export class QuotePdfService {
       // --- Observações ---
       if (quote.notes) {
         doc.fontSize(9).font('Helvetica');
-        const notesHeight = doc.heightOfString(quote.notes, { width: 500 }) + 25;
-        
+        const notesHeight =
+          doc.heightOfString(quote.notes, { width: 500 }) + 25;
+
         if (currentY + notesHeight > 750) {
           doc.addPage();
           currentY = 50;
         }
 
-        doc.fontSize(10).font('Helvetica-Bold').fillColor(primaryColor).text('Observações:', 50, currentY);
+        doc
+          .fontSize(10)
+          .font('Helvetica-Bold')
+          .fillColor(primaryColor)
+          .text('Observações:', 50, currentY);
         currentY += 15;
-        doc.fontSize(9).font('Helvetica').fillColor('#333333').text(quote.notes, 50, currentY, { width: 500 });
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('#333333')
+          .text(quote.notes, 50, currentY, { width: 500 });
         currentY += doc.heightOfString(quote.notes, { width: 500 }) + 15;
       }
 
@@ -219,11 +228,11 @@ export class QuotePdfService {
     if (quote.customer.phone) leftLines++;
     if (quote.customer.email) leftLines++;
     if (quote.customer.address) leftLines += 2;
-    
+
     let rightLines = 2;
     if (quote.validUntil || template?.validityDays) rightLines++;
     if (template?.defaultDeliveryDays) rightLines++;
-    
+
     const maxLines = Math.max(leftLines, rightLines);
     const boxHeight = Math.max(80, maxLines * 15 + 30);
 
@@ -239,7 +248,7 @@ export class QuotePdfService {
       .font('Helvetica')
       .fillColor('#000000')
       .text(quote.customer.name, 60, contentY + 15);
-    
+
     let custY = contentY + 30;
     if (quote.customer.document) {
       doc.text(`CPF/CNPJ: ${quote.customer.document}`, 60, custY);
@@ -254,7 +263,9 @@ export class QuotePdfService {
       custY += 15;
     }
     if (quote.customer.address) {
-      doc.text(`Endereço: ${quote.customer.address}`, 60, custY, { width: 280 });
+      doc.text(`Endereço: ${quote.customer.address}`, 60, custY, {
+        width: 280,
+      });
     }
 
     const metaX = 350;
@@ -298,7 +309,7 @@ export class QuotePdfService {
         rightY,
       );
     }
-    
+
     return y + boxHeight;
   }
 
@@ -366,29 +377,47 @@ export class QuotePdfService {
         let unitCostText = '';
         if (showUnitPrice) {
           let originalPriceCents = item.unitPriceCents;
-          let discountedPriceCents = item.unitPriceCents - (item.discountCents / (item.quantityBoxes || 1));
-          
-          if (unit === 'M2' && item.product.boxCoverage && item.product.boxCoverage > 0) {
-            originalPriceCents = Math.round(item.unitPriceCents / item.product.boxCoverage);
-            discountedPriceCents = Math.round(discountedPriceCents / item.product.boxCoverage);
+          let discountedPriceCents =
+            item.unitPriceCents -
+            item.discountCents / (item.quantityBoxes || 1);
+
+          if (
+            unit === 'M2' &&
+            item.product.boxCoverage &&
+            item.product.boxCoverage > 0
+          ) {
+            originalPriceCents = Math.round(
+              item.unitPriceCents / item.product.boxCoverage,
+            );
+            discountedPriceCents = Math.round(
+              discountedPriceCents / item.product.boxCoverage,
+            );
           }
 
           if (item.discountCents > 0) {
-             unitCostText = `De: ${this.formatCurrency(originalPriceCents)}\nPor: ${this.formatCurrency(discountedPriceCents)}`;
+            unitCostText = `De: ${this.formatCurrency(originalPriceCents)}\nPor: ${this.formatCurrency(discountedPriceCents)}`;
           } else {
-             unitCostText = this.formatCurrency(originalPriceCents);
+            unitCostText = this.formatCurrency(originalPriceCents);
           }
-          
-          if (unit === 'M2' && item.product.boxCoverage && item.product.boxCoverage > 0) {
-             unitCostText = unitCostText.split('\n').map(line => line + ' /m²').join('\n');
+
+          if (
+            unit === 'M2' &&
+            item.product.boxCoverage &&
+            item.product.boxCoverage > 0
+          ) {
+            unitCostText = unitCostText
+              .split('\n')
+              .map((line) => line + ' /m²')
+              .join('\n');
           }
         }
         const format = item.product.format || '-';
         const sku = item.product.sku || '-';
 
-        const discountText = item.discountCents > 0
-          ? `-${this.formatCurrency(item.discountCents)}${item.discountPercent ? ` (${item.discountPercent}%)` : ''}`
-          : '-';
+        const discountText =
+          item.discountCents > 0
+            ? `-${this.formatCurrency(item.discountCents)}${item.discountPercent ? ` (${item.discountPercent}%)` : ''}`
+            : '-';
 
         const rowHeight = this.generateTableRow(
           doc,
@@ -420,13 +449,22 @@ export class QuotePdfService {
       currentY = 50;
     }
 
-    const itemDiscounts = quote.items.reduce((sum, i) => sum + (i.discountCents || 0), 0);
+    const itemDiscounts = quote.items.reduce(
+      (sum, i) => sum + (i.discountCents || 0),
+      0,
+    );
     const grossSubtotal = quote.subtotalCents + itemDiscounts;
 
     this.generateTableRow(
       doc,
       currentY,
-      '', '', '', '', '', '', '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
       'Subtotal',
       this.formatCurrency(grossSubtotal),
       template,
@@ -435,8 +473,15 @@ export class QuotePdfService {
 
     if (itemDiscounts > 0) {
       this.generateTableRow(
-        doc, currentY,
-        '', '', '', '', '', '', '',
+        doc,
+        currentY,
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
         'Desc. por item',
         `-${this.formatCurrency(itemDiscounts)}`,
         template,
@@ -448,8 +493,15 @@ export class QuotePdfService {
       const pct = quote.discountPercent;
       const globalDiscLabel = pct ? `Desconto (${pct}%)` : 'Desconto';
       this.generateTableRow(
-        doc, currentY,
-        '', '', '', '', '', '', '',
+        doc,
+        currentY,
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
         globalDiscLabel,
         `-${this.formatCurrency(quote.discountCents)}`,
         template,
@@ -459,8 +511,15 @@ export class QuotePdfService {
 
     if (quote.deliveryFee > 0) {
       this.generateTableRow(
-        doc, currentY,
-        '', '', '', '', '', '', '',
+        doc,
+        currentY,
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
         'Frete',
         this.formatCurrency(quote.deliveryFee),
         template,
@@ -473,7 +532,13 @@ export class QuotePdfService {
     this.generateTableRow(
       doc,
       currentY,
-      '', '', '', '', '', '', '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
       'TOTAL',
       this.formatCurrency(quote.totalCents),
       template,
@@ -522,48 +587,59 @@ export class QuotePdfService {
     const primaryColor = template?.primaryColor || '#000000';
 
     // Dados Bancários, Formas de Pagamento e Termos
-    const hasBank = template?.showBankDetails && (template.bankName || template.pixKey);
-    const hasPaymentMethods = template?.showPaymentMethods && template.paymentMethodsInfo;
+    const hasBank =
+      template?.showBankDetails && (template.bankName || template.pixKey);
+    const hasPaymentMethods =
+      template?.showPaymentMethods && template.paymentMethodsInfo;
     const hasTerms = template?.showTerms && template.termsAndConditions;
 
     // --- PRE-CALCULAR ALTURA NECESSÁRIA DO RODAPÉ ---
     let requiredHeight = 0;
     let boxesHeight = 0;
-    
+
     if (hasBank || hasPaymentMethods || hasTerms) {
-      const leftColWidth = (hasBank || hasPaymentMethods) && hasTerms ? 240 : 500;
+      const leftColWidth =
+        (hasBank || hasPaymentMethods) && hasTerms ? 240 : 500;
       const rightColWidth = 500 - leftColWidth - 10;
-      
+
       let estimatedLeft = 0;
       if (hasBank) {
-        estimatedLeft += 50; 
+        estimatedLeft += 50;
         if (template.bankAgency) estimatedLeft += 12;
         if (template.bankAccount) estimatedLeft += 12;
         if (template.bankAccountHolder) estimatedLeft += 12;
         if (template.bankCnpj) estimatedLeft += 12;
         if (template.pixKey) estimatedLeft += 17;
-        estimatedLeft += 25; 
+        estimatedLeft += 25;
       }
       if (hasPaymentMethods) {
-        const textHeight = doc.fontSize(8).heightOfString(template.paymentMethodsInfo || '', { width: leftColWidth - 20 });
+        const textHeight = doc
+          .fontSize(8)
+          .heightOfString(template.paymentMethodsInfo || '', {
+            width: leftColWidth - 20,
+          });
         estimatedLeft += 25 + textHeight + 10;
       }
-      
+
       let estimatedRight = 0;
       if (hasTerms) {
-        const termsWidth = (hasBank || hasPaymentMethods) ? rightColWidth : 500;
-        const textHeight = doc.fontSize(8).heightOfString(template.termsAndConditions || '', { width: termsWidth - 20 });
+        const termsWidth = hasBank || hasPaymentMethods ? rightColWidth : 500;
+        const textHeight = doc
+          .fontSize(8)
+          .heightOfString(template.termsAndConditions || '', {
+            width: termsWidth - 20,
+          });
         estimatedRight = 25 + textHeight + 10;
       }
-      
+
       boxesHeight = Math.max(estimatedLeft, estimatedRight);
       requiredHeight += boxesHeight;
     }
-    
+
     if (template?.showSignatureLines) {
       requiredHeight += 75;
     }
-    
+
     requiredHeight += 40; // Validade
     if (template?.footerText) {
       requiredHeight += 20;
@@ -577,9 +653,10 @@ export class QuotePdfService {
 
     if (hasBank || hasPaymentMethods || hasTerms) {
       const startBoxY = currentY;
-      
+
       const leftColX = 50;
-      const leftColWidth = (hasBank || hasPaymentMethods) && hasTerms ? 240 : 500;
+      const leftColWidth =
+        (hasBank || hasPaymentMethods) && hasTerms ? 240 : 500;
       const rightColX = leftColX + leftColWidth + 10;
       const rightColWidth = 500 - leftColWidth - 10;
 
@@ -589,7 +666,7 @@ export class QuotePdfService {
       // Draw Bank Details on left
       if (hasBank) {
         let bankTextY = leftY + 10;
-        
+
         let estimatedHeight = 35; // Header + Banco
         if (template.bankAgency) estimatedHeight += 12;
         if (template.bankAccount) estimatedHeight += 12;
@@ -597,7 +674,9 @@ export class QuotePdfService {
         if (template.bankCnpj) estimatedHeight += 12;
         if (template.pixKey) estimatedHeight += 17;
 
-        doc.rect(leftColX, leftY, leftColWidth, estimatedHeight + 15).fillAndStroke('#f9fafb', '#e5e7eb');
+        doc
+          .rect(leftColX, leftY, leftColWidth, estimatedHeight + 15)
+          .fillAndStroke('#f9fafb', '#e5e7eb');
 
         doc
           .fontSize(10)
@@ -672,10 +751,16 @@ export class QuotePdfService {
       // Draw Payment Methods on left
       if (hasPaymentMethods) {
         const titleHeight = 25;
-        const textHeight = doc.fontSize(8).heightOfString(template.paymentMethodsInfo || '', { width: leftColWidth - 20 });
+        const textHeight = doc
+          .fontSize(8)
+          .heightOfString(template.paymentMethodsInfo || '', {
+            width: leftColWidth - 20,
+          });
         const boxHeight = titleHeight + textHeight + 10;
-        
-        doc.rect(leftColX, leftY, leftColWidth, boxHeight).fillAndStroke('#f9fafb', '#e5e7eb');
+
+        doc
+          .rect(leftColX, leftY, leftColWidth, boxHeight)
+          .fillAndStroke('#f9fafb', '#e5e7eb');
 
         let payTextY = leftY + 10;
         doc
@@ -683,31 +768,38 @@ export class QuotePdfService {
           .font('Helvetica-Bold')
           .fillColor(primaryColor)
           .text('Formas de Pagamento', leftColX + 10, payTextY);
-          
+
         payTextY += 15;
         doc
           .fontSize(8)
           .font('Helvetica')
           .fillColor('#4b5563')
-          .text(template.paymentMethodsInfo || '', leftColX + 10, payTextY, { width: leftColWidth - 20 });
+          .text(template.paymentMethodsInfo || '', leftColX + 10, payTextY, {
+            width: leftColWidth - 20,
+          });
 
         leftY = leftY + boxHeight + 10;
       }
 
       // Draw Terms on right (or full width if no left col)
       if (hasTerms) {
-        const termsX = (hasBank || hasPaymentMethods) ? rightColX : leftColX;
-        const termsWidth = (hasBank || hasPaymentMethods) ? rightColWidth : 500;
-        
+        const termsX = hasBank || hasPaymentMethods ? rightColX : leftColX;
+        const termsWidth = hasBank || hasPaymentMethods ? rightColWidth : 500;
+
         const titleHeight = 25;
         const termsText = template.termsAndConditions || '';
-        const textHeight = doc.fontSize(8).heightOfString(termsText, { width: termsWidth - 20 });
-        
+        const textHeight = doc
+          .fontSize(8)
+          .heightOfString(termsText, { width: termsWidth - 20 });
+
         let boxHeight = titleHeight + textHeight + 10;
-        if ((hasBank || hasPaymentMethods) && (leftY - startBoxY - 10) > boxHeight) {
-             boxHeight = leftY - startBoxY - 10; // match left side
+        if (
+          (hasBank || hasPaymentMethods) &&
+          leftY - startBoxY - 10 > boxHeight
+        ) {
+          boxHeight = leftY - startBoxY - 10; // match left side
         }
-        
+
         doc
           .rect(termsX, rightY, termsWidth, boxHeight)
           .fillAndStroke('#f9fafb', '#e5e7eb');
@@ -793,8 +885,12 @@ export class QuotePdfService {
     }
 
     const descWidth = 125;
-    const descHeight = doc.heightOfString(descricao || ' ', { width: descWidth });
-    const vUnitHeight = showUnitPrice ? doc.heightOfString(vUnit || ' ', { width: 55 }) : 0;
+    const descHeight = doc.heightOfString(descricao || ' ', {
+      width: descWidth,
+    });
+    const vUnitHeight = showUnitPrice
+      ? doc.heightOfString(vUnit || ' ', { width: 55 })
+      : 0;
     const rowHeight = Math.max(15, descHeight, vUnitHeight);
 
     doc.text(unidade, 50, y, { width: 25, ellipsis: true });

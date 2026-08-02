@@ -162,7 +162,8 @@ export default function ImportProductsPage() {
                 }
                 
                 // Se só tem 1 aba, vai direto
-                const target = sheets && sheets.length === 1 ? sheets[0] : undefined;
+                const target = sheets && sheets.length === 1 ? sheets[0] : '';
+                setSelectedSheet(target); // PREVINE ESTADO FANTASMA (stale state) DE UPLOAD ANTERIOR
                 await processAIMap(formData, target);
                 return;
             }
@@ -202,6 +203,7 @@ export default function ImportProductsPage() {
             setParsedItems(itemsWithOriginalSku);
             setStep('preview');
             toast.success('Arquivo processado! Verifique os dados abaixo.');
+            setIsLoading(false);
         } catch (error: any) {
             console.error(error);
             toast.error(error.response?.data?.message || 'Falha ao mapear planilha com IA.');
@@ -672,14 +674,21 @@ export default function ImportProductsPage() {
                                                     )
                                                     .map((opt: any, optIdx: number) => {
                                                     const header = opt.column;
+                                                    
+                                                    const normalizeStr = (s: string) => String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                                                    const headerNorm = normalizeStr(header);
+                                                    
                                                     // Fallback to option's sampleValue if ambiguitySampleData doesn't have it
-                                                    const sampleRow = ambiguitySampleData.find(row => 
-                                                        row[header] !== undefined && 
-                                                        row[header] !== null && 
-                                                        String(row[header]).trim() !== '' &&
-                                                        String(row[header]).trim() !== String(header).trim()
-                                                    );
-                                                    const sampleValue = sampleRow ? sampleRow[header] : (opt.sampleValue || 'N/A');
+                                                    const sampleRow = ambiguitySampleData.find(row => {
+                                                        const matchingKey = Object.keys(row).find(k => normalizeStr(k) === headerNorm);
+                                                        return matchingKey && row[matchingKey] !== undefined && row[matchingKey] !== null && String(row[matchingKey]).trim() !== '' && String(row[matchingKey]).trim() !== String(matchingKey).trim();
+                                                    });
+                                                    
+                                                    let sampleValue = opt.sampleValue || 'N/A';
+                                                    if (sampleRow) {
+                                                        const matchingKey = Object.keys(sampleRow).find(k => normalizeStr(k) === headerNorm);
+                                                        if (matchingKey) sampleValue = sampleRow[matchingKey];
+                                                    }
                                                     
                                                     // Evitar erro de key vazia se o header for vazio ou duplicado
                                                     const safeKey = header ? `${header}-${optIdx}` : `empty-header-${optIdx}`;

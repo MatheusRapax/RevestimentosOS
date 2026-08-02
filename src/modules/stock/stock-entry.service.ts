@@ -596,10 +596,17 @@ export class StockEntryService {
         },
       });
       const currentUserRole = currentUser?.clinicUsers[0]?.role?.key;
-      let isAuthorized = currentUser?.isSuperAdmin || currentUserRole === 'ADMIN' || currentUserRole === 'MANAGER';
+      let isAuthorized =
+        currentUser?.isSuperAdmin ||
+        currentUserRole === 'ADMIN' ||
+        currentUserRole === 'MANAGER';
 
       // Check supervisor override
-      if (!isAuthorized && options?.supervisorEmail && options?.supervisorPassword) {
+      if (
+        !isAuthorized &&
+        options?.supervisorEmail &&
+        options?.supervisorPassword
+      ) {
         const supervisor = await this.prisma.user.findUnique({
           where: { email: options.supervisorEmail },
           include: {
@@ -608,17 +615,28 @@ export class StockEntryService {
         });
 
         if (!supervisor || !supervisor.isActive) {
-          throw new UnauthorizedException('Supervisor não encontrado ou inativo.');
+          throw new UnauthorizedException(
+            'Supervisor não encontrado ou inativo.',
+          );
         }
 
-        const isPasswordValid = await bcrypt.compare(options.supervisorPassword, supervisor.password);
+        const isPasswordValid = await bcrypt.compare(
+          options.supervisorPassword,
+          supervisor.password,
+        );
         if (!isPasswordValid) {
           throw new UnauthorizedException('Senha do supervisor incorreta.');
         }
 
         const supervisorRole = supervisor.clinicUsers[0]?.role?.key;
-        if (!supervisor.isSuperAdmin && supervisorRole !== 'ADMIN' && supervisorRole !== 'MANAGER') {
-          throw new ForbiddenException('O usuário informado não possui nível de Gerente ou Administrador.');
+        if (
+          !supervisor.isSuperAdmin &&
+          supervisorRole !== 'ADMIN' &&
+          supervisorRole !== 'MANAGER'
+        ) {
+          throw new ForbiddenException(
+            'O usuário informado não possui nível de Gerente ou Administrador.',
+          );
         }
 
         isAuthorized = true;
@@ -648,9 +666,9 @@ export class StockEntryService {
           details: {
             justification: options.justification,
             divergences: [...divergences, ...quantityDivergences],
-            authorizedBySupervisor
-          }
-        }
+            authorizedBySupervisor,
+          },
+        },
       });
     }
     // Buscar CFOP/CST padrão da loja para usar ao atualizar master data

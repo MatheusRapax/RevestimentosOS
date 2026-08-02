@@ -21,6 +21,7 @@ import { AiImportService } from './services/ai-import.service';
 import { StockService } from './stock.service';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { ImportProductsDto } from './dto/import-products.dto';
+import { Public } from '../../core/auth/decorators/public.decorator';
 
 @Controller('stock/products/import')
 @UseGuards(JwtAuthGuard)
@@ -43,6 +44,13 @@ export class ProductImportController {
       'attachment; filename="Template_Importacao_Produtos.xlsx"',
     );
     res.send(buffer);
+  }
+
+  @Public()
+  @Get('clear-cache')
+  async clearCache() {
+    await this.aiImportService['prisma'].supplierMappingCache.deleteMany({});
+    return { message: 'Cache de mapeamento da IA limpo com sucesso!' };
   }
 
   @Post('parse')
@@ -125,7 +133,7 @@ export class ProductImportController {
 
     const headersHash = this.aiImportService.generateHeadersHash(headers);
     let mapping: any = null;
-    let ambiguities: string[] = [];
+    let ambiguities: any[] = [];
 
     // 2. Check Force Mapping
     if (forceMappingStr) {
@@ -144,7 +152,11 @@ export class ProductImportController {
       );
     } else {
       // 3. Try Cache
-      mapping = await this.aiImportService.getCachedMapping(supplierId, clinicId, headersHash);
+      mapping = await this.aiImportService.getCachedMapping(
+        supplierId,
+        clinicId,
+        headersHash,
+      );
 
       // 4. Fallback to AI
       if (!mapping) {
@@ -155,6 +167,44 @@ export class ProductImportController {
           });
           mapping = aiResult.mapping;
           ambiguities = aiResult.ambiguities || [];
+
+          // 4.1 Safety Net: Force MULTIPLE_PRICES ambiguity if there are multiple price columns, even if OpenAI skipped it
+          const costKeywords = ['preço', 'preco', 'custo', 'valor', 'r$', 'faturamento'];
+          const priceHeaders = headers.filter(h => {
+            if (!h) return false;
+            const lower = h.toLowerCase();
+            return costKeywords.some(kw => lower.includes(kw));
+          });
+
+          if (priceHeaders.length > 1) {
+            let multiplePricesAmb = ambiguities.find(a => a.type === 'MULTIPLE_PRICES');
+            if (!multiplePricesAmb) {
+                // OpenAI mapped it confidently, but the user wants to choose manually!
+                multiplePricesAmb = {
+                    type: 'MULTIPLE_PRICES',
+                    message: 'Encontramos múltiplas colunas de preço. Por favor, selecione qual delas devemos usar para o custo do produto.',
+                    options: []
+                };
+                ambiguities.push(multiplePricesAmb);
+                
+                // Clear the mapping so the backend doesn't accidentally use a bad one while rendering the preview
+                if (mapping) mapping.cost = undefined;
+            }
+            
+            const existingCols = new Set(multiplePricesAmb.options?.map((o: any) => o.column) || []);
+            multiplePricesAmb.options = multiplePricesAmb.options || [];
+            
+            priceHeaders.forEach(h => {
+              if (!existingCols.has(h)) {
+                multiplePricesAmb.options.push({
+                  label: h.replace(/\r\n/g, ' '),
+                  column: h,
+                  sampleValue: 'N/A (Verificar planilha)'
+                } as any);
+                existingCols.add(h);
+              }
+            });
+          }
 
           // Save AI "best guess" mapping, even with ambiguities (so user can see preview if they skip resolution)
           if (mapping) {

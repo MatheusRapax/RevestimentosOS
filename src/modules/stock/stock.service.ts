@@ -98,11 +98,16 @@ export class StockService {
       where.isAdhoc = false;
     }
 
-    if (filters?.unit) where.unit = { equals: filters.unit, mode: 'insensitive' };
-    if (filters?.format) where.format = { equals: filters.format, mode: 'insensitive' };
-    if (filters?.color) where.color = { equals: filters.color, mode: 'insensitive' };
-    if (filters?.line) where.line = { equals: filters.line, mode: 'insensitive' };
-    if (filters?.usage) where.usage = { equals: filters.usage, mode: 'insensitive' };
+    if (filters?.unit)
+      where.unit = { equals: filters.unit, mode: 'insensitive' };
+    if (filters?.format)
+      where.format = { equals: filters.format, mode: 'insensitive' };
+    if (filters?.color)
+      where.color = { equals: filters.color, mode: 'insensitive' };
+    if (filters?.line)
+      where.line = { equals: filters.line, mode: 'insensitive' };
+    if (filters?.usage)
+      where.usage = { equals: filters.usage, mode: 'insensitive' };
     if (filters?.brandId) where.brandId = filters.brandId;
 
     // Expanded search: name, sku, barcode, format, line, usage, supplierCode
@@ -253,19 +258,31 @@ export class StockService {
       distinct: ['usage'],
       select: { usage: true },
     });
-    
+
     // Fetch all active brands for this clinic
     const brands = await this.prisma.brand.findMany({
       where: { clinicId, isActive: true },
       select: { id: true, name: true },
-      orderBy: { name: 'asc' }
+      orderBy: { name: 'asc' },
     });
 
     return {
-      formats: formats.map((f) => f.format).filter((x) => x && x.trim() !== '').sort(),
-      colors: colors.map((c) => c.color).filter((x) => x && x.trim() !== '').sort(),
-      lines: lines.map((l) => l.line).filter((x) => x && x.trim() !== '').sort(),
-      usages: usages.map((u) => u.usage).filter((x) => x && x.trim() !== '').sort(),
+      formats: formats
+        .map((f) => f.format)
+        .filter((x) => x && x.trim() !== '')
+        .sort(),
+      colors: colors
+        .map((c) => c.color)
+        .filter((x) => x && x.trim() !== '')
+        .sort(),
+      lines: lines
+        .map((l) => l.line)
+        .filter((x) => x && x.trim() !== '')
+        .sort(),
+      usages: usages
+        .map((u) => u.usage)
+        .filter((x) => x && x.trim() !== '')
+        .sort(),
       brands,
     };
   }

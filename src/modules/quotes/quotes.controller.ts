@@ -122,11 +122,16 @@ export class QuotesController {
   @Post(':id/reject')
   @Permissions(PERMISSIONS.QUOTE_UPDATE)
   rejectQuote(
-    @Request() req: any, 
+    @Request() req: any,
     @Param('id') id: string,
-    @Body('reason') reason: string
+    @Body('reason') reason: string,
   ) {
-    return this.quotesService.rejectQuote(id, req.clinicId, req.user.id, reason);
+    return this.quotesService.rejectQuote(
+      id,
+      req.clinicId,
+      req.user.id,
+      reason,
+    );
   }
 
   @Post(':id/reopen')
