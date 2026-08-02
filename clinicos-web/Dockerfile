@@ -20,7 +20,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build the app (standalone output requires output: 'standalone' in next.config.ts)
-RUN NODE_OPTIONS="--max_old_space_size=1024" npm run build
+RUN npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
