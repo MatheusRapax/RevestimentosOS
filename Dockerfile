@@ -13,7 +13,7 @@ RUN npm ci
 COPY prisma ./prisma/
 RUN npx prisma generate
 COPY . .
-RUN npm run build
+RUN NODE_OPTIONS="--max_old_space_size=512" npm run build && test -d dist || (echo "Build failed to generate dist folder! Possible OOM." && exit 1)
 
 # Production stage
 FROM base AS runner
