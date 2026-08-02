@@ -8,8 +8,6 @@ services:
       dockerfile: Dockerfile
     container_name: revestimentos-backend-prod
     restart: always
-    env_file:
-      - .env
     environment:
       # Database URL should be provided by Coolify Environment Variables
       DATABASE_URL: ${DATABASE_URL}
@@ -40,8 +38,6 @@ services:
       dockerfile: Dockerfile
     container_name: revestimentos-frontend-prod
     restart: always
-    env_file:
-      - ./clinicos-web/.env.local
     environment:
       # URL to reach backend from user browser
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
