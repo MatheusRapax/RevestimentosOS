@@ -1,4 +1,4 @@
 {
-  "version": "1.7.3",
-  "content": "### Bug Fixes\n\n* **config:** move serverActions config to experimental block in nextjs config 6e3308b\n* **ui:** correct math for m2 pricing based on box price from database 5b42bf9"
+  "version": "1.7.4",
+  "content": "All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines."
 }
