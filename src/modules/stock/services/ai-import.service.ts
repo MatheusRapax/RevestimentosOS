@@ -837,7 +837,6 @@ ${JSON.stringify(sample, null, 2)}
         return {
           sku: item.sku || '',
           name: item.name || 'Sem nome',
-          brand: 'A Definir', // Será setado na chamada principal
           unit: unit as any,
           saleType: unit === 'M2' ? 'AREA' : 'UNIT',
           costCents,
@@ -853,9 +852,9 @@ ${JSON.stringify(sample, null, 2)}
           cst: item.cst || '',
           format: item.format || '',
           color: '',
-          height: item.height || '',
-          width: item.width || '',
-          depth: item.depth || '',
+          height: item.height ? this.sanitizeNumber(item.height) : undefined,
+          width: item.width ? this.sanitizeNumber(item.width) : undefined,
+          depth: item.depth ? this.sanitizeNumber(item.depth) : undefined,
         };
       })
       .filter((item) => {
