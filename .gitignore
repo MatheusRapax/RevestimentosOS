@@ -40,3 +40,4 @@ customers_import.json
 
 #planilhas
 *.xlsx
+tsconfig.tsbuildinfo
