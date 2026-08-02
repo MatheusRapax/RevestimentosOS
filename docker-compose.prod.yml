@@ -23,13 +23,14 @@ services:
     volumes:
       - uploads_data:/app/uploads
     labels:
+      - "traefik.enable=true"
       - "traefik.http.services.revestimentos-backend-prod.loadbalancer.server.port=3000"
     healthcheck:
       test: [ "CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health || exit 1" ]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      retries: 5
+      start_period: 60s
 
   # Next.js Frontend
   frontend:
@@ -45,17 +46,19 @@ services:
       INTERNAL_API_URL: http://backend:3000
       NODE_ENV: production
     depends_on:
-      - backend
+      backend:
+        condition: service_started
     networks:
       - coolify
     labels:
+      - "traefik.enable=true"
       - "traefik.http.services.revestimentos-frontend-prod.loadbalancer.server.port=3001"
     healthcheck:
       test: [ "CMD-SHELL", "wget --spider -q http://127.0.0.1:3001 || exit 1" ]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 60s
+      retries: 5
+      start_period: 90s
 
 networks:
   coolify:
