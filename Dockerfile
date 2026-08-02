@@ -9,11 +9,11 @@ FROM base AS builder
 # libssl-dev may be needed for some native compilations during build
 RUN apt-get update -y && apt-get install -y libssl-dev && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --no-audit --no-fund --maxsockets 3
 COPY prisma ./prisma/
 RUN npx prisma generate
 COPY . .
-ENV NODE_OPTIONS="--max-old-space-size=1024"
+ENV NODE_OPTIONS="--max-old-space-size=768"
 RUN npm run build && test -d dist || (echo "Build failed to generate dist folder! Check for type errors." && exit 1)
 
 # Production stage
@@ -24,7 +24,7 @@ ENV NODE_ENV=production
 
 COPY package*.json ./
 # Install only production dependencies
-RUN npm ci --only=production
+RUN npm ci --no-audit --no-fund --maxsockets 3 --only=production
 
 # Copy Prisma schema and regenerate client for the production environment
 COPY prisma ./prisma/
