@@ -1,4 +1,4 @@
 {
-  "version": "1.7.4",
-  "content": "All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines."
+  "version": "1.8.0",
+  "content": "### Features\n\n* **admin:** add mapping cache management panel for super admin 5943a0c\n\n\n### Bug Fixes\n\n* add traefik.enable=true and relax frontend depends_on to fix no available server error f920ef5\n* change localhost to 127.0.0.1 in docker healthchecks to fix IPv6 resolution issues causing unhealthy containers b955ab7\n* **quotes:** display price per m2 instead of box price for ad-hoc products f017c59\n* remove env_file references in docker-compose.prod.yml that cause instant failure 42c83c9\n* remove tsconfig.tsbuildinfo from git to prevent empty build artifacts in docker d206eca\n* replace wget --spider with wget -qO /dev/null in frontend healthcheck (BusyBox/Alpine does not support --spider) c4186ec\n* resolve TypeScript errors in ai-import.service.ts causing build failure 8caad81"
 }
