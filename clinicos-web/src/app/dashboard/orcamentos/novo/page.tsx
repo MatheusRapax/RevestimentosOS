@@ -702,12 +702,22 @@ export default function NovoOrcamentoPage() {
                                             })()}
                                         </div>
                                         <div>
-                                            <Label className="text-xs text-gray-500">
-                                                Preço/Caixa
-                                            </Label>
-                                            <p className="font-medium">
-                                                {formatCurrency(item.unitPriceCents)}
-                                            </p>
+                                            {(() => {
+                                                const isM2 = item.product?.unit?.toUpperCase() === 'M2';
+                                                const coverage = item.product?.boxCoverage;
+                                                const divisor = (isM2 && coverage && coverage > 0) ? coverage : 1;
+                                                const displayPrice = Math.round(item.unitPriceCents / divisor);
+                                                return (
+                                                    <>
+                                                        <Label className="text-xs text-gray-500">
+                                                            {isM2 ? 'Preço/m²' : 'Preço/Caixa'}
+                                                        </Label>
+                                                        <p className="font-medium">
+                                                            {formatCurrency(displayPrice)}
+                                                        </p>
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
                                         <div>
                                             <Label className="text-xs text-gray-500">

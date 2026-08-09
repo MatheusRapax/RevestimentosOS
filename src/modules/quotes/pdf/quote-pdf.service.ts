@@ -372,7 +372,7 @@ export class QuotePdfService {
           item.resultingArea ?? item.areaWithMargin ?? item.inputArea;
         const areaText =
           showUnitArea && finalArea ? `${finalArea.toFixed(2)}` : '';
-        const unit = item.product.unit || '-';
+        const unit = (item.product.unit || '-').toUpperCase();
 
         let unitCostText = '';
         if (showUnitPrice) {

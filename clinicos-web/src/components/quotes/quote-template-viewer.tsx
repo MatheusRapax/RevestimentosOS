@@ -226,7 +226,7 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                                     </td>
                                 </tr>
                                 {items.map((item) => {
-                                    const unit = item.product?.unit || '-';
+                                    const unit = (item.product?.unit || '-').toUpperCase();
                                     
                                     const qtyBoxes = item.quantityBoxes > 0 ? `${item.quantityBoxes}` : '';
                                     

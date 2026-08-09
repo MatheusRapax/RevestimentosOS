@@ -64,6 +64,8 @@ interface QuoteItem {
         sku: string;
         format?: string;
         line?: string;
+        unit?: string;
+        saleType?: string;
         boxCoverage?: number;
     };
     inputArea?: number;
@@ -811,19 +813,28 @@ export default function QuoteDetailPage() {
                                         {item.quantityBoxes}
                                     </td>
                                     <td className="px-4 py-3 text-right">
-                                        {item.discountCents > 0 ? (
-                                            <div className="flex flex-col items-end">
-                                                <span className="text-xs text-gray-400 line-through">
-                                                    {formatCurrency(item.unitPriceCents)}
-                                                </span>
-                                                <span className="font-medium text-green-700">
-                                                    {formatCurrency(item.unitPriceCents - (item.discountCents / (item.quantityBoxes || 1)))}
-                                                </span>
-                                            </div>
-                                        ) : (
-                                            formatCurrency(item.unitPriceCents)
-                                        )}
+                                        {(() => {
+                                            const isM2 = item.product?.unit?.toUpperCase() === 'M2' || item.product?.saleType === 'AREA';
+                                            const coverage = item.product?.boxCoverage;
+                                            const divisor = (isM2 && coverage && coverage > 0) ? coverage : 1;
+                                            const displayPrice = Math.round(item.unitPriceCents / divisor);
+                                            const displayDiscounted = Math.round((item.unitPriceCents - (item.discountCents / (item.quantityBoxes || 1))) / divisor);
+                                            const suffix = isM2 ? ' /m²' : '';
+                                            return item.discountCents > 0 ? (
+                                                <div className="flex flex-col items-end">
+                                                    <span className="text-xs text-gray-400 line-through">
+                                                        {formatCurrency(displayPrice)}{suffix}
+                                                    </span>
+                                                    <span className="font-medium text-green-700">
+                                                        {formatCurrency(displayDiscounted)}{suffix}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span>{formatCurrency(displayPrice)}{suffix}</span>
+                                            );
+                                        })()}
                                     </td>
+
                                     <td className="px-4 py-3 text-right">
                                         {item.discountCents > 0 ? (
                                             <div>
