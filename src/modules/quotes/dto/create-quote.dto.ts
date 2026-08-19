@@ -50,17 +50,19 @@ export class CreateQuoteItemDto {
 
   // Lote preferido (opcional)
   @IsOptional()
-  @IsString()
-  preferredLotId?: string;
+  preferredLotId?: string | null;
 
   // Ambiente onde o produto será instalado (opcional)
   @IsOptional()
-  @IsString()
-  environmentId?: string;
+  environmentId?: string | null;
+
+  // Ordem do item na tela
+  @IsOptional()
+  @IsInt()
+  sequence?: number;
 
   @IsOptional()
-  @IsString()
-  notes?: string;
+  notes?: string | null;
 }
 
 export class CreateQuoteDto {

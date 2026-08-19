@@ -1333,6 +1333,8 @@ model QuoteItem {
   quoteId   String
   productId String
 
+  sequence  Int    @default(0)
+
   // Quantidades (lógica dimensional)
   inputArea      Float? // Área informada pelo usuário (m²)
   marginPercent  Float? // Margem de perda específica deste item (%)
@@ -1452,6 +1454,8 @@ model OrderItem {
   id        String @id @default(uuid())
   orderId   String
   productId String
+
+  sequence  Int    @default(0)
 
   // Quantidades (copiadas do QuoteItem ou inseridas manualmente)
   inputArea      Float? // Área original (m²)

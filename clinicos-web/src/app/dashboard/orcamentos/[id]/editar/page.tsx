@@ -77,6 +77,7 @@ interface QuoteItem {
     totalCents: number;
     preferredLotId?: string;
     environmentId?: string;
+    sequence?: number;
 }
 
 export default function EditOrcamentoPage() {
@@ -254,6 +255,26 @@ export default function EditOrcamentoPage() {
         ]);
     };
 
+    // Mover item para cima
+    const moveItemUp = (index: number) => {
+        if (index === 0) return;
+        const newItems = [...items];
+        const temp = newItems[index];
+        newItems[index] = newItems[index - 1];
+        newItems[index - 1] = temp;
+        setItems(newItems);
+    };
+
+    // Mover item para baixo
+    const moveItemDown = (index: number) => {
+        if (index === items.length - 1) return;
+        const newItems = [...items];
+        const temp = newItems[index];
+        newItems[index] = newItems[index + 1];
+        newItems[index + 1] = temp;
+        setItems(newItems);
+    };
+
     // Remove item
     const removeItem = (index: number) => {
         setItems(items.filter((_, i) => i !== index));
@@ -412,7 +433,9 @@ export default function EditOrcamentoPage() {
             }
 
             // Update
-            for (const item of itemsToUpdate) {
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                if (!item.id) continue;
                 await api.patch(`/quotes/${quoteId}/items/${item.id}`, {
                     productId: item.productId,
                     inputArea: item.inputArea || undefined,
@@ -422,12 +445,15 @@ export default function EditOrcamentoPage() {
                     discountPercent: item.discountPercent !== undefined ? item.discountPercent : 0,
                     discountCents: item.discountPercent === 0 ? 0 : undefined,
                     preferredLotId: item.preferredLotId || undefined,
-                    environmentId: item.environmentId || undefined,
+                    environmentId: item.environmentId || null,
+                    sequence: i,
                 });
             }
 
             // Create
-            for (const item of itemsToCreate) {
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                if (item.id) continue;
                 await api.post(`/quotes/${quoteId}/items`, {
                     productId: item.productId,
                     inputArea: item.inputArea || undefined,
@@ -437,7 +463,8 @@ export default function EditOrcamentoPage() {
                     discountPercent: item.discountPercent !== undefined ? item.discountPercent : 0,
                     discountCents: item.discountPercent === 0 ? 0 : undefined,
                     preferredLotId: item.preferredLotId || undefined,
-                    environmentId: item.environmentId || undefined,
+                    environmentId: item.environmentId || null,
+                    sequence: i,
                 });
             }
 
@@ -611,9 +638,31 @@ export default function EditOrcamentoPage() {
                                 className="border rounded-lg p-4 bg-gray-50 space-y-4"
                             >
                                 <div className="flex items-start justify-between">
-                                    <span className="text-sm font-medium text-gray-500">
-                                        Item #{index + 1}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex flex-col">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                className="h-6 w-6 p-0 hover:bg-gray-200" 
+                                                onClick={() => moveItemUp(index)}
+                                                disabled={index === 0}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                                            </Button>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                className="h-6 w-6 p-0 hover:bg-gray-200"
+                                                onClick={() => moveItemDown(index)}
+                                                disabled={index === items.length - 1}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                            </Button>
+                                        </div>
+                                        <span className="text-sm font-medium text-gray-500">
+                                            Item #{index + 1}
+                                        </span>
+                                    </div>
                                     <Button
                                         variant="ghost"
                                         size="sm"

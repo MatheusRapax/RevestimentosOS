@@ -53,6 +53,7 @@ export class QuotesService {
     environmentId: string | null;
     preferredLotId: string | null;
     notes: string | null;
+    sequence: number;
   }> {
     // Busca o produto para obter boxCoverage
     const product = await this.prisma.product.findFirst({
@@ -123,9 +124,10 @@ export class QuotesService {
       unitPriceCents: item.unitPriceCents,
       discountCents,
       totalCents: Math.max(0, totalCents),
-      environmentId: item.environmentId || null,
-      preferredLotId: item.preferredLotId || null,
-      notes: item.notes || null,
+      environmentId: item.environmentId !== undefined ? item.environmentId : null,
+      preferredLotId: item.preferredLotId !== undefined ? item.preferredLotId : null,
+      notes: item.notes !== undefined ? item.notes : null,
+      sequence: item.sequence || 0,
     };
   }
 
@@ -206,6 +208,7 @@ export class QuotesService {
         architect: { select: { id: true, name: true } },
         seller: { select: { id: true, name: true } },
         items: {
+          orderBy: { sequence: 'asc' },
           include: {
             product: {
               select: {
@@ -253,6 +256,7 @@ export class QuotesService {
         architect: true,
         seller: { select: { id: true, name: true } },
         items: {
+          orderBy: { sequence: 'asc' },
           include: {
             product: {
               select: {
@@ -823,9 +827,10 @@ export class QuotesService {
             marginPercent: processedItem.marginPercent ?? undefined,
             areaWithMargin: processedItem.areaWithMargin ?? undefined,
             // Ensure optional nulls are handled
-            environmentId: processedItem.environmentId ?? undefined,
-            preferredLotId: processedItem.preferredLotId ?? undefined,
-            notes: processedItem.notes ?? undefined,
+            environmentId: processedItem.environmentId,
+            preferredLotId: processedItem.preferredLotId,
+            notes: processedItem.notes,
+            sequence: processedItem.sequence,
           },
         },
       },
@@ -905,10 +910,11 @@ export class QuotesService {
       discountPercent:
         dto.discountPercent ?? currentItem.discountPercent ?? undefined,
       environmentId:
-        dto.environmentId ?? currentItem.environmentId ?? undefined,
+        dto.environmentId !== undefined ? dto.environmentId : currentItem.environmentId,
       preferredLotId:
-        dto.preferredLotId ?? currentItem.preferredLotId ?? undefined,
-      notes: dto.notes ?? currentItem.notes ?? undefined,
+        dto.preferredLotId !== undefined ? dto.preferredLotId : currentItem.preferredLotId,
+      notes: dto.notes !== undefined ? dto.notes : currentItem.notes,
+      sequence: dto.sequence !== undefined ? dto.sequence : currentItem.sequence,
     };
 
     const processed = await this.processQuoteItem(
@@ -973,6 +979,8 @@ export class QuotesService {
         discountPercent: inputForCalc.discountPercent, // Note: processed object doesn't have discountPercent but we use input
         totalCents: processed.totalCents,
         preferredLotId: processed.preferredLotId,
+        environmentId: processed.environmentId,
+        sequence: processed.sequence,
         notes: processed.notes,
       },
     });

@@ -76,6 +76,7 @@ interface QuoteItem {
     totalCents: number;
     preferredLotId?: string;
     environmentId?: string;
+    sequence?: number;
 }
 
 export default function NovoOrcamentoPage() {
@@ -218,6 +219,26 @@ export default function NovoOrcamentoPage() {
         ]);
     };
 
+    // Mover item para cima
+    const moveItemUp = (index: number) => {
+        if (index === 0) return;
+        const newItems = [...items];
+        const temp = newItems[index];
+        newItems[index] = newItems[index - 1];
+        newItems[index - 1] = temp;
+        setItems(newItems);
+    };
+
+    // Mover item para baixo
+    const moveItemDown = (index: number) => {
+        if (index === items.length - 1) return;
+        const newItems = [...items];
+        const temp = newItems[index];
+        newItems[index] = newItems[index + 1];
+        newItems[index + 1] = temp;
+        setItems(newItems);
+    };
+
     // Remove item
     const removeItem = (index: number) => {
         setItems(items.filter((_, i) => i !== index));
@@ -356,7 +377,7 @@ export default function NovoOrcamentoPage() {
                 deliveryFeeCents,
                 globalMarginPercent: globalMarginPercent !== undefined ? globalMarginPercent : null,
                 discountPercent: globalDiscountPercent !== undefined ? globalDiscountPercent : 0,
-                items: items.map(item => ({
+                items: items.map((item, index) => ({
                     productId: item.productId,
                     inputArea: item.inputArea || undefined,
                     marginPercent: typeof item.marginPercent === 'number' ? item.marginPercent : undefined,
@@ -365,7 +386,8 @@ export default function NovoOrcamentoPage() {
                     discountPercent: item.discountPercent !== undefined ? item.discountPercent : 0,
                     discountCents: item.discountPercent === 0 ? 0 : undefined,
                     preferredLotId: item.preferredLotId || undefined,
-                    environmentId: item.environmentId || undefined,
+                    environmentId: item.environmentId || null,
+                    sequence: index,
                 })),
             };
 
