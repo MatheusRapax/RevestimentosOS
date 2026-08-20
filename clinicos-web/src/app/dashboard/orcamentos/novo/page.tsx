@@ -31,6 +31,8 @@ import { ProductCombobox } from '@/components/quotes/product-combobox';
 import { AdHocProductModal } from '@/components/products/ad-hoc-product-modal';
 import { QuickCustomerDialog } from '@/components/customers/quick-customer-dialog';
 import { QuickArchitectDialog } from '@/components/architects/quick-architect-dialog';
+import { QuickEnvironmentDialog } from '@/components/environments/quick-environment-dialog';
+import { toast } from 'sonner';
 
 interface Customer {
     id: string;
@@ -103,6 +105,8 @@ export default function NovoOrcamentoPage() {
     const [isAdhocModalOpen, setIsAdhocModalOpen] = useState(false);
     const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
     const [isQuickArchitectOpen, setIsQuickArchitectOpen] = useState(false);
+    const [isQuickEnvironmentOpen, setIsQuickEnvironmentOpen] = useState(false);
+    const [quickEnvironmentItemIndex, setQuickEnvironmentItemIndex] = useState<number | null>(null);
 
     const handleQuickCustomerCreated = (customer: Customer) => {
         setCustomers(prev => [...prev, customer]);
@@ -112,6 +116,14 @@ export default function NovoOrcamentoPage() {
     const handleQuickArchitectCreated = (architect: Architect) => {
         setArchitects(prev => [...prev, architect]);
         setArchitectId(architect.id);
+    };
+
+    const handleEnvironmentCreated = (environment: any) => {
+        setEnvironments(prev => [...prev, environment]);
+        if (quickEnvironmentItemIndex !== null) {
+            updateItem(quickEnvironmentItemIndex, 'environmentId', environment.id);
+            setQuickEnvironmentItemIndex(null);
+        }
     };
 
     // Calculated totals
@@ -358,17 +370,23 @@ export default function NovoOrcamentoPage() {
 
     const handleSubmit = async () => {
         if (!customerId) {
-            setError('Selecione um cliente');
+            toast.error('Selecione um cliente');
             return;
         }
         if (items.length === 0) {
-            setError('Adicione pelo menos um item');
+            toast.error('Adicione pelo menos um item');
+            return;
+        }
+
+        const invalidIndex = items.findIndex(item => !item.inputArea && (!item.quantityBoxes || item.quantityBoxes < 1));
+        if (invalidIndex !== -1) {
+            const itemName = items[invalidIndex].product?.name || `Item`;
+            toast.error(`Erro no Item #${invalidIndex + 1} (${itemName}): A quantidade de caixas não pode ser zero. Corrija este valor antes de salvar.`);
             return;
         }
 
         try {
             setIsSubmitting(true);
-            setError('');
 
             const quoteData = {
                 customerId,
@@ -608,10 +626,12 @@ export default function NovoOrcamentoPage() {
 
                                     {/* Area Input */}
                                     <div className="space-y-2">
-                                        <Label className="flex items-center gap-1">
-                                            <Calculator className="h-3 w-3" />
-                                            Área Desejada (m²)
-                                        </Label>
+                                        <div className="flex items-center h-6">
+                                            <Label className="flex items-center gap-1">
+                                                <Calculator className="h-3 w-3" />
+                                                Área Desejada (m²)
+                                            </Label>
+                                        </div>
                                         <Input
                                             type="number"
                                             step="0.01"
@@ -627,9 +647,11 @@ export default function NovoOrcamentoPage() {
 
                                     {/* Margin */}
                                     <div className="space-y-2">
-                                        <Label className="flex items-center gap-1">
-                                            Margem de Perda (%)
-                                        </Label>
+                                        <div className="flex items-center h-6">
+                                            <Label className="flex items-center gap-1">
+                                                Margem de Perda (%)
+                                            </Label>
+                                        </div>
                                         <Input
                                             type="number"
                                             min="0"
@@ -645,7 +667,9 @@ export default function NovoOrcamentoPage() {
 
                                     {/* Boxes (calculated or manual) */}
                                     <div className="space-y-2">
-                                        <Label>Qtd. Caixas</Label>
+                                        <div className="flex items-center h-6">
+                                            <Label>Qtd. Caixas</Label>
+                                        </div>
                                         <Input
                                             type="number"
                                             min="0"
@@ -669,7 +693,20 @@ export default function NovoOrcamentoPage() {
 
                                     {/* Environment Select */}
                                     <div className="space-y-2">
-                                        <Label>Ambiente</Label>
+                                        <div className="flex items-center gap-2 h-6">
+                                            <Label>Ambiente</Label>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-6 px-2 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                                                onClick={() => {
+                                                    setQuickEnvironmentItemIndex(index);
+                                                    setIsQuickEnvironmentOpen(true);
+                                                }}
+                                            >
+                                                + Novo
+                                            </Button>
+                                        </div>
                                         <Select
                                             value={item.environmentId || 'none'}
                                             onValueChange={(val) => updateItem(index, 'environmentId', val === 'none' ? undefined : val)}
@@ -899,6 +936,12 @@ export default function NovoOrcamentoPage() {
                 open={isQuickArchitectOpen}
                 onOpenChange={setIsQuickArchitectOpen}
                 onCreated={handleQuickArchitectCreated}
+            />
+
+            <QuickEnvironmentDialog
+                open={isQuickEnvironmentOpen}
+                onOpenChange={setIsQuickEnvironmentOpen}
+                onCreated={handleEnvironmentCreated}
             />
         </div>
     );

@@ -50,7 +50,9 @@ export function StockLotSelector({
 
     return (
         <div className="space-y-2">
-            <Label>Lote Preferencial (Opcional)</Label>
+            <div className="flex items-center h-6">
+                <Label>Lote Preferencial (Opcional)</Label>
+            </div>
             <div className="flex gap-2 items-start">
                 <div className="flex-1">
                     <Select

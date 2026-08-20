@@ -30,6 +30,10 @@ interface Product {
     priceCents?: number;
     promotionalPriceCents?: number;
     lots?: any[];
+    totalStock?: number;
+    totalReserved?: number;
+    brand?: { name: string };
+    category?: { name: string };
 }
 
 interface ProductComboboxProps {
@@ -119,14 +123,14 @@ export function ProductCombobox({ value, onChange, disabled }: ProductComboboxPr
                     disabled={disabled}
                 >
                     {selectedProduct ? (
-                        <span className="truncate">{selectedProduct.name}</span>
+                        <span className="truncate" title={selectedProduct.name}>{selectedProduct.name}</span>
                     ) : (
                         <span className="text-muted-foreground">Selecione o produto...</span>
                     )}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[420px] p-0" align="start">
+            <PopoverContent className="w-[500px] p-0" align="start">
                 <Command shouldFilter={false}>
                     <div className="flex items-center border-b px-3">
                         {isSearching
@@ -162,14 +166,20 @@ export function ProductCombobox({ value, onChange, disabled }: ProductComboboxPr
                                                 value === product.id ? 'opacity-100' : 'opacity-0',
                                             )}
                                         />
-                                        <div className="flex flex-col flex-1 min-w-0">
-                                            <span className="font-medium truncate">{product.name}</span>
-                                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                        <div className="flex flex-col flex-1 min-w-0 pr-2">
+                                            <span className="font-medium whitespace-normal break-words">{product.name}</span>
+                                            <div className="flex items-center gap-2 mt-1 flex-wrap">
                                                 {product.sku && (
-                                                    <span className="text-xs text-muted-foreground">SKU: {product.sku}</span>
+                                                    <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-1 rounded">SKU: {product.sku}</span>
+                                                )}
+                                                {product.brand && (
+                                                    <span className="text-xs text-muted-foreground border border-gray-200 px-1 rounded">{product.brand.name}</span>
+                                                )}
+                                                {product.category && (
+                                                    <span className="text-xs text-muted-foreground">{product.category.name}</span>
                                                 )}
                                                 {product.format && (
-                                                    <span className="text-xs bg-slate-100 text-slate-600 px-1 rounded">{product.format}</span>
+                                                    <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-1 rounded">{product.format}</span>
                                                 )}
                                                 {product.line && (
                                                     <span className="text-xs text-muted-foreground">{product.line}</span>
@@ -198,6 +208,11 @@ export function ProductCombobox({ value, onChange, disabled }: ProductComboboxPr
                                             )}
                                             {product.boxCoverage && (
                                                 <span className="text-xs text-muted-foreground">{product.boxCoverage} m²/cx</span>
+                                            )}
+                                            {typeof product.totalStock === 'number' && (
+                                                <span className="text-xs font-medium text-blue-600 mt-1 bg-blue-50 px-1 rounded">
+                                                    Estoque: {product.totalStock - (product.totalReserved || 0)}
+                                                </span>
                                             )}
                                         </div>
                                     </CommandItem>

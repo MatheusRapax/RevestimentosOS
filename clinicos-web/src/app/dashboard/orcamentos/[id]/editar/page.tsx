@@ -30,7 +30,9 @@ import { StockLotSelector } from '@/components/stock/StockLotSelector';
 import { ProductCombobox } from '@/components/quotes/product-combobox';
 import { AdHocProductModal } from '@/components/products/ad-hoc-product-modal';
 import { toast } from 'sonner';
+import { QuickCustomerDialog } from '@/components/customers/quick-customer-dialog';
 import { QuickArchitectDialog } from '@/components/architects/quick-architect-dialog';
+import { QuickEnvironmentDialog } from '@/components/environments/quick-environment-dialog';
 
 interface Customer {
     id: string;
@@ -107,11 +109,27 @@ export default function EditOrcamentoPage() {
 
     // Computed state
     const [isAdhocModalOpen, setIsAdhocModalOpen] = useState(false);
+    const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
     const [isQuickArchitectOpen, setIsQuickArchitectOpen] = useState(false);
+    const [isQuickEnvironmentOpen, setIsQuickEnvironmentOpen] = useState(false);
+    const [quickEnvironmentItemIndex, setQuickEnvironmentItemIndex] = useState<number | null>(null);
 
     const handleQuickArchitectCreated = (architect: Architect) => {
         setArchitects(prev => [...prev, architect]);
         setArchitectId(architect.id);
+    };
+
+    const handleArchitectCreated = (architect: Architect) => {
+        setArchitects(prev => [...prev, architect]);
+        setArchitectId(architect.id);
+    };
+
+    const handleEnvironmentCreated = (environment: any) => {
+        setEnvironments(prev => [...prev, environment]);
+        if (quickEnvironmentItemIndex !== null) {
+            updateItem(quickEnvironmentItemIndex, 'environmentId', environment.id);
+            setQuickEnvironmentItemIndex(null);
+        }
     };
 
     // Calculated totals
@@ -394,17 +412,23 @@ export default function EditOrcamentoPage() {
 
     const handleUpdateQuote = async () => {
         if (!customerId) {
-            setError('Selecione um cliente');
+            toast.error('Selecione um cliente');
             return;
         }
         if (items.length === 0) {
-            setError('Adicione pelo menos um item');
+            toast.error('Adicione pelo menos um item');
+            return;
+        }
+
+        const invalidIndex = items.findIndex(item => !item.inputArea && (!item.quantityBoxes || item.quantityBoxes < 1));
+        if (invalidIndex !== -1) {
+            const itemName = items[invalidIndex].product?.name || `Item`;
+            toast.error(`Erro no Item #${invalidIndex + 1} (${itemName}): A quantidade de caixas não pode ser zero. Corrija este valor antes de salvar.`);
             return;
         }
 
         try {
             setIsSubmitting(true);
-            setError('');
 
             const quoteData = {
                 customerId,
@@ -429,25 +453,47 @@ export default function EditOrcamentoPage() {
 
             // Delete
             for (const id of itemsToDelete) {
-                await api.delete(`/quotes/${quoteId}/items/${id}`);
+                try {
+                    await api.delete(`/quotes/${quoteId}/items/${id}`);
+                } catch (err: any) {
+                    if (err.response?.status !== 404) throw err;
+                }
             }
 
             // Update
             for (let i = 0; i < items.length; i++) {
                 const item = items[i];
                 if (!item.id) continue;
-                await api.patch(`/quotes/${quoteId}/items/${item.id}`, {
-                    productId: item.productId,
-                    inputArea: item.inputArea || undefined,
-                    marginPercent: typeof item.marginPercent === 'number' ? item.marginPercent : undefined,
-                    quantityBoxes: item.inputArea ? undefined : item.quantityBoxes,
-                    unitPriceCents: item.unitPriceCents,
-                    discountPercent: item.discountPercent !== undefined ? item.discountPercent : 0,
-                    discountCents: item.discountPercent === 0 ? 0 : undefined,
-                    preferredLotId: item.preferredLotId || undefined,
-                    environmentId: item.environmentId || null,
-                    sequence: i,
-                });
+                try {
+                    await api.patch(`/quotes/${quoteId}/items/${item.id}`, {
+                        productId: item.productId,
+                        inputArea: item.inputArea || undefined,
+                        marginPercent: typeof item.marginPercent === 'number' ? item.marginPercent : undefined,
+                        quantityBoxes: item.inputArea ? undefined : item.quantityBoxes,
+                        unitPriceCents: item.unitPriceCents,
+                        discountPercent: item.discountPercent !== undefined ? item.discountPercent : 0,
+                        discountCents: item.discountPercent === 0 ? 0 : undefined,
+                        preferredLotId: item.preferredLotId || undefined,
+                        environmentId: item.environmentId || null,
+                        sequence: i,
+                    });
+                } catch (err: any) {
+                    if (err.response?.status !== 404) throw err;
+                    
+                    // If 404, the item was probably deleted in a previous failed save attempt. Recreate it.
+                    await api.post(`/quotes/${quoteId}/items`, {
+                        productId: item.productId,
+                        inputArea: item.inputArea || undefined,
+                        marginPercent: typeof item.marginPercent === 'number' ? item.marginPercent : undefined,
+                        quantityBoxes: item.inputArea ? undefined : item.quantityBoxes,
+                        unitPriceCents: item.unitPriceCents,
+                        discountPercent: item.discountPercent !== undefined ? item.discountPercent : 0,
+                        discountCents: item.discountPercent === 0 ? 0 : undefined,
+                        preferredLotId: item.preferredLotId || undefined,
+                        environmentId: item.environmentId || null,
+                        sequence: i,
+                    });
+                }
             }
 
             // Create
@@ -722,10 +768,12 @@ export default function EditOrcamentoPage() {
 
                                     {/* Area Input */}
                                     <div className="space-y-2">
-                                        <Label className="flex items-center gap-1">
-                                            <Calculator className="h-3 w-3" />
-                                            Área Desejada (m²)
-                                        </Label>
+                                        <div className="flex items-center h-6">
+                                            <Label className="flex items-center gap-1">
+                                                <Calculator className="h-3 w-3" />
+                                                Área Desejada (m²)
+                                            </Label>
+                                        </div>
                                         <Input
                                             type="number"
                                             step="0.01"
@@ -741,9 +789,11 @@ export default function EditOrcamentoPage() {
 
                                     {/* Margin */}
                                     <div className="space-y-2">
-                                        <Label className="flex items-center gap-1">
-                                            Margem de Perda (%)
-                                        </Label>
+                                        <div className="flex items-center h-6">
+                                            <Label className="flex items-center gap-1">
+                                                Margem de Perda (%)
+                                            </Label>
+                                        </div>
                                         <Input
                                             type="number"
                                             min="0"
@@ -759,7 +809,9 @@ export default function EditOrcamentoPage() {
 
                                     {/* Boxes (calculated or manual) */}
                                     <div className="space-y-2">
-                                        <Label>Qtd. Caixas</Label>
+                                        <div className="flex items-center h-6">
+                                            <Label>Qtd. Caixas</Label>
+                                        </div>
                                         <Input
                                             type="number"
                                             min="0"
@@ -783,7 +835,20 @@ export default function EditOrcamentoPage() {
 
                                     {/* Environment Select */}
                                     <div className="space-y-2">
-                                        <Label>Ambiente</Label>
+                                        <div className="flex items-center gap-2 h-6">
+                                            <Label>Ambiente</Label>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-6 px-2 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                                                onClick={() => {
+                                                    setQuickEnvironmentItemIndex(index);
+                                                    setIsQuickEnvironmentOpen(true);
+                                                }}
+                                            >
+                                                + Novo
+                                            </Button>
+                                        </div>
                                         <Select
                                             value={item.environmentId || 'none'}
                                             onValueChange={(val) => updateItem(index, 'environmentId', val === 'none' ? undefined : val)}
@@ -1009,7 +1074,13 @@ export default function EditOrcamentoPage() {
             <QuickArchitectDialog
                 open={isQuickArchitectOpen}
                 onOpenChange={setIsQuickArchitectOpen}
-                onCreated={handleQuickArchitectCreated}
+                onCreated={handleArchitectCreated}
+            />
+
+            <QuickEnvironmentDialog
+                open={isQuickEnvironmentOpen}
+                onOpenChange={setIsQuickEnvironmentOpen}
+                onCreated={handleEnvironmentCreated}
             />
         </div>
     );
