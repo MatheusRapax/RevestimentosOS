@@ -1,4 +1,4 @@
 {
-  "version": "1.9.0",
-  "content": "### Features\n\n* **quotes:** adicionar reordenação de itens e correção de ambientes b192130"
+  "version": "1.10.0",
+  "content": "### Features\n\n* **quotes:** melhorar UI do combobox de produto e robustez\" -m \"- Ampliado espaço do popover de produtos para evitar cortes f3b47ee"
 }

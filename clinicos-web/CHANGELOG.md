@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.10.0](///compare/v1.9.0...v1.10.0) (2026-08-20)
+
+
+### Features
+
+* **quotes:** melhorar UI do combobox de produto e robustez" -m "- Ampliado espaço do popover de produtos para evitar cortes f3b47ee
+
 ## [1.9.0](///compare/v1.8.0...v1.9.0) (2026-08-19)
 
 
