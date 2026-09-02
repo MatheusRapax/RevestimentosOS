@@ -1,7 +1,7 @@
 {
   "name": "clinicos",
   "version": "1.0.0",
-  "description": "MOA NEXUS - Multi-tenant ERP for clinics",
+  "description": "RevestimentosOS - ERP multi-tenant para lojas de revestimentos (backend NestJS + Prisma). Ver README.md e ARCHITECTURE.md.",
   "author": "",
   "private": true,
   "license": "UNLICENSED",

@@ -1,1120 +1,377 @@
-# MOA NEXUS - Arquitetura do Sistema
+# RevestimentosOS — Arquitetura do Sistema
 
-## Visão Geral
+> ERP multi-tenant para lojas de revestimentos. Backend NestJS + Prisma/PostgreSQL, frontend Next.js.
+> Para setup e visão geral, ver [`README.md`](README.md).
 
-O MOA NEXUS é um sistema ERP multi-tenant para clínicas, construído com arquitetura modular e escalável usando NestJS, Prisma e PostgreSQL.
-
-## Princípios Arquiteturais
-
-### 1. Clean Architecture
-
-- **Separação de Responsabilidades**: Cada camada tem responsabilidades bem definidas
-- **Dependency Inversion**: Dependências apontam para abstrações
-- **Modularidade**: Módulos independentes e reutilizáveis
-- **Testabilidade**: Código facilmente testável por design
-
-### 2. Domain-Driven Design (DDD)
-
-- **Bounded Contexts**: Módulos representam contextos delimitados
-- **Entities**: Modelos de domínio com identidade
-- **Value Objects**: Objetos imutáveis sem identidade
-- **Services**: Lógica de negócio complexa
-
-## Camadas da Aplicação
-
-```
-┌─────────────────────────────────────────┐
-│         Presentation Layer              │
-│    (Controllers, DTOs, Guards)          │
-└─────────────────────────────────────────┘
-                  ↓
-┌─────────────────────────────────────────┐
-│         Application Layer               │
-│    (Services, Use Cases)                │
-└─────────────────────────────────────────┘
-                  ↓
-┌─────────────────────────────────────────┐
-│         Domain Layer                    │
-│    (Entities, Business Logic)           │
-└─────────────────────────────────────────┘
-                  ↓
-┌─────────────────────────────────────────┐
-│         Infrastructure Layer            │
-│    (Prisma, Database, External APIs)    │
-└─────────────────────────────────────────┘
-```
-
-## Estrutura de Módulos
-
-### Core Modules (Infraestrutura)
-
-#### 1. Auth Module
-- **Responsabilidade**: Autenticação e autorização
-- **Componentes**:
-  - `AuthService`: Lógica de registro, login, validação
-  - `AuthController`: Endpoints de autenticação
-  - `JwtStrategy`: Estratégia Passport JWT
-  - `JwtAuthGuard`: Proteção de rotas autenticadas
-
-#### 2. RBAC Module
-- **Responsabilidade**: Controle de acesso baseado em roles
-- **Componentes**:
-  - `PermissionsGuard`: Validação de permissões
-  - `@Permissions`: Decorator para definir permissões
-  - `permissions.ts`: Registro central de permissões
-
-#### 3. Tenant Module
-- **Responsabilidade**: Contexto multi-tenant
-- **Componentes**:
-  - `TenantService`: Resolução e validação de tenant
-  - `TenantGuard`: Validação de acesso e injeção de contexto
-- **Decisão Arquitetural**:
-  - Guard ao invés de Middleware para garantir execução APÓS autenticação
-  - Tenant resolution depende de `req.user` (populado por JwtAuthGuard)
-  - Middleware executaria antes dos guards, sem acesso a `req.user`
-
-#### 4. Prisma Module
-- **Responsabilidade**: Acesso ao banco de dados
-- **Componentes**:
-  - `PrismaService`: Cliente Prisma com lifecycle hooks
-  - Global module para injeção em toda aplicação
-
-#### 5. Audit Module
-- **Responsabilidade**: Auditoria automática de ações
-- **Componentes**:
-  - `AuditService`: Persistência de logs de auditoria
-  - `AuditInterceptor`: Interceptor global HTTP
-  - `AuditController`: Endpoint de consulta de logs
-- **Características**:
-  - Automático (não requer modificação de controllers)
-  - Resiliente (não quebra aplicação se falhar)
-  - Sem dados sensíveis
-  - Compliance LGPD/GDPR
-
-### Business Modules
-
-#### 1. Clinics Module
-- **Responsabilidade**: Gerenciamento de clínicas
-- **Funcionalidades**:
-  - Criação de clínicas
-  - Listagem de clínicas do usuário
-  - Validação de acesso
-  - Contexto de tenant
-
-#### 4. Professionals Module (Admin v1 - CRUD Complete)
-
-**Objective**: Provide complete admin management for clinic professionals
-
-**Architecture Pattern**: Explicit Multi-Tenancy + Soft Delete
-
-**Key Principles**:
-- TenantGuard is mandatory (no implicit clinic resolution)
-- Role filtering at query level (PROFESSIONAL only)
-- DTO pattern for future extensibility
-- Administrative endpoints (RBAC-ready)
-- Soft delete over physical delete
-- Self-removal protection
-
-**Endpoints**:
-- `GET /professionals` - List active professionals
-- `POST /professionals` - Create professional (HTTP 201)
-- `PATCH /professionals/:userId/activate` - Activate
-- `PATCH /professionals/:userId/deactivate` - Deactivate
-- `DELETE /professionals/:userId` - Soft delete
-
-**Guards**:
-- `JwtAuthGuard` - Authentication required
-- `TenantGuard` - X-Clinic-Id header required
-- `PermissionsGuard` - Commented out, ready for RBAC v2
-
-**Service Logic**:
-```typescript
-// List - only active professionals
-where: {
-  clinicId,
-  role: { key: 'PROFESSIONAL' },
-  active: true
-}
-
-// Create - validates and prevents duplicates
-- Check user exists
-- Check not already in clinic (409 if duplicate)
-- Enforce PROFESSIONAL role
-- Create with active=true
-
-// Soft Delete - preserves history
-await prisma.clinicUser.update({
-  where: { id },
-  data: { active: false }
-})
-
-// Self-removal protection
-if (userId === currentUserId) {
-  throw ForbiddenException
-}
-```
-
-**Schema Changes**:
-```prisma
-model ClinicUser {
-  active    Boolean  @default(true)
-  updatedAt DateTime @default(now()) @updatedAt
-}
-```
-
-**Why This Matters**:
-- Prevents returning admins/receptionists in professional selects
-- Establishes correct multi-tenant pattern for future modules
-- Soft delete preserves appointment/encounter history
-- Self-removal protection prevents admin lockout
-- Foundation for admin UI and RBAC expansion
-- Replaces architectural workaround (/clinics/users)
-
-**Design Decisions**:
-1. **Soft Delete**: Sets `active=false` instead of physical deletion
-   - Preserves historical data
-   - Allows reactivation
-   - Prevents broken references
-2. **Self-Removal Protection**: Prevents admins from removing themselves
-   - Avoids admin lockout scenarios
-   - Forces deliberate admin transfer
-3. **Consistent Naming**: Uses `userId` (not `professionalId`)
-   - Matches database schema
-   - Avoids confusion with ClinicUser.id
-
-**Future Enhancements**:
-- Specialty filtering
-- Availability management
-- Professional-specific settings
-- Color coding for calendar
-- Working hours configuration
+**Última atualização:** 2026-09-02
 
 ---
 
-#### 5. RBAC (Role-Based Access Control) v1
+## Sumário
 
-**Objective**: Enforce runtime permission checks on administrative endpoints
-
-**Architecture Pattern**: Guard-Based Permission Enforcement
-
-**Key Principles**:
-- Permissions enforced at runtime (not just documentation)
-- Tenant-aware permission checks
-- Static role-permission mappings (seeded)
-- Guard-based enforcement (NestJS idiomatic)
-- Explicit over implicit
-
-**Schema**:
-```prisma
-model Permission {
-  id          String   @id @default(uuid())
-  key         String   @unique
-  description String
-  rolePermissions RolePermission[]
-}
-
-model RolePermission {
-  roleId       String
-  permissionId String
-  role         Role       @relation(...)
-  permission   Permission @relation(...)
-  @@unique([roleId, permissionId])
-}
-```
-
-**Core Components**:
-
-1. **PERMISSIONS Constants** (`src/core/rbac/permissions.ts`):
-   - 37 permissions across 9 modules
-   - Type-safe permission keys
-   - Organized by module (Clinic, Appointments, Encounters, etc.)
-
-2. **@Permissions Decorator** (`src/core/rbac/decorators/permissions.decorator.ts`):
-   - Declares required permissions for routes
-   - Uses SetMetadata to attach permissions to route handler
-
-3. **PermissionsGuard** (`src/core/rbac/guards/permissions.guard.ts`):
-   - Executes after JwtAuthGuard and TenantGuard
-   - Fetches user's ClinicUser record for current clinic
-   - Loads role's permissions via RolePermission
-   - Checks if user has ALL required permissions (AND logic)
-   - Throws 403 if missing permissions
-
-**Guard Execution Flow**:
-```typescript
-1. JwtAuthGuard → Authenticates user (req.user)
-2. TenantGuard → Validates clinic access (req.clinicId)
-3. PermissionsGuard → Checks permissions
-   - Extract required permissions from @Permissions decorator
-   - Fetch ClinicUser where { userId, clinicId, active: true }
-   - Load role.rolePermissions.permission
-   - Verify user has ALL required permissions
-   - Allow or throw ForbiddenException
-```
-
-**Permission Logic**:
-```typescript
-// AND logic - user must have ALL permissions
-const hasAllPermissions = requiredPermissions.every(permission =>
-  userPermissions.includes(permission)
-);
-```
-
-**Role-Permission Mappings** (Seeded):
-```typescript
-ADMIN:
-  - CLINIC_ADMIN
-  - PROFESSIONAL_READ
-  - PROFESSIONAL_MANAGE
-
-CLINIC_ADMIN:
-  - CLINIC_ADMIN
-  - PROFESSIONAL_READ
-  - PROFESSIONAL_MANAGE
-
-PROFESSIONAL:
-  - PROFESSIONAL_READ
-  - (+ clinical operation permissions)
-
-RECEPTIONIST:
-  - PROFESSIONAL_READ
-  - (+ scheduling permissions)
-```
-
-**Usage Example**:
-```typescript
-@Controller('professionals')
-@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
-export class ProfessionalsController {
-  
-  @Get()
-  @Permissions(PERMISSIONS.PROFESSIONAL_READ)
-  async getProfessionals() { }
-  
-  @Post()
-  @Permissions(PERMISSIONS.PROFESSIONAL_MANAGE)
-  async createProfessional() { }
-}
-```
-
-**Error Responses**:
-- **403 Forbidden** - Missing permission
-  ```json
-  {
-    "message": "You do not have permission to perform this action",
-    "error": "Forbidden",
-    "statusCode": 403
-  }
-  ```
-- **403 Forbidden** - No role in clinic
-  ```json
-  {
-    "message": "User has no role in this clinic",
-    "error": "Forbidden",
-    "statusCode": 403
-  }
-  ```
-
-**Why This Matters**:
-- Security enforced at runtime, not just documentation
-- Tenant-aware (permissions checked per clinic)
-- Prevents unauthorized access to admin endpoints
-- Clean separation of concerns (guards enforce, decorators declare)
-- Foundation for future permission management UI
-
-**Design Decisions**:
-1. **Static Permissions (v1)**: Permissions seeded, not editable via UI
-   - Simpler implementation
-   - Sufficient for initial rollout
-   - UI can be added in v2
-2. **AND Logic**: User must have ALL required permissions
-   - More restrictive, more secure
-   - Clear permission requirements
-3. **Active User Filtering**: Only active ClinicUser records checked
-   - Respects soft delete pattern
-   - Prevents deactivated users from accessing resources
-
-**Current Status**:
-- ✅ Enabled on all protected controllers
-- ✅ 40+ permissions defined (including audit.read)
-- ✅ 4 roles with mappings seeded
-- ✅ Integrated with Audit Log v1
-
-**Future Enhancements**:
-- Permission management UI
-- Dynamic role creation
-- Fine-grained permissions per resource
-- Permission caching for performance
+1. [Visão geral e identidade](#1-visão-geral-e-identidade)
+2. [Camadas e princípios](#2-camadas-e-princípios)
+3. [Multi-tenancy](#3-multi-tenancy)
+4. [Autenticação e autorização (guards)](#4-autenticação-e-autorização-guards)
+5. [Módulos por domínio](#5-módulos-por-domínio)
+6. [Modelo de dados](#6-modelo-de-dados)
+7. [Fluxos de negócio automatizados](#7-fluxos-de-negócio-automatizados)
+8. [Motor de importação de catálogo](#8-motor-de-importação-de-catálogo)
+9. [Integração fiscal](#9-integração-fiscal)
+10. [Frontend](#10-frontend)
+11. [Deploy](#11-deploy)
+12. [Convenções](#12-convenções)
+13. [Dívida técnica e pontos de atenção](#13-dívida-técnica-e-pontos-de-atenção)
 
 ---
 
-#### 6. Audit Log v1
+## 1. Visão geral e identidade
 
-**Objective**: Track administrative actions with immutable, tenant-scoped logs
+| Aspecto | Situação |
+|---|---|
+| **Origem** | Fork do `ClinicOS` / "MOA NEXUS" — ERP multi-tenant para clínicas |
+| **Hoje** | ERP para lojas de revestimentos (porcelanato, cerâmica, louças, metais) |
+| **Transformação** | [`docs/plans/PLAN-erp-revestimentos.md`](docs/plans/PLAN-erp-revestimentos.md) — Fases 1-5 "implementado" |
+| **Estratégia** | O domínio de vendas (`Customer`/`Quote`/`Order`) foi construído **ao lado** do domínio clínico, que foi mantido como base e ocultado — não removido |
+| **Versão** | Backend e frontend versionados juntos via `standard-version` (`npm run release` no frontend) |
 
-**Architecture Pattern**: Service-Level Explicit Logging
-
-**Key Principles**:
-- Server-side logging only (not frontend)
-- Tenant-scoped (clinicId required)
-- Immutable entries (no edit/delete)
-- Explicit logging calls (no interceptors v1)
-- Read-only UI
-
-**Schema**:
-```prisma
-model AuditLog {
-  id         String      @id @default(uuid())
-  clinicId   String?
-  userId     String?
-  action     AuditAction // enum: CREATE, UPDATE, DELETE, VIEW, LOGIN, EXPORT
-  entity     String
-  entityId   String?
-  message    String?
-  ip         String?
-  userAgent  String?
-  createdAt  DateTime    @default(now())
-
-  clinic Clinic? @relation(...)
-  user   User?   @relation(...)
-
-  @@index([clinicId, createdAt])
-  @@index([userId, createdAt])
-}
-```
-
-**Core Components**:
-
-1. **AuditService** (`src/core/audit/audit.service.ts`):
-   ```typescript
-   @Injectable()
-   export class AuditService {
-     async log(data: {
-       clinicId: string;
-       userId?: string;
-       action: AuditAction;
-       entity: string;
-       entityId?: string;
-       message?: string;
-     }): Promise<void>
-     
-     async findAll(clinicId: string, filters?: {...}): Promise<AuditLog[]>
-   }
-   ```
-
-2. **AuditController** (`src/core/audit/audit.controller.ts`):
-   ```typescript
-   @Controller('audit-logs')
-   @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
-   export class AuditController {
-     @Get()
-     @Permissions(PERMISSIONS.AUDIT_READ)
-     async findAll(@Query() query, @Request() req) { }
-   }
-   ```
-
-**Integration Example** (ProfessionalsService):
-```typescript
-async activateProfessional(clinicId: string, userId: string, currentUserId: string) {
-  // ... business logic ...
-  
-  await this.auditService.log({
-    clinicId,
-    userId: currentUserId,
-    action: AuditAction.UPDATE,
-    entity: 'Professional',
-    entityId: userId,
-    message: 'Professional activated',
-  });
-}
-```
-
-**API Endpoint**:
-- **GET /audit-logs** - List logs (tenant-scoped)
-  - Query params: action, entity, dateFrom, dateTo
-  - Permission: audit.read
-  - Returns: `{ data: AuditLog[], count: number }`
-
-**Frontend Components**:
-- **Route**: `/dashboard/admin/auditoria`
-- **Components**:
-  - AuditLogAdminPage
-  - AuditLogTable
-  - AuditActionBadge
-- **Hook**: useAuditLogs
-
-**RBAC**:
-- Permission: `audit.read`
-- Assigned to: CLINIC_ADMIN
-
-**Design Decisions**:
-1. **Explicit Logging (v1)**: Called in service methods, not interceptors
-   - More control over what is logged
-   - Avoids noise from read operations
-   - Clear audit trail
-2. **Read-Only UI**: No editing or deleting logs
-   - Maintains integrity
-   - Compliance-friendly
-3. **Tenant-Scoped**: Each clinic sees only their logs
-   - Multi-tenant isolation preserved
-
-**Current Status** (v2):
-- ✅ Logs created on professional activate/deactivate
-- ✅ Logs created on appointment create/check-in/cancel
-- ✅ Logs created on encounter start/close
-- ✅ Logs created on stock product create/delete
-- ✅ Logs created on stock movement add
-- ✅ Read-only UI at /dashboard/admin/auditoria
-- ✅ RBAC enforced with audit.read
-- ✅ Portuguese translations for all actions
-
-**Action Messages** (dot.case pattern):
-- `appointment.created` / `appointment.checked_in` / `appointment.cancelled`
-- `encounter.started` / `encounter.closed`
-- `stock.product.created` / `stock.product.deleted: <name>`
-- `stock.movement.created`
-
-**Future Enhancements** (v3):
-- Include entity name in all action messages
-- Real-time updates
-- Export to CSV
-- Pagination
-- Date range filtering in UI
+O tenant chama-se **`Clinic`** no schema (representa a **loja**); o header de contexto é **`X-Clinic-Id`**; a pasta do frontend é `clinicos-web`; o `package.json` chama-se `clinicos`. Ver [§13](#13-dívida-técnica-e-pontos-de-atenção).
 
 ---
 
-#### 7. Stock Module (v1)
-- **Responsabilidade**: Gestão de estoque com controle de lotes
-- **Arquitetura**:
-  - **Product**: Cadastro de produtos (nome, descrição, unidade, SKU, estoque mínimo)
-  - **StockLot**: Lotes com quantidade e validade (FIFO automático)
-  - **StockMovement**: Histórico de movimentações (IN/OUT)
-- **Funcionalidades Backend**:
-  - CRUD de produtos (soft delete)
-  - Entrada de estoque (cria lote)
-  - Saída de estoque (FIFO por validade)
-  - Alertas de estoque baixo
-  - Alertas de produtos próximos ao vencimento
-  - Auditoria integrada
-- **Frontend Pages**:
-  | Route | Descrição |
-  |-------|-----------|
-  | `/dashboard/estoque` | Visão do estoque atual + alertas |
-  | `/dashboard/estoque/produtos` | Cadastro CRUD de produtos |
-  | `/dashboard/estoque/movimentacoes` | Histórico (placeholder v2) |
-- **Estoque Page Features**:
-  - Summary cards: Total produtos | Estoque baixo | Sem estoque
-  - Tabela: Produto | SKU | Qtd Atual | Qtd Mínima | Status
-  - Status badges: ✅ OK | ⚠️ Estoque Baixo | 🔴 Sem Estoque
-  - Busca e filtros por status
-- **Produtos Page Features**:
-  - Colunas: Nome | Descrição | Unidade | SKU | Qtd Mínima | Ações
-  - Busca por nome/SKU
-  - CRUD completo
-- **Audit Logs**: product.created, product.deleted, movement.created
+## 2. Camadas e princípios
+
+```
+┌───────────────────────────────────────────────┐
+│  Presentation — Controllers, DTOs, Guards      │  src/modules/*/*.controller.ts
+├───────────────────────────────────────────────┤
+│  Application — Services / regras de negócio    │  src/modules/*/*.service.ts
+├───────────────────────────────────────────────┤
+│  Infra — Prisma, OpenAI, HTTP (NexosFiscal),   │  src/core/prisma, ai-import.service,
+│          pdfkit, xlsx, filesystem (uploads)    │  fiscal.service, quote-pdf.service
+└───────────────────────────────────────────────┘
+```
+
+- **Modular por bounded context** — cada pasta em `src/modules/` é um `@Module` NestJS autocontido (controller + service + DTOs).
+- **`src/core/`** — infraestrutura transversal, injetável em qualquer módulo: `prisma` (global), `auth`, `tenant`, `rbac`, `audit`, `stock` (FIFO compartilhado), `excel`.
+- **DI em tudo** — services recebem `PrismaService`, `AuditService`, etc. via construtor.
+- **Validação global** — `ValidationPipe` com `whitelist: true`, `forbidNonWhitelisted: true`, `transform: true` ([`src/main.ts`](src/main.ts)).
+- **Body parser 50 MB** — para payloads grandes de importação; `rawBody` preservado para o webhook fiscal.
 
 ---
 
-### Frontend Integration Layer
+## 3. Multi-tenancy
 
-#### Integration v1 - Cross-Module Consistency
-- **Objetivo**: Substituir inputs manuais de UUID por selects relacionais
-- **Componentes**:
-  - `usePatients` hook - Fetch centralizado de pacientes
-  - `useProfessionals` hook - Fetch centralizado de profissionais
-- **Módulos Integrados**:
-  - Agenda: Create/Edit dialogs com select de paciente/profissional
-  - Encounters: Create/Edit dialogs com select de paciente/profissional
-- **Benefícios**:
-  - Melhor UX (nomes ao invés de UUIDs)
-  - Integridade de dados
-  - Módulos conectados
-- **Limitações**:
-  - Endpoint de profissionais não implementado (retorna array vazio)
+**Estratégia: row-level.** Todo model de negócio tem `clinicId`; um único banco serve todas as lojas.
 
----
+### Resolução do tenant ([`src/core/tenant/`](src/core/tenant/))
 
-### Domain Flow v1 - Agenda → Encounters Integration
+1. `TenantService.resolveClinicId(req)` — lê `req.user.clinicId` (nunca presente hoje) **ou** o header `X-Clinic-Id`.
+2. `TenantGuard` valida:
+   - **super admin** (`req.user.isSuperAdmin`) → busca a loja direto, sem checar vínculo;
+   - **usuário comum** → `ClinicUser` onde `userId + clinicId` e `clinic.isActive`.
+3. Injeta `req.clinicId` (string) e `req.user.activeClinic` (objeto `Clinic` completo, incl. `modules`).
+4. Rotas `@Public()` pulam o guard.
 
-#### Objetivo
-Implementar o primeiro fluxo clínico real conectando Agenda com Encounters, permitindo iniciar atendimentos a partir de agendamentos com validação de workflow.
+> **Guard, não middleware:** middleware roda antes dos guards, então não teria `req.user` (populado pelo `JwtAuthGuard`). A ordem `JwtAuthGuard → TenantGuard` é obrigatória.
 
-#### Schema Changes (2025-12-18)
+### Isolamento
 
-**Problema Encontrado**:
-Durante a implementação, tentamos usar campos separados (`date`, `startAt`, `endAt`) como strings no modelo Appointment, mas isso causou:
-- Breaking changes no frontend existente
-- Complexidade na validação de conflitos  
-- Incompatibilidade com código existente
-
-**Solução Aplicada**:
-Revertemos para usar `DateTime` no Appointment e manter strings apenas no Encounter:
-- **Appointment**: `startAt` e `endAt` como `DateTime` (ISO strings)
-- **Encounter**: `date` (YYYY-MM-DD) e `time` (HH:MM) como strings
-- Frontend atualizado para combinar/parsear DateTime conforme necessário
-
-**Migrations**:
-1. `20251219020200_add_appointment_id_to_encounter` - Adiciona `appointmentId` ao Encounter
-2. `20251219023915_revert_appointment_to_datetime` - Reverte Appointment para DateTime
-
-#### Backend Implementation
-
-**Novo Endpoint**:
-```typescript
-POST /appointments/:id/start-encounter
-Body: { notes?: string }
-Permission: ENCOUNTER_START
-```
-
-**Validações**:
-- Appointment deve existir e pertencer à clínica
-- Status deve ser SCHEDULED ou CHECKED_IN
-- Não pode haver encounter ativo para o mesmo appointment
-- Paciente e profissional herdados automaticamente
-
-**Extração de Data/Hora**:
-```typescript
-date: appointment.startAt.toISOString().split('T')[0]  // "2025-12-18"
-time: appointment.startAt.toISOString().split('T')[1].substring(0, 5)  // "14:30"
-```
-
-#### Frontend Updates
-
-**Dialogs Atualizados**:
-- Create/Edit Appointment: Combinam date+time → ISO DateTime antes de enviar
-- Parse DateTime → date+time para exibição nos formulários
-- Lista de Agenda: Formata DateTime para exibição (HH:MM)
-
-**Fluxo de Dados**:
-```
-User Input: date="2025-12-18", startAt="14:30", endAt="15:30"
-     ↓
-API Send: startAt="2025-12-18T14:30:00.000Z", endAt="2025-12-18T15:30:00.000Z"
-     ↓
-Display: "14:30 - 15:30"
-```
-
-**Workflow Rules**:
-- ✅ Statuses permitidos: SCHEDULED, CHECKED_IN
-- ❌ Statuses bloqueados: CANCELLED, NO_SHOW, COMPLETED
-- Um encounter por appointment (máximo)
-- Dados herdados automaticamente (sem override manual)
-
-#### Testing Results (2025-12-19)
-
-**Tested Successfully**:
-- ✅ Criar agendamento com date+time → ISO DateTime
-- ✅ Agendamento aparece na lista de Agenda
-- ✅ Botão "Iniciar Atendimento" visível
-- ✅ Clicar no botão cria encounter automaticamente
-- ✅ Encounter herda paciente, profissional, data, hora
-- ✅ Redirect para /dashboard/atendimentos
-- ✅ Encounter aparece na lista de Atendimentos
-
-**Known Issues**:
-- Botão "Iniciar Atendimento" não desaparece após criar encounter (requer reload)
-- Flag `hasActiveEncounter` não implementada no backend
-- Filtro de data corrigido (startAt entre início e fim do dia)
-
-**Additional Fixes**:
-- GET /clinics/users endpoint criado para listar profissionais
-- useProfessionals hook atualizado para usar novo endpoint
-- Appointment date filter fixed (was excluding appointments)
+Cada service filtra manualmente por `clinicId` em toda query (`where: { clinicId }` ou `where: { id, clinicId }`). **Não há** middleware Prisma nem RLS no Postgres forçando isso — é responsabilidade de cada método.
 
 ---
 
-#### 2.5 Patients Module (v2)
-- **Responsabilidade**: Prontuário clínico do paciente
-- **Backend Endpoints**:
-  | Method | Path | Description |
-  |--------|------|-------------|
-  | GET | `/patients/:id/timeline` | Histórico de appointments + encounters |
-  | GET | `/patients/:id/summary` | Contagens e última visita |
-- **Frontend (v2)**:
-  | Route | Descrição |
-  |-------|-----------|
-  | `/dashboard/pacientes` | Lista com Ver/Editar/Excluir |
-  | `/dashboard/pacientes/:id` | Prontuário com timeline clínica |
-- **Detail Page Features**:
-  - Header: nome, CPF, nascimento, idade, contato
-  - Summary cards: Agendamentos | Atendimentos | Em Aberto | Última Visita
-  - Timeline clínica: cronológica, clicável
-  - Navegação: appointment → agenda, encounter → /atendimentos/:id
+## 4. Autenticação e autorização (guards)
 
-#### 3. Encounters Module (v5)
-- **Responsabilidade**: Gestão de atendimentos clínicos
-- **Funcionalidades**:
-  - Iniciar atendimento a partir de agendamento
-  - **Notas Clínicas SOAP**: Subjetivo, Objetivo, Avaliação, Plano
-  - **Anexos Clínicos**: Upload PDF/imagens
-  - **Relatório PDF**: Geração on-demand com SOAP, procedimentos, anexos
-  - Timeline de eventos (start, records, procedures, consumables, close)
-  - Fechar atendimento (imutabilidade garantida)
-- **SOAP Endpoints**:
-  | Method | Path | Description |
-  |--------|------|-------------|
-  | GET | `/encounters/:id/note` | Busca nota SOAP |
-  | POST | `/encounters/:id/note` | Cria nota (OPEN only) |
-  | PUT | `/encounters/:id/note` | Atualiza nota (OPEN only) |
-- **Attachments Endpoints**:
-  | Method | Path | Description |
-  |--------|------|-------------|
-  | GET | `/encounters/:id/attachments` | Lista anexos |
-  | POST | `/encounters/:id/attachments` | Upload (OPEN only) |
-  | GET | `/encounters/:id/attachments/:id` | Download |
-- **Report Endpoint**:
-  | Method | Path | Description |
-  |--------|------|-------------|
-  | GET | `/encounters/:id/report` | Gera PDF (CLOSED only) |
-- **Storage**: `./uploads/clinics/{clinicId}/encounters/{encounterId}/`
-- **Limites**: 10MB max | PDF, JPG, PNG
-- **Regras de Negócio**:
-  - SOAP/anexos só podem ser criados em atendimento OPEN
-  - Relatório só pode ser gerado quando CLOSED
-  - Read-only após CLOSED
-  - Audit log automático
+### JWT
 
-#### 4. Scheduling Module (v5)
-- **Responsabilidade**: Calendário profissional e agendamentos
-- **Modelo ScheduleBlock**:
-  - `professionalId?`: null = clínica inteira
-  - `date`: YYYY-MM-DD
-  - `startTime?/endTime?`: null = dia inteiro
-  - `reason`: motivo do bloqueio
-- **Frontend Views**:
-  - **Visão Mensal** (`/dashboard/agenda`): Calendário com indicadores de agendamentos por dia
-  - **Vista do Dia** (`/dashboard/agenda/[date]`): Grid profissionais × horários (30min slots)
-- **Funcionalidades**:
-  - CRUD completo de agendamentos
-  - Detecção de conflitos de horário
-  - Check-in de pacientes (via modal no calendário)
-  - Cancelamento de agendamentos
-  - Criação de bloqueios (dia inteiro ou horário específico)
-  - Status flow (SCHEDULED → CHECKED_IN → IN_PROGRESS → COMPLETED)
-  - Modal de detalhes com ações (Check-in, Iniciar Atendimento, Cancelar)
-  - Navegação inteligente (volta para origem correta)
-  - Tooltip com motivo do bloqueio
-  - Horário de funcionamento configurável por dia da semana
-  - Visualização de dias fechados no calendário mensal
-- **Modelo ClinicWorkingHours**:
-  - `dayOfWeek`: 0-6 (Dom-Sáb)
-  - `isOpen`: boolean
-  - `startTime/endTime`: "HH:MM" (se aberto)
-- **Validations (v5)**:
-  - `validateConflict()`: Previne agendamentos sobrepostos (409 Conflict)
-  - `validateScheduleBlock()`: Respeita bloqueios (403 Forbidden)
-  - `isOutsideWorkingHours()`: Respeita horário de funcionamento (403 Forbidden)
-  - Status flow validation: checkIn e cancel validam transições
-  - Encounter uniqueness: Um encounter ativo por agendamento
-- **Endpoints**:
-  - `GET /appointments`: listar agendamentos
-  - `GET /appointments/professionals`: listar profissionais
-  - `GET /appointments/blocks`: listar bloqueios
-  - `POST /appointments/blocks`: criar bloqueio
-  - `DELETE /appointments/blocks/:id`: remover bloqueio
-  - `GET /appointments/working-hours`: obter horário de funcionamento
-  - `PUT /appointments/working-hours`: atualizar horário de funcionamento
-  - `POST /appointments/:id/checkin`: fazer check-in
-  - `POST /appointments/:id/start-encounter`: iniciar atendimento
-- **Config UI** (`/dashboard/agenda/configuracoes`):
-  - Listar e remover bloqueios
-  - Configurar horário de funcionamento por dia da semana
-  - Toggle aberto/fechado + seleção de horário
+- Payload **mínimo**: `{ sub: userId, email }`. Não carrega loja nem roles.
+- `login`/`register` retornam `access_token` + `user` + `clinics[]` (cada loja já com `role` e `permissions[]` resolvidos) — [`auth.service.ts`](src/core/auth/auth.service.ts).
+- Senhas: bcrypt, 10 rounds.
 
-#### 5. History Module
-- **Responsabilidade**: Histórico de atendimentos por paciente
-- **Frontend**: `/dashboard/atendimentos/historico`
-- **Funcionalidades**:
-  - Lista de pacientes com busca
-  - Seleção de paciente → lista de atendimentos
-  - Clique em atendimento → detalhes com navegação inteligente
-  - Rastreamento de origem via query param (?from=historico)
-- **Separação de Módulos**:
-  - **Pacientes** (Recepção): apenas cadastro
-  - **Histórico** (Atendimento): visualização de prontuário
+### Cadeia de guards
 
-#### 6. Agenda↔Encounter Integration Flow
-```mermaid
-flowchart LR
-    A[SCHEDULED] -->|check-in| B[CHECKED_IN]
-    B -->|iniciar atendimento| C[Encounter OPEN]
-    C -->|preencher SOAP| D[Registros]
-    D -->|finalizar| E[Encounter CLOSED]
-    E --> F[Appointment COMPLETED]
-```
-- **Sincronização automática** de status entre módulos
-- **Timezone handling** corrigido (datas em fuso local)
-- **Validações**:
-  - Não permite iniciar se já existe encounter ativo
-  - Não permite iniciar se appointment CANCELLED/COMPLETED
-- **Detail Page Features**:
-  - Header com paciente, profissional, status
-  - Summary cards (registros, procedimentos, consumíveis)
-  - Timeline cronológica visual (start → records → procedures → consumables → close)
-  - Botão "Finalizar Atendimento"
-  - Ações desabilitadas quando CLOSED
-- **Status Badges**: 🟢 Em Andamento | 🔵 Finalizado
-
-#### 5. Encounter Items Module
-- **Responsabilidade**: Procedimentos e consumíveis
-- **Funcionalidades**:
-  - Registro de procedimentos realizados
-  - Registro de consumíveis utilizados
-  - Snapshot de preço
-  - Quantidade e unidade flexíveis
-  - Imutabilidade após fechamento (ForbiddenException)
-
-#### 6. Health Module
-- **Responsabilidade**: Health checks
-- **Funcionalidades**:
-  - Status da API
-  - Verificação de conectividade
-
-#### 7. Stock Module
-- **Responsabilidade**: Gestão de estoque
-- **Funcionalidades**:
-  - CRUD de produtos com soft delete
-  - Controle de lotes com validade
-  - Movimentações (IN/OUT/ADJUST)
-  - Saída FIFO por data de validade
-  - Alertas de estoque baixo
-  - Alertas de lotes vencendo
-  - Histórico completo de movimentações
-  - **Integração automática com ConsumableUsage**
-  - **Frontend**: Módulo completo com create, edit, delete e controle de quantidade
-
-## Fluxo de Request
-
-### 1. Request Básico (Sem Autenticação)
+Aplicada **por controller** via `@UseGuards(...)` — 39 dos 40 controllers (exceção: `health`). Não há `APP_GUARD` global.
 
 ```
-HTTP Request
-    ↓
-Middleware Stack
-    ↓
+JwtAuthGuard        valida o token, popula req.user
+      ↓
+TenantGuard         resolve/valida a loja, popula req.clinicId e req.user.activeClinic
+      ↓
+PermissionsGuard    checa @Permissions(...) contra o Role do ClinicUser (lógica AND)
+      ↓
+ModuleGuard         (opcional) checa @RequireModules(...) contra Clinic.modules[]
+      ↓
 Controller
-    ↓
-Service
-    ↓
-Prisma/Database
-    ↓
-Response
 ```
 
-### 2. Request Autenticado com Multi-Tenancy
+### RBAC ([`src/core/rbac/`](src/core/rbac/))
 
-```
-HTTP Request (com header X-Clinic-Id)
-    ↓
-JwtAuthGuard (valida token)
-    ↓
-req.user = { id, email }
-    ↓
-TenantGuard (resolve clinicId, valida acesso)
-    ↓
-req.clinicId = "uuid"
-    ↓
-Controller
-    ↓
-Service (usa req.user e req.clinicId)
-    ↓
-Prisma (filtra por clinicId)
-    ↓
-Response
-```
+- `PERMISSIONS` — ~110 chaves em [`permissions.ts`](src/core/rbac/permissions.ts). **Convenção inconsistente**: a maioria é `dot.case` (`quote.create`), algumas são `SCREAMING_SNAKE` (`PROFESSIONAL_READ`, `CLINIC_ADMIN`).
+- `@Permissions(PERMISSIONS.QUOTE_CREATE)` no handler; `PermissionsGuard` exige **todas** as permissões declaradas.
+- Roles e mapeamentos: seed em [`prisma/seed.ts`](prisma/seed.ts) + [`prisma/seed-permissions.ts`](prisma/seed-permissions.ts). Papéis sugeridos no plano: `SELLER`, `MANAGER`, `STOCK_MANAGER`, `ADMIN`.
 
-### 3. Request com RBAC (Fluxo Completo)
+### ModuleGuard — feature flags por loja
 
-```
-HTTP Request (com Authorization + X-Clinic-Id)
-    ↓
-JwtAuthGuard (valida token, popula req.user)
-    ↓
-TenantGuard (resolve clinicId, valida acesso, popula req.clinicId)
-    ↓
-PermissionsGuard (valida permissões)
-    ↓
-  - Busca ClinicUser por (userId, clinicId)
-  - Carrega Role → Permissions
-  - Valida se tem permissões requeridas
-    ↓
-Controller (se autorizado)
-    ↓
-Service
-    ↓
-Response
-```
+`Clinic.modules: String[]` liga/desliga áreas inteiras por loja. Valores usados: `SALES`, `STOCK`, `FINANCE`, `PURCHASES`, `DELIVERIES`, `RMA`, `PROMOTIONS`, `ARCHITECTS`, `ADMIN`. O frontend ([`clinicos-web/src/components/layout/sidebar.tsx`](clinicos-web/src/components/layout/sidebar.tsx)) usa a mesma lista + a permissão para decidir cada item do menu.
 
-**Ordem de Execução Crítica:**
-1. **JwtAuthGuard** DEVE executar primeiro (popula `req.user`)
-2. **TenantGuard** executa segundo (precisa de `req.user` para validar acesso)
-3. **PermissionsGuard** executa terceiro (precisa de `req.user` e `req.clinicId`)
+### Auditoria ([`src/core/audit/`](src/core/audit/))
 
-## Multi-Tenancy
-
-### Estratégia: Row-Level Tenancy
-
-Cada registro pertence a uma clínica específica através de `clinicId`.
-
-#### Vantagens
-- ✅ Simplicidade de implementação
-- ✅ Custo-efetivo (um banco para todos)
-- ✅ Fácil manutenção
-- ✅ Backup e restore simplificados
-
-#### Isolamento de Dados
-
-```typescript
-// Exemplo: Buscar pacientes da clínica atual
-async findAll(clinicId: string) {
-  return this.prisma.patient.findMany({
-    where: { clinicId }, // Filtro automático por tenant
-  });
-}
-```
-
-### Resolução de Tenant
-
-1. **Header X-Clinic-Id**: Cliente envia ID da clínica (método primário)
-2. **JWT Payload**: `clinicId` pode estar no token (fallback)
-3. **Validação**: TenantGuard valida se usuário pertence à clínica
-4. **Injeção**: Guard injeta `clinicId` em `req.clinicId` para uso nos services
-
-## RBAC (Role-Based Access Control)
-
-### Modelo de Permissões
-
-```
-User → ClinicUser → Role → RolePermission → Permission
-```
-
-### Hierarquia de Roles
-
-```
-CLINIC_ADMIN (todas as permissões)
-    ↓
-RECEPTION (pacientes + agendamentos)
-    ↓
-PROFESSIONAL (atendimentos + prontuários)
-    ↓
-FINANCE (financeiro)
-    ↓
-STOCK (estoque)
-```
-
-### Validação de Permissões
-
-```typescript
-@Get('patients')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
-@Permissions(PERMISSIONS.PATIENT_READ)
-async list(@Request() req) {
-  // PermissionsGuard já validou que:
-  // 1. Usuário está autenticado
-  // 2. Usuário pertence à clínica
-  // 3. Role do usuário tem permissão PATIENT_READ
-  
-  return this.service.findAll(req.clinicId);
-}
-```
-
-## Segurança
-
-### 1. Autenticação
-
-- **JWT**: Tokens stateless com expiração
-- **Bcrypt**: Hash de senhas com 10 salt rounds
-- **Passport**: Estratégias de autenticação
-
-### 2. Autorização
-
-- **Guards**: Validação em múltiplas camadas
-- **RBAC**: Permissões granulares por role
-- **Tenant Isolation**: Validação de acesso por clínica
-
-### 3. Validação
-
-- **DTOs**: Validação automática com class-validator
-- **Pipes**: Transformação e validação de dados
-- **Whitelist**: Remoção de campos não permitidos
-
-### 4. Database
-
-- **Prisma**: Proteção contra SQL injection
-- **Transactions**: Operações atômicas
-- **Soft Delete**: Preservação de dados
-
-## Padrões de Design
-
-### 1. Dependency Injection
-
-```typescript
-@Injectable()
-export class PatientsService {
-  constructor(
-    private prisma: PrismaService,
-    private tenantService: TenantService,
-  ) {}
-}
-```
-
-### 2. Repository Pattern
-
-```typescript
-// Prisma atua como repository
-async findAll(clinicId: string) {
-  return this.prisma.patient.findMany({
-    where: { clinicId },
-  });
-}
-```
-
-### 3. Guard Pattern
-
-```typescript
-// Ordem CRÍTICA: JwtAuthGuard → TenantGuard → PermissionsGuard
-@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
-```
-
-**Por que Guards e não Middleware?**
-- Guards executam APÓS middleware, com acesso a `req.user`
-- Guards podem ser aplicados seletivamente por rota
-- Guards têm melhor integração com ExecutionContext
-- Tenant validation PRECISA de `req.user` (populado por JwtAuthGuard)
-
-### 4. Decorator Pattern
-
-```typescript
-@Permissions(PERMISSIONS.PATIENT_CREATE)
-```
-
-## Escalabilidade
-
-### Horizontal Scaling
-
-- ✅ Stateless (JWT)
-- ✅ Load balancer ready
-- ✅ Shared database (com connection pooling)
-
-### Vertical Scaling
-
-- ✅ Prisma connection pooling
-- ✅ Query optimization
-- ✅ Indexes no banco
-
-### Caching (Futuro)
-
-- Redis para sessões
-- Cache de permissões
-- Cache de queries frequentes
-
-## Monitoramento e Observabilidade
-
-### Logs
-
-- Structured logging (JSON)
-- Níveis: error, warn, log, debug
-- Contexto: userId, clinicId, requestId
-
-### Métricas (Futuro)
-
-- Request duration
-- Error rates
-- Database query performance
-- Active users per clinic
-
-### Health Checks
-
-- `/health`: Status da API
-- Database connectivity
-- External services
-
-## Testes
-
-### Estratégia de Testes
-
-```
-Unit Tests (70%)
-    ↓
-Integration Tests (20%)
-    ↓
-E2E Tests (10%)
-```
-
-### Cobertura
-
-- Services: Lógica de negócio
-- Guards: Validações de acesso
-- Controllers: Endpoints
-- E2E: Fluxos completos
-
-## Deployment
-
-### Ambientes
-
-- **Development**: Local com hot reload
-- **Staging**: Ambiente de testes
-- **Production**: Ambiente de produção
-
-### CI/CD (Futuro)
-
-```
-Git Push
-    ↓
-Run Tests
-    ↓
-Build Docker Image
-    ↓
-Deploy to Staging
-    ↓
-Manual Approval
-    ↓
-Deploy to Production
-```
-
-## Tecnologias e Ferramentas
-
-### Backend
-- NestJS 10.x
-- TypeScript 5.x
-- Prisma 5.x
-- PostgreSQL 15+
-
-### Autenticação
-- Passport JWT
-- Bcrypt
-
-### Validação
-- class-validator
-- class-transformer
-
-### Desenvolvimento
-- ESLint
-- Prettier
-- ts-node
-
-## Decisões Arquiteturais
-
-### Por que TenantGuard ao invés de TenantMiddleware?
-
-**Problema com Middleware:**
-- Middleware executa ANTES de guards no pipeline do NestJS
-- JwtAuthGuard popula `req.user`, mas executa DEPOIS do middleware
-- TenantMiddleware não tinha acesso a `req.user` para validar acesso
-
-**Solução com Guard:**
-- TenantGuard executa APÓS JwtAuthGuard
-- `req.user` já existe quando guard valida acesso à clínica
-- Melhor separação de responsabilidades
-- Alinhado com best practices do NestJS
-
-**Request Pipeline:**
-```
-Middleware → Guards → Interceptors → Controller
-             ↑
-             TenantGuard executa aqui (req.user disponível)
-```
+`AuditInterceptor` registrado globalmente em `main.ts`. Grava `AuditLog` (`action`, `entity`, `entityId`, `message`, `ip`, `userAgent`, `details` Json). Services também chamam `auditService.log(...)` explicitamente em operações sensíveis.
 
 ---
 
-**Última atualização**: 2025-12-18
+## 5. Módulos por domínio
+
+`src/modules/` — 40 controllers. Todos sob a tríade de guards.
+
+### 5.1 Vendas
+
+| Módulo | Destaques de lógica |
+|---|---|
+| **`quotes`** | `processQuoteItem`: `inputArea` (m²) → aplica `marginPercent` (margem de perda) → `areaWithMargin` → `quantityBoxes = ceil(area / boxCoverage)` → `resultingArea`. Estados: `EM_ORCAMENTO → AGUARDANDO_APROVACAO → APROVADO → CONVERTIDO` (+ `REJEITADO`/`EXPIRADO`). `QuoteHistory` registra cada transição. Só edita/adiciona item em `EM_ORCAMENTO`. `reserveStock` (greedy por lote ou `preferredLotId`), `duplicateQuote` (repreça com preço atual), PDF via `QuotePdfService` + `QuoteTemplate`. |
+| **`orders`** | **Dois eixos de status**: `OrderStatus` (14 valores de negócio) e `FulfillmentStatus` (9 valores logísticos). `updateStatus` orquestra: cancelamento (libera reservas), auto-pagamento (`financeService.registerPayment`, aceita split), auto-alocação, auto-saída de estoque na entrega, fechamento de quote/PO vinculados. `calculateOrderCommissions` calcula comissão de vendedor e arquiteto **on-the-fly** (nada persiste). `swapReservationLot`, `exportToExcel`. |
+| **`customers`** | PF/PJ, `stateRegistration`, endereço completo, `architectId`, `creditLimitCents`. `GET /customers/:id/summary`. Reaproveita `PatientAccount` para conta-corrente. |
+| **`architects`** | Indicadores parceiros; `commissionRuleId` próprio. `GET /architects/:id/commissions`. |
+| **`commissions`** | `CommissionRule` (`targetType` SELLER/ARCHITECT, `goalPeriod`, `isGlobal` — uma global por tipo) + `CommissionTier` (`minGoalAmount` → `commissionRate`). `resolveRule` faz fallback regra específica → global. |
+| **`environments`** | "Ambientes" (Cozinha, Banheiro…) `@@unique([clinicId, name])`, vinculável a `QuoteItem`/`OrderItem`. |
+| **`promotions`** | `discountPercent` + janela de datas; `GET /promotions/active`. |
+
+### 5.2 Estoque e catálogo
+
+| Módulo | Destaques |
+|---|---|
+| **`catalogue`** | `brands` + `categories`, cada uma com `defaultMarkup`. **`PricingService`**: hierarquia de markup `produto → marca → categoria → global`; `price = round(cost * (1 + markup/100))`. ⚠️ ramo `manualPrice` retorna `priceCents: 0` (incompleto). |
+| **`stock`** | O maior módulo. `stock.service` (CRUD produto, `addStock`/`removeStock` FIFO, `adjustStock`, alertas de estoque baixo / vencimento / tonalidade-calibre, `importParsedProducts`). `stock-entry.service` (~925 linhas: entrada de nota com bloco fiscal NF-e completo; `createDraft → addItem → confirmEntry` efetiva estoque e cria lotes; `createFromPurchaseOrder`). `stock-exit.service` (`createFromOrder` + `confirmExit`). `stock-allocation.service` (auto-alocação — ver [§7](#7-fluxos-de-negócio-automatizados)). Importação: `product-import.service` (parsers) + `ai-import.service` (IA) — ver [§8](#8-motor-de-importação-de-catálogo). |
+| **`stock-reservations`** | Reserva por lote; valida `quantity ≤ (lot.quantity − reservado ativo)`; `expiresAt` = +30 dias. `expireOldReservations` existe mas **sem cron**. |
+| **`occurrences`** | RMA. `OccurrenceType` RECEBIMENTO/ENTREGA/DEFEITO; `OccurrenceStatus` RASCUNHO→REPORTADO→AGUARDANDO_FORNECEDOR→RESOLVIDO→REEMBOLSADO. Vincula opcionalmente a supplier/customer/order/PO/stockEntry. ⚠️ `Occurrence.number` usa `autoincrement()` **global** (os demais docs usam sequencial por loja). |
+
+### 5.3 Compras
+
+| Módulo | Destaques |
+|---|---|
+| **`suppliers`** | `@@unique([clinicId, cnpj])`. Relaciona `products`, `purchaseOrders`, `occurrences`, `mappingCaches`. |
+| **`purchase-orders`** | `PurchaseOrderStatus` DRAFT→SENT→CONFIRMED→PARTIAL→RECEIVED. `salesOrderId` para compra atrelada a uma venda (cross-docking). `PurchaseOrderItem` guarda `quantityOrdered`/`quantityReceived` e pode não ter `productId` (produto ainda não cadastrado). |
+
+### 5.4 Entrega / fiscal / financeiro
+
+| Módulo | Destaques |
+|---|---|
+| **`deliveries`** | 1:1 com `Order`. `DeliveryStatus` próprio (PENDING→SCHEDULED→IN_TRANSIT→DELIVERED / FAILED / CANCELED); motorista, placa, `trackingCode`. |
+| **`fiscal`** | Ver [§9](#9-integração-fiscal). |
+| **`finance`** | `PatientAccount` (conta-corrente, serve `patientId` **e** `customerId`), `Transaction` (`CHARGE`/`PAYMENT`/`REFUND`/`ADJUSTMENT`/`FISCAL_*`), `Payment` (método, parcelas, `gatewayData`). `Invoice` (boletos — **desativado/futuro**, campos p/ ASAAS/IUGU). Relatórios: `getRevenueReport`, `getInventoryValuation`. Notas de serviço tomadas (`Expense.isServiceInvoice`). |
+| **`expenses`** | Contas a pagar. `ExpenseType` SUPPLIER/OPERATIONAL/TAX/COMMISSION/OTHER; `ExpenseStatus` PENDING/PAID/OVERDUE/CANCELLED. Links opcionais a `purchaseOrder`/`stockEntry`. |
+| **`store-settings`** | 1:1 com `Clinic`; `defaultDeliveryFee`. |
+| **`dashboard`** | `UserDashboardConfig` (widgets + atalhos por usuário/loja). Widgets: aniversários, alertas de estoque, contas a vencer, pedidos pendentes, receita do dia, entregas pendentes, alertas RMA, performance de vendedores/arquitetos. |
+| **`notices`** | Avisos internos (`priority`, `expiresAt`). |
+
+### 5.5 Administração
+
+`admin` (super admin: `/admin/tenants`, `/admin/users`, `/admin/stats`, `/admin/mapping-caches`), `roles`, `clinics` (a loja: `slug`, `logoUrl`, `modules[]`, `globalMarkup`), `professionals` (usuários da loja + working hours), `audit` (`/audit-logs`), `health`.
+
+### 5.6 Legado clínico (carregado, sem uso no negócio)
+
+`patients`, `scheduling` (`/appointments`, blocos, working hours), `encounters` (+ SOAP `EncounterNote`, anexos, relatório PDF), `encounter-items`, `procedures`, `specialties`. Ainda no `AppModule` e com rotas ativas.
+
+---
+
+## 6. Modelo de dados
+
+[`prisma/schema.prisma`](prisma/schema.prisma) — ~65 models, ~39 migrations. PostgreSQL. IDs `uuid`. Dinheiro em `Int` centavos (sufixo `*Cents`).
+
+### 6.1 Núcleo / tenant / RBAC
+
+`User` (+ `isSuperAdmin`, `commissionRuleId`) · **`Clinic`** (= loja) · `ClinicUser` (pivot user↔loja↔role, `@@unique([clinicId, userId])`, `color` de calendário) · `Role` / `Permission` / `RolePermission` · `AuditLog` · `UserDashboardConfig` · `StoreSettings`.
+
+### 6.2 Catálogo e precificação
+
+**`Product`** — o model mais rico:
+
+| Grupo | Campos |
+|---|---|
+| Base | `sku`, `barcode`, `unit`, `costCents`, `priceCents`, `minStock`, `isActive` |
+| Precificação | `categoryId`, `brandId`, `markup` (override), `manualPrice`, `isAdhoc` (produto avulso de um orçamento) |
+| Dimensional revestimentos | `saleType` (`UNIT`/`AREA`/`BOTH`), `boxCoverage` (m²/caixa), `piecesPerBox`, `boxWeight`, `palletBoxes`, `palletWeight`, `palletCoverage` |
+| Dimensional louças/metais | `height`, `width`, `depth`, `color` |
+| Padronização | `format` ("60x60"), `usage` ("Piso"/"Parede"), `line` (coleção), `supplierId`, `supplierCode` |
+| Fiscal | `ncm`, `cest`, `cfop`, `cst`, `origin`, `mva`, `taxClass` |
+
+`Category` / `Brand` — `@@unique([clinicId, name])`, cada uma com `defaultMarkup`.
+`Promotion` / `PromotionProduct` (join). `Environment`.
+
+### 6.3 Estoque
+
+- **`StockLot`** — `lotNumber`, `quantity`, `expirationDate`, **`shade` (tonalidade)**, **`caliber` (calibre)**. `@@unique([clinicId, productId, lotNumber])`.
+- **`StockMovement`** — `type` `IN`/`OUT`/`ADJUST`/`AVARIA`; links `order`/`purchaseOrder`/`stockEntry`/`stockExit`/`occurrence` (+ `encounterId` **DEPRECATED**); metadados `batchId`, `destinationType/Name`, `invoiceNumber`, `supplier`.
+- **`StockEntry`** / `StockEntryItem` — entrada de nota. Bloco fiscal NF-e completo: `accessKey` (44 díg.), bases/valores ICMS/ICMS-ST/IPI (centavos), transporte (`freightType`, transportador, placa), volumes (peso bruto/líquido), `installmentsData` (Json — duplicatas parseadas do XML até a confirmação). Status `DRAFT → CONFIRMED → CANCELED`; `EntryType` INVOICE/MANUAL/DONATION/RETURN. ⚠️ `unitCost`/`totalCost`/`totalValue` são `Float` legados.
+- **`StockExit`** / `StockExitItem` — `ExitType` SECTOR_REQUEST/PATIENT_USE/DISCARD/EXPIRY/ADJUSTMENT/SALE.
+- **`StockReservation`** — `ReservationStatus` ACTIVE/CONSUMED/EXPIRED/CANCELLED; `ReservationType` ORCAMENTO/PEDIDO; refs a `order`/`orderItem`/`quote`/`quoteItem`/`lot`/`product`.
+- **`SupplierMappingCache`** — `@@unique([supplierId, headersHash])`; `mappingPayload` (Json string), `confidenceScore`.
+
+### 6.4 Vendas
+
+`Customer` · `Architect` · `QuoteTemplate` (branding/dados bancários/termos do PDF) ·
+**`Quote`** (`@@unique([clinicId, number])`; `subtotalCents`/`discountCents`/`discountPercent`/`globalMarginPercent`/`deliveryFee`/`totalCents`; `notes` vs `internalNotes`) · **`QuoteItem`** (`sequence` p/ reordenação; `inputArea`→`areaWithMargin`→`quantityBoxes`→`resultingArea`; `preferredLotId`, `environmentId`) · `QuoteHistory` ·
+**`Order`** (`@@unique([clinicId, number])`; `quoteId` unique opcional; `status: OrderStatus`, `fulfillmentStatus: FulfillmentStatus`) · **`OrderItem`** (espelha `QuoteItem` + `lotId` + `status` de entrega parcial).
+
+### 6.5 Compras / entrega / fiscal / financeiro
+
+`Supplier` · `PurchaseOrder` / `PurchaseOrderItem` · `Delivery` · `Invoice` (boleto) · `FiscalDocument` (`FiscalStatus`, `FiscalType` NFE/NFCE, `key`, `xmlUrl`, `danfeUrl`) · `ClinicFiscalConfig` (1:1 loja; credenciais NexosFiscal + defaults NCM/CFOP/CST/natureza) · `Expense` · `PatientAccount` · `Transaction` · `Payment` · `CommissionRule` / `CommissionTier`.
+
+### 6.6 RMA
+
+`Occurrence` / `OccurrenceItem` (`unitType` "CAIXA"/"UNIDADE").
+
+### 6.7 Legado clínico (ativo no schema)
+
+`Patient`, `Appointment`, `Encounter`, `RecordEntry`, `EncounterNote` (SOAP), `EncounterAttachment`, `ProcedurePerformed`, `ConsumableUsage`, `Procedure`, `ProcedureConsumable`, `Specialty`, `ProfessionalWorkingHours`, `ScheduleBlock`, `ClinicWorkingHours`.
+
+### 6.8 Enums-chave
+
+`OrderStatus` (CRIADO, RASCUNHO, AGUARDANDO_PAGAMENTO, PAGO, AGUARDANDO_COMPRA, AGUARDANDO_CHEGADA, AGUARDANDO_REPOSICAO, MATERIAL_RECEBIDO, AGUARDANDO_MATERIAL `//deprecated`, EM_SEPARACAO, PRONTO_PARA_RETIRA, PRONTO_PARA_ENTREGA `//deprecated`, SAIU_PARA_ENTREGA, ENTREGUE, CANCELADO) · `FulfillmentStatus` (PENDING, AWAITING_STOCK, AWAITING_PICKING, IN_PICKING, READY_FOR_PICKUP, OUT_FOR_DELIVERY, DELIVERED, RETURNED, PARTIALLY_FULFILLED) · `QuoteStatus` · `SaleType` (UNIT/AREA/BOTH) · `CustomerType` (PF/PJ) · `TransactionType` · `PaymentMethod` (PIX/CREDIT_CARD/DEBIT_CARD/CASH/BOLETO/TRANSFER) · `StockMovementType` (IN/OUT/ADJUST/AVARIA).
+
+---
+
+## 7. Fluxos de negócio automatizados
+
+### 7.1 Orçamento → Pedido — `quotes.service.convertToOrder`
+
+Só se `Quote.status === APROVADO`. Em `$transaction`:
+1. `Quote.status = CONVERTIDO` (+ `QuoteHistory`).
+2. Cria `Order` (`number` sequencial por loja) copiando itens e valores.
+3. **Transfere `StockReservation`**: para cada reserva `ACTIVE` do quote, acha o `OrderItem` correspondente (por `productId`, preferindo match de `lotId`) e reaponta `orderId`/`orderItemId`/`productId`, muda `type` para `PEDIDO`.
+
+### 7.2 Pedido `PAGO` → alocação — `stock-allocation.service.autoAllocateOrder`
+
+Disparado por `orders.updateStatus` quando entra em `PAGO` (fora da transação de status). Para cada item:
+- Considera o que já está reservado (agrupado por `productId`, com fallback `lot.productId` p/ dados legados).
+- **Regra de integridade de lote**: procura **um único lote** com `quantity ≥ neededQty` (ordenado por `expirationDate asc`, `createdAt asc`). Não fraciona entre lotes automaticamente.
+- Cria `StockReservation` (`expiresAt` +30 dias) + `AuditLog`.
+
+Resultado → `fulfillmentStatus`:
+
+| Condição | `fulfillmentStatus` | `OrderStatus` derivado |
+|---|---|---|
+| Todos os itens reservados | `IN_PICKING` | `MATERIAL_RECEBIDO` |
+| Parte reservada | `PARTIALLY_FULFILLED` | — |
+| Saldo total existe mas não em lote único | `AWAITING_PICKING` | `AGUARDANDO_CHEGADA` (se há PO ativo) ou `AGUARDANDO_MATERIAL` |
+| Sem saldo | `AWAITING_STOCK` | idem |
+
+### 7.3 Chegada de material — `processStockArrival(clinicId, productIds)`
+
+Busca pedidos pendentes que contêm algum desses produtos (status pagos/aguardando + fulfillment aguardando), ordena por `confirmedAt asc` (FIFO por data de pagamento) e roda `autoAllocateOrder` em cada um.
+
+### 7.4 Pedido `ENTREGUE` — `orders.updateStatus`
+
+1. `fulfillmentStatus = DELIVERED`, `deliveredAt = now`.
+2. Cria + confirma `StockExit` automático (`createFromOrder` → `confirmExit`) → baixa real de estoque + `StockMovement` OUT.
+3. `Quote` vinculado → `CONVERTIDO`.
+4. `PurchaseOrder`s vinculados em `SENT`/`CONFIRMED`/`PARTIAL` → `RECEIVED`.
+
+### 7.5 Pedido `PAGO` → financeiro — `finance.service.registerPayment`
+
+Cria `Payment` + `Transaction` na conta-corrente do cliente. Aceita split (`payments[]` com método/valor/parcelas) ou pagamento único pelo `totalCents`.
+
+---
+
+## 8. Motor de importação de catálogo
+
+Módulo `stock`. Controller [`product-import.controller.ts`](src/modules/stock/product-import.controller.ts): `GET template`, `POST parse | extract-sheets | ai-map | ai-classify | execute`, `GET clear-cache`.
+
+### 8.1 Parsers determinísticos — [`product-import.service.ts`](src/modules/stock/services/product-import.service.ts) (~1.356 linhas)
+
+`processFile(buffer, strategy)` → uma de: `standard` (template oficial 16+ colunas, gerado por `generateTemplateBuffer`), `structured`, `pierini`, `lexxa`, `mosaicGroup`, `dueFratelli`, `glam`, `dexco`, `strufaldi`. Cada parser conhece o layout específico da tabela daquele fornecedor. `calcCostCents` converte custo/m² → custo/caixa quando `boxCoverage > 0`.
+
+### 8.2 Mapeamento por IA — [`ai-import.service.ts`](src/modules/stock/services/ai-import.service.ts) (~881 linhas)
+
+| Passo | Função | O que faz |
+|---|---|---|
+| 1 | `extractSheetNames` / `identifyProductSheets` | Filtra abas não-produto (Instruções, Frete…) |
+| 2 | `flattenExcelToJSON` | Desmescla células. `detectSectionedLayout` acha layout multi-seção (≥2 merges horizontais largos). Normaliza mini-tabelas em uma tabela plana injetando `_sectionFormat` por linha; remove cabeçalhos repetidos |
+| 3 | `detectHeaders` | Acha a linha de cabeçalho (keywords `ref/código/descrição/ean/formato…` + penalidade p/ linhas numéricas) |
+| 4 | `buildAISample` | Monta amostra (10-15 linhas, cobrindo múltiplas seções) |
+| 5 | `generateHeadersHash` + `getCachedMapping` | MD5 das colunas normalizadas → busca em `SupplierMappingCache` (evita re-chamar a IA; detecta schema drift) |
+| 6 | `callOpenAIMapping` | `gpt-4o-mini`, `temperature: 0`, `response_format: json_schema` estrito. Prompt com regras de domínio: cerâmica=m², metal/louça=UN; **nunca** mapear "m²/Cx" como `cost`; ≥2 colunas de preço → `ambiguities: [{ type: MULTIPLE_PRICES, options }]`; EAN vs SKU (SKU = "Código Fabricante"/"Ref"); Altura/Largura/Prof. ≠ `format` |
+| 7 | `saveCachedMapping` | Persiste o mapeamento aprovado |
+| 8 | `applyMapping` | Local, sem tokens. `normalizeString` (NFD, lowercase). Suporta campos virtuais `_sectionFormat`/`_category`. Fallback SKU↔EAN |
+| 9 | `generateImportResult` | `sanitizeNumber` (formato BR `1.234,56`). Se `unit=M2` e `m2PerBox>0`: `costCents = round(rawCost * m2PerBox * 100)`, `costPerM2Cents = round(rawCost*100)`. Filtro rígido remove cabeçalhos/categorias residuais |
+
+Gestão do cache: `GET/PUT/DELETE /admin/mapping-caches` (super admin) + painel no frontend.
+
+### 8.3 Import de XML de NF-e
+
+`stock-entry.service.confirmEntry` + [`clinicos-web/src/lib/nfe-parser.ts`](clinicos-web/src/lib/nfe-parser.ts) — dá entrada de estoque a partir do XML, incl. duplicatas/parcelas.
+
+---
+
+## 9. Integração fiscal
+
+Microserviço externo **NexosFiscal** ([`fiscal.service.ts`](src/modules/fiscal/services/fiscal.service.ts)).
+
+| Rota | Ação |
+|---|---|
+| `POST /fiscal/setup` | Cria tenant no NexosFiscal, gera API key, faz upload do certificado A1 (`.pfx` + senha). Salva em `ClinicFiscalConfig` (`nexosTenantId`, `nexosApiKey`, `environment` default `2` = homologação) |
+| `POST /fiscal/emit/:orderId` | Pré-checagem: bloqueia se algum produto sem `ncm`/`cfop`/`cst` (retorna `code: MISSING_FISCAL_DATA` + lista). Monta payload: converte caixas→m² p/ itens `M2`; **ICMS 18% / PIS 1,65% / COFINS 7,6% hardcoded**; pagamento `PIX`/`A_VISTA` fixo. POST assíncrono; cria/atualiza `FiscalDocument` como `PROCESSING` |
+| `GET/PUT /fiscal/settings` | Config e defaults por loja; indica se as credenciais vêm de `database` ou `env` |
+| `POST /fiscal/webhook` | `NFeAuthorized`→`APPROVED`, `NFeRejected`→`REJECTED` (+ motivo), `NFeCanceled`→`CANCELLED`. Atualiza `uuid`/`key`/`xmlUrl`/`danfeUrl` |
+
+Fallback: sem `ClinicFiscalConfig`, usa config transiente do `.env` (`FISCAL_API_KEY`).
+
+---
+
+## 10. Frontend
+
+- **Next.js 16 / React 19**, App Router. Rotas em [`clinicos-web/src/app/dashboard/`](clinicos-web/src/app): `orcamentos`, `pedidos`, `clientes`, `arquitetos`, `estoque` (+ `entradas`, `saidas`, `movimentacoes`, `ocorrencias`, `importacao`, `produtos`), `compras`, `fornecedores`, `financeiro` (+ `contas-a-pagar`, `notas-servico`, `vendedores`, `arquitetos`), `entregas`, `vendas` (`catalogo`, `promocoes`), `configuracoes` (`ambientes`, `comissoes`, `templates`), `admin`.
+- **API client** [`src/lib/api.ts`](clinicos-web/src/lib/api.ts): browser → `/api` (proxy); SSR → `INTERNAL_API_URL`. Interceptor injeta `Authorization: Bearer` + `X-Clinic-Id` do `localStorage`; `401` (fora do login) limpa sessão e redireciona.
+- **Estado servidor**: TanStack Query. **Auth**: `src/contexts/auth-context.tsx`. **Libs de domínio**: `nfe-parser.ts`, `brasil-api.ts` (CEP/CNPJ), `masks.ts`.
+- Rotas legadas ainda presentes: `/dashboard/pacientes`, `/dashboard/atendimentos`, `/dashboard/agenda`.
+
+---
+
+## 11. Deploy
+
+| Ambiente | Arquivo | Notas |
+|---|---|---|
+| Dev | [`docker-compose.yml`](docker-compose.yml) | Postgres + backend (`prisma migrate deploy` + `start:dev`) + frontend. Volumes montam `src/` p/ hot reload. `host.docker.internal` p/ o fiscal local |
+| Produção | [`docker-compose.prod.yml`](docker-compose.prod.yml) | Rede externa `coolify`; labels **Traefik**; health checks (`/health`, `/`); volume `uploads_data` p/ `EncounterAttachment` e afins. `DATABASE_URL` e chaves vêm do Coolify |
+
+`Dockerfile` multi-stage (`builder` / runtime). O histórico git mostra iterativa estabilização de memória (OOM em builds paralelos) e de health checks (IPv6, BusyBox `wget`).
+
+---
+
+## 12. Convenções
+
+- **Dinheiro**: `Int` centavos, sufixo `*Cents`. Novos campos devem seguir isso (não repetir os `Float` legados de `StockEntry*`).
+- **Numeração de documentos**: sequencial **por loja** via `findFirst({ where:{clinicId}, orderBy:{number:'desc'} })` + 1. (⚠️ condição de corrida sob concorrência; `Occurrence` foge ao padrão usando `autoincrement()`).
+- **Isolamento**: todo método de service filtra por `clinicId` explicitamente.
+- **Guards**: `@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)` na classe + `@Permissions(...)` no handler. `@RequireModules(...)` quando a área é um módulo comercial opcional.
+- **Auditoria**: `auditService.log({ clinicId, userId, action, entity, entityId, message })` após mutações relevantes.
+- **DTOs**: `class-validator` + `class-transformer`; o `ValidationPipe` global rejeita campos não declarados.
+- **Datas**: `DateTime` no banco; alguns models legados guardam `date`/`time` como string (`YYYY-MM-DD` / `HH:MM`).
+
+---
+
+## 13. Dívida técnica e pontos de atenção
+
+### Legado / naming
+1. `package.json` = `clinicos`; model raiz = `Clinic`; header = `X-Clinic-Id`; pasta frontend = `clinicos-web`. Renomear é caro (39 migrations + todo o código) — decisão consciente, mas é ruído permanente.
+2. Módulos clínicos inteiros carregados sem uso: `patients`, `scheduling`, `encounters`, `encounter-items`, `procedures`, `specialties`. Aumentam bundle, superfície de API e confusão.
+3. `StockMovement.encounterId` marcado `DEPRECATED`.
+
+### Segurança / config
+4. `JWT_SECRET` faz fallback para `changeme` com só um `console.warn` ([`env.ts`](src/config/env.ts)) — não aborta em produção.
+5. [`main.ts`](src/main.ts) loga **toda request** (método, URL, origin, user-agent) via `console.log`.
+6. CORS em `main.ts` fixo em `frontend.moa.software` + `localhost` — não contempla o domínio de revestimentos.
+7. O JWT não assina a loja ativa; ela vem do header a cada request. O `TenantGuard` valida acesso, então não há escalonamento — mas a "loja ativa" é totalmente client-driven.
+
+### Modelagem / consistência
+8. Dinheiro: `StockEntryItem.unitCost/totalCost` e `StockEntry.totalValue` são `Float` legados (o resto é `Int` centavos).
+9. `Occurrence.number` é `autoincrement()` global; os demais documentos usam sequencial por loja (que, por sua vez, tem condição de corrida sob concorrência).
+10. `StockReservation` expira só se `expireOldReservations` for chamado — **não há job agendado**.
+11. Comissões: `CommissionRule`/`Tier` existem, mas o cálculo (`orders.calculateOrderCommissions`) é efêmero (relatório). Não há entidade que registre a comissão apurada/paga por pedido.
+12. `PricingService` ramo `MANUAL` retorna `priceCents: 0` (incompleto — depende do caller não chamar nesse caso).
+13. `OrderStatus` e `FulfillmentStatus` se sobrepõem parcialmente e têm valores `// Deprecated` ativos no enum. A máquina de estados do pedido é complexa e vale um diagrama dedicado.
+14. `xlsx@0.18.5` (SheetJS via npm) tem CVEs conhecidas (protótipo / ReDoS); usado no backend e no frontend.
+
+### Fiscal
+15. Alíquotas ICMS/PIS/COFINS e `codigoMunicipio` (`3550308` = São Paulo) hardcoded em `fiscal.service.emitirNota`.
