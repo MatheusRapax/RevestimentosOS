@@ -67,6 +67,9 @@ services:
       - ./clinicos-web/.env.local
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3000
+      # Bind-mount no Windows não propaga eventos de fs -> hot reload por polling (só dev)
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     depends_on:
       - backend
     volumes:

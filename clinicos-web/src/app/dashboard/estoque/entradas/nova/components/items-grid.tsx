@@ -570,7 +570,7 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                                                 />
                                             ) : (
                                                 <span>
-                                                    {item.quantity} {item.product.unit}
+                                                    {item.quantity} {item.product.boxCoverage ? 'cx' : item.product.unit}
                                                 </span>
                                             )}
                                             {item.product.boxCoverage && (

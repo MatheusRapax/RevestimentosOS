@@ -39,13 +39,15 @@
 - **Obtido:** erro do backend *"Apenas orçamentos enviados podem ser aprovados"* (400). O backend barra corretamente — nenhuma transição inválida ocorre.
 - **Correção sugerida:** esconder/desabilitar "Aprovar Orçamento" enquanto o status não for "Aguardando Aprovação". Idem revisar todas as ações do menu por estado (ex.: "Enviar ao Cliente" também só faz sentido em Rascunho).
 
-### [ ] A3 — Form manual de produto grava `saleType = UNIT` para produtos de m² (Média)
+### [x] A3 — Form manual de produto grava `saleType = UNIT` para produtos de m² (Média) · ✅ CORRIGIDO (Fase 2, verificado)
+- **Correção:** form de produto (create/edit/avulso) agora tem `unit` e `saleType` em `<select>` (trava AREA p/ m²); backend `stock.service.normalizeUnitAndSaleType` deriva `saleType` (`M2`/`boxCoverage>0` → `AREA`) quando não vem no payload. Verificado: produto m² criado pela tela grava `saleType='AREA'`.
 - **Repro:** `/dashboard/estoque/produtos` → Novo Produto → Unidade "m²", "m² por Caixa" = 1.44 → Criar. No banco: `Product.saleType = 'UNIT'`.
 - **Esperado:** `saleType = 'AREA'` quando a unidade é m² / há `boxCoverage` (é o que o importador de planilha faz).
 - **Impacto:** colunas do PDF de orçamento e da UI que dependem de `saleType` (ex.: `QuoteTemplate.showUnitArea`), relatórios.
 - **Correção sugerida:** adicionar seletor de tipo de venda no form, ou derivar de `unit`/`boxCoverage` no submit (front ou `stock.service.createProduct`).
 
-### [ ] A4 — `unit` "m²" quebra a detecção de m² na emissão fiscal (Média, latente)
+### [x] A4 — `unit` "m²" quebra a detecção de m² na emissão fiscal (Média, latente) · ✅ CORRIGIDO (Fase 2, verificado)
+- **Correção:** backend normaliza `unit` (`'m²'`/`'Metro Quadrado'`/… → `'M2'`) em create e update; `fiscal.emitirNota` tolera `['M2','M²']`. Bônus: com `unit='M2'` correto, o orçamento passou a exibir **Preço/m²** (a lógica já existia, chaveada em `unit === 'M2'`, mas nunca disparava com `'m²'`).
 - **Contexto:** `fiscal.service.emitirNota` decide a unidade/quantidade do item da NF-e com `item.product.unit?.toUpperCase() === 'M2'`.
 - **Problema:** o form manual grava `unit` literal `"m²"`. `"m²".toUpperCase()` → `"M²"` ≠ `"M2"` → a checagem falha → a NF-e sairia com **quantidade em caixas** em vez de m², e `unidade` "UN"/"CX".
 - O importador de planilha normaliza para `"M2"`; o form manual não.
@@ -78,7 +80,8 @@
 ### [ ] L6 — Feedback de sucesso inconsistente
 - Cliente/Arquiteto/Fornecedor/Produto mostram banner/toast verde. Criação de orçamento apenas redireciona sem confirmação visual.
 
-### [ ] L7 — Form de produto
+### [x] L7 — Form de produto · ✅ CORRIGIDO (Fase 2, verificado)
+- **Correção:** os dois forms de produto agora têm **dois campos de custo** — 'Custo por m²' ⇄ 'Custo da Caixa' — que se auto-preenchem via `boxCoverage`; `Product.costCents`/`priceCents` continuam sendo sempre o valor da caixa. Verificado nos dois sentidos de digitação.
 - "Unidade" é texto livre (sujeito a typo) — ver A3/A4.
 - O custo/preço **por m²** aparece na UI (helper "Custo da Cx", "Venda da Cx") mas só o valor **por caixa** é persistido em `Product.costCents`/`priceCents`. `costPerM2Cents` existe só no DTO de import, não no model — ok, mas documentar que `Product.costCents` é sempre "custo da caixa/unidade".
 
@@ -141,7 +144,8 @@
 ### [ ] L11 — Form de PC: selecionar fornecedor cadastrado também preenche "Nome Avulso"
 - Ao escolher um fornecedor no select, o campo de texto livre "Ou Nome Avulso" também é preenchido com o mesmo nome (FK + nome denormalizado ambos setados). Provavelmente inofensivo, mas confuso.
 
-### [ ] L12 — Tabela de itens da Entrada rotula caixas como "m²"
+### [x] L12 — Tabela de itens da Entrada rotula caixas como "m²" · ✅ CORRIGIDO (Fase 2, verificado)
+- **Correção:** tabela de itens da Entrada rotula qty de produto AREA como `cx` (não a unidade do produto). O m² real continua na 2ª linha.
 - Na tela "Continuar Entrada", a coluna "Quantidade" mostra "35 m²" / "21 m²" quando são **caixas**; o m² real (50,40 / 22,68) aparece na 2ª linha. Rótulo errado.
 
 ### [ ] L13 — Pedido transita por `OrderStatus` deprecado
