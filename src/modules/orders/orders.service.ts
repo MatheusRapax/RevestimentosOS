@@ -324,6 +324,13 @@ export class OrdersService {
           exitDraft.id,
           userId!,
         );
+        // A saída baixou o estoque físico — as reservas do pedido foram
+        // efetivamente consumidas (antes ficavam ACTIVE eternamente,
+        // deixando o disponível negativo). Bug A6.
+        await this.prisma.stockReservation.updateMany({
+          where: { orderId: id, status: 'ACTIVE' },
+          data: { status: 'CONSUMED' },
+        });
         console.log(
           `[Fulfillment] Auto stock exit created and confirmed for order ${id}`,
         );
