@@ -9,7 +9,12 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AddStockDto } from './dto/add-stock.dto';
 import { RemoveStockDto } from './dto/remove-stock.dto';
-import { StockMovementType, AuditAction, Prisma } from '@prisma/client';
+import {
+  StockMovementType,
+  AuditAction,
+  Prisma,
+  SaleType,
+} from '@prisma/client';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { ListStockMovementsDto } from './dto/list-stock-movements.dto';
 
@@ -22,7 +27,64 @@ export class StockService {
 
   // ========== PRODUCT MANAGEMENT ==========
 
-  async createProduct(clinicId: string, dto: CreateProductDto) {
+  /** Aliases textuais que devem ser gravados como a unidade canônica "M2". */
+  private static readonly M2_ALIASES = new Set([
+    'M2',
+    'M²',
+    'M^2',
+    'MT2',
+    'MTS2',
+    'METRO QUADRADO',
+    'METRO2',
+    'METROS QUADRADOS',
+  ]);
+
+  /**
+   * Normaliza `unit` (para MAIÚSCULAS, com "m²" -> "M2") e deriva `saleType`
+   * quando não veio no payload. Convenção de storage inalterada:
+   * `costCents`/`priceCents` continuam sendo sempre o valor da CAIXA/UNIDADE.
+   *
+   * - create (`current` ausente): deriva `saleType` = AREA se unit=M2 ou boxCoverage>0, senão UNIT.
+   * - update (`current` presente): só promove para AREA se a unit virou M2 e ainda
+   *   não é AREA/BOTH; nunca rebaixa um saleType já definido.
+   */
+  private normalizeUnitAndSaleType<
+    T extends { unit?: string; saleType?: SaleType; boxCoverage?: number },
+  >(dto: T, current?: { unit?: string | null; saleType?: SaleType | null; boxCoverage?: number | null }): T {
+    const out: T = { ...dto };
+
+    if (typeof out.unit === 'string' && out.unit.trim() !== '') {
+      const u = out.unit.trim().replace(/\s+/g, ' ').toUpperCase();
+      out.unit = StockService.M2_ALIASES.has(u) ? 'M2' : u;
+    }
+
+    const effectiveUnit = (out.unit ?? current?.unit ?? '')
+      .toString()
+      .toUpperCase();
+    const effectiveCoverage = out.boxCoverage ?? current?.boxCoverage ?? 0;
+
+    if (out.saleType === undefined || out.saleType === null) {
+      if (current) {
+        if (
+          effectiveUnit === 'M2' &&
+          current.saleType !== SaleType.AREA &&
+          current.saleType !== SaleType.BOTH
+        ) {
+          out.saleType = SaleType.AREA;
+        }
+      } else {
+        out.saleType =
+          effectiveUnit === 'M2' || Number(effectiveCoverage) > 0
+            ? SaleType.AREA
+            : SaleType.UNIT;
+      }
+    }
+
+    return out;
+  }
+
+  async createProduct(clinicId: string, rawDto: CreateProductDto) {
+    const dto = this.normalizeUnitAndSaleType(rawDto);
     const product = await this.prisma.product.create({
       data: {
         clinicId,
@@ -395,7 +457,7 @@ export class StockService {
     };
   }
 
-  async updateProduct(id: string, clinicId: string, dto: UpdateProductDto) {
+  async updateProduct(id: string, clinicId: string, rawDto: UpdateProductDto) {
     const product = await this.prisma.product.findFirst({
       where: { id, clinicId },
     });
@@ -403,6 +465,8 @@ export class StockService {
     if (!product) {
       throw new NotFoundException('Produto não encontrado');
     }
+
+    const dto = this.normalizeUnitAndSaleType(rawDto as any, product);
 
     return this.prisma.product.update({
       where: { id },
