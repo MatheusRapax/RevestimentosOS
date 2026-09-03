@@ -4,6 +4,9 @@ import { useEffect, useState, use, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { FiscalTotalsForm } from '../nova/components/fiscal-totals-form';
 import { ItemsGrid } from '../nova/components/items-grid';
 import { useStockEntries } from '@/hooks/useStockEntries';
@@ -29,6 +32,14 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
     const [pendingXmlItems, setPendingXmlItems] = useState<NFeItem[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Divergência com o Pedido de Compra
+    const [showDivergenceModal, setShowDivergenceModal] = useState(false);
+    const [divergences, setDivergences] = useState<string[]>([]);
+    const [justification, setJustification] = useState('');
+    const [supervisorEmail, setSupervisorEmail] = useState('');
+    const [supervisorPassword, setSupervisorPassword] = useState('');
+    const [modalError, setModalError] = useState('');
+
     useEffect(() => {
         const loadEntry = async () => {
             try {
@@ -42,13 +53,30 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
         loadEntry();
     }, [id]);
 
-    const handleConfirm = async () => {
+    const handleConfirm = async (forceConfirm = false) => {
         if (!id) return;
+        setModalError('');
         try {
-            await confirmEntry(id);
+            await confirmEntry(id, {
+                forceConfirm,
+                justification: forceConfirm ? justification : undefined,
+                supervisorEmail: forceConfirm ? supervisorEmail : undefined,
+                supervisorPassword: forceConfirm ? supervisorPassword : undefined,
+            });
+            setShowDivergenceModal(false);
             router.push('/dashboard/estoque/movimentacoes');
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            const code = err.response?.data?.code;
+            const status = err.response?.status;
+            if (code === 'PRICE_DIVERGENCE' || code === 'PO_DIVERGENCE') {
+                setDivergences(err.response.data.divergences || []);
+                setShowDivergenceModal(true);
+            } else if (status === 401 || status === 403) {
+                setModalError(err.response?.data?.message || 'Acesso negado');
+            } else {
+                alert(err.response?.data?.message || 'Erro ao confirmar a entrada.');
+                console.error(err);
+            }
         }
     };
 
@@ -360,7 +388,7 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                             <Button
                                 size="lg"
                                 className="bg-green-600 hover:bg-green-700"
-                                onClick={handleConfirm}
+                                onClick={() => handleConfirm()}
                                 disabled={isLoading || !currentEntry.items?.length}
                             >
                                 <CheckCircle className="h-4 w-4 mr-2" />
@@ -370,6 +398,87 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Modal de Divergência com o Pedido de Compra */}
+            <Dialog open={showDivergenceModal} onOpenChange={setShowDivergenceModal}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-red-600 flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5" />
+                            Divergência Detectada (Preço / Quantidade)
+                        </DialogTitle>
+                        <DialogDescription>
+                            Foram encontradas divergências entre esta Nota Fiscal e o Pedido de Compra original.
+                            Uma justificativa gerencial é obrigatória para autorizar a entrada no estoque.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-4 space-y-4">
+                        <div className="bg-muted p-3 rounded-md text-sm space-y-2 max-h-[200px] overflow-y-auto">
+                            {divergences.map((div, i) => (
+                                <div key={i} className="text-destructive font-medium">{div}</div>
+                            ))}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="justification">Justificativa da Aprovação</Label>
+                            <Textarea
+                                id="justification"
+                                placeholder="Explique o motivo da divergência para aprovar..."
+                                value={justification}
+                                onChange={(e) => setJustification(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="pt-2 border-t space-y-4">
+                            <p className="text-xs text-muted-foreground">
+                                Se você não for Gerente ou Administrador, solicite a liberação de um supervisor abaixo:
+                            </p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="supervisorEmail">E-mail do Supervisor</Label>
+                                    <input
+                                        id="supervisorEmail"
+                                        type="email"
+                                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                        placeholder="admin@loja.com"
+                                        value={supervisorEmail}
+                                        onChange={(e) => setSupervisorEmail(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="supervisorPassword">Senha do Supervisor</Label>
+                                    <input
+                                        id="supervisorPassword"
+                                        type="password"
+                                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                        value={supervisorPassword}
+                                        onChange={(e) => setSupervisorPassword(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {modalError && (
+                            <div className="bg-destructive/15 text-destructive p-3 rounded-md flex items-center gap-2 text-sm font-medium">
+                                <AlertTriangle className="h-4 w-4" />
+                                {modalError}
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowDivergenceModal(false)}>Cancelar</Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => handleConfirm(true)}
+                            disabled={isLoading || justification.trim().length < 5}
+                        >
+                            Aprovar Divergência
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

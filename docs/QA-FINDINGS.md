@@ -89,7 +89,8 @@
 
 ## Teste 2 — Blockers
 
-### [ ] B3 — Não é possível confirmar entrada de estoque gerada de um Pedido de Compra
+### [x] B3 — Não é possível confirmar entrada de estoque gerada de um Pedido de Compra · ✅ CORRIGIDO (Fase 3, verificado)
+- **Correção:** `createFromPurchaseOrder` grava `purchaseOrderId` + `purchaseOrderItemId` em cada item. Verificado: entrada gerada de PC confirma direto (API e UI), sem 'Item Avulso'.
 - **Repro:** PC Confirmado → "Dar Entrada (Estoque)" → preencher NF → "Confirmar Entrada".
 - **Obtido:** `POST /stock/entries/:id/confirm` → 400 `{ code: 'PO_DIVERGENCE', message: 'Divergência detectada entre o pedido de compra e a nota fiscal.' }`. E o **frontend não mostra o erro** — o botão "Confirmar Entrada" simplesmente não faz nada (falha silenciosa).
 - **Causa raiz:** `createFromPurchaseOrder` (`stock-entry.service.ts` ~L400) cria os `StockEntryItem` **sem `purchaseOrderItemId`**, mas seta `entry.purchaseOrderId`. Em `confirmEntry` (~L546-570), como `poItemsMap.get(undefined)` não acha o item, cai no `else if (linkedPoItemIds.length > 0 || entry.purchaseOrderId)` e empurra `"Item Avulso: o produto X não faz parte do pedido de compra"` para **todos** os itens → dispara `PO_DIVERGENCE`.
@@ -100,13 +101,15 @@
 
 ## Teste 2 — Bugs de aplicação
 
-### [ ] A5 — Confirmar entrada corrompe `Product.costCents` (dupla conversão) — Alta / financeiro
+### [x] A5 — Confirmar entrada corrompe `Product.costCents` (dupla conversão) — Alta / financeiro · ✅ CORRIGIDO (Fase 3, verificado)
+- **Correção:** `createFromPurchaseOrder` grava `unitCost` **por m²** (custo da caixa ÷ boxCoverage) para produto de área, como o `confirmEntry` espera; e a checagem de divergência de preço compara **custo da caixa vs custo da caixa** (mesma fórmula do update). Verificado: após confirmar, `Product.costCents` = 7200/3456 (não infla); com divergência aprovada fica 7920 (= 79,20/cx), não 11404.
 - **Repro:** entrada de estoque de produto m² (Porcelanato, `boxCoverage` 1.44, custo da caixa R$ 72,00) → Confirmar.
 - **Obtido:** `Product.costCents` passa de `7200` para **`10368`** (= 72 × 1.44 × 100). Revestimento: `3456` → `3732` (= 34,56 × 1.08). O custo da caixa (que já é por caixa) é re-multiplicado por `boxCoverage` como se fosse por m².
 - **Impacto:** `costCents` (10368) fica **maior que** `priceCents` (10080) → o produto passa a "vender no prejuízo" em qualquer relatório de margem / valorização de estoque. Distorce precificação futura (motor de markup usa `costCents`).
 - **Relacionado a A3/A4:** a entrada assume custo por m² para produto m²; o PC passou custo por caixa. Alinhar a semântica de "custo unitário" na entrada.
 
-### [ ] A6 — Reservas não são baixadas (`CONSUMED`) na entrega — Alta / integridade de estoque
+### [x] A6 — Reservas não são baixadas (`CONSUMED`) na entrega — Alta / integridade de estoque · ✅ CORRIGIDO (Fase 3, verificado)
+- **Correção:** `orders.updateStatus` marca as `StockReservation` do pedido como `CONSUMED` logo após o `confirmExit` na entrega. Verificado: reservas 32/19 → CONSUMED; lotes 3/2; disponível fica positivo.
 - **Repro:** pedido com reservas ACTIVE → entregar → `StockExit` SALE confirmado, lotes zerados.
 - **Obtido:** as `StockReservation` continuam **`ACTIVE`**. Lote = 0, mas reservado = 56 → disponível = `0 − 56 = −56`. `ReservationStatus.CONSUMED` existe no enum mas **nunca é setado** neste fluxo.
 - **Impacto:** qualquer checagem de disponibilidade desses produtos fica negativa/corrompida; reservas "fantasma" acumulam.
@@ -119,10 +122,12 @@
 - **Riscos:** limite de crédito / extrato do cliente ficam errados; cancelamento/estorno não tem contra-partida para reverter.
 - **Correção sugerida:** ao confirmar o pedido (ou na entrega), lançar `Transaction` `CHARGE` de `order.totalCents` na conta do cliente; o `PAYMENT` então zera o saldo.
 
-### [ ] A8 — `PurchaseOrderItem.quantityReceived` não é atualizado — Média / integridade
+### [x] A8 — `PurchaseOrderItem.quantityReceived` não é atualizado — Média / integridade · ✅ CORRIGIDO (Fase 3, verificado)
+- **Correção:** com o vínculo do B3, o incremento de `quantityReceived` (que já existia) passa a rodar. Verificado: 35/21 e PC → RECEIVED.
 - Após o PC virar `RECEIVED` e a entrada ser confirmada, `quantityReceived` continua `0` nos dois itens. Rastreio de recebimento parcial (`PARTIAL`) fica quebrado.
 
-### [ ] A9 — Erro de confirmação de entrada não é exibido — Média / UX
+### [x] A9 — Erro de confirmação de entrada não é exibido — Média / UX · ✅ CORRIGIDO (Fase 3, verificado)
+- **Correção:** porta o modal de divergência (que só existia em `/entradas/nova`) para `/entradas/[id]`: catch de `PO_DIVERGENCE`/`PRICE_DIVERGENCE`, lista de divergências, justificativa + supervisor, `forceConfirm`. Também corrigido o binding `onClick={handleConfirm}` → `onClick={() => handleConfirm()}` (passava o evento como forceConfirm). Verificado: modal aparece ('R$ 72,00 | R$ 79,20'), aprovar com justificativa confirma.
 - O 400 de `PO_DIVERGENCE` (e provavelmente outros erros do confirm) não gera toast nem mensagem; o botão só "não responde". Ver B3.
 
 ---
