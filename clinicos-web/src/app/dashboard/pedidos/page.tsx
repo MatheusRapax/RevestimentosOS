@@ -343,7 +343,7 @@ export default function OrdersPage() {
 
     const stats = {
         pending: orders.filter((o: any) => o.status === 'CRIADO').length,
-        awaitingStock: orders.filter((o: any) => o.status === 'AGUARDANDO_MATERIAL').length,
+        awaitingStock: orders.filter((o: any) => ['AGUARDANDO_COMPRA', 'AGUARDANDO_MATERIAL'].includes(o.status)).length,
         inProgress: orders.filter((o: any) => ['PAGO'].includes(o.status)).length,
         ready: orders.filter((o: any) => o.status === 'PRONTO_PARA_ENTREGA').length,
         delivered: orders.filter((o: any) => o.status === 'ENTREGUE').length,
@@ -1057,14 +1057,14 @@ export default function OrdersPage() {
                                 )}
                                 {displayOrder.status === 'PAGO' && (
                                     <button
-                                        onClick={() => updateStatusMutation.mutate({ status: 'AGUARDANDO_MATERIAL' })}
+                                        onClick={() => updateStatusMutation.mutate({ status: 'AGUARDANDO_COMPRA' })}
                                         disabled={updateStatusMutation.isPending}
                                         className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
                                     >
                                         {updateStatusMutation.isPending ? 'Processando...' : 'Aguardar Material'}
                                     </button>
                                 )}
-                                {(displayOrder.status === 'AGUARDANDO_MATERIAL' || displayOrder.status === 'PAGO' || displayOrder.status === 'MATERIAL_RECEBIDO') && (
+                                {(displayOrder.status === 'AGUARDANDO_COMPRA' || displayOrder.status === 'AGUARDANDO_MATERIAL' || displayOrder.status === 'PAGO' || displayOrder.status === 'MATERIAL_RECEBIDO') && (
                                     <button
                                         onClick={() => updateStatusMutation.mutate({ status: 'PRONTO_PARA_ENTREGA' })}
                                         disabled={updateStatusMutation.isPending}

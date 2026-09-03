@@ -112,11 +112,11 @@
 
 ---
 
-## Fase 5 — Máquina de estados orçamento/pedido (A2, L13) · risco baixo
+## Fase 5 — Máquina de estados orçamento/pedido (A2, L13) · risco baixo · ✅ CONCLUÍDA
 
-- [ ] **A2** — esconder/desabilitar ações do menu do orçamento incoerentes com o status (ex.: "Aprovar" só em "Aguardando Aprovação"; "Enviar ao Cliente" só em "Rascunho"). Revisar todas as transições.
-- [ ] **L13** — aposentar `OrderStatus.AGUARDANDO_MATERIAL` (deprecado): mapear para `AGUARDANDO_COMPRA`/`AGUARDANDO_CHEGADA` no `stock-allocation.service` e limpar o enum, ou documentar por que fica.
-- **Teste:** percorrer Rascunho→Enviado→Aprovado→Convertido e Pedido Criado→Pago→...→Entregue conferindo que o menu só oferece ações válidas e nenhum 400 "status inválido".
+- [x] **A2** — `orcamentos/[id]/page.tsx`: "Aprovar Orçamento" só em `AGUARDANDO_APROVACAO`; "Reservar Estoque" também gated por `EM_ORCAMENTO`/`AGUARDANDO_APROVACAO`. Demais ações já corretas por estado.
+- [x] **L13** — `stock-allocation.service` grava `AGUARDANDO_COMPRA` no cenário "precisa comprar" (não mais `AGUARDANDO_MATERIAL`). Filtros de leitura em `orders.getStats`, `dashboard.getPendingOrders/getPendingDeliveries` e `pedidos/page.tsx` incluem `AGUARDANDO_COMPRA`, mantendo `AGUARDANDO_MATERIAL` como legado tolerante (pedidos antigos em produção). Enum não removido do schema de propósito — migração destrutiva em prod.
+- **Teste:** ✅ Rascunho→Enviado→Aprovado→Convertido no browser: menu só oferece ações válidas, Aprovar funciona sem 400. Pedido Criado→Pago → auto-alocação sem estoque/PO → `status = AGUARDANDO_COMPRA` (UI + banco). Conta-corrente pós-pagamento = 0 (A7 sem regressão).
 
 ---
 

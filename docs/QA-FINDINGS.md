@@ -34,10 +34,9 @@
 - **Correção sugerida:** preencher via lookup apenas campos vazios; ou pedir confirmação antes de sobrescrever; ou disparar o lookup só no clique explícito em "Buscar CNPJ" (hoje dispara também no `onChange`/`onBlur` do campo).
 - **Nota:** o mesmo padrão de "buscar por documento" existe no form de Cliente (botão "Buscar CEP") — verificar se tem o mesmo comportamento destrutivo.
 
-### [ ] A2 — Menu do orçamento oferece "Aprovar" em status inválido (Média)
-- **Repro:** abrir orçamento em **Rascunho** → menu "..." → "Aprovar Orçamento".
-- **Obtido:** erro do backend *"Apenas orçamentos enviados podem ser aprovados"* (400). O backend barra corretamente — nenhuma transição inválida ocorre.
-- **Correção sugerida:** esconder/desabilitar "Aprovar Orçamento" enquanto o status não for "Aguardando Aprovação". Idem revisar todas as ações do menu por estado (ex.: "Enviar ao Cliente" também só faz sentido em Rascunho).
+### [x] A2 — Menu do orçamento oferece "Aprovar" em status inválido (Média) · ✅ CORRIGIDO (Fase 5, verificado)
+- **Correção:** `orcamentos/[id]/page.tsx` — "Aprovar Orçamento" só aparece em `AGUARDANDO_APROVACAO` (antes: `EM_ORCAMENTO || AGUARDANDO_APROVACAO`); "Reservar Estoque" também passou a exigir status `EM_ORCAMENTO`/`AGUARDANDO_APROVACAO`. Verificado no browser: Rascunho → menu sem "Aprovar"; Aguardando Aprovação → "Aprovar" presente e funcional; Aprovado → só "Converter em Pedido". Menu da listagem já estava correto.
+- **Repro (antigo):** abrir orçamento em **Rascunho** → menu "..." → "Aprovar Orçamento" → 400 *"Apenas orçamentos enviados podem ser aprovados"*.
 
 ### [x] A3 — Form manual de produto grava `saleType = UNIT` para produtos de m² (Média) · ✅ CORRIGIDO (Fase 2, verificado)
 - **Correção:** form de produto (create/edit/avulso) agora tem `unit` e `saleType` em `<select>` (trava AREA p/ m²); backend `stock.service.normalizeUnitAndSaleType` deriva `saleType` (`M2`/`boxCoverage>0` → `AREA`) quando não vem no payload. Verificado: produto m² criado pela tela grava `saleType='AREA'`.
@@ -154,8 +153,8 @@
 - **Correção:** tabela de itens da Entrada rotula qty de produto AREA como `cx` (não a unidade do produto). O m² real continua na 2ª linha.
 - Na tela "Continuar Entrada", a coluna "Quantidade" mostra "35 m²" / "21 m²" quando são **caixas**; o m² real (50,40 / 22,68) aparece na 2ª linha. Rótulo errado.
 
-### [ ] L13 — Pedido transita por `OrderStatus` deprecado
-- O fluxo passa por `AGUARDANDO_MATERIAL`, marcado `// Deprecated` no schema. `stock-allocation.service` ainda atribui esse valor. Limpar o enum e a máquina de estados (ver A2).
+### [x] L13 — Pedido transita por `OrderStatus` deprecado · ✅ CORRIGIDO (Fase 5, verificado)
+- **Correção:** `stock-allocation.service.ts` (cenário "precisa comprar") passou a gravar `AGUARDANDO_COMPRA` no lugar do deprecado `AGUARDANDO_MATERIAL`. Filtros de leitura que só olhavam `AGUARDANDO_MATERIAL` (`orders.getStats`, `dashboard.getPendingOrders`/`getPendingDeliveries`, `pedidos/page.tsx` stats + botões) agora incluem `AGUARDANDO_COMPRA` (mantêm `AGUARDANDO_MATERIAL` como legado tolerante para pedidos antigos em produção). Botão manual "Aguardar Material" grava `AGUARDANDO_COMPRA`. Verificado: pedido pago sem estoque/PO → `status = AGUARDANDO_COMPRA` (UI + `SELECT` no banco). Nenhuma escrita nova de `AGUARDANDO_MATERIAL`.
 
 ---
 

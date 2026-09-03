@@ -421,7 +421,8 @@ export class OrdersService {
             clinicId,
             status: {
               in: [
-                OrderStatus.AGUARDANDO_MATERIAL,
+                OrderStatus.AGUARDANDO_COMPRA,
+                OrderStatus.AGUARDANDO_MATERIAL, // legado/deprecado
                 OrderStatus.AGUARDANDO_CHEGADA,
                 OrderStatus.MATERIAL_RECEBIDO,
               ],

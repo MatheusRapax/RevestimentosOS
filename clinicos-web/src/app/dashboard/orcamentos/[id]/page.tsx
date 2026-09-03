@@ -537,14 +537,15 @@ export default function QuoteDetailPage() {
                                 </DropdownMenuItem>
                             )}
 
-                            {availability && (availability.status === 'FULL' || availability.status === 'PARTIAL') && hasPermission('quote.update') && (
+                            {(quote.status === 'EM_ORCAMENTO' || quote.status === 'AGUARDANDO_APROVACAO') && availability && (availability.status === 'FULL' || availability.status === 'PARTIAL') && hasPermission('quote.update') && (
                                 <DropdownMenuItem onClick={handleReserveStock} disabled={actionLoading === 'reserve'} className="text-orange-600 focus:text-orange-700">
                                     <Package className="mr-2 h-4 w-4" />
                                     {actionLoading === 'reserve' ? 'Reservando...' : 'Reservar Estoque'}
                                 </DropdownMenuItem>
                             )}
 
-                            {(quote.status === 'EM_ORCAMENTO' || quote.status === 'AGUARDANDO_APROVACAO') && hasPermission('quote.update') && (
+                            {/* Backend só aprova orçamento em AGUARDANDO_APROVACAO (bug A2: antes aparecia em Rascunho) */}
+                            {quote.status === 'AGUARDANDO_APROVACAO' && hasPermission('quote.update') && (
                                 <DropdownMenuItem onClick={handleApproveQuote} disabled={actionLoading === 'approve'} className="text-green-600 focus:text-green-700">
                                     <CheckCircle className="mr-2 h-4 w-4" />
                                     {actionLoading === 'approve' ? 'Aprovando...' : 'Aprovar Orçamento'}

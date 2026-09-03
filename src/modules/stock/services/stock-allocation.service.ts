@@ -167,7 +167,8 @@ export class StockAllocationService {
           nextOrderStatus = 'AGUARDANDO_CHEGADA' as OrderStatus;
         } else {
           // Scenario C: Need to Buy
-          nextOrderStatus = OrderStatus.AGUARDANDO_MATERIAL;
+          // L13: AGUARDANDO_MATERIAL está deprecado — grava o status canônico.
+          nextOrderStatus = OrderStatus.AGUARDANDO_COMPRA;
         }
       }
 
