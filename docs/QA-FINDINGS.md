@@ -115,7 +115,8 @@
 - **Impacto:** qualquer checagem de disponibilidade desses produtos fica negativa/corrompida; reservas "fantasma" acumulam.
 - **Correção sugerida:** `stock-exit.service.confirmExit` (ou o passo de entrega) deve marcar as reservas vinculadas ao pedido como `CONSUMED` ao dar baixa.
 
-### [ ] A7 — Sem lançamento de cobrança (CHARGE) para a venda — Alta / conciliação financeira
+### [x] A7 — Sem lançamento de cobrança (CHARGE) para a venda — Alta / conciliação financeira · ✅ CORRIGIDO (Fase 4, verificado)
+- **Correção:** `finance.chargeOrder(orderId)` lança um `Transaction` tipo `CHARGE` de `order.totalCents` na conta do cliente **antes** dos pagamentos (no `updateStatus` PAGO), idempotente. Resultado: `CHARGE −T + PAYMENT +T = 0`. Cancelamento: `finance.refundOrder` lança `ADJUSTMENT` (estorna a cobrança) + `REFUND` (estorna pagamentos) e marca os `Payment` como `REFUNDED` → saldo volta a 0. Verificado: pagamento único e split → saldo 0; `revenue` continua correto; cancelar pedido pago → saldo 0, payments REFUNDED, dashboard não quebra. **Nota:** só afeta pedidos NOVOS; pedidos já PAGOS antes do fix continuam com saldo inflado (backfill é decisão separada).
 - **Repro:** pagar um pedido integralmente e entregar.
 - **Obtido:** `finance.service.registerPayment` só **credita** a `PatientAccount` (`balanceCents += amount`) e cria `Transaction` tipo `PAYMENT`. Nunca é criado um `CHARGE` correspondente ao valor do pedido.
 - **Resultado:** após pedido pago e entregue, o saldo da conta-corrente do cliente fica **+R$ 4.604,83** (crédito fantasma) em vez de R$ 0. Schema diz `balanceCents` `// Negativo = deve, Positivo = crédito`.

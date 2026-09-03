@@ -238,6 +238,10 @@ export class OrdersService {
             where: { orderId: id, status: 'ACTIVE' },
             data: { status: 'CANCELLED' },
           });
+          // Reverte a conta-corrente do cliente (estorna cobrança e pagamentos).
+          if (currentOrder.status !== OrderStatus.CANCELADO) {
+            await this.financeService.refundOrder(clinicId, id, userId);
+          }
         }
 
         // 3. Finance Integration (Auto-Payment)
@@ -246,6 +250,10 @@ export class OrdersService {
           currentOrder.status !== OrderStatus.PAGO
         ) {
           const desc = `Pagamento Pedido #${currentOrder.number}`;
+
+          // Lança a COBRANÇA do pedido na conta do cliente ANTES do pagamento,
+          // para o saldo fechar em zero (bug A7). Idempotente.
+          await this.financeService.chargeOrder(clinicId, id, userId);
 
           if (payments && payments.length > 0) {
             for (const p of payments) {

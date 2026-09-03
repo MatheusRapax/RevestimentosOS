@@ -559,6 +559,157 @@ export class FinanceService {
   }
 
   /**
+   * Lança na conta-corrente do cliente a COBRANÇA (débito) referente a um pedido
+   * de venda. Sem isso, o `registerPayment` só creditava a conta e o saldo do
+   * cliente ficava positivo (crédito fantasma) mesmo com o pedido quitado (bug A7).
+   * Idempotente: não duplica a cobrança do mesmo pedido.
+   */
+  async chargeOrder(clinicId: string, orderId: string, userId?: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, clinicId },
+      select: { id: true, number: true, customerId: true, totalCents: true },
+    });
+    if (!order) return null;
+    if (!order.customerId || order.totalCents <= 0) return null; // balcão sem cliente
+
+    const account = await this.getOrCreateAccount(
+      clinicId,
+      null,
+      order.customerId,
+    );
+
+    const description = `Cobrança Pedido #${order.number}`;
+    const existing = await this.prisma.transaction.findFirst({
+      where: {
+        accountId: account.id,
+        type: TransactionType.CHARGE,
+        description,
+      },
+    });
+    if (existing) return existing;
+
+    const transaction = await this.prisma.transaction.create({
+      data: {
+        clinicId,
+        customerId: order.customerId,
+        accountId: account.id,
+        type: TransactionType.CHARGE,
+        amountCents: order.totalCents,
+        description,
+      },
+    });
+
+    await this.prisma.patientAccount.update({
+      where: { id: account.id },
+      data: { balanceCents: { decrement: order.totalCents } },
+    });
+
+    await this.auditService.log({
+      clinicId,
+      userId,
+      action: AuditAction.CREATE,
+      entity: 'Transaction',
+      entityId: transaction.id,
+      message: `${description}: ${this.formatCurrency(order.totalCents)}`,
+    });
+
+    return transaction;
+  }
+
+  /**
+   * Reverte na conta-corrente as movimentações de um pedido CANCELADO:
+   * estorna a cobrança e, se houve pagamento, marca os `Payment` como REFUNDED
+   * e lança o estorno (débito) — deixando o saldo do cliente de volta a zero.
+   * No-op se o pedido nunca gerou cobrança (cancelado antes de pagar).
+   */
+  async refundOrder(clinicId: string, orderId: string, userId?: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, clinicId },
+      select: { id: true, number: true, customerId: true },
+    });
+    if (!order?.customerId) return null;
+
+    const account = await this.getOrCreateAccount(
+      clinicId,
+      null,
+      order.customerId,
+    );
+
+    const chargeTx = await this.prisma.transaction.findFirst({
+      where: {
+        accountId: account.id,
+        type: TransactionType.CHARGE,
+        description: `Cobrança Pedido #${order.number}`,
+      },
+    });
+    if (!chargeTx) return null; // nunca cobrado
+
+    const reversalDesc = `Estorno da cobrança - Pedido #${order.number} cancelado`;
+    const already = await this.prisma.transaction.findFirst({
+      where: {
+        accountId: account.id,
+        type: TransactionType.ADJUSTMENT,
+        description: reversalDesc,
+      },
+    });
+    if (already) return already;
+
+    // 1. Reverte a cobrança (crédito de volta)
+    await this.prisma.transaction.create({
+      data: {
+        clinicId,
+        customerId: order.customerId,
+        accountId: account.id,
+        type: TransactionType.ADJUSTMENT,
+        amountCents: chargeTx.amountCents,
+        description: reversalDesc,
+      },
+    });
+    await this.prisma.patientAccount.update({
+      where: { id: account.id },
+      data: { balanceCents: { increment: chargeTx.amountCents } },
+    });
+
+    // 2. Estorna pagamentos aprovados, se houver
+    const paidAgg = await this.prisma.payment.aggregate({
+      where: { orderId, status: 'APPROVED' },
+      _sum: { amountCents: true },
+    });
+    const paid = paidAgg._sum.amountCents || 0;
+    if (paid > 0) {
+      await this.prisma.payment.updateMany({
+        where: { orderId, status: 'APPROVED' },
+        data: { status: 'REFUNDED' },
+      });
+      await this.prisma.transaction.create({
+        data: {
+          clinicId,
+          customerId: order.customerId,
+          accountId: account.id,
+          type: TransactionType.REFUND,
+          amountCents: paid,
+          description: `Estorno Pedido #${order.number}`,
+        },
+      });
+      await this.prisma.patientAccount.update({
+        where: { id: account.id },
+        data: { balanceCents: { decrement: paid } },
+      });
+    }
+
+    await this.auditService.log({
+      clinicId,
+      userId,
+      action: AuditAction.UPDATE,
+      entity: 'Order',
+      entityId: order.id,
+      message: `Estorno financeiro do Pedido #${order.number} (cobrança ${this.formatCurrency(chargeTx.amountCents)}, pago ${this.formatCurrency(paid)})`,
+    });
+
+    return { reversed: true, chargeCents: chargeTx.amountCents, refundedCents: paid };
+  }
+
+  /**
    * Register a payment with method and create transaction
    */
   async registerPayment(
