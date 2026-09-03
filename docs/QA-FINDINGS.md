@@ -176,6 +176,9 @@
 
 ---
 
+### [ ] L14 — `POST /purchase-orders` sem validação de DTO
+- Enviar payload incompleto (sem `supplierName`, `totalCents` ou `item.totalCents`) → **500** (`PrismaClientValidationError`) em vez de 400 com mensagem clara. O service é passthrough puro pro Prisma, sem `class-validator`. Descoberto ao montar o cenário da Fase 3 via API (o form do frontend preenche tudo, então não aparece na UI).
+
 ## Observações a verificar (não confirmadas como bug)
 
 ### [ ] O1 — `finance/reports/inventory-valuation` retornou tudo zero
