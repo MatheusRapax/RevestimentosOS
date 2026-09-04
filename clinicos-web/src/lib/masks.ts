@@ -61,6 +61,23 @@ export function maskCurrency(value: string): string {
     }).format(amount);
 }
 
+/**
+ * L1: formatação para exibição — aceita valor cru (só dígitos) ou já mascarado
+ * e sempre devolve o formato canônico. As máscaras acima já são idempotentes
+ * (removem \D antes de reaplicar), então serve para dados do seed e da tela.
+ */
+export function formatDocument(value?: string | null, type?: string): string {
+    const digits = (value || '').replace(/\D/g, '');
+    if (!digits) return '';
+    if (type === 'PJ' || digits.length > 11) return maskCNPJ(digits);
+    return maskCPF(digits);
+}
+
+export function formatPhone(value?: string | null): string {
+    const digits = (value || '').replace(/\D/g, '');
+    return digits ? maskPhone(digits) : '';
+}
+
 export function maskAccessKey(value: string): string {
     return value
         .replace(/\D/g, '')

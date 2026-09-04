@@ -27,12 +27,9 @@
 
 ## Bugs de aplicação
 
-### [ ] A1 — Novo Fornecedor: lookup de CNPJ sobrescreve campos já digitados (Média/Alta)
-- **Repro:** `/dashboard/fornecedores` → Novo Fornecedor → digitar Nome "QA Fornecedor Teste", Cidade "Campinas", UF "SP", Telefone "(19) 3000-2000" → digitar um CNPJ **válido** (`11.222.333/0001-81`) → Salvar.
-- **Esperado:** os dados digitados são mantidos.
-- **Obtido:** o lookup automático na Receita/BrasilAPI sobrescreveu Nome → "CAIXA ESCOLAR DA ESCOLA ESTADUAL DE ENSINO FUNDAMENTAL JOSEFINA JACQUES NORONHA", Cidade → "SAO SEBASTIAO DO CAI", UF → "RS", Telefone → "5136354333". Só `email` e `notes` (não retornados pelo lookup) sobreviveram.
-- **Correção sugerida:** preencher via lookup apenas campos vazios; ou pedir confirmação antes de sobrescrever; ou disparar o lookup só no clique explícito em "Buscar CNPJ" (hoje dispara também no `onChange`/`onBlur` do campo).
-- **Nota:** o mesmo padrão de "buscar por documento" existe no form de Cliente (botão "Buscar CEP") — verificar se tem o mesmo comportamento destrutivo.
+### [x] A1 — Novo Fornecedor: lookup de CNPJ sobrescreve campos já digitados (Média/Alta) · ✅ CORRIGIDO (Fase 6, verificado)
+- **Correção:** `handleCnpjBlur`/`handleCepBlur` em `fornecedores/page.tsx` e `clientes/page.tsx` agora usam um helper `keep`/`keepField` — o lookup só grava num campo que está **vazio**; nunca sobrescreve valor digitado. Vale para os 3 pontos de lookup (Fornecedor CNPJ, Cliente CNPJ, Cliente Buscar CEP).
+- **Verificado E2E (browser + banco):** Fornecedor — digitado Nome "QA Fornecedor Teste"/Telefone "(19) 3000-2000"/Cidade "Campinas", Endereço vazio, CNPJ real `19.131.243/0001-97` → Endereço preencheu ("PAULISTA 37..."), demais campos digitados intactos. Cliente — digitado Endereço "Av Digitada, 500", Cidade vazia, CEP `01310-100` → Cidade preencheu ("São Paulo"), Endereço intacto (banco: `address='Av Digitada, 500'`, `city='São Paulo'`).
 
 ### [x] A2 — Menu do orçamento oferece "Aprovar" em status inválido (Média) · ✅ CORRIGIDO (Fase 5, verificado)
 - **Correção:** `orcamentos/[id]/page.tsx` — "Aprovar Orçamento" só aparece em `AGUARDANDO_APROVACAO` (antes: `EM_ORCAMENTO || AGUARDANDO_APROVACAO`); "Reservar Estoque" também passou a exigir status `EM_ORCAMENTO`/`AGUARDANDO_APROVACAO`. Verificado no browser: Rascunho → menu sem "Aprovar"; Aguardando Aprovação → "Aprovar" presente e funcional; Aprovado → só "Converter em Pedido". Menu da listagem já estava correto.
@@ -57,8 +54,9 @@
 
 ## Cosméticos / baixa prioridade
 
-### [ ] L1 — Máscaras não persistidas; listas exibem valor cru
-- Cliente/Arquiteto criados pela tela salvam `document`/`phone` só com dígitos (`11144477735`); registros do seed têm máscara salva. As listas só formatam quando o valor já vem mascarado. Decidir: normalizar sempre para dígitos e formatar na exibição (recomendado), ou salvar mascarado.
+### [x] L1 — Máscaras não persistidas; listas exibem valor cru · ✅ CORRIGIDO (Fase 6, verificado)
+- **Correção:** abordagem recomendada — armazenar sempre dígitos, formatar na exibição. Novos helpers `formatDocument(value, type?)` / `formatPhone(value)` em `lib/masks.ts` (idempotentes: as máscaras já removem `\D` antes de reaplicar, então servem para dado cru da tela **e** dado mascarado do seed). Aplicados em: lista + diálogo de edição de Cliente, lista + diálogo de edição de Arquiteto, lista + drawer de Pedidos, detalhe do Orçamento, recibo e romaneio. Diálogos de edição passam a exibir o valor já mascarado ao popular.
+- **Verificado:** "QA Cliente L1" criado pela tela → banco grava `document='52998224725'`, `phone='11987654321'` (crus); lista exibe `529.982.247-25` e `(11) 98765-4321`, igual às linhas do seed. Recibo e listas de Arquiteto/Cliente renderizam sem erro.
 
 ### [ ] L2 — Modal "Novidades da Versão" mostra mensagem de commit crua
 - Ex.: `quotes: melhorar UI do combobox de produto e robustez" -m "- Ampliado espaço do popover... f3b47ee`.

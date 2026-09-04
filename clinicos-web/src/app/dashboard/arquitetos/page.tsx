@@ -14,7 +14,7 @@ import {
     DialogDescription,
 } from '@/components/ui/dialog';
 import { Plus, Users, Edit, Trash2, Percent, Building2 } from 'lucide-react';
-import { maskCPF, maskPhone, maskDate, unmask } from '@/lib/masks';
+import { maskCPF, maskPhone, maskDate, unmask, formatDocument, formatPhone } from '@/lib/masks';
 import { useCommissions } from '@/hooks/useCommissions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -97,8 +97,8 @@ export default function ArquitetosPage() {
         setFormData({
             name: architect.name || '',
             email: architect.email || '',
-            phone: architect.phone || '',
-            document: architect.document || '',
+            phone: formatPhone(architect.phone),
+            document: formatDocument(architect.document),
             birthDate: architect.birthDate ? new Date(architect.birthDate).toLocaleDateString('pt-BR') : '',
             commissionRuleId: architect.commissionRuleId || '',
         });
@@ -275,13 +275,13 @@ export default function ArquitetosPage() {
                                                 )}
                                                 {architect.phone && (
                                                     <div className="text-sm text-gray-500">
-                                                        {architect.phone}
+                                                        {formatPhone(architect.phone)}
                                                     </div>
                                                 )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {architect.document || '-'}
+                                            {formatDocument(architect.document) || '-'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium rounded bg-amber-100 text-amber-800">

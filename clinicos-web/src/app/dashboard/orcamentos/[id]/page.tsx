@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '@/lib/api';
+import { formatPhone } from '@/lib/masks';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -682,7 +683,7 @@ export default function QuoteDetailPage() {
                     <div className="space-y-2">
                         <p className="font-medium">{quote.customer.name}</p>
                         {quote.customer.phone && (
-                            <p className="text-sm text-gray-600">{quote.customer.phone}</p>
+                            <p className="text-sm text-gray-600">{formatPhone(quote.customer.phone)}</p>
                         )}
                         {quote.customer.email && (
                             <p className="text-sm text-gray-600">{quote.customer.email}</p>

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api'; // Ensure this exists
+import { formatDocument, formatPhone } from '@/lib/masks';
 import {
     Package,
     Search,
@@ -497,7 +498,7 @@ export default function OrdersPage() {
                                     <td className="px-6 py-4">
                                         <div>
                                             <p className="font-medium text-gray-900">{order.customer?.name}</p>
-                                            <p className="text-sm text-gray-500">{order.customer?.document}</p>
+                                            <p className="text-sm text-gray-500">{formatDocument(order.customer?.document)}</p>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
@@ -615,7 +616,7 @@ export default function OrdersPage() {
                                         </h3>
                                         <div className="space-y-1 text-sm">
                                             <p><strong>{displayOrder.customer?.name}</strong></p>
-                                            <p className="text-gray-600">{displayOrder.customer?.document}</p>
+                                            <p className="text-gray-600">{formatDocument(displayOrder.customer?.document)}</p>
                                         </div>
                                     </div>
 

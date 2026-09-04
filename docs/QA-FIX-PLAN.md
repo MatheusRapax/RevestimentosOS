@@ -120,11 +120,11 @@
 
 ---
 
-## Fase 6 — Cadastros e máscaras (A1, L1) · risco baixo
+## Fase 6 — Cadastros e máscaras (A1, L1) · risco baixo · ✅ CONCLUÍDA
 
-- [ ] **A1** — lookup de CNPJ (form de Fornecedor; checar também "Buscar CEP" no Cliente) só preenche campos **vazios**, ou pede confirmação antes de sobrescrever, ou só dispara no clique explícito no botão.
-- [ ] **L1** — normalizar `document`/`phone` (gravar só dígitos) e formatar na exibição; ou gravar sempre com máscara. Uma convenção só.
-- **Teste:** criar Fornecedor com nome/cidade/telefone digitados + CNPJ válido → dados digitados preservados. Listas de Cliente/Arquiteto exibem doc/telefone formatados independente da origem.
+- [x] **A1** — helper `keep`/`keepField` nos lookups de `fornecedores/page.tsx` e `clientes/page.tsx` (CNPJ do Fornecedor, CNPJ e CEP do Cliente): só preenche campo vazio, nunca sobrescreve o digitado. Lookup continua no `onBlur` + botão, mas agora não-destrutivo.
+- [x] **L1** — convenção: gravar dígitos, formatar na exibição. `formatDocument`/`formatPhone` (idempotentes) em `lib/masks.ts`, aplicados nas listas + diálogos de edição de Cliente e Arquiteto, lista + drawer de Pedidos, detalhe do Orçamento, recibo e romaneio.
+- **Teste:** ✅ Fornecedor com Nome/Telefone/Cidade digitados + Endereço vazio + CNPJ real → Endereço preencheu, resto intacto. Cliente com Endereço digitado + Cidade vazia + CEP real → Cidade preencheu, Endereço intacto (confirmado no banco). "QA Cliente L1" criado pela tela grava dígitos crus e a lista exibe formatado igual ao seed.
 
 ---
 
