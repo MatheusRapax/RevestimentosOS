@@ -228,7 +228,10 @@ export class FiscalService {
         },
       },
       itens: order.items.map((item) => {
-        const isM2 = item.product.unit?.toUpperCase() === 'M2';
+        // Tolerante a variações de cadastro ("m²", "M²", "m2"...).
+        const isM2 = ['M2', 'M²'].includes(
+          (item.product.unit || '').trim().toUpperCase(),
+        );
         const qty =
           isM2 && item.product.boxCoverage
             ? Number((item.quantityBoxes * item.product.boxCoverage).toFixed(2))

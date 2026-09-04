@@ -11,6 +11,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import {
     Table,
@@ -76,15 +77,23 @@ export default function FornecedoresPage() {
         try {
             const data = await fetchCnpjInfo(cnpj);
             if (data) {
-                setFormData(prev => ({
-                    ...prev,
-                    name: data.razao_social || prev.name,
-                    address: data.logradouro ? `${data.logradouro}, ${data.numero}${data.complemento ? ` - ${data.complemento}` : ''}${data.bairro ? ` (${data.bairro})` : ''}` : prev.address,
-                    city: data.municipio || prev.city,
-                    state: data.uf || prev.state,
-                    phone: data.ddd_telefone_1 ? maskPhone(data.ddd_telefone_1) : prev.phone,
-                    email: data.email || prev.email,
-                }));
+                // A1: o lookup só preenche campos que estão vazios — nunca sobrescreve o que o usuário já digitou.
+                setFormData(prev => {
+                    const keep = (current: string, incoming?: string) =>
+                        current && current.trim() ? current : (incoming || current);
+                    const addressFromCnpj = data.logradouro
+                        ? `${data.logradouro}, ${data.numero}${data.complemento ? ` - ${data.complemento}` : ''}${data.bairro ? ` (${data.bairro})` : ''}`
+                        : '';
+                    return {
+                        ...prev,
+                        name: keep(prev.name, data.razao_social),
+                        address: keep(prev.address, addressFromCnpj),
+                        city: keep(prev.city, data.municipio),
+                        state: keep(prev.state, data.uf),
+                        phone: keep(prev.phone, data.ddd_telefone_1 ? maskPhone(data.ddd_telefone_1) : ''),
+                        email: keep(prev.email, data.email),
+                    };
+                });
             }
         } finally {
             setIsFetchingCnpj(false);
@@ -374,6 +383,9 @@ export default function FornecedoresPage() {
                         <DialogTitle>
                             {editingSupplier ? 'Editar Fornecedor' : 'Novo Fornecedor'}
                         </DialogTitle>
+                        <DialogDescription>
+                            Preencha os dados do fornecedor. O CNPJ pode ser usado para buscar os dados automaticamente.
+                        </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { formatDocument, formatPhone } from '@/lib/masks';
 import { useAuth } from '@/hooks/use-auth';
 import { ArrowLeft, Printer, ShoppingBag, MapPin, User, Calendar, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -123,8 +124,8 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
                         <p className="font-bold text-gray-900 flex items-center gap-2">
                             <User className="h-4 w-4 text-gray-400" /> {order.customer?.name}
                         </p>
-                        <p className="text-sm text-gray-600 pl-6">Doc: {order.customer?.document || 'Não informado'}</p>
-                        <p className="text-sm text-gray-600 pl-6">Tel: {order.customer?.phone || 'Não informado'}</p>
+                        <p className="text-sm text-gray-600 pl-6">Doc: {formatDocument(order.customer?.document) || 'Não informado'}</p>
+                        <p className="text-sm text-gray-600 pl-6">Tel: {formatPhone(order.customer?.phone) || 'Não informado'}</p>
                     </div>
                     <div className="space-y-2">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2 border-b border-gray-200 pb-1">Detalhes de Pagamento</h3>

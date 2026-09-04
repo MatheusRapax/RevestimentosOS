@@ -37,7 +37,10 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
     const [piecesPerBox, setPiecesPerBox] = useState('');
 
     // --- Pricing ---
+    // `cost` é SEMPRE o custo da caixa/unidade (o que vai pro banco).
+    // `costM2Input` é a visão "por m²" que se sincroniza com `cost` via boxCoverage.
     const [cost, setCost] = useState('');
+    const [costM2Input, setCostM2Input] = useState('');
     const [markup, setMarkup] = useState('');
     const [finalPrice, setFinalPrice] = useState('0.00');
 
@@ -57,7 +60,24 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
     const needsCoverage = isM2Unit || saleType === 'AREA' || saleType === 'BOTH';
     const coverageNum = parseFloat(boxCoverage) || 0;
     const costNum = parseFloat(cost) || 0;
-    const costPerM2 = needsCoverage && coverageNum > 0 ? costNum / coverageNum : null;
+    const hasCoverage = needsCoverage && coverageNum > 0;
+    const costPerM2 = hasCoverage ? costNum / coverageNum : null;
+
+    // Handlers de sincronização caixa <-> m²
+    const onCostBoxChange = (v: string) => {
+        setCost(v);
+        if (hasCoverage && v) setCostM2Input((parseFloat(v) / coverageNum).toFixed(2));
+    };
+    const onCostM2Change = (v: string) => {
+        setCostM2Input(v);
+        if (hasCoverage && v) setCost((parseFloat(v) * coverageNum).toFixed(2));
+    };
+
+    // Se a cobertura mudar, recalcula o "por m²" a partir do custo da caixa (fonte da verdade)
+    useEffect(() => {
+        if (hasCoverage && cost) setCostM2Input((parseFloat(cost) / coverageNum).toFixed(2));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [boxCoverage]);
 
     // Auto-sync: se unidade for M2, força saleType para AREA
     useEffect(() => {
@@ -140,7 +160,7 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
     const resetForm = () => {
         setName(''); setUnit('un'); setSaleType('UNIT');
         setBoxCoverage(''); setPiecesPerBox('');
-        setCost(''); setMarkup(''); setFinalPrice('0.00');
+        setCost(''); setCostM2Input(''); setMarkup(''); setFinalPrice('0.00');
         setCategoryId('none'); setBrandId('none');
         setFormat(''); setColor(''); setLine('');
         setHeight(''); setWidth(''); setNcm(''); setSku('');
@@ -220,30 +240,58 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
                     {/* Precificação */}
                     <div className="border-t pt-4">
                         <p className="text-sm font-medium text-gray-700 mb-3">Precificação</p>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="space-y-1.5">
-                                <Label>{needsCoverage ? 'Custo da Caixa (R$)' : 'Custo de Compra (R$)'}</Label>
-                                <Input type="number" step="0.01" min="0" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0,00" />
-                                {costPerM2 !== null && costPerM2 > 0 && (
-                                    <p className="text-xs text-blue-600 font-medium">= R$ {costPerM2.toFixed(2)}/m²</p>
-                                )}
+
+                        {needsCoverage ? (
+                            <>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label>Custo por m² (R$)</Label>
+                                        <Input type="number" step="0.01" min="0" value={costM2Input}
+                                            onChange={(e) => onCostM2Change(e.target.value)}
+                                            placeholder="Ex: 76.20" disabled={!hasCoverage} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label>Custo da Caixa (R$)</Label>
+                                        <Input type="number" step="0.01" min="0" value={cost}
+                                            onChange={(e) => onCostBoxChange(e.target.value)}
+                                            placeholder="Ex: 157.73" />
+                                        {!hasCoverage && (
+                                            <p className="text-[10px] text-amber-600">Informe o "m² por caixa" para converter automaticamente.</p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 mt-4">
+                                    <div className="space-y-1.5">
+                                        <Label>Markup (%)</Label>
+                                        <Input type="number" step="0.01" min="0" value={markup} onChange={(e) => setMarkup(e.target.value)} placeholder="Ex: 40" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-green-700">Preço Final (R$/m²)</Label>
+                                        <Input type="number" step="0.01" min="0"
+                                            className="font-bold text-green-700 bg-green-50 border-green-200"
+                                            value={finalPrice} onChange={(e) => setFinalPrice(e.target.value)} />
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label>Custo de Compra (R$)</Label>
+                                    <Input type="number" step="0.01" min="0" value={cost}
+                                        onChange={(e) => onCostBoxChange(e.target.value)} placeholder="0,00" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label>Markup (%)</Label>
+                                    <Input type="number" step="0.01" min="0" value={markup} onChange={(e) => setMarkup(e.target.value)} placeholder="Ex: 40" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-green-700">Preço Final (R$)</Label>
+                                    <Input type="number" step="0.01" min="0"
+                                        className="font-bold text-green-700 bg-green-50 border-green-200"
+                                        value={finalPrice} onChange={(e) => setFinalPrice(e.target.value)} />
+                                </div>
                             </div>
-                            <div className="space-y-1.5">
-                                <Label>Markup (%)</Label>
-                                <Input type="number" step="0.01" min="0" value={markup} onChange={(e) => setMarkup(e.target.value)} placeholder="Ex: 40" />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-green-700">
-                                    Preço Final {needsCoverage ? '(R$/m²)' : '(R$)'}
-                                </Label>
-                                <Input
-                                    type="number" step="0.01" min="0"
-                                    className="font-bold text-green-700 bg-green-50 border-green-200"
-                                    value={finalPrice}
-                                    onChange={(e) => setFinalPrice(e.target.value)}
-                                />
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Campos opcionais — toggle */}

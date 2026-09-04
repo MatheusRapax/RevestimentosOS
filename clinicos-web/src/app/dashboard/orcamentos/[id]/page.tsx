@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '@/lib/api';
+import { formatPhone } from '@/lib/masks';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -537,14 +538,15 @@ export default function QuoteDetailPage() {
                                 </DropdownMenuItem>
                             )}
 
-                            {availability && (availability.status === 'FULL' || availability.status === 'PARTIAL') && hasPermission('quote.update') && (
+                            {(quote.status === 'EM_ORCAMENTO' || quote.status === 'AGUARDANDO_APROVACAO') && availability && (availability.status === 'FULL' || availability.status === 'PARTIAL') && hasPermission('quote.update') && (
                                 <DropdownMenuItem onClick={handleReserveStock} disabled={actionLoading === 'reserve'} className="text-orange-600 focus:text-orange-700">
                                     <Package className="mr-2 h-4 w-4" />
                                     {actionLoading === 'reserve' ? 'Reservando...' : 'Reservar Estoque'}
                                 </DropdownMenuItem>
                             )}
 
-                            {(quote.status === 'EM_ORCAMENTO' || quote.status === 'AGUARDANDO_APROVACAO') && hasPermission('quote.update') && (
+                            {/* Backend só aprova orçamento em AGUARDANDO_APROVACAO (bug A2: antes aparecia em Rascunho) */}
+                            {quote.status === 'AGUARDANDO_APROVACAO' && hasPermission('quote.update') && (
                                 <DropdownMenuItem onClick={handleApproveQuote} disabled={actionLoading === 'approve'} className="text-green-600 focus:text-green-700">
                                     <CheckCircle className="mr-2 h-4 w-4" />
                                     {actionLoading === 'approve' ? 'Aprovando...' : 'Aprovar Orçamento'}
@@ -681,7 +683,7 @@ export default function QuoteDetailPage() {
                     <div className="space-y-2">
                         <p className="font-medium">{quote.customer.name}</p>
                         {quote.customer.phone && (
-                            <p className="text-sm text-gray-600">{quote.customer.phone}</p>
+                            <p className="text-sm text-gray-600">{formatPhone(quote.customer.phone)}</p>
                         )}
                         {quote.customer.email && (
                             <p className="text-sm text-gray-600">{quote.customer.email}</p>

@@ -21,7 +21,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Plus, Users, Edit, Trash2, Search, Building, User, Loader2 } from 'lucide-react';
-import { maskCPF, maskCNPJ, maskPhone, maskCEP, maskDate, unmask } from '@/lib/masks';
+import { maskCPF, maskCNPJ, maskPhone, maskCEP, maskDate, unmask, formatDocument, formatPhone } from '@/lib/masks';
 import { fetchCepInfo, fetchCnpjInfo } from '@/lib/brasil-api';
 
 interface Customer {
@@ -89,6 +89,10 @@ export default function ClientesPage() {
     const [isFetchingCep, setIsFetchingCep] = useState(false);
     const [isFetchingCnpj, setIsFetchingCnpj] = useState(false);
 
+    // A1: lookups (CEP/CNPJ) só preenchem campos vazios — nunca sobrescrevem o que o usuário digitou.
+    const keepField = (current: string, incoming?: string) =>
+        current && current.trim() ? current : (incoming || current);
+
     const handleCepBlur = async (cep: string) => {
         if (!cep || cep.replace(/\D/g, '').length !== 8) return;
         setIsFetchingCep(true);
@@ -97,9 +101,9 @@ export default function ClientesPage() {
             if (data) {
                 setFormData(prev => ({
                     ...prev,
-                    address: data.street ? `${data.street}${data.neighborhood ? `, ${data.neighborhood}` : ''}` : prev.address,
-                    city: data.city || prev.city,
-                    state: data.state || prev.state,
+                    address: keepField(prev.address, data.street ? `${data.street}${data.neighborhood ? `, ${data.neighborhood}` : ''}` : ''),
+                    city: keepField(prev.city, data.city),
+                    state: keepField(prev.state, data.state),
                 }));
             }
         } finally {
@@ -115,13 +119,13 @@ export default function ClientesPage() {
             if (data) {
                 setFormData(prev => ({
                     ...prev,
-                    name: data.razao_social || prev.name,
-                    zipCode: data.cep ? maskCEP(data.cep) : prev.zipCode,
-                    address: data.logradouro ? `${data.logradouro}, ${data.numero}${data.complemento ? ` - ${data.complemento}` : ''}${data.bairro ? ` (${data.bairro})` : ''}` : prev.address,
-                    city: data.municipio || prev.city,
-                    state: data.uf || prev.state,
-                    phone: data.ddd_telefone_1 ? maskPhone(data.ddd_telefone_1) : prev.phone,
-                    email: data.email || prev.email,
+                    name: keepField(prev.name, data.razao_social),
+                    zipCode: keepField(prev.zipCode, data.cep ? maskCEP(data.cep) : ''),
+                    address: keepField(prev.address, data.logradouro ? `${data.logradouro}, ${data.numero}${data.complemento ? ` - ${data.complemento}` : ''}${data.bairro ? ` (${data.bairro})` : ''}` : ''),
+                    city: keepField(prev.city, data.municipio),
+                    state: keepField(prev.state, data.uf),
+                    phone: keepField(prev.phone, data.ddd_telefone_1 ? maskPhone(data.ddd_telefone_1) : ''),
+                    email: keepField(prev.email, data.email),
                 }));
             }
         } finally {
@@ -188,13 +192,13 @@ export default function ClientesPage() {
             name: customer.name || '',
             type: customer.type,
             email: customer.email || '',
-            phone: customer.phone || '',
-            document: customer.document || '',
+            phone: formatPhone(customer.phone),
+            document: formatDocument(customer.document, customer.type),
             stateRegistration: customer.stateRegistration || '',
             address: customer.address || '',
             city: customer.city || '',
             state: customer.state || '',
-            zipCode: customer.zipCode || '',
+            zipCode: customer.zipCode ? maskCEP(customer.zipCode) : '',
             birthDate: customer.birthDate ? new Date(customer.birthDate).toLocaleDateString('pt-BR') : '',
             architectId: customer.architectId || '',
         });
@@ -437,10 +441,10 @@ export default function ClientesPage() {
                                             {getTypeBadge(customer.type)}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {customer.document || '-'}
+                                            {formatDocument(customer.document, customer.type) || '-'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {customer.phone || '-'}
+                                            {formatPhone(customer.phone) || '-'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {customer.architect?.name || '-'}

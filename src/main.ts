@@ -37,13 +37,14 @@ async function bootstrap() {
     }),
   );
 
-  // Debug Middleware to log all incoming requests
-  app.use((req: any, res: any, next: any) => {
-    console.log(`📡 Request: ${req.method} ${req.url}`);
-    console.log(`   Origin: ${req.headers.origin}`);
-    console.log(`   User-Agent: ${req.headers['user-agent']}`);
-    next();
-  });
+  // L4: log de request só fora de produção (e ainda assim enxuto). Antes logava
+  // método/URL/origin/User-Agent de toda request, inclusive em produção.
+  if (env.nodeEnv !== 'production') {
+    app.use((req: any, res: any, next: any) => {
+      console.log(`📡 ${req.method} ${req.url}`);
+      next();
+    });
+  }
 
   // Enable CORS for future frontend integration
   // Enable CORS with explicit options

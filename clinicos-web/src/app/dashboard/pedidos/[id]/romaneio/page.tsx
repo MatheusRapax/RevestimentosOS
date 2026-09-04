@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { formatPhone } from '@/lib/masks';
 import { Button } from '@/components/ui/button';
 import { Printer, ArrowLeft, Package, User, Calendar, MapPin, Search } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -87,7 +88,7 @@ export default function RomaneioPage() {
                             <User className="h-3 w-3" /> Cliente
                         </h3>
                         <p className="font-bold text-lg">{order.customer.name}</p>
-                        <p className="text-sm">{order.customer.phone || 'Sem telefone'}</p>
+                        <p className="text-sm">{formatPhone(order.customer.phone) || 'Sem telefone'}</p>
                     </div>
                     <div>
                         <h3 className="text-xs font-bold uppercase text-gray-500 mb-1 flex items-center gap-1">

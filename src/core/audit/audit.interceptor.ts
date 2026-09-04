@@ -3,6 +3,7 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
+  Logger,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
@@ -11,6 +12,8 @@ import { AuditAction } from '@prisma/client';
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(AuditInterceptor.name);
+
   constructor(private auditService: AuditService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
@@ -70,9 +73,10 @@ export class AuditInterceptor implements NestInterceptor {
         request.body,
       );
 
-      console.log(
-        `[Audit Debug] Action: ${action}, Entity: ${entity}, Body Keys: ${Object.keys(request.body || {})}, Details:`,
-        JSON.stringify(details),
+      // L4: era um console.log incondicional com o body inteiro da request (todos os
+      // itens do orçamento etc.). Agora é nível debug e sem despejar o payload.
+      this.logger.debug(
+        `${action} ${entity}${entityId ? ` #${entityId}` : ''} — body keys: [${Object.keys(request.body || {}).join(', ')}]`,
       );
 
       this.auditService.log({
@@ -197,8 +201,10 @@ export class AuditInterceptor implements NestInterceptor {
       return true;
     }
 
-    // Skip GET requests to list endpoints (only audit individual views)
-    if (action === AuditAction.VIEW && !url.match(/\/[a-f0-9-]{36}$/i)) {
+    // L3: não auditar leitura. Antes gravava um AuditLog (write no banco) a cada
+    // abertura de página de detalhe ("Visualizou registro de X") — puro ruído.
+    // O interceptor passa a auditar só mutações; VIEW fica de fora.
+    if (action === AuditAction.VIEW) {
       return true;
     }
 

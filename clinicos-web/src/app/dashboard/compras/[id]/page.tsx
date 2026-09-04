@@ -85,6 +85,12 @@ function formatDate(dateStr?: string | null): string {
     return new Date(dateStr).toLocaleDateString('pt-BR');
 }
 
+// L8: "date-only" (previsão de entrega) gravado como meia-noite UTC — formatar em UTC.
+function formatDateOnly(dateStr?: string | null): string {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+}
+
 export default function PurchaseOrderDetailsPage() {
     const router = useRouter();
     const params = useParams();
@@ -398,7 +404,7 @@ export default function PurchaseOrderDetailsPage() {
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Previsão de Entrega</span>
-                                <span className="font-medium">{formatDate(order.expectedDate)}</span>
+                                <span className="font-medium">{formatDateOnly(order.expectedDate)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Recebimento</span>

@@ -12,6 +12,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { PurchaseOrdersService } from './purchase-orders.service';
+import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 
@@ -43,7 +44,10 @@ export class PurchaseOrdersController {
   }
 
   @Post()
-  async create(@Request() req: AuthRequest, @Body() body: any) {
+  async create(
+    @Request() req: AuthRequest,
+    @Body() body: CreatePurchaseOrderDto,
+  ) {
     return this.service.create(req.clinicId, body);
   }
 

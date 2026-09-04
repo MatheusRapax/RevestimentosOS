@@ -414,6 +414,23 @@ export class StockEntryService {
         `Este pedido já está com status ${po.status}`,
       );
 
+    // Cobertura (m²/caixa) dos produtos do PC. O `unitPriceCents` do PC é o
+    // custo da CAIXA (veio de Product.costCents). O confirmEntry espera o
+    // `unitCost` do item POR M² em produto de área (ele multiplica por
+    // boxCoverage). Convertemos aqui para não inflar o custo (bug A5).
+    const poProductIds = po.items
+      .map((i) => i.productId)
+      .filter(Boolean) as string[];
+    const poProducts = poProductIds.length
+      ? await this.prisma.product.findMany({
+          where: { id: { in: poProductIds } },
+          select: { id: true, boxCoverage: true },
+        })
+      : [];
+    const coverageMap = new Map(
+      poProducts.map((p) => [p.id, p.boxCoverage ?? 0]),
+    );
+
     // 2. Create Stock Entry Draft
     return this.prisma.stockEntry.create({
       data: {
@@ -432,16 +449,24 @@ export class StockEntryService {
         totalValue: po.totalCents / 100, // Legacy float (consider removing eventually)
 
         // Copy Items
-        // Copy Items
         items: {
           create: po.items
             .filter((item) => item.productId) // Only items with Product ID
-            .map((item) => ({
-              product: { connect: { id: item.productId! } },
-              quantity: item.quantityOrdered, // Default to ordered quantity
-              unitCost: item.unitPriceCents / 100, // Convert cents (Int) to float
-              totalCost: item.totalCents / 100, // Convert cents (Int) to float
-            })),
+            .map((item) => {
+              const coverage = coverageMap.get(item.productId!) ?? 0;
+              const boxUnitCost = item.unitPriceCents / 100; // custo da caixa
+              return {
+                product: { connect: { id: item.productId! } },
+                // Vínculo com o PC — necessário para o confirmEntry não tratar
+                // o item como "avulso" e travar a confirmação (bug B3).
+                purchaseOrderId: po.id,
+                purchaseOrderItemId: item.id,
+                quantity: item.quantityOrdered, // Default to ordered quantity
+                // A5: por m² quando o produto é vendido por área.
+                unitCost: coverage > 0 ? boxUnitCost / coverage : boxUnitCost,
+                totalCost: item.totalCents / 100,
+              };
+            }),
         },
       },
     });
@@ -524,6 +549,15 @@ export class StockEntryService {
     const divergences: string[] = [];
     const quantityDivergences: string[] = [];
 
+    // Custo da CAIXA da NF: mesma fórmula usada ao atualizar Product.costCents.
+    // `unitCost` é por m² em produto de área (boxCoverage > 0), senão já é da caixa.
+    const entryBoxCents = (item: any): number => {
+      const cov = item.product?.boxCoverage ?? 0;
+      return cov > 0
+        ? Math.round((item.unitCost || 0) * cov * 100)
+        : Math.round((item.unitCost || 0) * 100);
+    };
+
     // Legacy Header PO check
     if (entry.purchaseOrder && linkedPoItemIds.length === 0) {
       for (const item of entry.items) {
@@ -531,7 +565,7 @@ export class StockEntryService {
           (pi) => pi.productId === item.productId,
         );
         if (poItem) {
-          const entryCents = Math.round((item.unitCost || 0) * 100);
+          const entryCents = entryBoxCents(item);
           const poCents = poItem.unitPriceCents;
           if (entryCents !== poCents) {
             divergences.push(
@@ -546,8 +580,8 @@ export class StockEntryService {
     for (const item of entry.items) {
       const poItem = poItemsMap.get((item as any).purchaseOrderItemId || '');
       if (poItem) {
-        // Price Check
-        const entryCents = Math.round((item.unitCost || 0) * 100);
+        // Price Check (custo da caixa vs custo da caixa)
+        const entryCents = entryBoxCents(item);
         const poCents = poItem.unitPriceCents;
         if (entryCents !== poCents) {
           divergences.push(

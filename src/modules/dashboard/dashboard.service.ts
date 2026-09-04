@@ -277,7 +277,8 @@ export class DashboardService {
           in: [
             OrderStatus.CRIADO,
             OrderStatus.PAGO,
-            OrderStatus.AGUARDANDO_MATERIAL,
+            OrderStatus.AGUARDANDO_COMPRA,
+            OrderStatus.AGUARDANDO_MATERIAL, // legado/deprecado
             OrderStatus.PRONTO_PARA_ENTREGA,
           ],
         },
@@ -321,7 +322,8 @@ export class DashboardService {
         status: {
           in: [
             OrderStatus.PAGO,
-            OrderStatus.AGUARDANDO_MATERIAL,
+            OrderStatus.AGUARDANDO_COMPRA,
+            OrderStatus.AGUARDANDO_MATERIAL, // legado/deprecado
             OrderStatus.PRONTO_PARA_ENTREGA,
           ],
         },

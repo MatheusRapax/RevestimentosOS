@@ -20,7 +20,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, AlertCircle } from 'lucide-react';
 import {
     Popover,
     PopoverContent,
@@ -32,10 +32,10 @@ interface StockItem {
     name: string;
     description?: string;
     unit?: string;
+    saleType?: string;
     sku?: string;
     minStock?: number;
     isActive: boolean;
-    // New fields
     format?: string;
     line?: string;
     usage?: string;
@@ -52,24 +52,14 @@ interface StockItem {
     costCents?: number;
     priceCents?: number;
     supplierCode?: string;
-    // Dynamic Pricing
     categoryId?: string;
     brandId?: string;
     markup?: number;
     manualPrice?: boolean;
 }
 
-interface Category {
-    id: string;
-    name: string;
-    defaultMarkup?: number;
-}
-
-interface Brand {
-    id: string;
-    name: string;
-    defaultMarkup?: number;
-}
+interface Category { id: string; name: string; defaultMarkup?: number; }
+interface Brand { id: string; name: string; defaultMarkup?: number; }
 
 interface Props {
     open: boolean;
@@ -78,181 +68,173 @@ interface Props {
     onSuccess: () => void;
 }
 
+const UNIT_OPTIONS = [
+    { value: 'UN', label: 'Unidade (un)' },
+    { value: 'M2', label: 'Metro Quadrado (m²)' },
+    { value: 'CX', label: 'Caixa (cx)' },
+    { value: 'PC', label: 'Peça (pç)' },
+    { value: 'ML', label: 'Metro Linear (ml)' },
+    { value: 'KG', label: 'Quilograma (kg)' },
+];
+
+// Normaliza o que estiver salvo (ex.: "m²", "cx") para o valor canônico do select.
+function canonUnit(raw?: string): string {
+    if (!raw) return 'UN';
+    const u = raw.trim().toUpperCase();
+    if (['M2', 'M²', 'M^2', 'MT2'].includes(u)) return 'M2';
+    if (UNIT_OPTIONS.some((o) => o.value === u)) return u;
+    if (u === 'UND' || u === 'UNID' || u === 'UNIDADE') return 'UN';
+    if (u === 'PÇ' || u === 'PEÇA' || u === 'PECA') return 'PC';
+    return u; // deixa o backend normalizar o resto
+}
+
 export default function EditStockItemDialog({ open, item, onClose, onSuccess }: Props) {
     const [formData, setFormData] = useState({
-        name: '',
-        description: '',
-        unit: '',
-        sku: '',
-        minStock: 0,
-        // New fields
-        format: '',
-        line: '',
-        usage: '',
-        height: '',
-        width: '',
-        depth: '',
-        color: '',
-        boxCoverage: '',
-        piecesPerBox: '',
-        boxWeight: '',
-        palletBoxes: '',
-        palletWeight: '',
-        palletCoverage: '',
-        costCents: '',
-        priceCents: '',
-        supplierCode: '',
-        // Dynamic Pricing
-        categoryId: '',
-        brandId: '',
-        markup: '',
-        manualPrice: false,
+        name: '', description: '', unit: 'UN', saleType: 'UNIT', sku: '', minStock: 0,
+        format: '', line: '', usage: '', height: '', width: '', depth: '', color: '',
+        boxCoverage: '', piecesPerBox: '', boxWeight: '', palletBoxes: '', palletWeight: '',
+        palletCoverage: '', costBox: '', costM2: '', priceBox: '', priceM2: '',
+        supplierCode: '', categoryId: '', brandId: '', markup: '', manualPrice: false,
     });
     const [categories, setCategories] = useState<Category[]>([]);
     const [brands, setBrands] = useState<Brand[]>([]);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    // Populate form when item changes
+    // Popula quando o item muda
     useEffect(() => {
-        if (item) {
-            const coverage = item.boxCoverage ?? 0;
-            // Se o produto tem m²/cx, o custo no banco é da CAIXA.
-            // Exibimos o custo por M² no campo para que o usuário edite de forma intuitiva.
-            const displayCost = coverage > 0 && item.costCents
-                ? ((item.costCents / coverage) / 100).toFixed(2)
-                : item.costCents ? (item.costCents / 100).toFixed(2) : '';
+        if (!item) return;
+        const cov = item.boxCoverage ?? 0;
+        const boxCost = item.costCents ? item.costCents / 100 : NaN;
+        const boxPrice = item.priceCents ? item.priceCents / 100 : NaN;
+        const unit = canonUnit(item.unit);
+        const saleType =
+            item.saleType || (unit === 'M2' || cov > 0 ? 'AREA' : 'UNIT');
 
-            const displayPrice = coverage > 0 && item.priceCents
-                ? ((item.priceCents / coverage) / 100).toFixed(2)
-                : item.priceCents ? (item.priceCents / 100).toFixed(2) : '';
-
-            setFormData({
-                name: item.name,
-                description: item.description || '',
-                unit: item.unit || '',
-                sku: item.sku || '',
-                minStock: item.minStock || 0,
-                format: item.format || '',
-                line: item.line || '',
-                usage: item.usage || '',
-                height: item.height?.toString() || '',
-                width: item.width?.toString() || '',
-                depth: item.depth?.toString() || '',
-                color: item.color || '',
-                boxCoverage: item.boxCoverage?.toString() || '',
-                piecesPerBox: item.piecesPerBox?.toString() || '',
-                boxWeight: item.boxWeight?.toString() || '',
-                palletBoxes: item.palletBoxes?.toString() || '',
-                palletWeight: item.palletWeight?.toString() || '',
-                palletCoverage: item.palletCoverage?.toString() || '',
-                costCents: displayCost,
-                priceCents: displayPrice,
-                supplierCode: item.supplierCode || '',
-                categoryId: item.categoryId || '',
-                brandId: item.brandId || '',
-                markup: item.markup?.toString() || '',
-                manualPrice: item.manualPrice || false,
-            });
-        }
+        setFormData({
+            name: item.name,
+            description: item.description || '',
+            unit,
+            saleType,
+            sku: item.sku || '',
+            minStock: item.minStock || 0,
+            format: item.format || '',
+            line: item.line || '',
+            usage: item.usage || '',
+            height: item.height?.toString() || '',
+            width: item.width?.toString() || '',
+            depth: item.depth?.toString() || '',
+            color: item.color || '',
+            boxCoverage: item.boxCoverage?.toString() || '',
+            piecesPerBox: item.piecesPerBox?.toString() || '',
+            boxWeight: item.boxWeight?.toString() || '',
+            palletBoxes: item.palletBoxes?.toString() || '',
+            palletWeight: item.palletWeight?.toString() || '',
+            palletCoverage: item.palletCoverage?.toString() || '',
+            costBox: !isNaN(boxCost) ? boxCost.toFixed(2) : '',
+            costM2: !isNaN(boxCost) && cov > 0 ? (boxCost / cov).toFixed(2) : '',
+            priceBox: !isNaN(boxPrice) ? boxPrice.toFixed(2) : '',
+            priceM2: !isNaN(boxPrice) && cov > 0 ? (boxPrice / cov).toFixed(2) : '',
+            supplierCode: item.supplierCode || '',
+            categoryId: item.categoryId || '',
+            brandId: item.brandId || '',
+            markup: item.markup?.toString() || '',
+            manualPrice: item.manualPrice || false,
+        });
     }, [item]);
-
 
     useEffect(() => {
         if (open) {
-            const fetchData = async () => {
-                try {
-                    const [catsRes, brandsRes] = await Promise.all([
-                        api.get('/catalogue/categories'),
-                        api.get('/catalogue/brands')
-                    ]);
-                    setCategories(catsRes.data);
-                    setBrands(brandsRes.data);
-                } catch (err) {
-                    console.error('Error fetching catalogue data:', err);
-                }
-            };
-            fetchData();
+            setError('');
+            Promise.all([api.get('/catalogue/categories'), api.get('/catalogue/brands')])
+                .then(([c, b]) => { setCategories(c.data); setBrands(b.data); })
+                .catch((err) => console.error('Error fetching catalogue data:', err));
         }
     }, [open]);
 
-    // Price Calculation Logic
+    const isAreaSale =
+        formData.unit === 'M2' || formData.saleType === 'AREA' || formData.saleType === 'BOTH';
+    const coverage = parseFloat(formData.boxCoverage) || 0;
+    const hasCoverage = coverage > 0;
+
     useEffect(() => {
-        if (!formData.manualPrice && formData.costCents) {
-            const cost = parseFloat(formData.costCents);
-            if (!isNaN(cost) && cost > 0) {
-                const coverage = parseFloat(formData.boxCoverage) || 0;
-                // O custo exibido pode ser por m². Calcular o custo real da caixa.
-                const realBoxCost = coverage > 0 ? cost * coverage : cost;
-
-                let markup = 40.0; // Default Global Markup (fallback)
-
-                // 1. Product Markup Override
-                if (formData.markup && !isNaN(parseFloat(formData.markup))) {
-                    markup = parseFloat(formData.markup);
-                }
-                // 2. Brand Markup
-                else if (formData.brandId) {
-                    const brand = brands.find(b => b.id === formData.brandId);
-                    if (brand?.defaultMarkup) markup = brand.defaultMarkup;
-                    // 3. Category Markup (fallback if Brand doesn't have one)
-                    else if (formData.categoryId) {
-                        const category = categories.find(c => c.id === formData.categoryId);
-                        if (category?.defaultMarkup) markup = category.defaultMarkup;
-                    }
-                }
-                // 3. Category Markup (if no Brand selected)
-                else if (formData.categoryId) {
-                    const category = categories.find(c => c.id === formData.categoryId);
-                    if (category?.defaultMarkup) markup = category.defaultMarkup;
-                }
-
-                const price = realBoxCost * (1 + markup / 100);
-                const displayPrice = coverage > 0 ? price / coverage : price;
-                const priceInCents = Math.round(displayPrice * 100);
-                setFormData(prev => ({
-                    ...prev,
-                    priceCents: (priceInCents / 100).toFixed(2)
-                }));
-            }
+        if (formData.unit === 'M2' && formData.saleType !== 'AREA') {
+            setFormData((p) => ({ ...p, saleType: 'AREA' }));
         }
+    }, [formData.unit]);
+
+    // Cobertura mudou -> recalcula "por m²" a partir do "da caixa"
+    useEffect(() => {
+        if (!isAreaSale || !hasCoverage) return;
+        const box = parseFloat(formData.costBox);
+        if (!isNaN(box) && box > 0) setFormData((p) => ({ ...p, costM2: (box / coverage).toFixed(2) }));
+        const pBox = parseFloat(formData.priceBox);
+        if (formData.manualPrice && !isNaN(pBox) && pBox > 0) {
+            setFormData((p) => ({ ...p, priceM2: (pBox / coverage).toFixed(2) }));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formData.boxCoverage]);
+
+    // Preço automático (custo da caixa + markup)
+    useEffect(() => {
+        if (formData.manualPrice) return;
+        const boxCost = parseFloat(formData.costBox);
+        if (isNaN(boxCost) || boxCost <= 0) return;
+
+        let markup = 40.0;
+        if (formData.markup && !isNaN(parseFloat(formData.markup))) markup = parseFloat(formData.markup);
+        else if (formData.brandId) {
+            const brand = brands.find((b) => b.id === formData.brandId);
+            if (brand?.defaultMarkup) markup = brand.defaultMarkup;
+            else if (formData.categoryId) {
+                const cat = categories.find((c) => c.id === formData.categoryId);
+                if (cat?.defaultMarkup) markup = cat.defaultMarkup;
+            }
+        } else if (formData.categoryId) {
+            const cat = categories.find((c) => c.id === formData.categoryId);
+            if (cat?.defaultMarkup) markup = cat.defaultMarkup;
+        }
+        const priceBox = boxCost * (1 + markup / 100);
+        setFormData((p) => ({
+            ...p,
+            priceBox: priceBox.toFixed(2),
+            priceM2: hasCoverage ? (priceBox / coverage).toFixed(2) : p.priceM2,
+        }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
-        formData.costCents,
-        formData.boxCoverage,
-        formData.categoryId,
-        formData.brandId,
-        formData.markup,
-        formData.manualPrice,
-        categories,
-        brands
+        formData.costBox, formData.markup, formData.manualPrice,
+        formData.categoryId, formData.brandId, formData.boxCoverage, categories, brands,
     ]);
 
+    const setCostBox = (v: string) =>
+        setFormData((p) => ({ ...p, costBox: v, costM2: hasCoverage && v ? (parseFloat(v) / coverage).toFixed(2) : p.costM2 }));
+    const setCostM2 = (v: string) =>
+        setFormData((p) => ({ ...p, costM2: v, costBox: hasCoverage && v ? (parseFloat(v) * coverage).toFixed(2) : p.costBox }));
+    const setPriceBox = (v: string) =>
+        setFormData((p) => ({ ...p, priceBox: v, priceM2: hasCoverage && v ? (parseFloat(v) / coverage).toFixed(2) : p.priceM2 }));
+    const setPriceM2 = (v: string) =>
+        setFormData((p) => ({ ...p, priceM2: v, priceBox: hasCoverage && v ? (parseFloat(v) * coverage).toFixed(2) : p.priceBox }));
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!item) return;
-
         setError('');
+
+        if (isAreaSale && (!formData.boxCoverage || coverage <= 0)) {
+            setError('Para produtos vendidos por m², informe o "m² por caixa".');
+            return;
+        }
+
         setIsLoading(true);
-
         try {
-            const coverage = formData.boxCoverage ? parseFloat(formData.boxCoverage) : 0;
-            const userCost = formData.costCents ? parseFloat(formData.costCents) : 0;
-            // O campo exibe o custo por m² para produtos com boxCoverage.
-            // Reconverter para custo da caixa antes de persistir.
-            const finalCostCents = coverage > 0
-                ? Math.round(userCost * coverage * 100)
-                : Math.round(userCost * 100);
-
-            const userPrice = formData.priceCents ? parseFloat(formData.priceCents) : 0;
-            const finalPriceCents = coverage > 0
-                ? Math.round(userPrice * coverage * 100)
-                : Math.round(userPrice * 100);
+            const boxCost = parseFloat(formData.costBox);
+            const boxPrice = parseFloat(formData.priceBox);
 
             const payload = {
                 name: formData.name,
                 description: formData.description || undefined,
-                unit: formData.unit || undefined,
+                unit: formData.unit,
+                saleType: formData.saleType,
                 sku: formData.sku || undefined,
                 minStock: formData.minStock,
                 format: formData.format || undefined,
@@ -268,8 +250,8 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                 palletBoxes: formData.palletBoxes ? parseInt(formData.palletBoxes) : undefined,
                 palletWeight: formData.palletWeight ? parseFloat(formData.palletWeight) : undefined,
                 palletCoverage: formData.palletCoverage ? parseFloat(formData.palletCoverage) : undefined,
-                costCents: finalCostCents || undefined,
-                priceCents: finalPriceCents || undefined,
+                costCents: !isNaN(boxCost) && boxCost > 0 ? Math.round(boxCost * 100) : undefined,
+                priceCents: !isNaN(boxPrice) && boxPrice > 0 ? Math.round(boxPrice * 100) : undefined,
                 supplierCode: formData.supplierCode || undefined,
                 categoryId: formData.categoryId || undefined,
                 brandId: formData.brandId || undefined,
@@ -298,99 +280,91 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-                            {error}
-                        </div>
+                        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">{error}</div>
                     )}
 
                     {/* Basic Info */}
                     <div className="space-y-4">
                         <h3 className="font-medium text-gray-900 border-b pb-2">Informações Básicas</h3>
-
                         <div className="space-y-2">
                             <Label htmlFor="edit-name">Nome do Produto *</Label>
-                            <Input
-                                id="edit-name"
-                                value={formData.name}
+                            <Input id="edit-name" value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="Nome do produto"
-                                required
-                                minLength={3}
-                            />
+                                placeholder="Nome do produto" required minLength={3} />
                         </div>
-
                         <div className="space-y-2">
                             <Label htmlFor="edit-description">Descrição</Label>
-                            <Input
-                                id="edit-description"
-                                value={formData.description}
+                            <Input id="edit-description" value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                placeholder="Descrição do produto"
-                            />
+                                placeholder="Descrição do produto" />
                         </div>
-
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="edit-sku">SKU</Label>
-                                <Input
-                                    id="edit-sku"
-                                    value={formData.sku}
+                                <Input id="edit-sku" value={formData.sku}
                                     onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                                    placeholder="Código SKU"
-                                />
+                                    placeholder="Código SKU" />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="edit-supplierCode">Ref. Fornecedor</Label>
-                                <Input
-                                    id="edit-supplierCode"
-                                    value={formData.supplierCode}
+                                <Input id="edit-supplierCode" value={formData.supplierCode}
                                     onChange={(e) => setFormData({ ...formData, supplierCode: e.target.value })}
-                                    placeholder="Código do fornecedor"
-                                />
+                                    placeholder="Código do fornecedor" />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Unidade de Medida *</Label>
+                                <Select value={formData.unit}
+                                    onValueChange={(val) => setFormData({ ...formData, unit: val })}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {UNIT_OPTIONS.map((o) => (
+                                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="edit-unit">Unidade</Label>
-                                <Input
-                                    id="edit-unit"
-                                    value={formData.unit}
-                                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                                    placeholder="Ex: caixa, m²"
-                                />
+                                <Label>Tipo de Venda</Label>
+                                <Select value={formData.saleType}
+                                    onValueChange={(val) => setFormData({ ...formData, saleType: val })}
+                                    disabled={formData.unit === 'M2'}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="UNIT">Por Unidade/Caixa</SelectItem>
+                                        <SelectItem value="AREA">Por Metro² (m²)</SelectItem>
+                                        <SelectItem value="BOTH">Ambos</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {formData.unit === 'M2' && (
+                                    <p className="text-xs text-amber-600">Definido automaticamente para m².</p>
+                                )}
                             </div>
                         </div>
                     </div>
 
-                    {/* Product Classification */}
+                    {/* Classification */}
                     <div className="space-y-4">
                         <h3 className="font-medium text-gray-900 border-b pb-2">Classificação</h3>
-
                         <div className="grid grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="edit-format">Formato</Label>
-                                <Input
-                                    id="edit-format"
-                                    value={formData.format}
+                                <Input id="edit-format" value={formData.format}
                                     onChange={(e) => setFormData({ ...formData, format: e.target.value })}
-                                    placeholder="Ex: 60x60, 30x90"
-                                />
+                                    placeholder="Ex: 60x60, 30x90" />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="edit-line">Linha</Label>
-                                <Input
-                                    id="edit-line"
-                                    value={formData.line}
+                                <Input id="edit-line" value={formData.line}
                                     onChange={(e) => setFormData({ ...formData, line: e.target.value })}
-                                    placeholder="Ex: Mármore, Madeira"
-                                />
+                                    placeholder="Ex: Mármore, Madeira" />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="edit-usage">Uso</Label>
-                                <Input
-                                    id="edit-usage"
-                                    value={formData.usage}
+                                <Input id="edit-usage" value={formData.usage}
                                     onChange={(e) => setFormData({ ...formData, usage: e.target.value })}
-                                    placeholder="Ex: Piso, Parede"
-                                />
+                                    placeholder="Ex: Piso, Parede" />
                             </div>
                         </div>
                     </div>
@@ -401,130 +375,81 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                         <div className="grid grid-cols-4 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="edit-height">Altura (cm)</Label>
-                                <Input
-                                    id="edit-height"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.height}
-                                    onChange={(e) => setFormData({ ...formData, height: e.target.value })}
-                                />
+                                <Input id="edit-height" type="number" step="0.01" min="0" value={formData.height}
+                                    onChange={(e) => setFormData({ ...formData, height: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="edit-width">Largura (cm)</Label>
-                                <Input
-                                    id="edit-width"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.width}
-                                    onChange={(e) => setFormData({ ...formData, width: e.target.value })}
-                                />
+                                <Input id="edit-width" type="number" step="0.01" min="0" value={formData.width}
+                                    onChange={(e) => setFormData({ ...formData, width: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="edit-depth">Profundidade (cm)</Label>
-                                <Input
-                                    id="edit-depth"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.depth}
-                                    onChange={(e) => setFormData({ ...formData, depth: e.target.value })}
-                                />
+                                <Input id="edit-depth" type="number" step="0.01" min="0" value={formData.depth}
+                                    onChange={(e) => setFormData({ ...formData, depth: e.target.value })} />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="edit-color">Cor</Label>
-                                <Input
-                                    id="edit-color"
-                                    value={formData.color}
-                                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                                />
+                                <Input id="edit-color" value={formData.color}
+                                    onChange={(e) => setFormData({ ...formData, color: e.target.value })} />
                             </div>
                         </div>
                     </div>
 
-                    {/* Packaging Info */}
+                    {/* Packaging */}
                     <div className="space-y-4">
                         <h3 className="font-medium text-gray-900 border-b pb-2">Informações de Embalagem</h3>
-
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className={`grid grid-cols-2 gap-4 rounded-lg ${isAreaSale ? 'bg-amber-50 p-3 border border-amber-200' : ''}`}>
+                            {isAreaSale && (
+                                <div className="col-span-2 flex items-center gap-1.5 text-xs text-amber-700 font-medium">
+                                    <AlertCircle className="h-3.5 w-3.5" />
+                                    Obrigatório para produtos vendidos por m²
+                                </div>
+                            )}
                             <div className="space-y-2">
-                                <Label htmlFor="edit-boxCoverage">m² por Caixa</Label>
-                                <Input
-                                    id="edit-boxCoverage"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
+                                <Label htmlFor="edit-boxCoverage">
+                                    m² por Caixa {isAreaSale && <span className="text-red-500">*</span>}
+                                </Label>
+                                <Input id="edit-boxCoverage" type="number" step="0.0001" min="0"
                                     value={formData.boxCoverage}
                                     onChange={(e) => setFormData({ ...formData, boxCoverage: e.target.value })}
-                                    placeholder="Ex: 1.44"
-                                />
+                                    placeholder="Ex: 1.44" required={isAreaSale} />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="edit-piecesPerBox">Peças por Caixa</Label>
-                                <Input
-                                    id="edit-piecesPerBox"
-                                    type="number"
-                                    min="0"
+                                <Label htmlFor="edit-piecesPerBox">
+                                    Peças por Caixa {isAreaSale && <span className="text-red-500">*</span>}
+                                </Label>
+                                <Input id="edit-piecesPerBox" type="number" min="0"
                                     value={formData.piecesPerBox}
                                     onChange={(e) => setFormData({ ...formData, piecesPerBox: e.target.value })}
-                                    placeholder="Ex: 8"
-                                />
+                                    placeholder="Ex: 8" required={isAreaSale} />
                             </div>
                         </div>
-
                         <div className="grid grid-cols-4 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="edit-boxWeight">Peso Caixa (kg)</Label>
-                                <Input
-                                    id="edit-boxWeight"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.boxWeight}
-                                    onChange={(e) => setFormData({ ...formData, boxWeight: e.target.value })}
-                                    placeholder="Ex: 25.5"
-                                />
+                                <Input id="edit-boxWeight" type="number" step="0.01" min="0" value={formData.boxWeight}
+                                    onChange={(e) => setFormData({ ...formData, boxWeight: e.target.value })} placeholder="Ex: 25.5" />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="edit-palletBoxes">Caixas/Palete</Label>
-                                <Input
-                                    id="edit-palletBoxes"
-                                    type="number"
-                                    min="0"
-                                    value={formData.palletBoxes}
-                                    onChange={(e) => setFormData({ ...formData, palletBoxes: e.target.value })}
-                                    placeholder="Ex: 48"
-                                />
+                                <Input id="edit-palletBoxes" type="number" min="0" value={formData.palletBoxes}
+                                    onChange={(e) => setFormData({ ...formData, palletBoxes: e.target.value })} placeholder="Ex: 48" />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="edit-palletCoverage">m²/Palete</Label>
-                                <Input
-                                    id="edit-palletCoverage"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.palletCoverage}
-                                    onChange={(e) => setFormData({ ...formData, palletCoverage: e.target.value })}
-                                    placeholder="Ex: 71.52"
-                                />
+                                <Input id="edit-palletCoverage" type="number" step="0.01" min="0" value={formData.palletCoverage}
+                                    onChange={(e) => setFormData({ ...formData, palletCoverage: e.target.value })} placeholder="Ex: 71.52" />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="edit-palletWeight">Peso Palete (kg)</Label>
-                                <Input
-                                    id="edit-palletWeight"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.palletWeight}
-                                    onChange={(e) => setFormData({ ...formData, palletWeight: e.target.value })}
-                                    placeholder="Ex: 1200"
-                                />
+                                <Input id="edit-palletWeight" type="number" step="0.01" min="0" value={formData.palletWeight}
+                                    onChange={(e) => setFormData({ ...formData, palletWeight: e.target.value })} placeholder="Ex: 1200" />
                             </div>
                         </div>
                     </div>
 
-                    {/* Dynamic Pricing & Costs */}
+                    {/* Pricing */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between border-b pb-2">
                             <h3 className="font-medium text-gray-900">Precificação e Custos</h3>
@@ -538,35 +463,25 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                                     <div className="space-y-2">
                                         <h4 className="font-medium leading-none">Como o preço é calculado?</h4>
                                         <p className="text-sm text-muted-foreground">
-                                            O sistema usa o <strong>Custo</strong> + <strong>Markup</strong>.
-                                            A prioridade do Markup é:
+                                            O sistema guarda sempre o <strong>valor da caixa/unidade</strong> e usa
+                                            <strong> Custo + Markup</strong> (Produto → Marca → Categoria → Global 40%).
                                         </p>
-                                        <ul className="text-xs list-disc pl-4 space-y-1 text-muted-foreground">
-                                            <li><strong>Produto:</strong> Se preenchido aqui.</li>
-                                            <li><strong>Marca:</strong> Se a marca tiver markup.</li>
-                                            <li><strong>Categoria:</strong> Se a categ. tiver markup.</li>
-                                            <li><strong>Global:</strong> Padrão do sistema (40%).</li>
-                                        </ul>
                                         <p className="text-xs text-blue-600 mt-2">
-                                            Ative "Preço Manual" para ignorar essas regras.
+                                            Em produtos por m², "Custo da Caixa" e "Custo por m²" se preenchem entre si.
                                         </p>
                                     </div>
                                 </PopoverContent>
                             </Popover>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Categoria</Label>
-                                <Select
-                                    value={formData.categoryId}
-                                    onValueChange={(val) => setFormData({ ...formData, categoryId: val })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione..." />
-                                    </SelectTrigger>
+                                <Select value={formData.categoryId}
+                                    onValueChange={(val) => setFormData({ ...formData, categoryId: val })}>
+                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                                     <SelectContent>
-                                        {categories.map(cat => (
+                                        {categories.map((cat) => (
                                             <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                                         ))}
                                     </SelectContent>
@@ -574,85 +489,85 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                             </div>
                             <div className="space-y-2">
                                 <Label>Marca</Label>
-                                <Select
-                                    value={formData.brandId}
-                                    onValueChange={(val) => setFormData({ ...formData, brandId: val })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione..." />
-                                    </SelectTrigger>
+                                <Select value={formData.brandId}
+                                    onValueChange={(val) => setFormData({ ...formData, brandId: val })}>
+                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                                     <SelectContent>
-                                        {brands.map(brand => (
+                                        {brands.map((brand) => (
                                             <SelectItem key={brand.id} value={brand.id}>{brand.name}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-costCents">
-                                    {formData.boxCoverage && parseFloat(formData.boxCoverage) > 0
-                                        ? 'Custo (R$/m²)'
-                                        : 'Custo (R$)'}
-                                </Label>
-                                <Input
-                                    id="edit-costCents"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.costCents}
-                                    onChange={(e) => setFormData({ ...formData, costCents: e.target.value })}
-                                    placeholder={formData.boxCoverage && parseFloat(formData.boxCoverage) > 0 ? 'Ex: 90.00 (por m²)' : 'Ex: 45.90'}
-                                />
-                                {formData.boxCoverage && parseFloat(formData.boxCoverage) > 0 && formData.costCents && (
-                                    <p className="text-[10px] text-amber-600 font-medium pt-1">
-                                        Custo da Cx: R$ {(parseFloat(formData.costCents) * parseFloat(formData.boxCoverage)).toFixed(2)}
-                                    </p>
-                                )}
-                            </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4 items-end">
+                        {isAreaSale ? (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit-costM2">Custo por m² (R$)</Label>
+                                    <Input id="edit-costM2" type="number" step="0.01" min="0"
+                                        value={formData.costM2} onChange={(e) => setCostM2(e.target.value)}
+                                        placeholder="Ex: 76.20" disabled={!hasCoverage} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit-costBox">Custo da Caixa (R$)</Label>
+                                    <Input id="edit-costBox" type="number" step="0.01" min="0"
+                                        value={formData.costBox} onChange={(e) => setCostBox(e.target.value)}
+                                        placeholder="Ex: 157.73" />
+                                    {!hasCoverage && (
+                                        <p className="text-[10px] text-amber-600">Informe o "m² por caixa" para converter automaticamente.</p>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit-costBox">Custo de Compra (R$)</Label>
+                                    <Input id="edit-costBox" type="number" step="0.01" min="0"
+                                        value={formData.costBox} onChange={(e) => setCostBox(e.target.value)}
+                                        placeholder="Ex: 45.90" />
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-4 items-start">
                             <div className="space-y-2">
                                 <Label htmlFor="edit-markup">Markup (%)</Label>
-                                <Input
-                                    id="edit-markup"
-                                    type="number"
-                                    step="0.01"
-                                    value={formData.markup}
+                                <Input id="edit-markup" type="number" step="0.01" value={formData.markup}
                                     onChange={(e) => setFormData({ ...formData, markup: e.target.value })}
-                                    placeholder="Override (opcional)"
-                                    disabled={formData.manualPrice}
-                                />
-                            </div>
-                            <div className="flex items-center space-x-2 pb-3">
-                                <Switch
-                                    id="edit-manual-price"
-                                    checked={formData.manualPrice}
-                                    onCheckedChange={(checked) => setFormData({ ...formData, manualPrice: checked })}
-                                />
-                                <Label htmlFor="edit-manual-price">Preço Manual</Label>
+                                    placeholder="Override (opcional)" disabled={formData.manualPrice} />
+                                <div className="flex items-center space-x-2 pt-1">
+                                    <Switch id="edit-manual-price" checked={formData.manualPrice}
+                                        onCheckedChange={(checked) => setFormData({ ...formData, manualPrice: checked })} />
+                                    <Label htmlFor="edit-manual-price">Preço Manual</Label>
+                                </div>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="edit-priceCents">
-                                    {formData.boxCoverage && parseFloat(formData.boxCoverage) > 0
-                                        ? 'Preço Venda (R$/m²)'
-                                        : 'Preço Venda (R$)'}
-                                </Label>
-                                <Input
-                                    id="edit-priceCents"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.priceCents}
-                                    onChange={(e) => setFormData({ ...formData, priceCents: e.target.value })}
-                                    placeholder={formData.boxCoverage && parseFloat(formData.boxCoverage) > 0 ? 'Ex: 89.90 (por m²)' : 'Ex: 89.90'}
-                                    disabled={!formData.manualPrice}
-                                    className={!formData.manualPrice ? "bg-gray-50" : ""}
-                                />
-                                {formData.boxCoverage && parseFloat(formData.boxCoverage) > 0 && formData.priceCents && (
-                                    <p className="text-[10px] text-green-700 font-medium pt-1">
-                                        Venda da Cx: R$ {(parseFloat(formData.priceCents) * parseFloat(formData.boxCoverage)).toFixed(2)}
-                                    </p>
+                                {isAreaSale ? (
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="space-y-1">
+                                            <Label htmlFor="edit-priceM2" className="text-green-700">Preço Venda (R$/m²)</Label>
+                                            <Input id="edit-priceM2" type="number" step="0.01" min="0"
+                                                className="font-bold text-green-700 bg-green-50 border-green-200"
+                                                value={formData.priceM2} onChange={(e) => setPriceM2(e.target.value)}
+                                                disabled={!formData.manualPrice || !hasCoverage} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label htmlFor="edit-priceBox" className="text-green-700">Preço da Caixa (R$)</Label>
+                                            <Input id="edit-priceBox" type="number" step="0.01" min="0"
+                                                className="font-bold text-green-700 bg-green-50 border-green-200"
+                                                value={formData.priceBox} onChange={(e) => setPriceBox(e.target.value)}
+                                                disabled={!formData.manualPrice} />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Label htmlFor="edit-priceBox" className="text-green-700">Preço Venda (R$)</Label>
+                                        <Input id="edit-priceBox" type="number" step="0.01" min="0"
+                                            className="font-bold text-green-700 bg-green-50 border-green-200"
+                                            value={formData.priceBox} onChange={(e) => setPriceBox(e.target.value)}
+                                            disabled={!formData.manualPrice} />
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -664,22 +579,15 @@ export default function EditStockItemDialog({ open, item, onClose, onSuccess }: 
                         <div className="grid grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="edit-minStock">Estoque Mínimo</Label>
-                                <Input
-                                    id="edit-minStock"
-                                    type="number"
-                                    min="0"
-                                    value={formData.minStock}
+                                <Input id="edit-minStock" type="number" min="0" value={formData.minStock}
                                     onChange={(e) => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
-                                    placeholder="0"
-                                />
+                                    placeholder="0" />
                             </div>
                         </div>
                     </div>
 
                     <div className="flex gap-3 justify-end pt-4 border-t">
-                        <Button type="button" variant="outline" onClick={onClose}>
-                            Cancelar
-                        </Button>
+                        <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
                         <Button type="submit" disabled={isLoading}>
                             {isLoading ? 'Salvando...' : 'Salvar Alterações'}
                         </Button>

@@ -238,6 +238,10 @@ export class OrdersService {
             where: { orderId: id, status: 'ACTIVE' },
             data: { status: 'CANCELLED' },
           });
+          // Reverte a conta-corrente do cliente (estorna cobrança e pagamentos).
+          if (currentOrder.status !== OrderStatus.CANCELADO) {
+            await this.financeService.refundOrder(clinicId, id, userId);
+          }
         }
 
         // 3. Finance Integration (Auto-Payment)
@@ -246,6 +250,10 @@ export class OrdersService {
           currentOrder.status !== OrderStatus.PAGO
         ) {
           const desc = `Pagamento Pedido #${currentOrder.number}`;
+
+          // Lança a COBRANÇA do pedido na conta do cliente ANTES do pagamento,
+          // para o saldo fechar em zero (bug A7). Idempotente.
+          await this.financeService.chargeOrder(clinicId, id, userId);
 
           if (payments && payments.length > 0) {
             for (const p of payments) {
@@ -324,6 +332,13 @@ export class OrdersService {
           exitDraft.id,
           userId!,
         );
+        // A saída baixou o estoque físico — as reservas do pedido foram
+        // efetivamente consumidas (antes ficavam ACTIVE eternamente,
+        // deixando o disponível negativo). Bug A6.
+        await this.prisma.stockReservation.updateMany({
+          where: { orderId: id, status: 'ACTIVE' },
+          data: { status: 'CONSUMED' },
+        });
         console.log(
           `[Fulfillment] Auto stock exit created and confirmed for order ${id}`,
         );
@@ -406,7 +421,8 @@ export class OrdersService {
             clinicId,
             status: {
               in: [
-                OrderStatus.AGUARDANDO_MATERIAL,
+                OrderStatus.AGUARDANDO_COMPRA,
+                OrderStatus.AGUARDANDO_MATERIAL, // legado/deprecado
                 OrderStatus.AGUARDANDO_CHEGADA,
                 OrderStatus.MATERIAL_RECEBIDO,
               ],
