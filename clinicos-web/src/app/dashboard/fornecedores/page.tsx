@@ -79,7 +79,7 @@ export default function FornecedoresPage() {
             if (data) {
                 // A1: o lookup só preenche campos que estão vazios — nunca sobrescreve o que o usuário já digitou.
                 setFormData(prev => {
-                    const keep = (current: string, incoming?: string) =>
+                    const keep = (current: string, incoming?: string | null) =>
                         current && current.trim() ? current : (incoming || current);
                     const addressFromCnpj = data.logradouro
                         ? `${data.logradouro}, ${data.numero}${data.complemento ? ` - ${data.complemento}` : ''}${data.bairro ? ` (${data.bairro})` : ''}`

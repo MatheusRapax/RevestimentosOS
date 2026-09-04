@@ -90,7 +90,7 @@ export default function ClientesPage() {
     const [isFetchingCnpj, setIsFetchingCnpj] = useState(false);
 
     // A1: lookups (CEP/CNPJ) só preenchem campos vazios — nunca sobrescrevem o que o usuário digitou.
-    const keepField = (current: string, incoming?: string) =>
+    const keepField = (current: string, incoming?: string | null) =>
         current && current.trim() ? current : (incoming || current);
 
     const handleCepBlur = async (cep: string) => {
