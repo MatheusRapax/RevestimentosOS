@@ -178,14 +178,17 @@
 
 ## Observações a verificar (não confirmadas como bug)
 
-### [ ] O1 — `finance/reports/inventory-valuation` retornou tudo zero
-- No momento da checagem o estoque estava zerado (pós-entrega), então `totalItems: 0` / `totalCostCents: 0` **pode** estar correto. Não deu para validar com estoque em mãos (o B3 travou o meio do fluxo). Re-testar com lote positivo.
+### [x] O1 — `finance/reports/inventory-valuation` retornou tudo zero · ✅ NÃO É BUG (Fase 8, verificado)
+- O zero estava correto: estoque vazio na hora da checagem. `getInventoryValuation` soma `qty_lote × Product.costCents` e `× priceCents` (coerente com o modelo "custo/preço da caixa" guardado no produto).
+- **Verificado:** com um `StockLot` de 10 un de "Piso Teste A2" (custo R$50, preço R$70) o endpoint retorna `totalCostCents: 50000` (R$ 500), `totalSalesCents: 70000` (R$ 700), `projectedProfitCents: 20000`, `totalItems: 10`. Lote de teste removido depois.
 
-### [ ] O2 — Overlay de dev do Next acusou "1–2 Issues"
-- O badge de erros do Next dev (canto inferior esquerdo) apareceu com "1 Issue" / "2 Issues" em algumas telas (login, orçamento, entrada). Não investiguei o conteúdo — podem ser warnings de hidratação/console. Abrir o overlay e checar.
+### [x] O2 — Overlay de dev do Next acusou "1–2 Issues" · ✅ NÃO É BUG (Fase 8, investigado)
+- Não é erro de hidratação nem falha de runtime. É **um único warning de a11y do Radix** (`Missing 'Description' or 'aria-describedby' for {DialogContent}`), que só aparece em dev (o React remove warnings no build de produção). Os "500" que apareceram no console eram transitórios, durante recompilação do backend — somem depois de compilar.
+- **Ação:** adicionado `<DialogDescription>` ao diálogo de Fornecedor (representativo). ~10 outros diálogos emitem o mesmo warning benigno; uma supressão central foi descartada porque quebraria a ligação `aria-describedby` dos diálogos que já usam `<DialogDescription>` corretamente. Fica como dívida cosmética.
 
-### [ ] O3 — Painel lateral do Pedido não mostra a quebra de desconto/frete
-- A lista de itens do drawer do pedido mostra só os 2 totais de item + "Total R$ 4.604,83"; a quebra (subtotal − desconto + frete) só aparece no "Resumo Financeiro" do orçamento. Pequeno ruído de UX — confirmar se é intencional.
+### [x] O3 — Painel lateral do Pedido não mostra a quebra de desconto/frete · ✅ CORRIGIDO (Fase 8, verificado)
+- **Correção:** o bloco de totais do drawer de Pedido passou a mostrar Subtotal / Desconto / Taxa de entrega quando `discountCents > 0` ou `deliveryFee > 0`; sem desconto e sem frete, segue só o "Total" (sem mudança).
+- **Verificado:** pedido com desconto R$ 7,00 + frete R$ 15,00 sobre subtotal R$ 140,00 → drawer mostra as 3 linhas + "Total R$ 148,00". Dados de teste revertidos.
 
 ---
 

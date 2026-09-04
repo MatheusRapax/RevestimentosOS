@@ -1046,6 +1046,33 @@ export default function OrdersPage() {
 
                             {/* Totals (Always visible) */}
                             <div className="border-t pt-4 space-y-2 mt-4">
+                                {/* O3: quebra de subtotal / desconto / frete quando houver — antes só aparecia o Total */}
+                                {(() => {
+                                    const discount = displayOrder.discountCents || 0;
+                                    const freight = displayOrder.deliveryFee || 0;
+                                    const subtotal = displayOrder.subtotalCents || 0;
+                                    if (discount <= 0 && freight <= 0) return null;
+                                    return (
+                                        <div className="space-y-1 text-sm text-gray-600">
+                                            <div className="flex justify-between">
+                                                <span>Subtotal</span>
+                                                <span>{formatCurrency(subtotal)}</span>
+                                            </div>
+                                            {discount > 0 && (
+                                                <div className="flex justify-between text-green-600">
+                                                    <span>Desconto</span>
+                                                    <span>- {formatCurrency(discount)}</span>
+                                                </div>
+                                            )}
+                                            {freight > 0 && (
+                                                <div className="flex justify-between">
+                                                    <span>Taxa de entrega</span>
+                                                    <span>+ {formatCurrency(freight)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                                 <div className="flex justify-between text-lg font-bold">
                                     <span>Total</span>
                                     <span>{displayOrder.totalCents ? formatCurrency(displayOrder.totalCents) : '-'}</span>

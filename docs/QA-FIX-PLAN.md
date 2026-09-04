@@ -143,11 +143,11 @@
 
 ---
 
-## Fase 8 — Observações a investigar (O1, O2, O3)
+## Fase 8 — Observações a investigar (O1, O2, O3) · ✅ CONCLUÍDA
 
-- [ ] **O1** — re-testar `inventory-valuation` com lote positivo em estoque.
-- [ ] **O2** — abrir o overlay de erros do Next dev e catalogar os "issues" (hidratação/console).
-- [ ] **O3** — confirmar se a ausência da quebra desconto/frete no drawer do pedido é intencional.
+- [x] **O1** — não é bug. `inventory-valuation` retornava 0 porque o estoque estava vazio. Com lote positivo (fixture de teste) devolve custo/venda/lucro/qtd corretos.
+- [x] **O2** — não é bug. É um warning de a11y do Radix (`DialogContent` sem `Description`), só em dev. Adicionado `<DialogDescription>` no diálogo de Fornecedor como amostra; supressão central descartada (quebraria a ligação dos diálogos que já têm descrição). Dívida cosmética.
+- [x] **O3** — corrigido. Drawer de Pedido mostra Subtotal/Desconto/Taxa de entrega quando houver; sem desconto/frete segue só o Total. Verificado com fixture (140 − 7 + 15 = 148).
 
 ---
 

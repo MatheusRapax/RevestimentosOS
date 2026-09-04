@@ -11,6 +11,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import {
     Table,
@@ -382,6 +383,9 @@ export default function FornecedoresPage() {
                         <DialogTitle>
                             {editingSupplier ? 'Editar Fornecedor' : 'Novo Fornecedor'}
                         </DialogTitle>
+                        <DialogDescription>
+                            Preencha os dados do fornecedor. O CNPJ pode ser usado para buscar os dados automaticamente.
+                        </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
