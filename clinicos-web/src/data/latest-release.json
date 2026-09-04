@@ -1,4 +1,4 @@
 {
-  "version": "1.11.0",
-  "content": "### Features\n\n* **stock:** modal de divergência na tela \"Continuar Entrada\" (A9)\n* **stock:** padronizar forms de produto e custo caixa <-> m² (Fase 2)\n\n### Bug Fixes\n\n* **cadastros:** lookups preenchem só campos vazios + formatação de doc/telefone na exibição (Fase 6)\n* **dev:** corrigir build e seed do docker-compose local (Fase 1)\n* **finance:** lançar cobrança da venda na conta-corrente do cliente (A7)\n* lote de cosméticos, datas e validação (Fase 7 — L2..L14)\n* **orders:** gate quote actions by status and retire AGUARDANDO_MATERIAL (Fase 5)\n* **pedidos:** quebra de desconto/frete no drawer + investigação O1/O2 (Fase 8)\n* **stock:** normalizar unit e derivar saleType no cadastro de produto (A3, A4)\n* **stock:** recebimento de PC, custo e baixa de reservas (B3, A5, A6, A8)"
+  "version": "1.11.1",
+  "content": "### Bug Fixes\n\n* **cadastros:** corrigir tipo do helper keep/keepField que quebrava o build de produção\n* **orcamentos:** busca da lista de orçamentos não filtrava nada"
 }

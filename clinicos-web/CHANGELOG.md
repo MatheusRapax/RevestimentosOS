@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.11.1](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.11.0...v1.11.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **cadastros:** corrigir tipo do helper keep/keepField que quebrava o build de produção ([7344710](https://github.com/MatheusRapax/RevestimentosOS/commit/7344710392ba6214b3b18a8af2e1aee984805221))
+* **orcamentos:** busca da lista de orçamentos não filtrava nada ([ee53684](https://github.com/MatheusRapax/RevestimentosOS/commit/ee536844728cc04c1c7802eded21955089ffe2bf))
+
 ## [1.11.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.10.0...v1.11.0) (2026-09-04)
 
 
