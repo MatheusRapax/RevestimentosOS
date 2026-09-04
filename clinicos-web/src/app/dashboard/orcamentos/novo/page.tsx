@@ -410,6 +410,7 @@ export default function NovoOrcamentoPage() {
             };
 
             await api.post('/quotes', quoteData);
+            toast.success('Orçamento criado com sucesso!'); // L6: feedback visual consistente com os demais cadastros
             router.push('/dashboard/orcamentos');
         } catch (err: any) {
             console.error('Error creating quote:', err);

@@ -82,7 +82,9 @@ export class QuotesService {
       // Aplicar margem de perda (item > global)
       marginPercent = item.marginPercent ?? globalMarginPercent ?? null;
       if (marginPercent && marginPercent > 0) {
-        areaWithMargin = inputArea * (1 + marginPercent / 100);
+        // L5: arredonda a 4 casas para não persistir lixo de ponto flutuante (ex.: 49.50000000000001).
+        areaWithMargin =
+          Math.round(inputArea * (1 + marginPercent / 100) * 10000) / 10000;
       } else {
         areaWithMargin = inputArea;
       }

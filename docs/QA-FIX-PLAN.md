@@ -128,18 +128,18 @@
 
 ---
 
-## Fase 7 — Datas, relatórios e cosméticos (L8, L9, L10, L11, L2, L3, L4, L5, L6)
+## Fase 7 — Datas, relatórios e cosméticos (L8, L9, L10, L11, L2, L3, L4, L5, L6, L14) · ✅ CONCLUÍDA
 
-- [ ] **L8** (prioridade dentro dos cosméticos) — datas "date-only" exibidas 1 dia antes (timezone). Formatar em UTC na exibição ou gravar `YYYY-MM-DD` sem hora. Afeta lista/detalhe de PC, cabeçalho da Entrada, "Chegada Prevista" no pedido.
-- [ ] **L9** — `finance/reports/revenue` resolver `customer` (não só `patient` legado); corrigir UTF-8 duplo-codificado no JSON.
-- [ ] **L10** — badge "% Regra Global" nos arquitetos só quando existe `CommissionRule` global.
-- [ ] **L11** — form de PC: selecionar fornecedor cadastrado não deve preencher "Nome Avulso".
-- [ ] **L2** — `sync-changelog.js` limpar corpo/hash do commit antes de exibir no modal de novidades.
-- [ ] **L3** — remover dupla escrita de `AuditLog` (interceptor + log explícito); parar de logar `VIEW` em cada abertura de detalhe.
-- [ ] **L4** — remover/rebaixar `console.log` de toda request e o `[Audit Debug]` do body inteiro.
-- [ ] **L5** — arredondar `areaWithMargin` a 4 casas ao persistir.
-- [ ] **L6** — feedback de sucesso consistente (toast) também na criação de orçamento.
-- **Teste:** re-checar cada tela afetada + `revenue` mostrando nome do cliente.
+- [x] **L8** — helper `formatDateOnly` (UTC) só nos campos date-only (previsão do PC lista+detalhe, chegada/emissão da Entrada, entrega/vencimento/chegada prevista no drawer de Pedidos). Timestamps reais intactos. Verificado: PC previsão 15/09 → mostra 15/09.
+- [x] **L9** — `getRevenueReport` inclui `customer` e usa `customer?.name ?? patient?.name`. Verificado: pagamento do Pedido #1 → "Construtora Horizonte".
+- [x] **L10** — badge "Regra Global" só com `architectRules.length > 0`; senão "Sem comissão". Verificado com seed.
+- [x] **L11** — fornecedor cadastrado trava o "Nome Avulso" (disabled + ajuda) e o select ganhou "— Limpar seleção —". `supplierName` segue no payload.
+- [x] **L2** — `sync-changelog.js` limpa hash/artefato de shell/link de compare; `latest-release.json` e `CHANGELOG.md` limpos. Verificado no modal.
+- [x] **L3** (parcial) — interceptor não audita mais `VIEW` (era 1 write por abertura de detalhe). "Dupla linha CREATE Quote" não reproduzida em código — mantida em observação.
+- [x] **L4** — log de request só fora de produção e enxuto; `[Audit Debug]` → `logger.debug` sem body.
+- [x] **L5** — `areaWithMargin` arredondado a 4 casas no cálculo.
+- [x] **L6** — `toast.success` na criação de orçamento. Verificado.
+- [x] **L14** — `CreatePurchaseOrderDto` + item DTO com `class-validator`. Verificado: payload ruim → 400 com mensagens; válido → 201.
 
 ---
 

@@ -12,10 +12,13 @@ import { ItemsGrid } from '../nova/components/items-grid';
 import { useStockEntries } from '@/hooks/useStockEntries';
 import { ArrowLeft, CheckCircle, AlertTriangle, Loader2, Upload, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { parseNFeXML, NFeItem } from '@/lib/nfe-parser';
 import { InstallmentsList } from '../nova/components/installments-list';
+
+// L8: datas "date-only" (chegada, emissão da NF) são gravadas como meia-noite UTC —
+// formatar em UTC para não exibir o dia anterior no fuso local (BRT).
+const formatDateOnly = (value?: string | Date | null) =>
+    value ? new Date(value).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-';
 
 interface EditEntryPageProps {
     params: Promise<{
@@ -308,7 +311,7 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                         </div>
                         <div>
                             <span className="font-semibold block">Data Chegada:</span>
-                            {format(new Date(currentEntry.arrivalDate), "dd/MM/yyyy", { locale: ptBR })}
+                            {formatDateOnly(currentEntry.arrivalDate)}
                         </div>
                         <div>
                             <span className="font-semibold block">Fornecedor:</span>
@@ -317,7 +320,7 @@ export default function EditEntryPage({ params }: EditEntryPageProps) {
                         {currentEntry.emissionDate && (
                             <div>
                                 <span className="font-semibold block">Emissão:</span>
-                                {format(new Date(currentEntry.emissionDate), "dd/MM/yyyy", { locale: ptBR })}
+                                {formatDateOnly(currentEntry.emissionDate)}
                             </div>
                         )}
                     </div>

@@ -81,6 +81,13 @@ function formatDate(dateStr: string): string {
     return new Date(dateStr).toLocaleDateString('pt-BR');
 }
 
+// L8: campos "date-only" (entrega, previsão de chegada, vencimento) são gravados
+// como meia-noite UTC — formatar em UTC p/ não exibir o dia anterior no fuso local.
+function formatDateOnly(dateStr?: string | null): string {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+}
+
 export default function OrdersPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -523,7 +530,7 @@ export default function OrdersPage() {
                                         {order.deliveryDate ? (
                                             <div className="flex items-center gap-2 text-sm">
                                                 <Calendar className="h-4 w-4 text-gray-400" />
-                                                <span>{formatDate(order.deliveryDate)}</span>
+                                                <span>{formatDateOnly(order.deliveryDate)}</span>
                                             </div>
                                         ) : (
                                             <span className="text-sm text-gray-400">Retirada</span>
@@ -658,7 +665,7 @@ export default function OrdersPage() {
                                             <div className="space-y-1 text-sm">
                                                 <p>
                                                     <span className="text-gray-500">Previsão: </span>
-                                                    <strong>{displayOrder.deliveryDate ? formatDate(displayOrder.deliveryDate) : 'Não informada'}</strong>
+                                                    <strong>{displayOrder.deliveryDate ? formatDateOnly(displayOrder.deliveryDate) : 'Não informada'}</strong>
                                                 </p>
                                                 <p>
                                                     <span className="text-gray-500">Endereço: </span>
@@ -686,7 +693,7 @@ export default function OrdersPage() {
                                                         </div>
                                                         <p className="text-gray-600">Fornecedor: {po.supplierName}</p>
                                                         <p className="text-gray-600">
-                                                            Chegada Prevista: {po.expectedDate ? formatDate(po.expectedDate) : 'Indefinido'}
+                                                            Chegada Prevista: {po.expectedDate ? formatDateOnly(po.expectedDate) : 'Indefinido'}
                                                         </p>
                                                     </div>
                                                 ))}
@@ -959,7 +966,7 @@ export default function OrdersPage() {
                                                 <div key={inv.id} className="border rounded-lg p-4 flex justify-between items-center">
                                                     <div>
                                                         <p className="font-bold text-gray-900">{formatCurrency(inv.amountCents)}</p>
-                                                        <p className="text-sm text-gray-500">Vence em {formatDate(inv.dueDate)}</p>
+                                                        <p className="text-sm text-gray-500">Vence em {formatDateOnly(inv.dueDate)}</p>
                                                         <div className="mt-1">
                                                             <span className={`text-xs px-2 py-1 rounded-full ${inv.status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                                                 {inv.status === 'PAID' ? 'Pago' : 'Pendente'}

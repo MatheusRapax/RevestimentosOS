@@ -284,10 +284,22 @@ export default function ArquitetosPage() {
                                             {formatDocument(architect.document) || '-'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium rounded bg-amber-100 text-amber-800">
-                                                <Percent className="h-3 w-3" />
-                                                {architect.commissionRule ? architect.commissionRule.name : 'Regra Global'}
-                                            </span>
+                                            {/* L10: só chamar de "Regra Global" se existir mesmo uma regra global de arquiteto ativa na loja. */}
+                                            {architect.commissionRule ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium rounded bg-amber-100 text-amber-800">
+                                                    <Percent className="h-3 w-3" />
+                                                    {architect.commissionRule.name}
+                                                </span>
+                                            ) : architectRules.length > 0 ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium rounded bg-amber-100 text-amber-800">
+                                                    <Percent className="h-3 w-3" />
+                                                    Regra Global
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium rounded bg-gray-100 text-gray-500">
+                                                    Sem comissão
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             {getStatusBadge(architect.isActive)}

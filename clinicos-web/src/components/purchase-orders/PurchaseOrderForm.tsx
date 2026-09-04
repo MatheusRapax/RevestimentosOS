@@ -117,6 +117,11 @@ export default function PurchaseOrderForm({ initialData, isEditing = false, onSu
     });
 
     const handleSupplierChange = (value: string) => {
+        if (value === '__none__') {
+            setSupplierId('');
+            setSupplierName('');
+            return;
+        }
         setSupplierId(value);
         const supplier = suppliers.find((s: Supplier) => s.id === value);
         if (supplier) {
@@ -264,6 +269,9 @@ export default function PurchaseOrderForm({ initialData, isEditing = false, onSu
                                         <SelectValue placeholder="Selecione um fornecedor" />
                                     </SelectTrigger>
                                     <SelectContent>
+                                        {supplierId && (
+                                            <SelectItem value="__none__">— Limpar seleção —</SelectItem>
+                                        )}
                                         {suppliers.map((supplier: Supplier) => (
                                             <SelectItem key={supplier.id} value={supplier.id}>
                                                 {supplier.name} {supplier.cnpj ? `(${supplier.cnpj})` : ''}
@@ -280,8 +288,16 @@ export default function PurchaseOrderForm({ initialData, isEditing = false, onSu
                                         setSupplierName(e.target.value);
                                         setSupplierId('');
                                     }}
+                                    disabled={!!supplierId}
                                     placeholder="Nome do fornecedor"
                                 />
+                                {/* L11: com fornecedor cadastrado selecionado, o campo avulso fica travado
+                                    (o nome já vem do cadastro) para não parecer que há dois nomes editáveis. */}
+                                {supplierId && (
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        Usando fornecedor cadastrado. Limpe a seleção para digitar um nome avulso.
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <div className="mt-4">

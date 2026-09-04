@@ -901,6 +901,7 @@ export class FinanceService {
       include: {
         payment: true, // includes the method (PIX, CREDIT_CARD, etc)
         patient: { select: { name: true, document: true } },
+        customer: { select: { name: true, document: true } }, // L9: pagamentos de pedido usam customer, não patient
         encounter: { select: { date: true, id: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -932,7 +933,7 @@ export class FinanceService {
         amountCents: t.amountCents,
         description: t.description,
         method: t.payment?.method || 'OUTROS',
-        patientName: t.patient?.name || 'Não identificado',
+        patientName: t.customer?.name || t.patient?.name || 'Não identificado',
         encounterId: t.encounterId,
         encounterDate: t.encounter?.date,
       })),

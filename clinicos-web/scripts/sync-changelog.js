@@ -31,6 +31,32 @@ if (match && match[1]) {
     content = fallbackMatch && fallbackMatch[1] ? fallbackMatch[1].trim() : 'Nenhuma nota de versão disponível.';
 }
 
+// L2: limpar o texto que vem do CHANGELOG antes de mostrar na modal "Novidades":
+//  - remover o hash curto do commit que o standard-version anexa no fim de cada linha
+//  - cortar artefatos de shell em mensagens mal formadas (`... robustez" -m "- ...`)
+//  - remover links de comparação quebrados (`(///compare/...)`)
+function cleanReleaseNotes(raw) {
+    return raw
+        .split('\n')
+        .map((line) => {
+            let l = line;
+            // mensagem de commit com `-m` extra ou aspas soltas: fica só com o que vem antes da primeira aspa dupla
+            if (/^\s*[*-]\s/.test(l) && l.includes('"')) {
+                l = l.slice(0, l.indexOf('"')).trimEnd();
+            }
+            // hash do commit no fim da linha (7 a 40 hex)
+            l = l.replace(/\s+[0-9a-f]{7,40}\s*$/i, '');
+            // links de comparação quebrados
+            l = l.replace(/\(\/\/\/compare\/[^)]*\)/g, '');
+            return l.trimEnd();
+        })
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+content = cleanReleaseNotes(content);
+
 const outputData = {
     version,
     content

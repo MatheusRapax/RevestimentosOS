@@ -109,6 +109,12 @@ export default function PurchaseOrdersPage() {
         return new Date(dateStr).toLocaleDateString('pt-BR');
     };
 
+    // L8: previsão de entrega é "date-only" gravada como meia-noite UTC — formatar em UTC p/ não mostrar o dia anterior.
+    const formatDateOnly = (dateStr: string | null) => {
+        if (!dateStr) return '-';
+        return new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    };
+
     const formatCNPJ = (cnpj: string) => {
         if (!cnpj) return '';
         return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
@@ -279,7 +285,7 @@ export default function PurchaseOrdersPage() {
                                             {order.expectedDate ? (
                                                 <div className="flex items-center gap-2 text-sm">
                                                     <Calendar className="h-4 w-4 text-gray-400" />
-                                                    {formatDate(order.expectedDate)}
+                                                    {formatDateOnly(order.expectedDate)}
                                                 </div>
                                             ) : (
                                                 <span className="text-gray-400">-</span>

@@ -58,24 +58,21 @@
 - **Correção:** abordagem recomendada — armazenar sempre dígitos, formatar na exibição. Novos helpers `formatDocument(value, type?)` / `formatPhone(value)` em `lib/masks.ts` (idempotentes: as máscaras já removem `\D` antes de reaplicar, então servem para dado cru da tela **e** dado mascarado do seed). Aplicados em: lista + diálogo de edição de Cliente, lista + diálogo de edição de Arquiteto, lista + drawer de Pedidos, detalhe do Orçamento, recibo e romaneio. Diálogos de edição passam a exibir o valor já mascarado ao popular.
 - **Verificado:** "QA Cliente L1" criado pela tela → banco grava `document='52998224725'`, `phone='11987654321'` (crus); lista exibe `529.982.247-25` e `(11) 98765-4321`, igual às linhas do seed. Recibo e listas de Arquiteto/Cliente renderizam sem erro.
 
-### [ ] L2 — Modal "Novidades da Versão" mostra mensagem de commit crua
-- Ex.: `quotes: melhorar UI do combobox de produto e robustez" -m "- Ampliado espaço do popover... f3b47ee`.
-- O `scripts/sync-changelog.js` (frontend) não está limpando o corpo do commit / hash antes de exibir em `src/data/latest-release.json`.
+### [x] L2 — Modal "Novidades da Versão" mostra mensagem de commit crua · ✅ CORRIGIDO (Fase 7, verificado)
+- **Correção:** `scripts/sync-changelog.js` ganhou `cleanReleaseNotes()` — remove hash curto do fim de cada linha, corta artefato de shell (`... robustez" -m "- ...` → para na 1ª aspa) e tira links `(///compare/...)`. `src/data/latest-release.json` e a linha correspondente do `CHANGELOG.md` foram limpos. Verificado no browser: modal mostra só *"quotes: melhorar UI do combobox de produto e robustez"*.
 
-### [ ] L3 — Ruído no AuditLog
-- Linhas `CREATE Quote` duplicadas (uma com `message` vazio, outra descritiva) — provável dupla escrita (interceptor + `auditService.log` explícito).
-- `VIEW` logado a cada abertura de página de detalhe ("Visualizou registro de Quote").
+### [x] L3 — Ruído no AuditLog · ✅ PARCIAL (Fase 7)
+- **Correção:** `audit.interceptor` não audita mais leitura — `VIEW` (todo GET) fica de fora; antes gravava um `AuditLog` a cada abertura de página de detalhe. Só mutações (CREATE/UPDATE/DELETE) são auditadas.
+- **Pendente:** a "dupla linha CREATE Quote" não se reproduziu em revisão de código (não há `auditService.log` explícito no módulo de quotes nem interceptor duplicado). Provável CREATE+UPDATE em sequência no teste, ou observação equivocada. Reabrir se voltar a aparecer.
 
-### [ ] L4 — Logging de debug ligado em runtime
-- `main.ts` loga método/URL/origin/User-Agent de **toda** request.
-- Há um `[Audit Debug]` que loga o **body inteiro** da request (incl. todos os itens do orçamento) no stdout.
-- Remover/rebaixar para nível debug antes de produção.
+### [x] L4 — Logging de debug ligado em runtime · ✅ CORRIGIDO (Fase 7)
+- **Correção:** o middleware de log de request em `main.ts` só roda quando `NODE_ENV !== 'production'` e agora loga só `METHOD URL` (sem origin/User-Agent). O `[Audit Debug]` do interceptor virou `this.logger.debug(...)` sem despejar o body da request.
 
-### [ ] L5 — Artefato de ponto flutuante em `areaWithMargin`
-- `OrderItem.areaWithMargin` gravado como `49.50000000000001` (20 m² @ 10%). `resultingArea` fica limpo (50.4). Cosmético; considerar arredondar a 4 casas ao persistir.
+### [x] L5 — Artefato de ponto flutuante em `areaWithMargin` · ✅ CORRIGIDO (Fase 7)
+- **Correção:** `quotes.service.calcularItem` arredonda `areaWithMargin` a 4 casas ao calcular (`Math.round(x*10000)/10000`). `resultingArea` já era limpo.
 
-### [ ] L6 — Feedback de sucesso inconsistente
-- Cliente/Arquiteto/Fornecedor/Produto mostram banner/toast verde. Criação de orçamento apenas redireciona sem confirmação visual.
+### [x] L6 — Feedback de sucesso inconsistente · ✅ CORRIGIDO (Fase 7, verificado)
+- **Correção:** `orcamentos/novo` dispara `toast.success('Orçamento criado com sucesso!')` antes do redirect. Verificado no browser.
 
 ### [x] L7 — Form de produto · ✅ CORRIGIDO (Fase 2, verificado)
 - **Correção:** os dois forms de produto agora têm **dois campos de custo** — 'Custo por m²' ⇄ 'Custo da Caixa' — que se auto-preenchem via `boxCoverage`; `Product.costCents`/`priceCents` continuam sendo sempre o valor da caixa. Verificado nos dois sentidos de digitação.
@@ -132,20 +129,21 @@
 
 ## Teste 2 — Cosméticos / baixa prioridade
 
-### [ ] L8 — Datas exibidas 1 dia antes (timezone) — recorrente
-- Campos `<input type="date">` gravam UTC-meia-noite; a exibição formata em fuso local (BRT −03:00) → aparece 1 dia antes.
-- Observado: PC "Previsão de Entrega" digitei 15/09 → lista e detalhe mostram **14/09**; NF "Data de Emissão" digitei 02/09 → cabeçalho da entrada mostra **01/09**. No banco a data está correta.
-- Afeta: lista e detalhe de Pedido de Compra, cabeçalho da Entrada de Estoque, "Chegada Prevista" no rastreio do pedido.
-- **Correção sugerida:** formatar datas "date-only" em UTC (ou gravar `YYYY-MM-DD` sem hora) na camada de exibição.
+### [x] L8 — Datas exibidas 1 dia antes (timezone) · ✅ CORRIGIDO (Fase 7, verificado)
+- **Correção:** helper `formatDateOnly` (`toLocaleDateString('pt-BR', { timeZone: 'UTC' })`) em `lib/utils.ts` + cópias locais nas telas. Aplicado só em campos "date-only": Previsão de Entrega do PC (lista + detalhe), Data Chegada / Emissão no cabeçalho da Entrada, Chegada Prevista no rastreio do pedido, Entrega / Vencimento no drawer de Pedidos. Timestamps reais (`createdAt`, `receivedAt`, `deliveredAt`) seguem em fuso local.
+- **Verificado:** PC com previsão `2026-09-15` → lista e detalhe mostram **15/09/2026** (antes 14/09); "Data do Pedido" segue 03/09.
 
-### [ ] L9 — Relatório de receita não identifica o cliente
-- `GET /finance/reports/revenue` retorna `patientName: "Não identificado"` para pagamentos de pedido, mesmo com `Transaction.customerId` preenchido. O relatório resolve só a relação legada `patient`, não `customer`. Também há UTF-8 duplo-codificado no JSON ("Não").
+### [x] L9 — Relatório de receita não identifica o cliente · ✅ CORRIGIDO (Fase 7, verificado)
+- **Correção:** `getRevenueReport` passou a incluir `customer` e usar `t.customer?.name || t.patient?.name || 'Não identificado'`. O "UTF-8 duplo" era artefato do curl/git-bash no teste, não da resposta.
+- **Verificado:** `GET /finance/reports/revenue` → `patientName: "Construtora Horizonte"` para o pagamento do Pedido #1.
 
-### [ ] L10 — Badge "% Regra Global" enganoso nos arquitetos
-- A lista de arquitetos mostra o badge "% Regra Global" para todos, mesmo quando **não existe** nenhuma `CommissionRule` na loja (seed não cria nenhuma). "Dados de Comissão" no pedido corretamente diz "Nenhuma regra aplicável".
+### [x] L10 — Badge "% Regra Global" enganoso nos arquitetos · ✅ CORRIGIDO (Fase 7, verificado)
+- **Correção:** `arquitetos/page.tsx` — "Regra Global" só aparece se `architectRules.length > 0` (existe regra global de arquiteto ativa). Sem regra alguma → badge cinza "Sem comissão", coerente com o "Nenhuma regra aplicável" do pedido.
+- **Verificado:** com o seed (sem `CommissionRule`), os 3 arquitetos mostram "Sem comissão".
 
-### [ ] L11 — Form de PC: selecionar fornecedor cadastrado também preenche "Nome Avulso"
-- Ao escolher um fornecedor no select, o campo de texto livre "Ou Nome Avulso" também é preenchido com o mesmo nome (FK + nome denormalizado ambos setados). Provavelmente inofensivo, mas confuso.
+### [x] L11 — Form de PC: selecionar fornecedor cadastrado também preenche "Nome Avulso" · ✅ CORRIGIDO (Fase 7, verificado)
+- **Correção:** ao escolher um fornecedor cadastrado, o campo "Ou Nome Avulso" fica `disabled` (mostra o nome do cadastro esmaecido) + texto de ajuda; o select ganhou opção "— Limpar seleção —" que zera `supplierId` e `supplierName`. `supplierName` continua no payload (backend exige).
+- **Verificado:** selecionar "Cerâmica XYZ Brasil" trava o avulso; "Limpar seleção" reabre e limpa.
 
 ### [x] L12 — Tabela de itens da Entrada rotula caixas como "m²" · ✅ CORRIGIDO (Fase 2, verificado)
 - **Correção:** tabela de itens da Entrada rotula qty de produto AREA como `cx` (não a unidade do produto). O m² real continua na 2ª linha.
@@ -174,8 +172,9 @@
 
 ---
 
-### [ ] L14 — `POST /purchase-orders` sem validação de DTO
-- Enviar payload incompleto (sem `supplierName`, `totalCents` ou `item.totalCents`) → **500** (`PrismaClientValidationError`) em vez de 400 com mensagem clara. O service é passthrough puro pro Prisma, sem `class-validator`. Descoberto ao montar o cenário da Fase 3 via API (o form do frontend preenche tudo, então não aparece na UI).
+### [x] L14 — `POST /purchase-orders` sem validação de DTO · ✅ CORRIGIDO (Fase 7, verificado)
+- **Correção:** novo `CreatePurchaseOrderDto` + `PurchaseOrderItemDto` (`class-validator`/`class-transformer`, `@ValidateNested`), controller tipa `@Body()` com o DTO. O `ValidationPipe` global (`whitelist`, `forbidNonWhitelisted`, `transform`) já estava ligado.
+- **Verificado:** `{"supplierName":"X"}` → **400** com lista de campos inválidos; `items: []` → 400 "items must contain at least 1 elements"; payload válido → **201** com PC criado e `expectedDate` correto. `PATCH`/`update` seguem sem DTO (fora do escopo do finding).
 
 ## Observações a verificar (não confirmadas como bug)
 
