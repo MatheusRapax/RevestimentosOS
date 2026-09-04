@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.11.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.10.0...v1.11.0) (2026-09-04)
+
+
+### Features
+
+* **stock:** modal de divergência na tela "Continuar Entrada" (A9) ([c8874be](https://github.com/MatheusRapax/RevestimentosOS/commit/c8874be563f551d3904c8022dd9b759796a37e59))
+* **stock:** padronizar forms de produto e custo caixa <-> m² (Fase 2) ([44e2030](https://github.com/MatheusRapax/RevestimentosOS/commit/44e203034c67af3d9f16bb6fd740bba365d618dd))
+
+
+### Bug Fixes
+
+* **cadastros:** lookups preenchem só campos vazios + formatação de doc/telefone na exibição (Fase 6) ([97f02b2](https://github.com/MatheusRapax/RevestimentosOS/commit/97f02b273316e600c230b19dfd5f6874e370e657))
+* **dev:** corrigir build e seed do docker-compose local (Fase 1) ([7085eb0](https://github.com/MatheusRapax/RevestimentosOS/commit/7085eb087c46e6614b59d8823a7ed90eb2047f23))
+* **finance:** lançar cobrança da venda na conta-corrente do cliente (A7) ([261edcd](https://github.com/MatheusRapax/RevestimentosOS/commit/261edcdcf799aa8bb3c542526d73f8b0843d3c97))
+* lote de cosméticos, datas e validação (Fase 7 — L2..L14) ([2866061](https://github.com/MatheusRapax/RevestimentosOS/commit/28660614190041a3f3ae9ab836426984255a2e8d))
+* **orders:** gate quote actions by status and retire AGUARDANDO_MATERIAL (Fase 5) ([7a72b48](https://github.com/MatheusRapax/RevestimentosOS/commit/7a72b4826e7db6c56a52f9fc6a74d9500800b010))
+* **pedidos:** quebra de desconto/frete no drawer + investigação O1/O2 (Fase 8) ([c6ce787](https://github.com/MatheusRapax/RevestimentosOS/commit/c6ce7877b1e465af0cb9c4988a4f5f1aee85aedf))
+* **stock:** normalizar unit e derivar saleType no cadastro de produto (A3, A4) ([2ab2ef0](https://github.com/MatheusRapax/RevestimentosOS/commit/2ab2ef0848c8cc4d76fdcf2ccd550e1e93468b80))
+* **stock:** recebimento de PC, custo e baixa de reservas (B3, A5, A6, A8) ([6b561c0](https://github.com/MatheusRapax/RevestimentosOS/commit/6b561c0c87ee9d6de09a4dba551dd31ff244c62c))
+
 ## [1.10.0](///compare/v1.9.0...v1.10.0) (2026-08-20)
 
 

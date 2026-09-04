@@ -32,19 +32,23 @@ if (match && match[1]) {
 }
 
 // L2: limpar o texto que vem do CHANGELOG antes de mostrar na modal "Novidades":
-//  - remover o hash curto do commit que o standard-version anexa no fim de cada linha
-//  - cortar artefatos de shell em mensagens mal formadas (`... robustez" -m "- ...`)
+//  - remover o link/hash do commit que o standard-version anexa no fim de cada linha
+//  - cortar o artefato de shell de mensagens mal formadas (`... robustez" -m "- ...`)
 //  - remover links de comparação quebrados (`(///compare/...)`)
+// Não mexe em aspas legítimas do texto (ex.: tela "Continuar Entrada").
 function cleanReleaseNotes(raw) {
     return raw
         .split('\n')
         .map((line) => {
             let l = line;
-            // mensagem de commit com `-m` extra ou aspas soltas: fica só com o que vem antes da primeira aspa dupla
-            if (/^\s*[*-]\s/.test(l) && l.includes('"')) {
-                l = l.slice(0, l.indexOf('"')).trimEnd();
+            // artefato de shell: `<msg>" -m "<resto>` → mantém só a <msg>
+            const shellArtifact = l.match(/^(.*?)"\s*-m\s*"/);
+            if (shellArtifact) {
+                l = shellArtifact[1].trimEnd();
             }
-            // hash do commit no fim da linha (7 a 40 hex)
+            // link markdown do commit no fim da linha: ` ([abc1234](https://.../commit/abc...))`
+            l = l.replace(/\s*\(\[[0-9a-f]{7,40}\]\([^)]*\)\)\s*$/i, '');
+            // hash "solto" no fim da linha (formato antigo do standard-version)
             l = l.replace(/\s+[0-9a-f]{7,40}\s*$/i, '');
             // links de comparação quebrados
             l = l.replace(/\(\/\/\/compare\/[^)]*\)/g, '');
