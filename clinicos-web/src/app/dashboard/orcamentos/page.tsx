@@ -111,6 +111,18 @@ export default function OrcamentosPage() {
         fetchQuotes();
     }, [filterStatus]);
 
+    // Busca por cliente, nº do orçamento ou arquiteto — client-side, já que o
+    // filtro de status é resolvido no backend e a lista por loja não é grande.
+    const filteredQuotes = quotes.filter((quote) => {
+        const term = searchTerm.trim().toLowerCase();
+        if (!term) return true;
+        return (
+            quote.customer.name.toLowerCase().includes(term) ||
+            quote.number.toString().padStart(5, '0').includes(term) ||
+            (quote.architect?.name || '').toLowerCase().includes(term)
+        );
+    });
+
     useEffect(() => {
         if (successMessage) {
             const timer = setTimeout(() => setSuccessMessage(''), 3000);
@@ -484,7 +496,7 @@ export default function OrcamentosPage() {
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <Input
-                            placeholder="Buscar por cliente..."
+                            placeholder="Buscar por cliente, nº do orçamento ou arquiteto..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10"
@@ -497,6 +509,8 @@ export default function OrcamentosPage() {
                             { value: 'AGUARDANDO_APROVACAO', label: 'Enviados' },
                             { value: 'APROVADO', label: 'Aprovados' },
                             { value: 'CONVERTIDO', label: 'Convertidos' },
+                            { value: 'REJEITADO', label: 'Rejeitados' },
+                            { value: 'EXPIRADO', label: 'Expirados' },
                         ].map((filter) => (
                             <Button
                                 key={filter.value}
@@ -525,16 +539,20 @@ export default function OrcamentosPage() {
                     </div>
                 )}
 
-                {quotes.length === 0 ? (
+                {filteredQuotes.length === 0 ? (
                     <Card className="p-12 text-center">
                         <div className="text-gray-400 mb-4">
                             <FileText className="h-16 w-16 mx-auto" />
                         </div>
                         <h3 className="text-lg font-medium text-gray-900 mb-2">
-                            Nenhum orçamento encontrado
+                            {quotes.length === 0
+                                ? 'Nenhum orçamento encontrado'
+                                : 'Nenhum orçamento encontrado para essa busca'}
                         </h3>
                         <p className="text-gray-600 mb-4">
-                            Crie um novo orçamento para começar
+                            {quotes.length === 0
+                                ? 'Crie um novo orçamento para começar'
+                                : 'Tente outro termo de busca ou outro filtro de status'}
                         </p>
                         <Link href="/dashboard/orcamentos/novo">
                             <Button>
@@ -560,7 +578,7 @@ export default function OrcamentosPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {quotes.map((quote) => {
+                                    {filteredQuotes.map((quote) => {
                                         const statusConfig = getStatusConfig(quote.status);
                                         const StatusIcon = statusConfig.icon;
 
