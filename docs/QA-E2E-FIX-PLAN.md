@@ -94,3 +94,45 @@ Risco baixo; sem mudança de lógica.
 2. **F-FIN-7** (revalorização de estoque no `forceConfirm` de NF) e o **refactor profundo de atomicidade do F1** — confirmo que ficam **fora** desta branch para tratarmos separado?
 
 Itens sem controvérsia (Fases 1, 2 exceto F1-profundo, 3, 4 exceto F-FIN-7, 5) sigo assim que você aprovar.
+
+---
+
+## RESULTADO — implementado na branch `fix/qa-e2e-ajustes`
+
+**Decisões tomadas:** F-FIN-1 → "Faturamento" passa a ser dinheiro recebido (+ campo `billedCents`). F-FIN-7 e o refactor profundo de atomicidade do F1 → **fora desta branch**.
+
+### Commits
+| commit | conteúdo |
+|--------|----------|
+| `6892390` | Fase 1 — validação de entrada (DTOs) |
+| `f12866f` | Fase 2 — máquinas de estado (pedido + ocorrência), estorno de RMA |
+| `5c37281` | Fase 3+4 — comissões e financeiro |
+| `1cd4668` | Fase 5 — ajustes visuais |
+| `7d1c758` | ajuste extra F-FIN-4 (boleto p/ pedido já pago em qualquer status) |
+
+### Retest automático — **77 PASS / 0 FAIL**
+- **Venda ponta a ponta (happy path):** cálculo m² + descontos + frete, enviar/aprovar/converter, pagamento split PIX+CASH, auto-alocação, PRONTO→ENTREGUE, baixa de estoque 1×, conta-corrente do pedido fecha em 0 — **tudo idêntico ao antes**.
+- **Quebra:** preço/qtd negativos, desconto >100% (F4), cliente inexistente → 404 (F6), orçamento vazio (F5), `inputArea` gigante (F7), `CRIADO→ENTREGUE` e transição para trás (F3), pagamento acima do total (F8), método inválido / valor negativo (F2) → **todos 400/404** (antes: 500 ou aceito).
+- **NF divergente:** 400 `PO_DIVERGENCE`, `forceConfirm` exige justificativa — **inalterado**.
+- **RMA:** happy path DEFEITO (baixa/repõe estoque); `RASCUNHO→REEMBOLSADO` direto → 400 (F-RMA-3); cancelar após REPORTADO **devolve o estoque** (F-RMA-1); REEMBOLSADO cria `Transaction` REFUND na conta-corrente, idempotente (F-RMA-2); quantidade negativa → 400 (F-RMA-4).
+- **Comissões:** regra com tier 9999% e `tiers:[]` → 400 (F-COMM-5); `GET /dashboard/finance/sellers` **não vem mais vazio** e usa a regra (2%), não o mock 3% (F-COMM-1/2); `GET /dashboard/finance/architects` retorna comissão por tier ≠ 0 (F-COMM-3); atribuição alinhada ao endpoint por pedido (F-COMM-4).
+- **Financeiro:** despesa com valor/campos inválidos → 400 (F-FIN-2); nota de serviço sem valor → 400 (F-FIN-3); boleto duplicado / p/ pedido pago / `dueDate` lixo → 400 (F-FIN-4); pagar despesa 2× é idempotente (F-FIN-5); `GET /finance/customers/:id/account` responde 200 (F-FIN-6); `dashboard.revenue == reports/revenue` e `billedCents` exposto (F-FIN-1).
+
+### Verificação visual (viewport 375px)
+- Tabelas de `pedidos`, `contas-a-pagar`, `estoque/ocorrencias`: agora dentro de wrapper `overflow-x-auto` — rolam dentro do card, `body` não rola na horizontal (V1).
+- "Desempenho por Vendedor": mostra o Administrador Mosaic com faturamento real e comissão R$ 257,80 = 2% (antes: tela zerada) — empty state adicionado p/ quando não houver dados (V2).
+- "Comissões de Arquitetos": Ana Lúcia R$ 128,90 = 1% (antes: R$ 0,00).
+
+### Builds e segurança de produção
+- `docker compose exec backend npx tsc --noEmit` → **0 erros**
+- `docker compose exec frontend npx tsc --noEmit` → **0 erros**
+- `docker compose exec frontend npm run build` (`next build`, type-check estrito) → **✓ Compiled successfully**
+- **Nenhuma migração Prisma** (`Database schema is up to date!`) — deploy de produção sem risco de banco
+- `docker-compose.prod.yml`, Dockerfiles, pipeline de importação / `calcCostCents` / `ai-import` / PDF de orçamento → **intactos** (não aparecem no diff)
+- Diff total: **24 arquivos, +1141 / −101**, só em `src/**`, `clinicos-web/src/**` e `docs/`
+
+### Fora do escopo (para tratar depois, conforme sua decisão)
+- **F-FIN-7** — revalorização de todo o estoque do SKU no `forceConfirm` de NF (mexe no modelo de custo).
+- **F1 (refactor profundo)** — passar a transação para dentro do `FinanceService`. A validação prévia (F2/F8) já eliminou os caminhos de crash que geravam pagamento/cobrança órfãos; o refactor completo fica para uma branch dedicada.
+
+**Aguardando sua decisão de merge.** Nada foi versionado nem mergeado.
