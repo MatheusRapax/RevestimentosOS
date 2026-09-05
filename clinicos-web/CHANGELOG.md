@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.13.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.12.0...v1.13.0) (2026-09-05)
+
+
+### Bug Fixes
+
+* **qa:** ajustes visuais das telas dos fluxos (V1,V2) ([1cd4668](https://github.com/MatheusRapax/RevestimentosOS/commit/1cd46680c783f6a4b3657a477b60af5a6c1a9503))
+* **qa:** boleto bloqueado p/ qualquer pedido já pago (F-FIN-4) ([7d1c758](https://github.com/MatheusRapax/RevestimentosOS/commit/7d1c758d201dec5af2472366626211fa4e3a4e39))
+* **qa:** comissões e financeiro (F-COMM-1/2/3/4, F-FIN-1/6) ([5c37281](https://github.com/MatheusRapax/RevestimentosOS/commit/5c372816f30e81a6b0ff5a87224dad65229358e0))
+* **qa:** F1 — atomicidade completa do pagamento do pedido ([37d4440](https://github.com/MatheusRapax/RevestimentosOS/commit/37d444037a15701c4954ba749c6740ca0518e687))
+* **qa:** máquinas de estado e integridade (F1-parcial,F2,F3,F8,F-RMA-1/2/3) ([f12866f](https://github.com/MatheusRapax/RevestimentosOS/commit/f12866fe021717c6e14cc7e9452870cc45f8c835))
+* **qa:** validação de entrada (F2,F4,F5,F6,F7,F-RMA-4,F-COMM-5,F-FIN-2/3/4/5) ([6892390](https://github.com/MatheusRapax/RevestimentosOS/commit/6892390fc203ef3526ae9d511d5454f0e299ced2))
+
 ## [1.12.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.11.1...v1.12.0) (2026-09-05)
 
 
