@@ -137,12 +137,13 @@ Itens sem controvérsia (Fases 1, 2 exceto F1-profundo, 3, 4 exceto F-FIN-7, 5) 
 
 ---
 
-### Branch `fix/nf-custo-valoracao` — F-FIN-7 (custo médio de estoque)
+### Branch `fix/nf-custo-valoracao` — F-FIN-7 + revisão de risco para produção
 
 **Aguardando decisão de merge.**
 
 - **O quê:** `confirmEntry` deixou de usar "último custo" (sobrescrever `Product.costCents` com o valor da última NF) e passou a **custo médio ponderado móvel** — método fiscal padrão para ERP de material de construção. Recomendação técnica registrada.
-- **Commit:** `05726cd` — único ponto alterado: passo *2c* do `confirmEntry` (`src/modules/stock/stock-entry.service.ts`).
+- **Commits:** `05726cd` (custo médio — passo *2c* do `confirmEntry`), `403858d` (docs), `3836df5` (correções da revisão de risco: `OccurrenceItem.quantity` volta a aceitar fracionário; gráfico "Faturamento Mensal" alinhado ao card/relatório), `<último>` (afrouxa `CreateServiceInvoiceDto` p/ não regredir lançamentos existentes).
+- **Revisão de risco para produção em andamento:** cada controller que passou a usar DTO tipado foi conferido contra o payload real do frontend (`PATCH /orders/:id/status`, `POST /expenses`, `POST /finance/{service-invoices,invoices}`, `POST /quotes`, `POST /occurrences`) — nenhum envia chave fora do whitelist e nenhum valor válido hoje passa a ser rejeitado. Máquinas de estado de pedido só barram transições que a UI já não oferece. Ver a avaliação completa de riscos na conversa do QA.
 - **Documentação da feature:** `docs/CUSTO-MEDIO-ESTOQUE.md` (o quê, por quê, fórmula, onde aplica/não aplica, regras de borda, exemplos verificados, evolução futura).
 - **Sem migração de schema.** Não toca importação / `calcCostCents` / `ai-import` / PDF / modelo m² (`costCents` continua guardando o valor da caixa).
 - **Testes:** `qa_custo_medio.py` **6/6 PASS** (m² e unitário, incluindo caminho `forceConfirm`); retest E2E completo **84/84 PASS** (nada regrediu).
