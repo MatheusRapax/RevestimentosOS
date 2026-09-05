@@ -11,9 +11,10 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { OrdersService } from './orders.service';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
-import { OrderStatus, PaymentMethod } from '@prisma/client';
+import { OrderStatus } from '@prisma/client';
 
 interface AuthRequest extends Request {
   clinicId: string;
@@ -82,23 +83,16 @@ export class OrdersController {
   async updateStatus(
     @Request() req: AuthRequest,
     @Param('id') id: string,
-    @Body('status') status: string,
-    @Body('paymentMethod') paymentMethod?: PaymentMethod,
-    @Body('payments')
-    payments?: Array<{
-      method: PaymentMethod;
-      amountCents: number;
-      installments?: number;
-    }>,
+    @Body() dto: UpdateOrderStatusDto,
   ) {
     const userId = req.user?.userId;
     return this.ordersService.updateStatus(
       req.clinicId,
       id,
-      status as OrderStatus,
+      dto.status as OrderStatus,
       userId,
-      paymentMethod,
-      payments,
+      dto.paymentMethod,
+      dto.payments,
     );
   }
 
