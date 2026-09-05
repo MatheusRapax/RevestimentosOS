@@ -164,8 +164,14 @@ export default function FinanceiroPage() {
                             <div className="bg-white rounded-xl border p-5 shadow-sm">
                                 <div className="flex justify-between items-start">
                                     <div>
-                                        <p className="text-sm text-gray-500">Faturamento</p>
+                                        <p className="text-sm text-gray-500">Faturamento (recebido)</p>
                                         <p className="text-2xl font-bold mt-1">{formatCurrency(dashboardData.currentMonth.revenue)}</p>
+                                        {dashboardData.currentMonth.billedCents != null &&
+                                            dashboardData.currentMonth.billedCents !== dashboardData.currentMonth.revenue && (
+                                            <p className="text-xs text-gray-400 mt-0.5">
+                                                Pedidos faturados: {formatCurrency(dashboardData.currentMonth.billedCents)}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className={`flex items-center gap-1 text-sm ${revenueChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                         {revenueChange >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}

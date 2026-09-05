@@ -5,8 +5,10 @@ import {
   IsInt,
   IsDateString,
   IsArray,
+  ArrayMinSize,
   ValidateNested,
   Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -18,12 +20,14 @@ export class CreateQuoteItemDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(100000)
   inputArea?: number;
 
   // Quantidade de caixas (pode ser calculada via inputArea ou inserida manualmente)
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(1000000)
   quantityBoxes?: number;
 
   // Preço por unidade (m² ou caixa) em centavos
@@ -40,6 +44,7 @@ export class CreateQuoteItemDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(100)
   discountPercent?: number;
 
   // Margem de perda por item (opcional)
@@ -86,6 +91,7 @@ export class CreateQuoteDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(100)
   discountPercent?: number;
 
   // Margem de perda global
@@ -115,6 +121,7 @@ export class CreateQuoteDto {
 
   // Items do orçamento
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateQuoteItemDto)
   items: CreateQuoteItemDto[];

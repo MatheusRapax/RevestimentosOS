@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, TransactionType } from '@prisma/client';
 
 // Widget types available for flooring store
 export const WIDGET_TYPES = [
@@ -298,17 +298,18 @@ export class DashboardService {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const orders = await this.prisma.order.findMany({
+    // Faturamento = pagamentos EFETIVAMENTE recebidos hoje (não totais de pedidos não pagos)
+    const payments = await this.prisma.transaction.findMany({
       where: {
         clinicId,
+        type: TransactionType.PAYMENT,
         createdAt: { gte: today, lt: tomorrow },
-        status: { notIn: [OrderStatus.CANCELADO, OrderStatus.RASCUNHO] },
       },
-      select: { totalCents: true },
+      select: { amountCents: true },
     });
 
-    const totalCents = orders.reduce((sum, o) => sum + o.totalCents, 0);
-    return { totalCents, count: orders.length };
+    const totalCents = payments.reduce((sum, p) => sum + p.amountCents, 0);
+    return { totalCents, count: payments.length };
   }
 
   // Get pending deliveries
@@ -359,6 +360,38 @@ export class DashboardService {
   // FINANCIAL REPORTS (PHASE 4)
   // ====================================================================
 
+  /**
+   * Resolve a regra de comissão aplicável (específica do alvo ou global ativa)
+   * e devolve o % do tier correspondente ao volume de vendas do período.
+   */
+  private async resolveCommission(
+    clinicId: string,
+    targetType: 'SELLER' | 'ARCHITECT',
+    specificRule: any,
+    periodSalesCents: number,
+  ): Promise<{ rule: any; percentage: number; commissionCents: number }> {
+    const rule =
+      specificRule ||
+      (await this.prisma.commissionRule.findFirst({
+        where: { clinicId, targetType, isGlobal: true, isActive: true },
+        include: { tiers: { orderBy: { minGoalAmount: 'desc' } } },
+      }));
+
+    if (!rule || !rule.tiers || rule.tiers.length === 0) {
+      return { rule: null, percentage: 0, commissionCents: 0 };
+    }
+
+    const tier =
+      rule.tiers.find((t: any) => periodSalesCents >= t.minGoalAmount) ||
+      rule.tiers[rule.tiers.length - 1];
+    const percentage = tier ? tier.commissionRate : 0;
+    return {
+      rule,
+      percentage,
+      commissionCents: Math.round(periodSalesCents * (percentage / 100)),
+    };
+  }
+
   // Seller Performance Report
   async getSellersPerformance(
     clinicId: string,
@@ -369,17 +402,40 @@ export class DashboardService {
     if (startDate) dateFilter.gte = new Date(startDate);
     if (endDate) dateFilter.lte = new Date(endDate);
 
-    // 1. Get all sellers (Users with SELLER role or involved in orders)
+    // 1. Vendedores: quem tem papel SELLER OU quem é sellerId de algum pedido/orçamento
+    const [roleSellers, orderSellerIds, quoteSellerIds] = await Promise.all([
+      this.prisma.user.findMany({
+        where: {
+          clinicUsers: { some: { clinicId, role: { key: 'SELLER' } } },
+        },
+        select: { id: true, name: true, email: true },
+      }),
+      this.prisma.order.findMany({
+        where: { clinicId },
+        distinct: ['sellerId'],
+        select: { sellerId: true },
+      }),
+      this.prisma.quote.findMany({
+        where: { clinicId },
+        distinct: ['sellerId'],
+        select: { sellerId: true },
+      }),
+    ]);
+
+    const sellerIds = new Set<string>(roleSellers.map((s) => s.id));
+    for (const o of orderSellerIds) if (o.sellerId) sellerIds.add(o.sellerId);
+    for (const q of quoteSellerIds) if (q.sellerId) sellerIds.add(q.sellerId);
+
     const sellers = await this.prisma.user.findMany({
-      where: {
-        clinicUsers: {
-          some: {
-            clinicId,
-            role: { key: 'SELLER' },
-          },
+      where: { id: { in: [...sellerIds] } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        commissionRule: {
+          include: { tiers: { orderBy: { minGoalAmount: 'desc' } } },
         },
       },
-      select: { id: true, name: true, email: true },
     });
 
     const report = [];
@@ -414,9 +470,17 @@ export class DashboardService {
       const averageTicket =
         ordersCount > 0 ? Math.round(totalRevenue / ordersCount) : 0;
 
-      // Commission logic (mock logic: 3% flat)
-      // In a real scenario, this would come from a user setting or commission rules
-      const commission = Math.round(totalRevenue * 0.03);
+      // Comissão real: regra específica do vendedor ou regra global ativa, com tiers.
+      const {
+        rule: sellerRule,
+        percentage,
+        commissionCents: commission,
+      } = await this.resolveCommission(
+        clinicId,
+        'SELLER',
+        (seller as any).commissionRule,
+        totalRevenue,
+      );
 
       report.push({
         id: seller.id,
@@ -429,6 +493,8 @@ export class DashboardService {
           totalRevenue,
           averageTicket,
           commission,
+          commissionPercentage: percentage,
+          commissionRuleName: sellerRule?.name || null,
         },
         rank: 0, // Calculated after sorting
         trend: 0, // Requires previous period logic (omitted for MVP)
@@ -470,42 +536,49 @@ export class DashboardService {
     const dateFilter: any = {};
     if (startDate) dateFilter.gte = new Date(startDate);
     if (endDate) dateFilter.lte = new Date(endDate);
+    const createdAt =
+      Object.keys(dateFilter).length > 0 ? dateFilter : undefined;
 
-    // Get architects with sales
     const architects = await this.prisma.architect.findMany({
       where: { clinicId, isActive: true },
       include: {
-        customers: {
-          include: {
-            orders: {
-              where: {
-                clinicId,
-                createdAt:
-                  Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
-                status: {
-                  notIn: [OrderStatus.CANCELADO, OrderStatus.RASCUNHO],
-                },
-              },
-              select: { totalCents: true },
-            },
-          },
+        commissionRule: {
+          include: { tiers: { orderBy: { minGoalAmount: 'desc' } } },
         },
       },
     });
 
-    const report = architects.map((arch) => {
-      // Flatten orders from all customers of this architect
-      const allOrders = (arch as any).customers.flatMap((c: any) => c.orders);
-      const totalSales = allOrders.reduce(
-        (sum: number, o: any) => sum + o.totalCents,
-        0,
-      );
-      const clientsCount = (arch as any).customers.filter(
-        (c: any) => c.orders.length > 0,
-      ).length;
-      const commissionTotal = 0; // TODO: Implement tiered commission logic
+    const report = [];
+    for (const arch of architects) {
+      // Atribuição alinhada ao endpoint por pedido: venda indicada = orçamento do
+      // arquiteto OU cliente cujo arquiteto padrão é este. Uma query dedupa por pedido.
+      const orders = await this.prisma.order.findMany({
+        where: {
+          clinicId,
+          createdAt,
+          status: { notIn: [OrderStatus.CANCELADO, OrderStatus.RASCUNHO] },
+          OR: [
+            { quote: { architectId: arch.id } },
+            { customer: { architectId: arch.id } },
+          ],
+        },
+        select: { totalCents: true, customerId: true },
+      });
 
-      return {
+      const totalSales = orders.reduce((s, o) => s + o.totalCents, 0);
+      const clientsCount = new Set(orders.map((o) => o.customerId)).size;
+      const {
+        rule,
+        percentage,
+        commissionCents: commissionTotal,
+      } = await this.resolveCommission(
+        clinicId,
+        'ARCHITECT',
+        (arch as any).commissionRule,
+        totalSales,
+      );
+
+      report.push({
         id: arch.id,
         name: arch.name,
         commissionRuleId: (arch as any).commissionRuleId,
@@ -513,11 +586,12 @@ export class DashboardService {
           totalSales,
           clientsCount,
           commissionTotal,
+          commissionPercentage: percentage,
+          commissionRuleName: rule?.name || null,
         },
-      };
-    });
+      });
+    }
 
-    // Filter out architects with no sales? Or keep them showing 0? Keeping for visibility.
     return report.sort((a, b) => b.stats.totalSales - a.stats.totalSales);
   }
 }

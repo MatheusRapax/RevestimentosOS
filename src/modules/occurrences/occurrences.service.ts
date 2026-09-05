@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { FinanceService } from '../finance/finance.service';
 import { CreateOccurrenceDto } from './dto/create-occurrence.dto';
 import { UpdateOccurrenceStatusDto } from './dto/update-occurrence.dto';
 import {
@@ -14,7 +15,10 @@ import {
 
 @Injectable()
 export class OccurrencesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private financeService: FinanceService,
+  ) {}
 
   async create(clinicId: string, dto: CreateOccurrenceDto) {
     if (dto.type === OccurrenceType.RECEBIMENTO && !dto.supplierId) {
@@ -108,6 +112,31 @@ export class OccurrencesService {
     return occurrence;
   }
 
+  // Transições permitidas do ciclo de vida da ocorrência (F-RMA-3)
+  private static readonly ALLOWED_TRANSITIONS: Record<
+    OccurrenceStatus,
+    OccurrenceStatus[]
+  > = {
+    [OccurrenceStatus.RASCUNHO]: [
+      OccurrenceStatus.REPORTADO,
+      OccurrenceStatus.CANCELADO,
+    ],
+    [OccurrenceStatus.REPORTADO]: [
+      OccurrenceStatus.AGUARDANDO_FORNECEDOR,
+      OccurrenceStatus.RESOLVIDO,
+      OccurrenceStatus.REEMBOLSADO,
+      OccurrenceStatus.CANCELADO,
+    ],
+    [OccurrenceStatus.AGUARDANDO_FORNECEDOR]: [
+      OccurrenceStatus.RESOLVIDO,
+      OccurrenceStatus.REEMBOLSADO,
+      OccurrenceStatus.CANCELADO,
+    ],
+    [OccurrenceStatus.RESOLVIDO]: [],
+    [OccurrenceStatus.REEMBOLSADO]: [],
+    [OccurrenceStatus.CANCELADO]: [],
+  };
+
   async updateStatus(
     clinicId: string,
     userId: string,
@@ -119,6 +148,20 @@ export class OccurrencesService {
     if (occurrence.status === dto.status) {
       return occurrence; // No change
     }
+
+    const allowed =
+      OccurrencesService.ALLOWED_TRANSITIONS[
+        occurrence.status as OccurrenceStatus
+      ] || [];
+    if (!allowed.includes(dto.status)) {
+      throw new BadRequestException(
+        `Transição inválida: ${occurrence.status} → ${dto.status}.`,
+      );
+    }
+
+    const stockWasDeducted =
+      occurrence.status === OccurrenceStatus.REPORTADO ||
+      occurrence.status === OccurrenceStatus.AGUARDANDO_FORNECEDOR;
 
     if (
       dto.status === OccurrenceStatus.REPORTADO &&
@@ -139,6 +182,26 @@ export class OccurrencesService {
       );
     }
 
+    // Cancelar uma ocorrência que já baixou estoque devolve o que foi baixado (F-RMA-1)
+    if (dto.status === OccurrenceStatus.CANCELADO && stockWasDeducted) {
+      await this.processCancelledStatus(clinicId, occurrence);
+    }
+
+    // Reembolso gera crédito na conta-corrente do cliente (F-RMA-2)
+    if (dto.status === OccurrenceStatus.REEMBOLSADO) {
+      await this.financeService.refundOccurrence(
+        clinicId,
+        {
+          id: occurrence.id,
+          number: occurrence.number,
+          customerId: occurrence.customerId,
+          orderId: occurrence.orderId,
+          items: occurrence.items,
+        },
+        userId,
+      );
+    }
+
     return this.prisma.occurrence.update({
       where: { id },
       data: {
@@ -148,6 +211,84 @@ export class OccurrencesService {
           : occurrence.notes,
       },
       include: { items: true },
+    });
+  }
+
+  /**
+   * Devolve ao estoque a quantidade baixada no REPORTADO quando a ocorrência
+   * é cancelada antes de ser resolvida.
+   */
+  private async processCancelledStatus(clinicId: string, occurrence: any) {
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of occurrence.items) {
+        let effectiveQuantity = item.quantity;
+        if (item.unitType === 'UNIDADE') {
+          const productData = await tx.product.findUnique({
+            where: { id: item.productId },
+          });
+          if (productData?.piecesPerBox && productData.piecesPerBox > 0) {
+            effectiveQuantity = item.quantity / productData.piecesPerBox;
+          }
+        }
+
+        // Preferência: o(s) lote(s) que a avaria debitou
+        const avariaMoves = await tx.stockMovement.findMany({
+          where: {
+            occurrenceId: occurrence.id,
+            type: StockMovementType.AVARIA,
+          },
+        });
+
+        let remaining = effectiveQuantity;
+        const targets =
+          avariaMoves.length > 0
+            ? avariaMoves
+                .filter((m) => m.productId === item.productId && m.lotId)
+                .map((m) => ({ lotId: m.lotId as string, qty: -m.quantity }))
+            : [];
+
+        if (targets.length === 0) {
+          const lot = await tx.stockLot.findFirst({
+            where: { productId: item.productId, clinicId },
+            orderBy: { createdAt: 'desc' },
+          });
+          if (lot) targets.push({ lotId: lot.id, qty: effectiveQuantity });
+        }
+
+        for (const t of targets) {
+          if (remaining <= 0) break;
+          const add = Math.min(t.qty, remaining);
+          await tx.stockLot.update({
+            where: { id: t.lotId },
+            data: { quantity: { increment: add } },
+          });
+          await tx.stockMovement.create({
+            data: {
+              clinicId,
+              productId: item.productId,
+              lotId: t.lotId,
+              type: StockMovementType.IN,
+              quantity: add,
+              reason: `Cancelamento RMA-${occurrence.number} - estoque devolvido`,
+              occurrenceId: occurrence.id,
+            },
+          });
+          remaining -= add;
+        }
+      }
+
+      // Se o pedido tinha sido pausado pela avaria, tira da espera de reposição
+      if (occurrence.orderId) {
+        const order = await tx.order.findUnique({
+          where: { id: occurrence.orderId },
+        });
+        if (order?.status === 'AGUARDANDO_REPOSICAO') {
+          await tx.order.update({
+            where: { id: occurrence.orderId },
+            data: { status: 'PAGO' },
+          });
+        }
+      }
     });
   }
 

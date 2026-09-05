@@ -10,6 +10,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { FinanceService } from './finance.service';
+import {
+  CreateServiceInvoiceDto,
+  GenerateInvoiceDto,
+  UpdateInvoiceStatusDto,
+} from './dto/finance.dto';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 import { PermissionsGuard } from '../../core/rbac/guards/permissions.guard';
@@ -53,6 +58,19 @@ export class FinanceController {
     @Param('patientId') patientId: string,
   ) {
     return this.financeService.getPatientAccount(req.clinicId, patientId);
+  }
+
+  /**
+   * GET /finance/customers/:customerId/account
+   * Conta-corrente de um cliente de venda (B2B). Espelha a rota de paciente.
+   */
+  @Get('customers/:customerId/account')
+  @Permissions(PERMISSIONS.FINANCE_READ)
+  getCustomerAccount(
+    @Request() req: any,
+    @Param('customerId') customerId: string,
+  ) {
+    return this.financeService.getCustomerAccount(req.clinicId, customerId);
   }
 
   /**
@@ -205,7 +223,10 @@ export class FinanceController {
 
   @Post('service-invoices')
   @Permissions(PERMISSIONS.FINANCE_PAYMENT)
-  async createServiceInvoice(@Request() req: any, @Body() data: any) {
+  async createServiceInvoice(
+    @Request() req: any,
+    @Body() data: CreateServiceInvoiceDto,
+  ) {
     return this.financeService.createServiceInvoice(req.clinicId, data);
   }
 
@@ -215,10 +236,7 @@ export class FinanceController {
 
   @Post('invoices')
   @Permissions(PERMISSIONS.FINANCE_CHARGE)
-  async generateInvoice(
-    @Request() req: any,
-    @Body() body: { orderId: string; dueDate: string },
-  ) {
+  async generateInvoice(@Request() req: any, @Body() body: GenerateInvoiceDto) {
     return this.financeService.generateInvoice(
       req.clinicId,
       body.orderId,
@@ -237,7 +255,7 @@ export class FinanceController {
   async updateStatus(
     @Request() req: any,
     @Param('id') id: string,
-    @Body() body: { status: 'PAID' | 'CANCELLED' },
+    @Body() body: UpdateInvoiceStatusDto,
   ) {
     return this.financeService.updateInvoiceStatus(
       req.clinicId,

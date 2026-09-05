@@ -175,7 +175,7 @@ export default function OccurrencesPage() {
             ) : (
                 <Card className="flex-1 flex flex-col min-h-0">
                     <div className="overflow-auto flex-1">
-                        <table className="w-full">
+                        <table className="w-full min-w-[640px]">
                             <thead className="bg-gray-50 border-b sticky top-0 z-10">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Número</th>

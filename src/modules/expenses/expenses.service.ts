@@ -4,23 +4,13 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { CreateExpenseDto } from './dto/create-expense.dto';
 
 @Injectable()
 export class ExpensesService {
   constructor(private prisma: PrismaService) {}
 
-  async createExpense(
-    clinicId: string,
-    data: {
-      description: string;
-      amountCents: number;
-      dueDate: string;
-      type: 'SUPPLIER' | 'OPERATIONAL' | 'TAX' | 'COMMISSION' | 'OTHER';
-      barCode?: string;
-      recipientName?: string;
-      purchaseOrderId?: string;
-    },
-  ) {
+  async createExpense(clinicId: string, data: CreateExpenseDto) {
     // Prevent duplicate expense for same PO
     if (data.purchaseOrderId) {
       const existing = await this.prisma.expense.findFirst({
@@ -93,6 +83,11 @@ export class ExpensesService {
     });
 
     if (!expense) throw new NotFoundException('Expense not found');
+
+    // Idempotente: se já está paga, não reescreve paidAt
+    if (expense.status === 'PAID') {
+      return expense;
+    }
 
     return this.prisma.expense.update({
       where: { id },

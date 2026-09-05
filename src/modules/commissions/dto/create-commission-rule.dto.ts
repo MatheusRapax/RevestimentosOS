@@ -9,6 +9,8 @@ import {
   ValidateNested,
   IsNumber,
   Min,
+  Max,
+  ArrayMinSize,
 } from 'class-validator';
 
 export class CommissionTierDto {
@@ -18,6 +20,7 @@ export class CommissionTierDto {
 
   @IsNumber()
   @Min(0)
+  @Max(100)
   commissionRate: number;
 }
 
@@ -42,6 +45,7 @@ export class CreateCommissionRuleDto {
   isActive?: boolean;
 
   @IsOptional()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CommissionTierDto)
   tiers?: CommissionTierDto[];

@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   InternalServerErrorException,
+  HttpException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { FinanceService } from '../finance/finance.service';
@@ -155,8 +156,74 @@ export class OrdersService {
 
     // Capture previous status before transaction
     const prevOrder = await this.prisma.order.findUnique({ where: { id } });
-    if (!prevOrder) throw new Error('Pedido não encontrado');
+    if (!prevOrder) throw new BadRequestException('Pedido não encontrado');
     const previousStatus = prevOrder.status;
+
+    // ---- Guarda de transições (F3) --------------------------------------
+    // Não bloqueia o fluxo normal; barra apenas os saltos perigosos.
+    if (previousStatus !== status) {
+      const paidStates: OrderStatus[] = [
+        OrderStatus.PAGO,
+        OrderStatus.AGUARDANDO_COMPRA,
+        OrderStatus.AGUARDANDO_CHEGADA,
+        OrderStatus.AGUARDANDO_REPOSICAO,
+        OrderStatus.MATERIAL_RECEBIDO,
+        OrderStatus.AGUARDANDO_MATERIAL,
+        OrderStatus.EM_SEPARACAO,
+        OrderStatus.PRONTO_PARA_RETIRA,
+        OrderStatus.PRONTO_PARA_ENTREGA,
+        OrderStatus.SAIU_PARA_ENTREGA,
+        OrderStatus.ENTREGUE,
+      ];
+      const deliveryStates: OrderStatus[] = [
+        OrderStatus.SAIU_PARA_ENTREGA,
+        OrderStatus.ENTREGUE,
+      ];
+
+      // 1. Só entrega/despacha pedido que já passou pelo pagamento.
+      if (
+        deliveryStates.includes(status) &&
+        !paidStates.includes(previousStatus)
+      ) {
+        throw new BadRequestException(
+          'O pedido precisa estar pago antes de ser despachado ou entregue.',
+        );
+      }
+
+      // 2. Pedido já entregue não volta atrás (só pode ser cancelado).
+      if (
+        previousStatus === OrderStatus.ENTREGUE &&
+        status !== OrderStatus.CANCELADO
+      ) {
+        throw new BadRequestException(
+          'Um pedido já entregue não pode voltar para um status anterior.',
+        );
+      }
+
+      // 3. Pedido cancelado não é reativado por mudança de status.
+      if (
+        previousStatus === OrderStatus.CANCELADO &&
+        status !== OrderStatus.CANCELADO
+      ) {
+        throw new BadRequestException(
+          'Um pedido cancelado não pode ser reativado por mudança de status.',
+        );
+      }
+    }
+    // -------------------------------------------------------------------
+
+    // Validação de pagamentos antes de qualquer escrita (F2/F8)
+    if (status === OrderStatus.PAGO && payments && payments.length > 0) {
+      const sum = payments.reduce((s, p) => s + (p.amountCents || 0), 0);
+      const total = prevOrder.totalCents;
+      // Bloqueia pagamento acima do total (tolerância de arredondamento).
+      // Pagamento parcial é permitido (adiantamento).
+      if (sum > total + 2) {
+        throw new BadRequestException(
+          `A soma dos pagamentos (${sum}) excede o total do pedido (${total}).`,
+        );
+      }
+    }
 
     // Validation for PRONTO_PARA_ENTREGA
     if (status === OrderStatus.PRONTO_PARA_ENTREGA) {
@@ -240,7 +307,7 @@ export class OrdersService {
           });
           // Reverte a conta-corrente do cliente (estorna cobrança e pagamentos).
           if (currentOrder.status !== OrderStatus.CANCELADO) {
-            await this.financeService.refundOrder(clinicId, id, userId);
+            await this.financeService.refundOrder(clinicId, id, userId, tx);
           }
         }
 
@@ -253,7 +320,9 @@ export class OrdersService {
 
           // Lança a COBRANÇA do pedido na conta do cliente ANTES do pagamento,
           // para o saldo fechar em zero (bug A7). Idempotente.
-          await this.financeService.chargeOrder(clinicId, id, userId);
+          // Passa `tx`: se qualquer pagamento abaixo falhar, cobrança e
+          // pagamentos já criados são desfeitos junto com o status (F1).
+          await this.financeService.chargeOrder(clinicId, id, userId, tx);
 
           if (payments && payments.length > 0) {
             for (const p of payments) {
@@ -267,6 +336,7 @@ export class OrdersService {
                 userId,
                 currentOrder.customerId,
                 id,
+                tx,
               );
             }
           } else {
@@ -283,15 +353,20 @@ export class OrdersService {
                 userId,
                 currentOrder.customerId,
                 id,
+                tx,
               );
             }
           }
         }
 
         return order;
-      });
+      }, { timeout: 15000 });
     } catch (error: any) {
       console.error('[OrdersService] Error updating order status:', error);
+      // Preserva erros de validação/negócio (400/404/...) em vez de mascarar como 500
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException(
         `Erro ao atualizar status: ${error.message || error}`,
       );

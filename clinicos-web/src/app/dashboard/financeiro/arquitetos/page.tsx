@@ -153,6 +153,13 @@ export default function ArquitetosComissoesPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y">
+                            {architects.length === 0 && (
+                                <tr>
+                                    <td colSpan={8} className="px-6 py-10 text-center text-sm text-gray-500">
+                                        Nenhum arquiteto com vendas no período.
+                                    </td>
+                                </tr>
+                            )}
                             {architects.map((architect: any) => (
                                 <tr key={architect.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4">
@@ -169,7 +176,7 @@ export default function ArquitetosComissoesPage() {
                                     <td className="px-6 py-4 text-center">
                                         <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm font-medium">
                                             <Percent className="h-3 w-3" />
-                                            {architect.commissionRate}%
+                                            {architect.stats?.commissionPercentage ?? architect.commissionRate ?? 0}%
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-center">
