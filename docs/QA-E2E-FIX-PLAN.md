@@ -97,9 +97,11 @@ Itens sem controvérsia (Fases 1, 2 exceto F1-profundo, 3, 4 exceto F-FIN-7, 5) 
 
 ---
 
-## RESULTADO — implementado na branch `fix/qa-e2e-ajustes`
+## RESULTADO
 
-**Decisões tomadas:** F-FIN-1 → "Faturamento" passa a ser dinheiro recebido (+ campo `billedCents`). F-FIN-7 → **fora desta branch**. F1 (refactor de atomicidade) → **feito depois** (commit `37d4440`): a superfície era pequena (3 métodos + 3 chamadas), então foi incluído.
+### Branch `fix/qa-e2e-ajustes` — **mergeada em `main`, release `v1.13.0`** (tag `v1.13.0`, pushed)
+
+**Decisões tomadas:** F-FIN-1 → "Faturamento" passa a ser dinheiro recebido (+ campo `billedCents`). F1 (refactor de atomicidade) → **incluído** (commit `37d4440`): a superfície era pequena (3 métodos + 3 chamadas). F-FIN-7 → tratado numa branch separada (abaixo).
 
 ### Commits
 | commit | conteúdo |
@@ -133,7 +135,20 @@ Itens sem controvérsia (Fases 1, 2 exceto F1-profundo, 3, 4 exceto F-FIN-7, 5) 
 - `docker-compose.prod.yml`, Dockerfiles, pipeline de importação / `calcCostCents` / `ai-import` / PDF de orçamento → **intactos** (não aparecem no diff)
 - Diff total: **24 arquivos, +1141 / −101**, só em `src/**`, `clinicos-web/src/**` e `docs/`
 
-### Fora do escopo (para tratar depois)
-- **F-FIN-7** — revalorização de todo o estoque do SKU no `forceConfirm` de NF (mexe no modelo de custo).
+---
 
-**Aguardando sua decisão de merge.** Nada foi versionado nem mergeado.
+### Branch `fix/nf-custo-valoracao` — F-FIN-7 (custo médio de estoque)
+
+**Aguardando decisão de merge.**
+
+- **O quê:** `confirmEntry` deixou de usar "último custo" (sobrescrever `Product.costCents` com o valor da última NF) e passou a **custo médio ponderado móvel** — método fiscal padrão para ERP de material de construção. Recomendação técnica registrada.
+- **Commit:** `05726cd` — único ponto alterado: passo *2c* do `confirmEntry` (`src/modules/stock/stock-entry.service.ts`).
+- **Documentação da feature:** `docs/CUSTO-MEDIO-ESTOQUE.md` (o quê, por quê, fórmula, onde aplica/não aplica, regras de borda, exemplos verificados, evolução futura).
+- **Sem migração de schema.** Não toca importação / `calcCostCents` / `ai-import` / PDF / modelo m² (`costCents` continua guardando o valor da caixa).
+- **Testes:** `qa_custo_medio.py` **6/6 PASS** (m² e unitário, incluindo caminho `forceConfirm`); retest E2E completo **84/84 PASS** (nada regrediu).
+- **Builds:** `tsc --noEmit` backend → 0 erros; `Database schema is up to date!`.
+
+Exemplo (produto de área, custo inicial da caixa R$ 72): compra 50 cx a R$ 72 → `costCents` 7200; depois 10 cx a R$ 90 → `costCents` **7500** `(50·7200 + 10·9000)/60`, não 9000. Valoração de 60 cx = R$ 4.500,00 (real), não R$ 5.400,00.
+
+### Evolução futura (não implementado)
+- **`StockLot.costCents`** (custo por lote) — habilitaria PEPS/FIFO e rastreio fiscal lote a lote. Requer migração. Para custo médio, não é necessário.
