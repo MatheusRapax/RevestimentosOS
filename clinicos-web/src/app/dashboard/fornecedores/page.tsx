@@ -215,7 +215,7 @@ export default function FornecedoresPage() {
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Fornecedores</h1>
                     <p className="text-gray-500">Gerencie os fornecedores de produtos</p>

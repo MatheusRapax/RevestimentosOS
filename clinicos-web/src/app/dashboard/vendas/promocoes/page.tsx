@@ -27,7 +27,7 @@ export default function PromocoesPage() {
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         <Percent className="w-6 h-6 text-blue-500" />

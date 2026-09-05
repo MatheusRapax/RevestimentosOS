@@ -136,7 +136,7 @@ export default function OccurrencesPage() {
 
     return (
         <div className="h-full flex flex-col space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Ocorrências (Avarias e RMA)</h1>
                     <p className="text-gray-600 mt-1">Gerencie produtos avariados, defeitos e suporte com fornecedores/clientes.</p>
