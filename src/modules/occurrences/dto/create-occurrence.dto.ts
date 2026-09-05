@@ -2,7 +2,7 @@ import {
   IsString,
   IsOptional,
   IsEnum,
-  IsInt,
+  IsNumber,
   IsArray,
   ArrayMinSize,
   ValidateNested,
@@ -19,8 +19,9 @@ export class CreateOccurrenceItemDto {
   @IsString()
   lotId?: string;
 
-  @IsInt()
-  @Min(1)
+  // aceita fracionário (ex.: m² / caixa parcial); só barra zero e negativo
+  @IsNumber()
+  @Min(0.01)
   quantity: number;
 
   @IsOptional()

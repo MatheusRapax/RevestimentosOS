@@ -4,11 +4,15 @@
 **Escopo:** teste black-box (sem alteração de código) do fluxo comercial completo, testes de quebra com valores inválidos, entrada de NF com valores divergentes do pedido de compra, fluxo de RMA/avaria, módulo financeiro em profundidade e comissões de vendedores e arquitetos. Inclui um smoke-check visual das telas envolvidas nesses fluxos.
 **Ambiente:** stack local Docker (`revestimentos-backend` :3000 / `revestimentos-frontend` :3001), clínica de seed `f11eff62-86ec-43b4-9ee9-25b86d4391b3`, `admin@admin.com`.
 
-> Nada aqui foi corrigido. É um levantamento. As correções da rodada anterior (`docs/QA-FINDINGS.md`) e da auditoria de UI (`docs/QA-UX-FINDINGS.md`, v1.12.0) continuam válidas — este documento é complementar.
+> **Status (2026-09-05):** todos os achados foram corrigidos e verificados — ver `docs/QA-E2E-FIX-PLAN.md` (seção RESULTADO) e os commits `fix(qa): …`. Merge de v1.13.0 já em `main`. O F-FIN-7 (custo médio de estoque) virou feature documentada em `docs/CUSTO-MEDIO-ESTOQUE.md`.
+>
+> As correções da rodada anterior (`docs/QA-FINDINGS.md`) e da auditoria de UI (`docs/QA-UX-FINDINGS.md`, v1.12.0) continuam válidas — este documento é complementar.
 
 ---
 
 ## Resumo por severidade
+
+Todos os itens abaixo estão **✅ corrigidos** (v1.13.0 + branch `fix/nf-custo-valoracao` para o F-FIN-7). Repro/causa/correção de cada um no detalhamento e em `docs/QA-E2E-FIX-PLAN.md`.
 
 | ID | Severidade | Área | Resumo |
 |----|-----------|------|--------|
@@ -127,10 +131,10 @@
 
 ### NF-e / Entrada de estoque
 
-#### F-FIN-7 — 🟡 `forceConfirm` revaloriza todo o estoque do SKU
+#### F-FIN-7 — 🟡 `forceConfirm` revaloriza todo o estoque do SKU  ✅ RESOLVIDO (feature)
 **Contexto:** ao forçar a confirmação de uma entrada com preço divergente (NF R$90/cx vs pedido R$72/cx), o `Product.costCents` mestre é sobrescrito para o valor da NF (9000).
 **Efeito colateral:** `GET /finance/reports/inventory-valuation` usa o `costCents` **atual** × quantidade em mãos, então uma única NF mais cara revaloriza retroativamente todo o estoque pré-existente daquele produto, não só o lote novo.
-**Sugestão:** custo por lote (`StockLot.costCents`) e valoração por lote; ou custo médio ponderado em vez de "último preço".
+**Correção:** `confirmEntry` passou a usar **custo médio ponderado móvel** em vez de "último custo" — é o método fiscal padrão para ERP de material de construção. Sem migração; não toca importação / `calcCostCents` / modelo m². Documentação completa e exemplos: **`docs/CUSTO-MEDIO-ESTOQUE.md`**. Teste `qa_custo_medio.py` 6/6 PASS.
 
 ### RMA / Ocorrências
 

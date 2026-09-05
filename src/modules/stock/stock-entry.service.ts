@@ -716,9 +716,25 @@ export class StockEntryService {
     const productIds = entry.items.map((i) => i.productId);
     const productsMaster = await this.prisma.product.findMany({
       where: { id: { in: productIds } },
-      select: { id: true, boxCoverage: true, cfop: true, cst: true },
+      select: {
+        id: true,
+        boxCoverage: true,
+        cfop: true,
+        cst: true,
+        costCents: true,
+      },
     });
     const productMap = new Map(productsMaster.map((p) => [p.id, p]));
+
+    // Saldo em mãos por produto ANTES desta entrada — base do custo médio ponderado móvel
+    const onHandGrouped = await this.prisma.stockLot.groupBy({
+      by: ['productId'],
+      where: { clinicId, productId: { in: productIds } },
+      _sum: { quantity: true },
+    });
+    const onHandMap = new Map<string, number>(
+      onHandGrouped.map((g) => [g.productId, g._sum.quantity ?? 0]),
+    );
 
     // Start Transaction
     const result = await this.prisma.$transaction(async (tx) => {
@@ -793,16 +809,36 @@ export class StockEntryService {
           },
         });
 
-        // 2c. Update Product Cost (Last Cost Strategy) and Fiscal Data
+        // 2c. Update Product Cost (Custo Médio Ponderado Móvel) and Fiscal Data
         const prod = productMap.get(item.productId);
         const coverage = prod?.boxCoverage ?? 0;
 
         let finalCostCents: number | undefined;
         if (item.unitCost) {
-          finalCostCents =
+          // Custo da NF, normalizado para "custo da caixa" em centavos
+          // (item.unitCost é por m² em produto de área; senão já é da caixa/unidade)
+          const entryCostCents =
             coverage > 0
               ? Math.round(item.unitCost * coverage * 100)
               : Math.round(item.unitCost * 100);
+
+          const prevQty = onHandMap.get(item.productId) ?? 0;
+          const prevCost = prod?.costCents ?? 0;
+
+          if (prevQty > 0 && prevCost > 0) {
+            // média ponderada entre o saldo em mãos e a quantidade que está entrando
+            finalCostCents = Math.round(
+              (prevQty * prevCost + item.quantity * entryCostCents) /
+                (prevQty + item.quantity),
+            );
+          } else {
+            // sem saldo (ou sem custo anterior): a entrada define o custo
+            finalCostCents = entryCostCents;
+          }
+
+          // reflete o novo saldo/custo para eventuais itens seguintes do mesmo produto
+          onHandMap.set(item.productId, prevQty + item.quantity);
+          if (prod) prod.costCents = finalCostCents;
         }
 
         const updateData: Prisma.ProductUpdateInput = { updatedAt: new Date() };

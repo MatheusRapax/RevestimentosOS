@@ -1,6 +1,5 @@
 import {
   IsString,
-  IsNotEmpty,
   IsInt,
   IsPositive,
   IsOptional,
@@ -10,20 +9,23 @@ import {
 } from 'class-validator';
 
 export class CreateServiceInvoiceDto {
-  @IsString()
-  @IsNotEmpty()
-  description: string;
-
+  // Só o valor é obrigatório — os demais campos têm default no service
+  // (não endurecer além do comportamento anterior).
   @IsInt()
   @IsPositive()
   amountCents: number;
 
-  @IsDateString()
-  dueDate: string;
-
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  invoiceNumber: string;
+  description?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
+
+  @IsOptional()
+  @IsString()
+  invoiceNumber?: string;
 
   @IsOptional()
   @IsString()

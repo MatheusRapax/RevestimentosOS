@@ -447,18 +447,20 @@ export class FinanceService {
       const end = endOfMonth(date);
       const monthLabel = format(date, 'MMM', {}); // English shorthand for now, can use locale
 
-      const revenue = await this.prisma.order.aggregate({
-        _sum: { totalCents: true },
+      // Faturamento = pagamentos recebidos no mês (mesma base do card e do
+      // relatório de receita — evita o gráfico divergir do número em destaque)
+      const revenue = await this.prisma.transaction.aggregate({
+        _sum: { amountCents: true },
         where: {
           clinicId,
+          type: TransactionType.PAYMENT,
           createdAt: { gte: start, lte: end },
-          status: { notIn: [OrderStatus.RASCUNHO, OrderStatus.CANCELADO] },
         },
       });
 
       result.push({
         month: monthLabel,
-        revenue: revenue._sum?.totalCents || 0,
+        revenue: revenue._sum?.amountCents || 0,
       });
     }
     return result;

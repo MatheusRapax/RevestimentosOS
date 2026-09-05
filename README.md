@@ -189,7 +189,7 @@ Detalhes completos em [`ARCHITECTURE.md`](ARCHITECTURE.md).
 | Módulo | Rota base | Responsabilidade |
 |---|---|---|
 | `catalogue` | `/catalogue/{brands,categories}` | Marcas e categorias, cada uma com markup padrão |
-| `stock` | `/stock`, `/stock/entries`, `/stock/exits`, `/stock/products/import` | Produtos (campos dimensionais + fiscais), lotes com tonalidade/calibre, movimentações FIFO, entrada de nota (com bloco fiscal NF-e), saída/requisição, importação de catálogo |
+| `stock` | `/stock`, `/stock/entries`, `/stock/exits`, `/stock/products/import` | Produtos (campos dimensionais + fiscais), lotes com tonalidade/calibre, movimentações FIFO, entrada de nota (com bloco fiscal NF-e), saída/requisição, importação de catálogo. Custo do produto por **custo médio ponderado móvel** na confirmação de entrada — ver [`docs/CUSTO-MEDIO-ESTOQUE.md`](docs/CUSTO-MEDIO-ESTOQUE.md) |
 | `stock-reservations` | `/stock-reservations` | Reserva de estoque por lote (`ACTIVE`/`CONSUMED`/`EXPIRED`/`CANCELLED`) |
 | `occurrences` | `/occurrences` | RMA / gestão de avarias (recebimento, entrega, defeito de fabricação) |
 
