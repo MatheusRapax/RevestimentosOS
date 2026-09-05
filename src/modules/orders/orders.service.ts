@@ -307,7 +307,7 @@ export class OrdersService {
           });
           // Reverte a conta-corrente do cliente (estorna cobrança e pagamentos).
           if (currentOrder.status !== OrderStatus.CANCELADO) {
-            await this.financeService.refundOrder(clinicId, id, userId);
+            await this.financeService.refundOrder(clinicId, id, userId, tx);
           }
         }
 
@@ -320,7 +320,9 @@ export class OrdersService {
 
           // Lança a COBRANÇA do pedido na conta do cliente ANTES do pagamento,
           // para o saldo fechar em zero (bug A7). Idempotente.
-          await this.financeService.chargeOrder(clinicId, id, userId);
+          // Passa `tx`: se qualquer pagamento abaixo falhar, cobrança e
+          // pagamentos já criados são desfeitos junto com o status (F1).
+          await this.financeService.chargeOrder(clinicId, id, userId, tx);
 
           if (payments && payments.length > 0) {
             for (const p of payments) {
@@ -334,6 +336,7 @@ export class OrdersService {
                 userId,
                 currentOrder.customerId,
                 id,
+                tx,
               );
             }
           } else {
@@ -350,13 +353,14 @@ export class OrdersService {
                 userId,
                 currentOrder.customerId,
                 id,
+                tx,
               );
             }
           }
         }
 
         return order;
-      });
+      }, { timeout: 15000 });
     } catch (error: any) {
       console.error('[OrdersService] Error updating order status:', error);
       // Preserva erros de validação/negócio (400/404/...) em vez de mascarar como 500

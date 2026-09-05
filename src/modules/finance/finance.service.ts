@@ -12,7 +12,12 @@ import {
   QuoteStatus,
   ExpenseStatus,
   ExpenseType,
+  PaymentMethod,
+  Prisma,
 } from '@prisma/client';
+
+/** Cliente Prisma normal ou o handle de uma transação em andamento. */
+type PrismaLike = PrismaService | Prisma.TransactionClient;
 import { startOfMonth, endOfMonth, subMonths, format, subDays } from 'date-fns';
 
 @Injectable()
@@ -29,25 +34,27 @@ export class FinanceService {
     clinicId: string,
     patientId?: string | null,
     customerId?: string | null,
+    tx?: PrismaLike,
   ) {
     if (!patientId && !customerId) {
       throw new BadRequestException('ID do Paciente ou Cliente é obrigatório');
     }
 
+    const db = tx ?? this.prisma;
     let account;
 
     if (patientId) {
-      account = await this.prisma.patientAccount.findUnique({
+      account = await db.patientAccount.findUnique({
         where: { patientId },
       });
     } else if (customerId) {
-      account = await this.prisma.patientAccount.findUnique({
+      account = await db.patientAccount.findUnique({
         where: { customerId },
       });
     }
 
     if (!account) {
-      account = await this.prisma.patientAccount.create({
+      account = await db.patientAccount.create({
         data: {
           clinicId,
           patientId: patientId || undefined,
@@ -634,8 +641,14 @@ export class FinanceService {
    * cliente ficava positivo (crédito fantasma) mesmo com o pedido quitado (bug A7).
    * Idempotente: não duplica a cobrança do mesmo pedido.
    */
-  async chargeOrder(clinicId: string, orderId: string, userId?: string) {
-    const order = await this.prisma.order.findFirst({
+  async chargeOrder(
+    clinicId: string,
+    orderId: string,
+    userId?: string,
+    tx?: PrismaLike,
+  ) {
+    const db = tx ?? this.prisma;
+    const order = await db.order.findFirst({
       where: { id: orderId, clinicId },
       select: { id: true, number: true, customerId: true, totalCents: true },
     });
@@ -646,10 +659,11 @@ export class FinanceService {
       clinicId,
       null,
       order.customerId,
+      db,
     );
 
     const description = `Cobrança Pedido #${order.number}`;
-    const existing = await this.prisma.transaction.findFirst({
+    const existing = await db.transaction.findFirst({
       where: {
         accountId: account.id,
         type: TransactionType.CHARGE,
@@ -658,7 +672,7 @@ export class FinanceService {
     });
     if (existing) return existing;
 
-    const transaction = await this.prisma.transaction.create({
+    const transaction = await db.transaction.create({
       data: {
         clinicId,
         customerId: order.customerId,
@@ -669,7 +683,7 @@ export class FinanceService {
       },
     });
 
-    await this.prisma.patientAccount.update({
+    await db.patientAccount.update({
       where: { id: account.id },
       data: { balanceCents: { decrement: order.totalCents } },
     });
@@ -692,8 +706,14 @@ export class FinanceService {
    * e lança o estorno (débito) — deixando o saldo do cliente de volta a zero.
    * No-op se o pedido nunca gerou cobrança (cancelado antes de pagar).
    */
-  async refundOrder(clinicId: string, orderId: string, userId?: string) {
-    const order = await this.prisma.order.findFirst({
+  async refundOrder(
+    clinicId: string,
+    orderId: string,
+    userId?: string,
+    tx?: PrismaLike,
+  ) {
+    const db = tx ?? this.prisma;
+    const order = await db.order.findFirst({
       where: { id: orderId, clinicId },
       select: { id: true, number: true, customerId: true },
     });
@@ -703,9 +723,10 @@ export class FinanceService {
       clinicId,
       null,
       order.customerId,
+      db,
     );
 
-    const chargeTx = await this.prisma.transaction.findFirst({
+    const chargeTx = await db.transaction.findFirst({
       where: {
         accountId: account.id,
         type: TransactionType.CHARGE,
@@ -715,7 +736,7 @@ export class FinanceService {
     if (!chargeTx) return null; // nunca cobrado
 
     const reversalDesc = `Estorno da cobrança - Pedido #${order.number} cancelado`;
-    const already = await this.prisma.transaction.findFirst({
+    const already = await db.transaction.findFirst({
       where: {
         accountId: account.id,
         type: TransactionType.ADJUSTMENT,
@@ -725,7 +746,7 @@ export class FinanceService {
     if (already) return already;
 
     // 1. Reverte a cobrança (crédito de volta)
-    await this.prisma.transaction.create({
+    await db.transaction.create({
       data: {
         clinicId,
         customerId: order.customerId,
@@ -735,23 +756,23 @@ export class FinanceService {
         description: reversalDesc,
       },
     });
-    await this.prisma.patientAccount.update({
+    await db.patientAccount.update({
       where: { id: account.id },
       data: { balanceCents: { increment: chargeTx.amountCents } },
     });
 
     // 2. Estorna pagamentos aprovados, se houver
-    const paidAgg = await this.prisma.payment.aggregate({
+    const paidAgg = await db.payment.aggregate({
       where: { orderId, status: 'APPROVED' },
       _sum: { amountCents: true },
     });
     const paid = paidAgg._sum.amountCents || 0;
     if (paid > 0) {
-      await this.prisma.payment.updateMany({
+      await db.payment.updateMany({
         where: { orderId, status: 'APPROVED' },
         data: { status: 'REFUNDED' },
       });
-      await this.prisma.transaction.create({
+      await db.transaction.create({
         data: {
           clinicId,
           customerId: order.customerId,
@@ -761,7 +782,7 @@ export class FinanceService {
           description: `Estorno Pedido #${order.number}`,
         },
       });
-      await this.prisma.patientAccount.update({
+      await db.patientAccount.update({
         where: { id: account.id },
         data: { balanceCents: { decrement: paid } },
       });
@@ -879,19 +900,25 @@ export class FinanceService {
     userId?: string,
     customerId?: string,
     orderId?: string,
+    tx?: PrismaLike,
   ) {
     if (amountCents <= 0) {
       throw new BadRequestException('Valor deve ser positivo');
     }
+    if (!Object.values(PaymentMethod).includes(method as PaymentMethod)) {
+      throw new BadRequestException(`Método de pagamento inválido: ${method}`);
+    }
 
+    const db = tx ?? this.prisma;
     const account = await this.getOrCreateAccount(
       clinicId,
       patientId,
       customerId,
+      db,
     );
 
     // Create payment record
-    const payment = await this.prisma.payment.create({
+    const payment = await db.payment.create({
       data: {
         clinicId,
         patientId: patientId || undefined,
@@ -906,7 +933,7 @@ export class FinanceService {
     });
 
     // Create transaction linked to payment
-    const transaction = await this.prisma.transaction.create({
+    const transaction = await db.transaction.create({
       data: {
         clinicId,
         patientId: patientId || undefined,
@@ -919,10 +946,10 @@ export class FinanceService {
       },
     });
 
-    // Update account balance
-    await this.prisma.patientAccount.update({
+    // Update account balance (incremento atômico — evita corrida entre pagamentos)
+    await db.patientAccount.update({
       where: { id: account.id },
-      data: { balanceCents: account.balanceCents + amountCents },
+      data: { balanceCents: { increment: amountCents } },
     });
 
     await this.auditService.log({
