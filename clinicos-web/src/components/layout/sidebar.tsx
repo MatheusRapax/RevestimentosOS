@@ -34,6 +34,7 @@ import {
     Tags,
     Activity,
     LayoutGrid,
+    BookOpen,
 } from 'lucide-react';
 import {
     Popover,
@@ -51,7 +52,16 @@ import { ChangelogDialog } from './changelog-dialog';
 import latestRelease from '@/data/latest-release.json';
 
 // Menu sections organized by business area
-const menuSections = [
+type MenuItem = {
+    href: string;
+    label: string;
+    icon: LucideIcon;
+    module?: string;
+    permission?: string;
+};
+type MenuSection = { title: string; icon: LucideIcon; items: MenuItem[] };
+
+const menuSections: MenuSection[] = [
     {
         title: 'Comercial',
         icon: ShoppingBag,
@@ -108,10 +118,18 @@ const menuSections = [
             { href: '/dashboard/admin/auditoria', label: 'Auditoria', icon: Activity, module: 'ADMIN', permission: 'audit.read' },
         ],
     },
+    {
+        title: 'Ajuda',
+        icon: BookOpen,
+        items: [
+            // sem `module`: visível para todos os usuários
+            { href: '/dashboard/ajuda', label: 'Manual do Operador', icon: BookOpen },
+        ],
+    },
 ];
 
 interface SectionPopoverProps {
-    section: typeof menuSections[0];
+    section: MenuSection;
     isActive: (href: string) => boolean;
     enabledModules: string[];
     userPermissions: string[];
