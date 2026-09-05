@@ -169,6 +169,13 @@ export default function VendedoresPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y">
+                            {sellers.length === 0 && (
+                                <tr>
+                                    <td colSpan={8} className="px-6 py-10 text-center text-sm text-gray-500">
+                                        Nenhum vendedor com vendas no período. Cadastre usuários com o papel de vendedor ou registre pedidos para começar a acompanhar o desempenho.
+                                    </td>
+                                </tr>
+                            )}
                             {sellers.map((seller: any) => (
                                 <tr key={seller.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4">

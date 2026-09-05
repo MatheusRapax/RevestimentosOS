@@ -222,7 +222,8 @@ export default function ContasAPagarPage() {
                         <p>Nenhuma despesa encontrada.</p>
                     </div>
                 ) : (
-                    <table className="w-full">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[640px]">
                         <thead className="bg-gray-50 border-b">
                             <tr>
                                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Descrição</th>
@@ -308,6 +309,7 @@ export default function ContasAPagarPage() {
                             })}
                         </tbody>
                     </table>
+                  </div>
                 )}
             </div>
 
