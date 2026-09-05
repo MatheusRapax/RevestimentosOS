@@ -985,12 +985,32 @@ export class FinanceService {
       throw new NotFoundException('Pedido não encontrado');
     }
 
-    if (
-      order.status === OrderStatus.PAGO ||
-      order.status === OrderStatus.CANCELADO
-    ) {
+    if (order.status === OrderStatus.CANCELADO) {
       throw new BadRequestException(
-        `Não é possível gerar boleto para um pedido ${order.status}.`,
+        'Não é possível gerar boleto para um pedido cancelado.',
+      );
+    }
+
+    // Pedido que já foi pago (ou já avançou no fluxo pós-pagamento) não recebe boleto
+    const paidStatuses: OrderStatus[] = [
+      OrderStatus.PAGO,
+      OrderStatus.AGUARDANDO_COMPRA,
+      OrderStatus.AGUARDANDO_CHEGADA,
+      OrderStatus.AGUARDANDO_REPOSICAO,
+      OrderStatus.MATERIAL_RECEBIDO,
+      OrderStatus.AGUARDANDO_MATERIAL,
+      OrderStatus.EM_SEPARACAO,
+      OrderStatus.PRONTO_PARA_RETIRA,
+      OrderStatus.PRONTO_PARA_ENTREGA,
+      OrderStatus.SAIU_PARA_ENTREGA,
+      OrderStatus.ENTREGUE,
+    ];
+    const approvedPayments = await this.prisma.payment.count({
+      where: { orderId, status: 'APPROVED' },
+    });
+    if (paidStatuses.includes(order.status) || approvedPayments > 0) {
+      throw new BadRequestException(
+        'Não é possível gerar boleto para um pedido que já foi pago.',
       );
     }
 
