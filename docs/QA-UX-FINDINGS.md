@@ -15,28 +15,28 @@ componente responsável.
 
 ## Achados críticos (afetam o uso em celular)
 
-### [ ] U1 — Header global (topbar) não é responsivo; botão "Sair" fica inacessível em celular
+### [x] U1 — Header global (topbar) não é responsivo; botão "Sair" fica inacessível em celular · ✅ CORRIGIDO
 - **Onde:** `src/components/layout/header.tsx` — usado em **todas** as páginas do dashboard.
 - **Repro:** abrir qualquer página com a janela em ~375px de largura (celular).
 - **Obtido:** o bloco da direita do header (Loja + nome/e-mail do usuário + botão **Sair**) não tem nenhuma classe responsiva. Em telas estreitas ele é cortado por um ancestral com `overflow: hidden` — sem rolagem, sem quebra de linha. Confirmado via `getBoundingClientRect`: o botão "Sair" fica posicionado em `x ≈ 456` numa viewport de 375px (fora da área visível) e o container não tem scroll (`scrollX` não se move).
 - **Impacto:** em celular, o usuário **não consegue ver nem clicar em "Sair"** pelo header. (Existe rota `/login` alcançável por URL, mas não há como deslogar pela UI.)
 - **Correção sugerida:** no `<header>`, aplicar `flex-wrap` ou trocar para `flex-col sm:flex-row` e esconder itens de menor prioridade (Loja, e-mail) abaixo de um breakpoint (`hidden sm:block`), mantendo sempre visível ao menos um jeito de deslogar (ex.: um menu/avatar dropdown com "Sair" dentro, em vez de um botão texto solto).
 
-### [ ] U2 — Header sempre mostra "Dashboard", nunca o nome da página atual
+### [x] U2 — Header sempre mostra "Dashboard", nunca o nome da página atual · ✅ CORRIGIDO
 - **Onde:** `src/components/layout/header.tsx:22` — `<h2>Dashboard</h2>` é uma **string fixa**, não deriva da rota.
 - **Repro:** navegar para qualquer módulo (Orçamentos, Produtos, Financeiro, etc.) e olhar o topo da tela.
 - **Obtido:** o texto "Dashboard" aparece ali sempre, mesmo com o `<h1>` da página (ex.: "Orçamentos", "Produtos") logo abaixo mostrando o nome certo. No Financeiro fica redundante/confuso: header diz "Dashboard" e o `<h1>` da página diz "Dashboard Financeiro".
 - **Impacto:** não é bloqueante (o `<h1>` da página está correto), mas é ruído visual constante e uma pequena "mentira" na UI — motivo de trabalho de refação apontarmos como item de "clareza" pedido.
 - **Correção sugerida:** remover o `<h2>Dashboard</h2>` fixo (informação duplicada, já existe o `<h1>` da página) **ou** trocá-lo por um título dinâmico vindo do layout/rota. Recomendo remover — mais simples, elimina a duplicidade.
 
-### [ ] U3 — Sidebar não tem versão mobile (sem menu-hambúrguer/drawer)
+### [x] U3 — Sidebar não tem versão mobile (sem menu-hambúrguer/drawer) · ✅ CORRIGIDO
 - **Onde:** `src/components/layout/sidebar.tsx`.
 - **Repro:** abrir qualquer página em ~375px.
 - **Obtido:** o menu lateral (`w-16`, ícones) fica **sempre visível e fixo**, com o mesmo comportamento do desktop (um botão "Expandir menu" que só alarga a barra, mostrando rótulos — o que consome ainda mais espaço numa tela já apertada). Não existe um padrão de menu retrátil (off-canvas / gaveta) específico para celular. Confirmado por código: nenhuma classe `sm:`/`md:`/`lg:` no componente.
 - **Impacto:** em celular, a barra lateral consome ~64px fixos de uma tela de 375px (~17% da largura) só pra navegação, deixando pouco espaço útil pro conteúdo — some com o combo do U1, sobra pouco mais de 300px úteis.
 - **Correção sugerida:** abaixo de um breakpoint (`md`), esconder a sidebar por padrão e trocá-la por um botão de menu (☰) no header que abre um `Sheet`/drawer com os mesmos links.
 
-### [ ] U4 — Cabeçalho de página (título + botão de ação) se sobrepõe em celular — padrão repetido em ~38 páginas
+### [x] U4 — Cabeçalho de página (título + botão de ação) se sobrepõe em celular — padrão repetido em ~38 páginas · ✅ CORRIGIDO
 - **Onde:** repetido em quase toda página de listagem (`Orçamentos`, `Produtos`, `Clientes`, `Fornecedores`, `Arquitetos`, `Pedidos`, `Compras`, `Financeiro`...). Todas usam o mesmo padrão: `<div className="flex items-center justify-between"><div><h1/>+<p/></div><Button/></div>`, sem tratamento responsivo.
 - **Repro:** abrir Orçamentos, Produtos, Clientes ou Financeiro em ~375px.
 - **Obtido:** quando o subtítulo é longo o bastante pra quebrar em 2-3 linhas (ex.: "Cadastro de produtos do estoque", "Gerencie o cadastro de clientes (PF e PJ)"), o botão de ação ("+ Novo Orçamento", "+ Novo Produto", "+ Novo Cliente", o seletor de mês "Setembro" no Financeiro) **fica posicionado por cima do texto**, ilegível e parcialmente cortado na borda direita da tela.
