@@ -1,4 +1,4 @@
 {
-  "version": "1.13.0",
-  "content": "### Bug Fixes\n\n* **qa:** ajustes visuais das telas dos fluxos (V1,V2)\n* **qa:** boleto bloqueado p/ qualquer pedido já pago (F-FIN-4)\n* **qa:** comissões e financeiro (F-COMM-1/2/3/4, F-FIN-1/6)\n* **qa:** F1 — atomicidade completa do pagamento do pedido\n* **qa:** máquinas de estado e integridade (F1-parcial,F2,F3,F8,F-RMA-1/2/3)\n* **qa:** validação de entrada (F2,F4,F5,F6,F7,F-RMA-4,F-COMM-5,F-FIN-2/3/4/5)"
+  "version": "1.13.1",
+  "content": "### Bug Fixes\n\n* **qa:** afrouxa CreateServiceInvoiceDto p/ não regredir produção\n* **qa:** correções da revisão de risco p/ produção\n* **qa:** F-FIN-7 — custo médio ponderado móvel na entrada de estoque"
 }

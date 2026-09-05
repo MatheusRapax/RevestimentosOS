@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.13.1](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.13.0...v1.13.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **qa:** afrouxa CreateServiceInvoiceDto p/ não regredir produção ([8160818](https://github.com/MatheusRapax/RevestimentosOS/commit/8160818be384c76fe6b28047a8d4f0c992b1c0af))
+* **qa:** correções da revisão de risco p/ produção ([3836df5](https://github.com/MatheusRapax/RevestimentosOS/commit/3836df5c41208487b48e0cf1d58108a3e7f0ddf4))
+* **qa:** F-FIN-7 — custo médio ponderado móvel na entrada de estoque ([05726cd](https://github.com/MatheusRapax/RevestimentosOS/commit/05726cde6d8267fe8a8de0b7de51e319156aec16))
+
 ## [1.13.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.12.0...v1.13.0) (2026-09-05)
 
 
