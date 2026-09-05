@@ -40,6 +40,13 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetDescription,
+} from '@/components/ui/sheet';
 import { ChangelogDialog } from './changelog-dialog';
 import latestRelease from '@/data/latest-release.json';
 
@@ -172,7 +179,12 @@ function SectionPopover({ section, isActive, enabledModules, userPermissions, is
     );
 }
 
-export default function Sidebar() {
+interface SidebarProps {
+    isMobileOpen?: boolean;
+    onMobileOpenChange?: (open: boolean) => void;
+}
+
+export default function Sidebar({ isMobileOpen = false, onMobileOpenChange }: SidebarProps) {
     const { user, activeClinic: activeClinicId } = useAuth();
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(true);
@@ -207,7 +219,9 @@ export default function Sidebar() {
     };
 
     return (
-        <div className={`print:hidden ${isCollapsed ? 'w-16' : 'w-64'} h-full bg-gray-900 text-white flex flex-col transition-all duration-300 shrink-0`}>
+        <>
+        {/* U3: menu fixo só a partir de md — abaixo disso vira a gaveta renderizada logo abaixo. */}
+        <div className={`hidden md:flex print:hidden ${isCollapsed ? 'w-16' : 'w-64'} h-full bg-gray-900 text-white flex-col transition-all duration-300 shrink-0`}>
             {/* Header */}
             <div className={`border-b border-gray-800 flex items-center h-[89px] ${isCollapsed ? 'justify-center px-2' : 'justify-between px-6'}`}>
                 {!isCollapsed && (
@@ -304,5 +318,46 @@ export default function Sidebar() {
                 <ChangelogDialog />
             </div>
         </div>
+
+        {/* U3: gaveta de navegação para telas pequenas — mesmo conteúdo do menu expandido. */}
+        <Sheet open={isMobileOpen} onOpenChange={onMobileOpenChange}>
+            <SheetContent side="left" className="w-72 bg-gray-900 text-white border-gray-800 p-0 flex flex-col gap-0">
+                <SheetHeader className="border-b border-gray-800 text-left">
+                    <SheetTitle className="text-white">MOA NEXUS</SheetTitle>
+                    <SheetDescription className="text-gray-400">
+                        {activeClinic?.name || 'Menu de navegação'}
+                    </SheetDescription>
+                </SheetHeader>
+                <nav className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-2">
+                    {filteredMenuSections.map((section) => (
+                        <div key={section.title} className="space-y-1">
+                            <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                {section.title}
+                            </div>
+                            {section.items.map((item) => {
+                                const Icon = item.icon;
+                                const active = isActive(item.href);
+
+                                return (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        onClick={() => onMobileOpenChange?.(false)}
+                                        className={`flex items-center gap-3 px-4 py-3 rounded-lg transition ${active
+                                            ? 'bg-blue-600 text-white'
+                                            : 'text-gray-300 hover:bg-gray-800'
+                                            }`}
+                                    >
+                                        <Icon size={20} />
+                                        <span>{item.label}</span>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    ))}
+                </nav>
+            </SheetContent>
+        </Sheet>
+        </>
     );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import Sidebar from '@/components/layout/sidebar';
@@ -13,6 +13,8 @@ export default function DashboardLayout({
 }) {
     const { user, activeClinic, isLoading, setActiveClinic } = useAuth();
     const router = useRouter();
+    // U3: estado da gaveta de navegação mobile, compartilhado entre Header (botão ☰) e Sidebar (a gaveta em si).
+    const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -122,10 +124,10 @@ export default function DashboardLayout({
 
     return (
         <div className="flex h-screen print:h-auto bg-gray-50 print:bg-white">
-            <Sidebar />
+            <Sidebar isMobileOpen={isMobileNavOpen} onMobileOpenChange={setIsMobileNavOpen} />
             <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible min-w-0">
                 <div className="print:hidden">
-                    <Header />
+                    <Header onOpenMobileNav={() => setIsMobileNavOpen(true)} />
                 </div>
                 <main className="flex-1 overflow-y-auto p-6 print:p-0 print:overflow-visible">
                     {children}
