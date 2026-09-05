@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.14.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.13.1...v1.14.0) (2026-09-05)
+
+
+### Features
+
+* Manual do Operador dentro do sistema ([ce6957b](https://github.com/MatheusRapax/RevestimentosOS/commit/ce6957bf7419fe16a2221949d765403996c82090))
+
 ### [1.13.1](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.13.0...v1.13.1) (2026-09-05)
 
 

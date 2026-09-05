@@ -1,4 +1,4 @@
 {
-  "version": "1.13.1",
-  "content": "### Bug Fixes\n\n* **qa:** afrouxa CreateServiceInvoiceDto p/ não regredir produção\n* **qa:** correções da revisão de risco p/ produção\n* **qa:** F-FIN-7 — custo médio ponderado móvel na entrada de estoque"
+  "version": "1.14.0",
+  "content": "### Features\n\n* Manual do Operador dentro do sistema"
 }
