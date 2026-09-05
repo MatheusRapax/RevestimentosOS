@@ -2,9 +2,11 @@ import {
   IsString,
   IsOptional,
   IsEnum,
-  IsNumber,
+  IsInt,
   IsArray,
+  ArrayMinSize,
   ValidateNested,
+  Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OccurrenceType, OccurrenceStatus } from '@prisma/client';
@@ -17,7 +19,8 @@ export class CreateOccurrenceItemDto {
   @IsString()
   lotId?: string;
 
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   quantity: number;
 
   @IsOptional()
@@ -62,6 +65,7 @@ export class CreateOccurrenceDto {
   notes?: string;
 
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateOccurrenceItemDto)
   items: CreateOccurrenceItemDto[];

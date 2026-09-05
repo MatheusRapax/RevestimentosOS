@@ -138,6 +138,24 @@ export class QuotesService {
     sellerId: string,
     createQuoteDto: CreateQuoteDto,
   ) {
+    // Valida o cliente antes de qualquer coisa (evita vazar violação de FK como 500)
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: createQuoteDto.customerId, clinicId },
+      select: { id: true },
+    });
+    if (!customer) {
+      throw new NotFoundException('Cliente não encontrado');
+    }
+    if (createQuoteDto.architectId) {
+      const architect = await this.prisma.architect.findFirst({
+        where: { id: createQuoteDto.architectId, clinicId },
+        select: { id: true },
+      });
+      if (!architect) {
+        throw new NotFoundException('Arquiteto não encontrado');
+      }
+    }
+
     // Gera número sequencial do orçamento
     const lastQuote = await this.prisma.quote.findFirst({
       where: { clinicId },

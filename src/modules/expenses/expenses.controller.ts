@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ExpensesService } from './expenses.service';
+import { CreateExpenseDto } from './dto/create-expense.dto';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 
@@ -19,7 +20,7 @@ export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
   @Post()
-  async create(@Request() req: any, @Body() body: any) {
+  async create(@Request() req: any, @Body() body: CreateExpenseDto) {
     return this.expensesService.createExpense(req.clinicId, body);
   }
 
