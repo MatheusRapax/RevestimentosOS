@@ -396,7 +396,7 @@ export default function ImportProductsPage() {
 
     return (
         <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h1 className="text-3xl font-bold tracking-tight">Importação de Produtos</h1>
 
                     <div className="flex bg-muted/30 p-1 rounded-lg border">

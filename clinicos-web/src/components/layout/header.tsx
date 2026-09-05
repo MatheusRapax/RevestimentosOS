@@ -17,29 +17,26 @@ export default function Header() {
     };
 
     return (
-        <header className="print:hidden bg-white border-b px-6 py-4 flex items-center justify-between">
-            <div>
-                <h2 className="text-xl font-semibold text-gray-900">Dashboard</h2>
-            </div>
-
-            <div className="flex items-center gap-6">
-                {clinic && (
-                    <div className="text-sm">
-                        <span className="text-gray-500">Loja:</span>
-                        <span className="ml-2 font-medium text-gray-900">{clinic.name}</span>
-                    </div>
-                )}
-
-                <div className="text-sm text-right">
-                    <div className="font-medium text-gray-900">{user?.name}</div>
-                    <div className="text-gray-500">{user?.email}</div>
+        // U2: removido o "Dashboard" fixo (duplicava o <h1> de cada página, sem refletir a rota atual).
+        // U1: em telas pequenas só o botão Sair fica visível — Loja/usuário aparecem a partir de sm/md,
+        // pra sempre sobrar espaço pro logout, que antes ficava cortado por overflow-hidden no mobile.
+        <header className="print:hidden bg-white border-b px-4 sm:px-6 py-4 flex items-center justify-end gap-3 sm:gap-6">
+            {clinic && (
+                <div className="hidden md:block text-sm">
+                    <span className="text-gray-500">Loja:</span>
+                    <span className="ml-2 font-medium text-gray-900">{clinic.name}</span>
                 </div>
+            )}
 
-                <Button variant="outline" size="sm" onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Sair
-                </Button>
+            <div className="hidden sm:block text-sm text-right">
+                <div className="font-medium text-gray-900">{user?.name}</div>
+                <div className="text-gray-500">{user?.email}</div>
             </div>
+
+            <Button variant="outline" size="sm" onClick={handleLogout} className="shrink-0">
+                <LogOut className="mr-2 h-4 w-4" />
+                Sair
+            </Button>
         </header>
     );
 }

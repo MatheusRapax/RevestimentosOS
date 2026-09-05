@@ -181,7 +181,7 @@ export default function AgendaPage() {
     return (
         <div className="space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Agenda</h1>
                     <p className="text-gray-500 capitalize">{monthName}</p>

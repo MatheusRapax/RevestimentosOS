@@ -105,7 +105,7 @@ export default function CategoriesPage({ isEmbedded }: Props) {
     return (
         <div className="space-y-6">
             {!isEmbedded && (
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                             <FolderTree className="h-6 w-6" />
