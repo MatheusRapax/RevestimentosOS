@@ -104,6 +104,43 @@ export class FinanceService {
   }
 
   /**
+   * Conta-corrente de um cliente de venda (B2B).
+   * Mesma forma de resposta que getPatientAccount, resolvendo Customer.
+   */
+  async getCustomerAccount(clinicId: string, customerId: string) {
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: customerId, clinicId },
+    });
+
+    if (!customer) {
+      throw new NotFoundException('Cliente não encontrado');
+    }
+
+    const account = await this.getOrCreateAccount(clinicId, null, customerId);
+
+    const transactions = await this.prisma.transaction.findMany({
+      where: { accountId: account.id },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    return {
+      customerId,
+      customerName: customer.name,
+      balanceCents: account.balanceCents,
+      balanceFormatted: this.formatCurrency(account.balanceCents),
+      transactions: transactions.map((t) => ({
+        id: t.id,
+        type: t.type,
+        amountCents: t.amountCents,
+        amountFormatted: this.formatCurrency(t.amountCents),
+        description: t.description,
+        createdAt: t.createdAt,
+      })),
+    };
+  }
+
+  /**
    * Get aggregated Dashboard Stats
    */
   async getDashboardStats(clinicId: string, month: number, year: number) {
@@ -137,15 +174,18 @@ export class FinanceService {
         monthlyTrend,
         topProducts,
         recentOrders,
+        currentBilled,
+        prevBilled,
       ] = await Promise.all([
-        // 1. Current Month Revenue (Orders created/confirmed in period, not cancelled/draft)
-        this.prisma.order
+        // 1. Current Month Revenue = pagamentos EFETIVAMENTE RECEBIDOS no período
+        //    (consistente com GET /finance/reports/revenue). Não conta pedido não pago.
+        this.prisma.transaction
           .aggregate({
-            _sum: { totalCents: true },
+            _sum: { amountCents: true },
             where: {
               clinicId,
+              type: TransactionType.PAYMENT,
               createdAt: { gte: startDate, lte: endDate },
-              status: { notIn: [OrderStatus.RASCUNHO, OrderStatus.CANCELADO] },
             },
           })
           .catch((e) => {
@@ -191,14 +231,14 @@ export class FinanceService {
             console.error('Error fetching currentQuotesCount', e);
             throw e;
           }),
-        // 5. Previous Month Revenue
-        this.prisma.order
+        // 5. Previous Month Revenue = pagamentos recebidos no mês anterior
+        this.prisma.transaction
           .aggregate({
-            _sum: { totalCents: true },
+            _sum: { amountCents: true },
             where: {
               clinicId,
+              type: TransactionType.PAYMENT,
               createdAt: { gte: prevStartDate, lte: prevEndDate },
-              status: { notIn: [OrderStatus.RASCUNHO, OrderStatus.CANCELADO] },
             },
           })
           .catch((e) => {
@@ -282,6 +322,34 @@ export class FinanceService {
             console.error('Error fetching recentOrders', e);
             throw e;
           }),
+        // 12. Pedidos faturados no período (total dos pedidos, pagos ou não) — métrica auxiliar
+        this.prisma.order
+          .aggregate({
+            _sum: { totalCents: true },
+            where: {
+              clinicId,
+              createdAt: { gte: startDate, lte: endDate },
+              status: { notIn: [OrderStatus.RASCUNHO, OrderStatus.CANCELADO] },
+            },
+          })
+          .catch((e) => {
+            console.error('Error fetching currentBilled', e);
+            throw e;
+          }),
+        // 13. Pedidos faturados no mês anterior
+        this.prisma.order
+          .aggregate({
+            _sum: { totalCents: true },
+            where: {
+              clinicId,
+              createdAt: { gte: prevStartDate, lte: prevEndDate },
+              status: { notIn: [OrderStatus.RASCUNHO, OrderStatus.CANCELADO] },
+            },
+          })
+          .catch((e) => {
+            console.error('Error fetching prevBilled', e);
+            throw e;
+          }),
       ]);
 
       console.log('[FinanceService] All queries completed successfully');
@@ -303,19 +371,19 @@ export class FinanceService {
       );
 
       // Calculate Metrics
-      const revenue = currentRevenue._sum?.totalCents || 0;
+      const revenue = currentRevenue._sum?.amountCents || 0; // dinheiro recebido
+      const billedCents = currentBilled._sum?.totalCents || 0; // pedidos faturados
       const expenses = currentExpenses._sum?.amountCents || 0;
       const profit = revenue - expenses;
       const averageTicket =
-        currentOrdersCount > 0 ? Math.round(revenue / currentOrdersCount) : 0;
+        currentOrdersCount > 0 ? Math.round(billedCents / currentOrdersCount) : 0;
       const conversionRate =
         currentQuotesCount > 0
           ? ((currentOrdersCount / currentQuotesCount) * 100).toFixed(1)
           : 0;
 
-      const prevProfit =
-        (prevRevenue._sum?.totalCents || 0) -
-        (prevExpenses._sum?.amountCents || 0);
+      const prevRevenueCents = prevRevenue._sum?.amountCents || 0;
+      const prevProfit = prevRevenueCents - (prevExpenses._sum?.amountCents || 0);
 
       console.log(
         `[FinanceService] Returning stats: Revenue=${revenue}, Profit=${profit}`,
@@ -324,6 +392,7 @@ export class FinanceService {
       return {
         currentMonth: {
           revenue,
+          billedCents,
           expenses,
           profit,
           ordersCount: currentOrdersCount,
@@ -332,7 +401,8 @@ export class FinanceService {
           conversionRate: Number(conversionRate),
         },
         previousMonth: {
-          revenue: prevRevenue._sum?.totalCents || 0,
+          revenue: prevRevenueCents,
+          billedCents: prevBilled._sum?.totalCents || 0,
           expenses: prevExpenses._sum?.amountCents || 0,
           profit: prevProfit,
           ordersCount: prevOrdersCount,
@@ -710,6 +780,93 @@ export class FinanceService {
   }
 
   /**
+   * Estorno parcial referente a uma ocorrência de avaria/RMA marcada como REEMBOLSADO.
+   * Valoriza os itens pelo preço do item do pedido vinculado (fallback: preço do produto)
+   * e lança um crédito (REFUND) na conta-corrente do cliente. Idempotente por ocorrência.
+   */
+  async refundOccurrence(
+    clinicId: string,
+    occurrence: {
+      id: string;
+      number: number;
+      customerId?: string | null;
+      orderId?: string | null;
+      items: Array<{ productId: string; quantity: number; unitType?: string }>;
+    },
+    userId?: string,
+  ) {
+    if (!occurrence.customerId) return null;
+
+    const account = await this.getOrCreateAccount(
+      clinicId,
+      null,
+      occurrence.customerId,
+    );
+
+    const description = `Estorno RMA-${occurrence.number}`;
+    const already = await this.prisma.transaction.findFirst({
+      where: {
+        accountId: account.id,
+        type: TransactionType.REFUND,
+        description,
+      },
+    });
+    if (already) return already;
+
+    // Valorização dos itens
+    let orderItems: Array<{ productId: string; unitPriceCents: number }> = [];
+    if (occurrence.orderId) {
+      orderItems = await this.prisma.orderItem.findMany({
+        where: { orderId: occurrence.orderId },
+        select: { productId: true, unitPriceCents: true },
+      });
+    }
+
+    let refundCents = 0;
+    for (const item of occurrence.items) {
+      const oi = orderItems.find((o) => o.productId === item.productId);
+      let unit = oi?.unitPriceCents;
+      if (unit == null) {
+        const p = await this.prisma.product.findUnique({
+          where: { id: item.productId },
+          select: { priceCents: true },
+        });
+        unit = p?.priceCents || 0;
+      }
+      refundCents += Math.round(unit * item.quantity);
+    }
+
+    if (refundCents <= 0) return null;
+
+    const transaction = await this.prisma.transaction.create({
+      data: {
+        clinicId,
+        customerId: occurrence.customerId,
+        accountId: account.id,
+        type: TransactionType.REFUND,
+        amountCents: refundCents,
+        description,
+      },
+    });
+
+    await this.prisma.patientAccount.update({
+      where: { id: account.id },
+      data: { balanceCents: { increment: refundCents } },
+    });
+
+    await this.auditService.log({
+      clinicId,
+      userId,
+      action: AuditAction.CREATE,
+      entity: 'Transaction',
+      entityId: transaction.id,
+      message: `${description}: ${this.formatCurrency(refundCents)}`,
+    });
+
+    return transaction;
+  }
+
+  /**
    * Register a payment with method and create transaction
    */
   async registerPayment(
@@ -826,6 +983,25 @@ export class FinanceService {
 
     if (!order) {
       throw new NotFoundException('Pedido não encontrado');
+    }
+
+    if (
+      order.status === OrderStatus.PAGO ||
+      order.status === OrderStatus.CANCELADO
+    ) {
+      throw new BadRequestException(
+        `Não é possível gerar boleto para um pedido ${order.status}.`,
+      );
+    }
+
+    // Impede boleto duplicado em aberto para o mesmo pedido
+    const openInvoice = await this.prisma.invoice.findFirst({
+      where: { clinicId, orderId, status: 'PENDING' },
+    });
+    if (openInvoice) {
+      throw new BadRequestException(
+        'Já existe um boleto em aberto para este pedido.',
+      );
     }
 
     // 2. Generate Mock Data (Barcode, PDF Link)
