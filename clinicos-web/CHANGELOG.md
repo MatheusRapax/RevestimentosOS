@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.12.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.11.1...v1.12.0) (2026-09-05)
+
+
+### Features
+
+* **ui:** menu lateral com versão mobile em gaveta (U3) ([727b67e](https://github.com/MatheusRapax/RevestimentosOS/commit/727b67e18c9e360b1854449862eb46dc5d30c8f6))
+
+
+### Bug Fixes
+
+* **ui:** header não sobrepõe mais título/botão em telas de celular (U1, U2, U4) ([b1bfe1b](https://github.com/MatheusRapax/RevestimentosOS/commit/b1bfe1b195cadbc6d32fe5249f94eb9a754ce409))
+
 ### [1.11.1](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.11.0...v1.11.1) (2026-09-04)
 
 

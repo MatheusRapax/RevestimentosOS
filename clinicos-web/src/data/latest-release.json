@@ -1,4 +1,4 @@
 {
-  "version": "1.11.1",
-  "content": "### Bug Fixes\n\n* **cadastros:** corrigir tipo do helper keep/keepField que quebrava o build de produção\n* **orcamentos:** busca da lista de orçamentos não filtrava nada"
+  "version": "1.12.0",
+  "content": "### Features\n\n* **ui:** menu lateral com versão mobile em gaveta (U3)\n\n### Bug Fixes\n\n* **ui:** header não sobrepõe mais título/botão em telas de celular (U1, U2, U4)"
 }
