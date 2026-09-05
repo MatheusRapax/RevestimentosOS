@@ -99,7 +99,7 @@ Itens sem controvérsia (Fases 1, 2 exceto F1-profundo, 3, 4 exceto F-FIN-7, 5) 
 
 ## RESULTADO — implementado na branch `fix/qa-e2e-ajustes`
 
-**Decisões tomadas:** F-FIN-1 → "Faturamento" passa a ser dinheiro recebido (+ campo `billedCents`). F-FIN-7 e o refactor profundo de atomicidade do F1 → **fora desta branch**.
+**Decisões tomadas:** F-FIN-1 → "Faturamento" passa a ser dinheiro recebido (+ campo `billedCents`). F-FIN-7 → **fora desta branch**. F1 (refactor de atomicidade) → **feito depois** (commit `37d4440`): a superfície era pequena (3 métodos + 3 chamadas), então foi incluído.
 
 ### Commits
 | commit | conteúdo |
@@ -109,14 +109,16 @@ Itens sem controvérsia (Fases 1, 2 exceto F1-profundo, 3, 4 exceto F-FIN-7, 5) 
 | `5c37281` | Fase 3+4 — comissões e financeiro |
 | `1cd4668` | Fase 5 — ajustes visuais |
 | `7d1c758` | ajuste extra F-FIN-4 (boleto p/ pedido já pago em qualquer status) |
+| `37d4440` | **F1 — atomicidade completa do pagamento** (tx dentro do FinanceService) |
 
-### Retest automático — **77 PASS / 0 FAIL**
+### Retest automático — **84 PASS / 0 FAIL**
 - **Venda ponta a ponta (happy path):** cálculo m² + descontos + frete, enviar/aprovar/converter, pagamento split PIX+CASH, auto-alocação, PRONTO→ENTREGUE, baixa de estoque 1×, conta-corrente do pedido fecha em 0 — **tudo idêntico ao antes**.
 - **Quebra:** preço/qtd negativos, desconto >100% (F4), cliente inexistente → 404 (F6), orçamento vazio (F5), `inputArea` gigante (F7), `CRIADO→ENTREGUE` e transição para trás (F3), pagamento acima do total (F8), método inválido / valor negativo (F2) → **todos 400/404** (antes: 500 ou aceito).
 - **NF divergente:** 400 `PO_DIVERGENCE`, `forceConfirm` exige justificativa — **inalterado**.
 - **RMA:** happy path DEFEITO (baixa/repõe estoque); `RASCUNHO→REEMBOLSADO` direto → 400 (F-RMA-3); cancelar após REPORTADO **devolve o estoque** (F-RMA-1); REEMBOLSADO cria `Transaction` REFUND na conta-corrente, idempotente (F-RMA-2); quantidade negativa → 400 (F-RMA-4).
 - **Comissões:** regra com tier 9999% e `tiers:[]` → 400 (F-COMM-5); `GET /dashboard/finance/sellers` **não vem mais vazio** e usa a regra (2%), não o mock 3% (F-COMM-1/2); `GET /dashboard/finance/architects` retorna comissão por tier ≠ 0 (F-COMM-3); atribuição alinhada ao endpoint por pedido (F-COMM-4).
 - **Financeiro:** despesa com valor/campos inválidos → 400 (F-FIN-2); nota de serviço sem valor → 400 (F-FIN-3); boleto duplicado / p/ pedido pago / `dueDate` lixo → 400 (F-FIN-4); pagar despesa 2× é idempotente (F-FIN-5); `GET /finance/customers/:id/account` responde 200 (F-FIN-6); `dashboard.revenue == reports/revenue` e `billedCents` exposto (F-FIN-1).
+- **F1 — atomicidade:** pagamento com item inválido rejeitado **sem deixar resíduo** (pedido segue CRIADO, zero Payment/Transaction órfão); split de 2 pagamentos fecha em 0; cancelar pedido pago faz estorno atômico (ADJUSTMENT + REFUND). `chargeOrder`/`registerPayment`/`refundOrder` agora rodam dentro da `$transaction` do pedido.
 
 ### Verificação visual (viewport 375px)
 - Tabelas de `pedidos`, `contas-a-pagar`, `estoque/ocorrencias`: agora dentro de wrapper `overflow-x-auto` — rolam dentro do card, `body` não rola na horizontal (V1).
@@ -131,8 +133,7 @@ Itens sem controvérsia (Fases 1, 2 exceto F1-profundo, 3, 4 exceto F-FIN-7, 5) 
 - `docker-compose.prod.yml`, Dockerfiles, pipeline de importação / `calcCostCents` / `ai-import` / PDF de orçamento → **intactos** (não aparecem no diff)
 - Diff total: **24 arquivos, +1141 / −101**, só em `src/**`, `clinicos-web/src/**` e `docs/`
 
-### Fora do escopo (para tratar depois, conforme sua decisão)
+### Fora do escopo (para tratar depois)
 - **F-FIN-7** — revalorização de todo o estoque do SKU no `forceConfirm` de NF (mexe no modelo de custo).
-- **F1 (refactor profundo)** — passar a transação para dentro do `FinanceService`. A validação prévia (F2/F8) já eliminou os caminhos de crash que geravam pagamento/cobrança órfãos; o refactor completo fica para uma branch dedicada.
 
 **Aguardando sua decisão de merge.** Nada foi versionado nem mergeado.
