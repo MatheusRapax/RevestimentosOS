@@ -207,14 +207,18 @@ export class FiscalService {
       .split(',')
       .map((s) => s.trim());
 
+    // A API fiscal exige documento e CEP só com dígitos.
+    const customerDoc = (order.customer.document || '').replace(/\D/g, '');
+    const customerCep = (order.customer.zipCode || '01001000').replace(/\D/g, '');
+
     const payload = {
       externalId: order.id,
       naturezaOperacao:
         config?.defaultNaturezaOperacao || 'Venda de mercadorias',
       finalidade: 'NORMAL',
       destinatario: {
-        tipo: order.customer.document.length > 11 ? 'PJ' : 'PF',
-        cnpjCpf: order.customer.document,
+        tipo: customerDoc.length > 11 ? 'PJ' : 'PF',
+        cnpjCpf: customerDoc,
         razaoSocial: order.customer.name,
         endereco: {
           logradouro:
@@ -224,7 +228,7 @@ export class FiscalService {
           codigoMunicipio: '3550308', // Default until IBGE codes are added to Customer model
           municipio: order.customer.city || 'São Paulo',
           uf: order.customer.state || 'SP',
-          cep: order.customer.zipCode || '01001000',
+          cep: customerCep,
         },
       },
       itens: order.items.map((item) => {
