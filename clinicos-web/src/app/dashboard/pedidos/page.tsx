@@ -188,6 +188,32 @@ export default function OrdersPage() {
         }
     };
 
+    // Baixa XML/DANFE via proxy autenticado do ERP (o NexosFiscal não expõe mais /storage público).
+    // <a href> não manda o token, então buscamos como blob e forçamos o download.
+    const openFiscalFile = async (fiscalDocId: string, kind: 'xml' | 'danfe') => {
+        try {
+            const resp = await api.get(`/fiscal/documents/${fiscalDocId}/${kind}`, {
+                responseType: 'blob',
+            });
+            const disposition = resp.headers?.['content-disposition'] || '';
+            const match = disposition.match(/filename="?([^"]+)"?/);
+            const filename = match?.[1] || `nota.${kind === 'xml' ? 'xml' : 'pdf'}`;
+            const url = window.URL.createObjectURL(resp.data);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+        } catch (error: any) {
+            toast.error(
+                error.response?.data?.message ||
+                    `Não foi possível baixar o ${kind.toUpperCase()}.`,
+            );
+        }
+    };
+
     const handleExportExcel = async () => {
         try {
             const query = new URLSearchParams();
@@ -236,7 +262,17 @@ export default function OrdersPage() {
             const response = await api.get(`/orders/${selectedOrder.id}`);
             return response.data;
         },
-        enabled: !!selectedOrder?.id
+        enabled: !!selectedOrder?.id,
+        // Enquanto houver nota fiscal em processamento, o resultado real chega
+        // via webhook (assíncrono). Faz polling curto só nesse período.
+        refetchInterval: (query) => {
+            const docs = query.state.data?.fiscalDocuments as Array<{ status?: string }> | undefined;
+            const pending = docs?.some((d) =>
+                ['PROCESSING', 'DRAFT', 'PENDING'].includes((d.status || '').toUpperCase()),
+            );
+            return pending ? 3000 : false;
+        },
+        refetchIntervalInBackground: false,
     });
 
     // Use enriched details if available, otherwise fallback to list data
@@ -740,14 +776,14 @@ export default function OrdersPage() {
                                                             </div>
                                                             <div className="flex gap-2">
                                                                 {doc.xmlUrl && (
-                                                                    <a href={doc.xmlUrl.replace('/app/storage', 'http://localhost:5000/storage')} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
+                                                                    <button type="button" onClick={() => openFiscalFile(doc.id, 'xml')} className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
                                                                         XML
-                                                                    </a>
+                                                                    </button>
                                                                 )}
                                                                 {doc.danfeUrl && (
-                                                                    <a href={doc.danfeUrl.replace('/app/storage', 'http://localhost:5000/storage')} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
+                                                                    <button type="button" onClick={() => openFiscalFile(doc.id, 'danfe')} className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
                                                                         PDF
-                                                                    </a>
+                                                                    </button>
                                                                 )}
                                                             </div>
                                                         </div>

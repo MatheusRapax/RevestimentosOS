@@ -28,6 +28,10 @@ interface FiscalSettings {
     name?: string;
     certificate?: FileList;
     password?: string;
+    ie?: string;
+    uf?: string;
+    cityCode?: string;
+    crt?: string;
 }
 
 interface FiscalSettingsFormProps {
@@ -106,6 +110,11 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             return;
         }
 
+        if (!data.uf || !data.cityCode) {
+            toast.error('Informe a UF e o código IBGE do município da loja.');
+            return;
+        }
+
         setIsSavingSetup(true);
         try {
             const formData = new FormData();
@@ -113,6 +122,10 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             formData.append('name', data.name);
             formData.append('password', data.password);
             formData.append('certificate', data.certificate[0]);
+            if (data.ie) formData.append('ie', data.ie);
+            formData.append('uf', data.uf);
+            formData.append('cityCode', data.cityCode);
+            formData.append('crt', data.crt || '3');
 
             await api.post('/fiscal/setup', formData, {
                 params: { clinicId },
@@ -202,6 +215,31 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                             <div className="space-y-2">
                                 <Label>Razão Social</Label>
                                 <Input {...register('name', { required: true })} placeholder="Ex: Loja de Revestimentos LTDA" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Inscrição Estadual</Label>
+                                <Input {...register('ie')} placeholder="Opcional (ou ISENTO)" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>UF</Label>
+                                <Input {...register('uf', { required: true })} maxLength={2} placeholder="Ex: SP" className="uppercase" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Código do Município (IBGE)</Label>
+                                <Input {...register('cityCode', { required: true })} maxLength={7} placeholder="7 dígitos — ex: 3550308 (São Paulo)" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Regime Tributário (CRT)</Label>
+                                <Select defaultValue="3" onValueChange={(val) => setValue('crt', val)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione o regime" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="1">1 - Simples Nacional</SelectItem>
+                                        <SelectItem value="2">2 - Simples Nacional, excesso de sublimite</SelectItem>
+                                        <SelectItem value="3">3 - Regime Normal</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-2">
                                 <Label>Certificado Digital A1 (.pfx)</Label>

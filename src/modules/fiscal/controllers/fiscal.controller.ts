@@ -37,6 +37,44 @@ export class FiscalController {
     return this.fiscalService.emitirNota(orderId, req.clinicId);
   }
 
+  @Get('documents/:id/xml')
+  @Permissions(PERMISSIONS.FISCAL_VIEW)
+  async downloadXml(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const file = await this.fiscalService.downloadFiscalFile(
+      id,
+      req.clinicId,
+      'xml',
+    );
+    res.set({
+      'Content-Type': file.contentType,
+      'Content-Disposition': `inline; filename="${file.filename}"`,
+    });
+    res.send(file.data);
+  }
+
+  @Get('documents/:id/danfe')
+  @Permissions(PERMISSIONS.FISCAL_VIEW)
+  async downloadDanfe(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const file = await this.fiscalService.downloadFiscalFile(
+      id,
+      req.clinicId,
+      'danfe',
+    );
+    res.set({
+      'Content-Type': file.contentType,
+      'Content-Disposition': `inline; filename="${file.filename}"`,
+    });
+    res.send(file.data);
+  }
+
   @Get('settings')
   @Permissions(PERMISSIONS.FISCAL_CONFIG)
   async getSettings(
@@ -83,6 +121,12 @@ export class FiscalController {
       file.buffer,
       body.password,
       file.originalname,
+      {
+        ie: body.ie,
+        uf: body.uf,
+        cityCode: body.cityCode,
+        crt: body.crt,
+      },
     );
   }
 

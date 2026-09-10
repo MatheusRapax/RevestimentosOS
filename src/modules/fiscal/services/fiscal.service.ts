@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -16,6 +21,27 @@ export class FiscalService {
     private configService: ConfigService,
   ) {}
 
+  /**
+   * Resolve a URL base do NexosFiscal e a API Key do tenant desta clínica
+   * (mesma lógica de fallback usada em emitirNota: config no banco → env).
+   */
+  private async resolveFiscalCreds(
+    clinicId: string,
+  ): Promise<{ apiUrl: string; apiKey: string }> {
+    const config = await this.prisma.clinicFiscalConfig.findUnique({
+      where: { clinicId },
+    });
+    const apiKey =
+      config?.nexosApiKey || this.configService.get<string>('FISCAL_API_KEY');
+    const apiUrl = this.configService.get<string>('FISCAL_MICROSERVICE_URL');
+    if (!apiKey || !apiUrl) {
+      throw new BadRequestException(
+        'Configuração fiscal (API Key / URL do serviço) ausente.',
+      );
+    }
+    return { apiUrl, apiKey };
+  }
+
   async setupNexosFiscal(
     clinicId: string,
     name: string,
@@ -23,6 +49,7 @@ export class FiscalService {
     pfxBuffer: Buffer,
     password: string,
     originalFileName: string,
+    fiscal?: { ie?: string; uf?: string; cityCode?: string; crt?: string },
   ) {
     const masterApiKey = this.configService.get<string>(
       'FISCAL_MASTER_API_KEY',
@@ -35,18 +62,40 @@ export class FiscalService {
       );
     }
 
+    // Ambiente vem do default fiscal da clínica ("1"=produção, "2"=homologação)
+    const existing = await this.prisma.clinicFiscalConfig.findUnique({
+      where: { clinicId },
+    });
+    const environment =
+      existing?.environment === '1' ? 'producao' : 'homologacao';
+
+    // A API do NexosFiscal exige a identidade fiscal do emitente na criação do tenant.
+    const cnpj = (document || '').replace(/\D/g, '');
+    const cityCode = (fiscal?.cityCode || '').replace(/\D/g, '');
+    const tenantPayload = {
+      name,
+      cnpj,
+      ie: fiscal?.ie?.trim() || undefined,
+      uf: (fiscal?.uf || '').trim().toUpperCase(),
+      cityCode,
+      crt: Number(fiscal?.crt) || 3, // 1=Simples, 2=Simples excesso, 3=Regime normal
+      environment,
+    };
+
+    if (cnpj.length !== 14 || tenantPayload.uf.length !== 2 || cityCode.length !== 7) {
+      throw new BadRequestException(
+        'Dados fiscais do emitente incompletos: informe CNPJ (14 díg.), UF (2 letras) e o código IBGE do município (7 díg.).',
+      );
+    }
+
     try {
       this.logger.log(`Starting NexosFiscal setup for clinic ${clinicId}`);
 
       // 1. Create Tenant
       const createTenantRes = await firstValueFrom(
-        this.httpService.post(
-          `${apiUrl}/tenants`,
-          { name, document },
-          {
-            headers: { 'X-API-Key': masterApiKey },
-          },
-        ),
+        this.httpService.post(`${apiUrl}/tenants`, tenantPayload, {
+          headers: { 'X-API-Key': masterApiKey },
+        }),
       );
       const tenantId = createTenantRes.data.id;
 
@@ -56,13 +105,19 @@ export class FiscalService {
       const createKeyRes = await firstValueFrom(
         this.httpService.post(
           `${apiUrl}/tenants/${tenantId}/api-keys`,
-          {},
+          { name: `${name} - ERP` },
           {
             headers: { 'X-API-Key': masterApiKey },
           },
         ),
       );
-      const apiKey = createKeyRes.data.key;
+      // O NexosFiscal retorna o campo `apiKey` (não `key`).
+      const apiKey = createKeyRes.data.apiKey || createKeyRes.data.key;
+      if (!apiKey) {
+        throw new Error(
+          'O serviço fiscal não retornou a API Key na criação da chave.',
+        );
+      }
 
       this.logger.log(`API Key generated for tenant: ${tenantId}`);
 
@@ -368,12 +423,29 @@ export class FiscalService {
     }
   }
 
-  async getSettings(clinicId: string) {
+  async getSettings(clinicId?: string) {
+    const hasEnvCredentials = !!process.env.FISCAL_MASTER_API_KEY;
+
+    // Super admin sem clínica selecionada: devolve só o estado do ambiente,
+    // sem consultar o banco (evita findUnique com clinicId undefined → 500).
+    if (!clinicId) {
+      return {
+        hasCredentials: hasEnvCredentials,
+        source: 'env',
+        environment: '2',
+        defaultNaturezaOperacao: 'Venda de mercadoria',
+        defaultTaxClass: null,
+        defaultNcm: null,
+        defaultCest: null,
+        defaultCfop: null,
+        defaultCst: null,
+        defaultOrigin: 0,
+      };
+    }
+
     const config = await this.prisma.clinicFiscalConfig.findUnique({
       where: { clinicId },
     });
-
-    const hasEnvCredentials = !!process.env.FISCAL_MASTER_API_KEY;
 
     if (!config) {
       return {
@@ -465,5 +537,65 @@ export class FiscalService {
       `Updated FiscalDocument for Order ${orderId} to ${newStatus}`,
     );
     return { status: 'SUCCESS' };
+  }
+
+  /**
+   * Baixa o XML autorizado ou o DANFE de um FiscalDocument, fazendo proxy
+   * autenticado (X-API-Key) para o NexosFiscal. O serviço fiscal removeu o
+   * acesso público a /storage, então o ERP precisa buscar pelos endpoints
+   * autenticados GET /nfe/{documentId}/{xml|danfe}.
+   */
+  async downloadFiscalFile(
+    fiscalDocumentId: string,
+    clinicId: string,
+    kind: 'xml' | 'danfe',
+  ): Promise<{ data: Buffer; contentType: string; filename: string }> {
+    const doc = await this.prisma.fiscalDocument.findFirst({
+      where: { id: fiscalDocumentId, clinicId }, // escopo por clínica
+    });
+    if (!doc) {
+      throw new NotFoundException('Documento fiscal não encontrado.');
+    }
+    if (!doc.uuid) {
+      throw new BadRequestException(
+        'Documento fiscal ainda sem referência no serviço fiscal.',
+      );
+    }
+
+    const { apiUrl, apiKey } = await this.resolveFiscalCreds(clinicId);
+    const path = kind === 'xml' ? 'xml' : 'danfe';
+
+    let resp;
+    try {
+      resp = await firstValueFrom(
+        this.httpService.get(`${apiUrl}/nfe/${doc.uuid}/${path}`, {
+          headers: { 'X-API-Key': apiKey },
+          responseType: 'arraybuffer',
+        }),
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `Falha ao baixar ${kind} do doc ${fiscalDocumentId}: ${
+          error.response?.status || ''
+        } ${error.message}`,
+      );
+      if (error.response?.status === 404) {
+        throw new NotFoundException(
+          `Arquivo ${kind.toUpperCase()} não disponível no serviço fiscal.`,
+        );
+      }
+      throw new BadRequestException(
+        `Não foi possível obter o ${kind.toUpperCase()} do serviço fiscal.`,
+      );
+    }
+
+    const contentType = kind === 'xml' ? 'application/xml' : 'application/pdf';
+    const ext = kind === 'xml' ? 'xml' : 'pdf';
+    const base = doc.key || doc.uuid;
+    return {
+      data: Buffer.from(resp.data),
+      contentType,
+      filename: `${base}-${kind === 'xml' ? 'procNFe' : 'danfe'}.${ext}`,
+    };
   }
 }
