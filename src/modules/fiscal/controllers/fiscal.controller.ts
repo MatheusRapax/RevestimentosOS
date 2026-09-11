@@ -38,6 +38,12 @@ export class FiscalController {
     return this.fiscalService.emitirNota(orderId, req.clinicId);
   }
 
+  @Post('validate/:orderId')
+  @Permissions(PERMISSIONS.FISCAL_EMIT)
+  async validateOrder(@Param('orderId') orderId: string, @Req() req: any) {
+    return this.fiscalService.validateOrder(orderId, req.clinicId);
+  }
+
   @Get('documents/:id/xml')
   @Permissions(PERMISSIONS.FISCAL_VIEW)
   async downloadXml(
