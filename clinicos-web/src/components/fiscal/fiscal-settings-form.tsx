@@ -54,7 +54,23 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
     const [profile, setProfile] = useState<Record<string, string>>({ ...EMPTY_PROFILE });
     const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-    const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FiscalSettings>();
+    // Duas instâncias separadas: "Setup" e "Regras" são <form>s independentes.
+    // Um único useForm() compartilhado fazia os campos obrigatórios do Setup
+    // (certificado, senha, razão social) bloquearem silenciosamente o submit
+    // das Regras sempre que o certificado ainda não tivesse sido enviado —
+    // handleSubmit valida TODOS os campos registrados no hook, não só os do
+    // <form> que disparou o submit, e sem errorHandler o formSetup inválido
+    // simplesmente não chamava onSubmit (sem toast, sem request, nada).
+    const {
+        register: registerRules,
+        handleSubmit: handleSubmitRules,
+        setValue,
+        watch,
+    } = useForm<FiscalSettings>();
+    const {
+        register: registerSetup,
+        handleSubmit: handleSubmitSetup,
+    } = useForm<FiscalSettings>();
 
     async function loadProfile() {
         try {
@@ -63,10 +79,17 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                 headers: clinicId ? { 'X-Clinic-Id': clinicId } : {},
             });
             if (resp.data) {
+                // Só os campos editáveis do perfil entram no estado — o GET também
+                // devolve id/clinicId/createdAt/updatedAt, e se esses forem
+                // reenviados no PUT o DTO (forbidNonWhitelisted) rejeita com
+                // "property id should not exist".
+                const editableKeys = Object.keys(EMPTY_PROFILE);
                 setProfile({
                     ...EMPTY_PROFILE,
                     ...Object.fromEntries(
-                        Object.entries(resp.data).map(([k, v]) => [k, v == null ? '' : String(v)]),
+                        Object.entries(resp.data)
+                            .filter(([k]) => editableKeys.includes(k))
+                            .map(([k, v]) => [k, v == null ? '' : String(v)]),
                     ),
                 });
             } else {
@@ -349,7 +372,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             </Card>
 
             {/* Setup Form */}
-            <form onSubmit={handleSubmit(onSubmitSetup)}>
+            <form onSubmit={handleSubmitSetup(onSubmitSetup)}>
                 <Card className="mb-6 border-blue-200">
                     <CardHeader className="bg-blue-50/50">
                         <CardTitle>Setup Inicial (NexosFiscal)</CardTitle>
@@ -365,19 +388,19 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>CNPJ da Loja <span className="text-xs text-gray-400">(opcional se no Perfil)</span></Label>
-                                <Input {...register('document')} placeholder="Ex: 00.000.000/0000-00" />
+                                <Input {...registerSetup('document')} placeholder="Ex: 00.000.000/0000-00" />
                             </div>
                             <div className="space-y-2">
                                 <Label>Razão Social</Label>
-                                <Input {...register('name', { required: true })} placeholder="Ex: Loja de Revestimentos LTDA" />
+                                <Input {...registerSetup('name', { required: true })} placeholder="Ex: Loja de Revestimentos LTDA" />
                             </div>
                             <div className="space-y-2">
                                 <Label>Certificado Digital A1 (.pfx)</Label>
-                                <Input type="file" accept=".pfx,.p12" {...register('certificate', { required: true })} />
+                                <Input type="file" accept=".pfx,.p12" {...registerSetup('certificate', { required: true })} />
                             </div>
                             <div className="space-y-2">
                                 <Label>Senha do Certificado</Label>
-                                <Input type="password" {...register('password', { required: true })} placeholder="Senha do arquivo .pfx" />
+                                <Input type="password" {...registerSetup('password', { required: true })} placeholder="Senha do arquivo .pfx" />
                             </div>
                         </div>
                         <div className="flex justify-end mt-4">
@@ -397,7 +420,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             </form>
 
             {/* Rules Form */}
-            <form onSubmit={handleSubmit(onSubmit)}>
+            <form onSubmit={handleSubmitRules(onSubmit)}>
                 <Card>
                     <CardHeader>
                         <CardTitle>Regras de Emissão</CardTitle>
@@ -427,7 +450,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
 
                             <div className="space-y-2">
                                 <Label>Natureza da Operação (Padrão)</Label>
-                                <Input {...register('defaultNaturezaOperacao')} placeholder="Ex: Venda de mercadoria" />
+                                <Input {...registerRules('defaultNaturezaOperacao')} placeholder="Ex: Venda de mercadoria" />
                             </div>
                         </div>
 
@@ -439,24 +462,24 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                                         <Label>ID da Classe de Imposto</Label>
                                         <span className="text-xs text-gray-500">Opcional</span>
                                     </div>
-                                    <Input {...register('defaultTaxClass')} placeholder="Ex: classe_01" />
+                                    <Input {...registerRules('defaultTaxClass')} placeholder="Ex: classe_01" />
                                     <p className="text-xs text-gray-500">
                                         ID do grupo de impostos caso utilize perfil pré-configurado.
                                     </p>
                                 </div>
                                 <div className="space-y-2">
                                     <Label>NCM Padrão</Label>
-                                    <Input {...register('defaultNcm')} placeholder="0000.00.00" />
+                                    <Input {...registerRules('defaultNcm')} placeholder="0000.00.00" />
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label>Cest Padrão</Label>
-                                    <Input {...register('defaultCest')} placeholder="" />
+                                    <Input {...registerRules('defaultCest')} placeholder="" />
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label>CFOP Padrão (Saída)</Label>
-                                    <Input {...register('defaultCfop')} placeholder="Ex: 5102 (Revenda)" />
+                                    <Input {...registerRules('defaultCfop')} placeholder="Ex: 5102 (Revenda)" />
                                     <p className="text-xs text-gray-500">Usado ao dar entrada em notas de compra para evitar conflito com o CFOP do fornecedor.</p>
                                     {(() => {
                                         const currentCfop = watch('defaultCfop');
@@ -474,7 +497,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
 
                                 <div className="space-y-2">
                                     <Label>CST Padrão</Label>
-                                    <Input {...register('defaultCst')} placeholder="Ex: 00" />
+                                    <Input {...registerRules('defaultCst')} placeholder="Ex: 00" />
                                 </div>
 
                                 <div className="space-y-2">

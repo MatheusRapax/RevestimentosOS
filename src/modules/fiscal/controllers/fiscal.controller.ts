@@ -85,11 +85,12 @@ export class FiscalController {
   @Get('settings')
   @Permissions(PERMISSIONS.FISCAL_CONFIG)
   async getSettings(
+    @Req() req: any,
     @CurrentUser() user: any,
     @Query('clinicId') clinicId?: string,
   ) {
     const targetClinicId =
-      user.isSuperAdmin && clinicId ? clinicId : user.clinicId;
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
     return this.fiscalService.getSettings(targetClinicId);
   }
 
@@ -97,11 +98,12 @@ export class FiscalController {
   @Permissions(PERMISSIONS.FISCAL_CONFIG)
   async updateSettings(
     @Body() dto: UpdateFiscalSettingsDto,
+    @Req() req: any,
     @CurrentUser() user: any,
     @Query('clinicId') clinicId?: string,
   ) {
     const targetClinicId =
-      user.isSuperAdmin && clinicId ? clinicId : user.clinicId;
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
     return this.fiscalService.updateSettings(targetClinicId, dto);
   }
 
@@ -136,11 +138,12 @@ export class FiscalController {
   async setupNexosFiscal(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: any,
+    @Req() req: any,
     @CurrentUser() user: any,
     @Query('clinicId') clinicId?: string,
   ) {
     const targetClinicId =
-      user.isSuperAdmin && clinicId ? clinicId : user.clinicId;
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
 
     if (!file) {
       throw new BadRequestException('Certificado (.pfx) é obrigatório.');

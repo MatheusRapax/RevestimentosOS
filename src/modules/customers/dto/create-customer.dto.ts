@@ -10,6 +10,7 @@ import {
   MaxLength,
   Min,
   IsDateString,
+  Matches,
 } from 'class-validator';
 import { CustomerType } from '@prisma/client';
 
@@ -92,7 +93,7 @@ export class CreateCustomerDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(7)
+  @Matches(/^\d{7}$/, { message: 'Código IBGE do município deve ter 7 dígitos.' })
   municipioIbge?: string;
 
   @IsOptional()
