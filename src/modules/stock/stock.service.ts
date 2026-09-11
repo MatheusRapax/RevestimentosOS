@@ -497,6 +497,11 @@ export class StockService {
             cfop: update.cfop,
             cst: update.cst,
             cest: update.cest || existing.cest,
+            origin: update.origin ?? existing.origin,
+            gtin: update.gtin ?? existing.gtin,
+            unidadeTributavel:
+              update.unidadeTributavel ?? existing.unidadeTributavel,
+            fatorConversao: update.fatorConversao ?? existing.fatorConversao,
           },
         });
         updatedProducts.push(updated);

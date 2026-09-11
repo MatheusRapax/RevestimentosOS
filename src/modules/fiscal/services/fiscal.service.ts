@@ -245,7 +245,12 @@ export class FiscalService {
 
     // 3. PreFlight Check: Fiscal Data Governance (Fast Input trigger)
     const itemsMissingFiscalData = order.items.filter(
-      (item) => !item.product.ncm || !item.product.cfop || !item.product.cst,
+      (item) =>
+        !item.product.ncm ||
+        !/^\d{8}$/.test(item.product.ncm) ||
+        !item.product.cfop ||
+        !item.product.cst ||
+        item.product.origin == null,
     );
 
     if (itemsMissingFiscalData.length > 0) {

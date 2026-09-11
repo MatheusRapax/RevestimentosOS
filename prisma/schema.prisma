@@ -482,13 +482,18 @@ model Product {
   isAdhoc     Boolean @default(false) // Se true, é um produto criado avulso para um orçamento específico
 
   // Campos Fiscais
-  ncm      String? // Nomenclatura Comum do Mercosul (8 digits)
+  ncm      String? // Nomenclatura Comum do Mercosul (8 dígitos)
   cest     String? // Código Especificador da Substituição Tributária
-  cfop     String? // Código Fiscal de Operações e Prestações
-  cst      String? // Código de Situação Tributária
-  origin   Int? // Origem da Mercadoria (0, 1, 2...)
+  cfop     String? // CFOP SUGERIDO p/ operação padrão (venda no estado). O CFOP real da NF-e sai do motor de regras (Fase 1)
+  cst      String? // Código de Situação Tributária (ou CSOSN, conforme CRT)
+  origin   Int? // Origem da Mercadoria (0 a 8) — obrigatório na emissão
   mva      Float? // Margem de Valor Agregado (%)
-  taxClass String? // Classe de Imposto (Webmania ID)
+  taxClass String? // Legado (Webmania). Será substituído por perfilTributario (Fase 0.4)
+
+  // Unidade tributável (NF-e). Quando null, usa a mesma da unidade comercial.
+  gtin              String? // EAN/GTIN da embalagem; "SEM GTIN" quando não houver
+  unidadeTributavel String? // uTrib — se diferente da unidade comercial
+  fatorConversao    Float? // comercial → tributável (qTrib = qCom * fator). Null = 1
 
   // Campos Dimensionais para Revestimentos
   saleType       SaleType @default(UNIT) // Tipo de venda: unidade, área ou ambos
