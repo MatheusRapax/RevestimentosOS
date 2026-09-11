@@ -591,6 +591,18 @@ export class FiscalService {
     };
   }
 
+  /** Mapeia o `status` textual do NexosFiscal (resposta de dedupe do /nfe/emit
+   * e dos eventos de webhook) para o enum FiscalStatus do ERP. */
+  private mapNexosDedupeStatus(
+    status: string,
+  ): 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'PROCESSING' {
+    const s = (status || '').toUpperCase();
+    if (s === 'AUTHORIZED' || s === 'APPROVED') return 'APPROVED';
+    if (s === 'REJECTED' || s === 'DENIED') return 'REJECTED';
+    if (s === 'CANCELLED' || s === 'CANCELED') return 'CANCELLED';
+    return 'PROCESSING';
+  }
+
   async emitirNota(orderId: string, clinicId: string) {
     this.logger.log(
       `Initiating NF-e emission for Order ${orderId} in Clinic ${clinicId}`,
@@ -630,7 +642,7 @@ export class FiscalService {
 
     try {
       const url = `${apiUrl}/nfe/emit`;
-      await firstValueFrom(
+      const resp = await firstValueFrom(
         this.httpService.post(url, this.toTransmissionPayload(payload), {
           headers,
         }),
@@ -641,12 +653,58 @@ export class FiscalService {
         where: { orderId },
       });
 
+      // O NexosFiscal deduplica por externalId: se o documento já existe
+      // (204→200 "Document already exists", com o `status` real no corpo),
+      // não é uma nova emissão — ele nunca vai disparar um novo webhook para
+      // este pedido. Sincroniza direto com esse status em vez de sobrescrever
+      // para PROCESSING, senão o documento fica "PROCESSING" para sempre.
+      const dedupeStatus: string | undefined = resp.data?.status;
+      if (dedupeStatus) {
+        const mapped = this.mapNexosDedupeStatus(dedupeStatus);
+        const data = {
+          status: mapped,
+          type: 'NFE' as const,
+          uuid: resp.data?.documentId || fiscalDoc?.uuid,
+          errorMessage:
+            mapped === 'REJECTED'
+              ? resp.data?.rejectionReason ||
+                fiscalDoc?.errorMessage ||
+                'Nota rejeitada pela SEFAZ.'
+              : null,
+        };
+        if (fiscalDoc) {
+          await this.prisma.fiscalDocument.update({
+            where: { id: fiscalDoc.id },
+            data,
+          });
+        } else {
+          await this.prisma.fiscalDocument.create({
+            data: { clinicId, orderId, ...data },
+          });
+        }
+
+        const messages: Record<string, string> = {
+          APPROVED: 'Esta Nota Fiscal já havia sido emitida e autorizada.',
+          REJECTED:
+            'Esta Nota Fiscal já foi emitida e rejeitada pela SEFAZ — corrija os dados e reemita.',
+          CANCELLED: 'Esta Nota Fiscal já havia sido cancelada.',
+          PROCESSING: 'Nota Fiscal já está em processamento.',
+        };
+        return {
+          status: mapped,
+          message: messages[mapped] || 'Nota Fiscal já emitida para este pedido.',
+        };
+      }
+
+      // Caminho normal: NexosFiscal aceitou uma emissão nova (202) e vai
+      // processar de forma assíncrona, avisando via webhook.
       if (fiscalDoc) {
         await this.prisma.fiscalDocument.update({
           where: { id: fiscalDoc.id },
           data: {
             status: 'PROCESSING',
             type: 'NFE',
+            uuid: resp.data?.documentId || fiscalDoc.uuid,
             errorMessage: null,
           },
         });
@@ -657,6 +715,7 @@ export class FiscalService {
             orderId,
             status: 'PROCESSING',
             type: 'NFE',
+            uuid: resp.data?.documentId,
           },
         });
       }
