@@ -534,7 +534,19 @@ export class FiscalService {
           !item.product.cst ||
           item.product.origin == null,
       )
-      .map((i: any) => ({ id: i.product.id, name: i.product.name }));
+      .map((i: any) => ({
+        id: i.product.id,
+        name: i.product.name,
+        // Devolve o que já está cadastrado — mesmo que falte só um campo
+        // (ex.: só a Origem), o operador não deveria ter que redigitar NCM/
+        // CFOP/CST que já estão corretos no produto.
+        ncm: i.product.ncm || undefined,
+        cfop: i.product.cfop || undefined,
+        cst: i.product.cst || undefined,
+        cest: i.product.cest || undefined,
+        origin: i.product.origin ?? undefined,
+        gtin: i.product.gtin || undefined,
+      }));
   }
 
   /**

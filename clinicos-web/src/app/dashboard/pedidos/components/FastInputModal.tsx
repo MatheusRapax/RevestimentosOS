@@ -24,7 +24,16 @@ import { toast } from 'sonner';
 interface FastInputModalProps {
   isOpen: boolean;
   onClose: () => void;
-  products: { id: string; name: string }[];
+  products: {
+    id: string;
+    name: string;
+    ncm?: string;
+    cfop?: string;
+    cst?: string;
+    cest?: string;
+    origin?: number;
+    gtin?: string;
+  }[];
   onSuccess: () => void;
 }
 
@@ -54,7 +63,17 @@ export const FastInputModal = ({ isOpen, onClose, products, onSuccess }: FastInp
     if (isOpen && products.length > 0) {
       const initialData: Record<string, FiscalRow> = {};
       products.forEach((p) => {
-        initialData[p.id] = { ...EMPTY_ROW };
+        // O produto pode já ter alguns campos corretos (ex.: só falta a
+        // Origem) — parte do que já está cadastrado em vez de zerar tudo,
+        // senão o operador precisa redigitar NCM/CFOP/CST de cabeça.
+        initialData[p.id] = {
+          ncm: p.ncm || EMPTY_ROW.ncm,
+          cfop: p.cfop || EMPTY_ROW.cfop,
+          cst: p.cst || EMPTY_ROW.cst,
+          cest: p.cest || EMPTY_ROW.cest,
+          origin: p.origin != null ? String(p.origin) : EMPTY_ROW.origin,
+          gtin: p.gtin || EMPTY_ROW.gtin,
+        };
       });
       setFiscalData(initialData);
     }

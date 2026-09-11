@@ -65,7 +65,18 @@ interface FiscalReviewModalProps {
   onClose: () => void;
   orderId: string | null;
   /** Emissão retornou "faltam dados fiscais no produto" — o pai abre o FastInputModal. */
-  onMissingFiscalData: (products: { id: string; name: string }[]) => void;
+  onMissingFiscalData: (
+    products: {
+      id: string;
+      name: string;
+      ncm?: string;
+      cfop?: string;
+      cst?: string;
+      cest?: string;
+      origin?: number;
+      gtin?: string;
+    }[],
+  ) => void;
   /** Emissão concluída (ou já era um documento existente) — o pai atualiza a tela. */
   onEmitted: () => void;
 }
