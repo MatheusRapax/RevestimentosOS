@@ -11,6 +11,8 @@ import { firstValueFrom } from 'rxjs';
 import { UpdateFiscalSettingsDto } from '../dto/update-fiscal-settings.dto';
 import { UpsertFiscalProfileDto } from '../dto/upsert-fiscal-profile.dto';
 import FormData from 'form-data';
+import { CfopResolverService } from '../../fiscal-rules/services/cfop-resolver.service';
+import { TaxCalculatorService } from '../../fiscal-rules/services/tax-calculator.service';
 
 @Injectable()
 export class FiscalService {
@@ -20,6 +22,8 @@ export class FiscalService {
     private prisma: PrismaService,
     private httpService: HttpService,
     private configService: ConfigService,
+    private cfopResolver: CfopResolverService,
+    private taxCalculator: TaxCalculatorService,
   ) {}
 
   /**
@@ -221,7 +225,18 @@ export class FiscalService {
     return { order, profile, config, apiKey, apiUrl };
   }
 
-  private buildEmitPayload(order: any, config: any) {
+  /**
+   * Monta o payload de emissão. CFOP e tributos (ICMS/PIS/COFINS/IPI) vêm do
+   * motor de regras fiscais (CfopResolverService + TaxCalculatorService,
+   * Fase 1/0.4) — o `cfop`/`cst` cadastrados no produto seguem servindo como
+   * dado de referência/fallback e são validados no pré-flight.
+   *
+   * Limite conhecido: o payload do NexosFiscal só transporta
+   * icms{cst,aliquota,baseCalculo}/pis/cofins — ICMS-ST, FCP, DIFAL e IPI já
+   * são calculados (ver `avisosFiscais` no retorno) mas ainda não têm campo
+   * de transmissão no serviço; ficam disponíveis para log/tela de revisão.
+   */
+  private async buildEmitPayload(order: any, config: any, profile: any) {
     const [logradouro, numero] = (order.customer?.address || '')
       .split(',')
       .map((s: string) => s.trim());
@@ -230,6 +245,88 @@ export class FiscalService {
     const customerCep = (order.customer?.zipCode || '01001000').replace(
       /\D/g,
       '',
+    );
+
+    const ufOrigem = profile?.uf || 'SP';
+    const ufDestino = order.customer?.state || 'SP';
+    const consumidorFinal = order.customer?.consumidorFinal ?? true;
+    const contribuinte = order.customer?.indicadorIe === 1;
+    const regime = profile?.crt ?? 3;
+
+    const avisosFiscais: string[] = [];
+
+    const itens = await Promise.all(
+      order.items.map(async (item: any) => {
+        const isM2 = ['M2', 'M²'].includes(
+          (item.product.unit || '').trim().toUpperCase(),
+        );
+        const qty =
+          isM2 && item.product.boxCoverage
+            ? Number((item.quantityBoxes * item.product.boxCoverage).toFixed(2))
+            : item.quantityBoxes;
+
+        const totalValue = item.totalCents / 100;
+        const unitPrice = totalValue / (qty || 1);
+
+        const cfopResolvido = this.cfopResolver.resolve({
+          operacao: 'VENDA',
+          ufOrigem,
+          ufDestino,
+          destinatarioContribuinte: contribuinte,
+          consumidorFinal,
+        });
+
+        const tax = await this.taxCalculator.calcular(
+          {
+            clinicId: order.clinicId,
+            ufOrigem,
+            ufDestino,
+            regime,
+            consumidorFinal,
+            contribuinte,
+          },
+          { ncm: item.product.ncm, origin: item.product.origin, baseCalculo: Number(totalValue.toFixed(2)) },
+        );
+        avisosFiscais.push(...tax.avisos);
+
+        return {
+          codigo: item.product.id.substring(0, 20),
+          descricao: item.product.name,
+          ncm: item.product.ncm,
+          cest: item.product.cest || null,
+          cfop: cfopResolvido.cfop,
+          unidade: isM2 ? 'M2' : item.product.unit || 'UN',
+          quantidade: qty,
+          valorUnitario: Number(unitPrice.toFixed(2)),
+          valorTotal: Number(totalValue.toFixed(2)),
+          impostos: {
+            icms: {
+              cst: tax.icms.cst,
+              aliquota: tax.icms.aliquota,
+              baseCalculo: tax.icms.vBC,
+            },
+            pis: {
+              cst: tax.pis.cst,
+              aliquota: tax.pis.aliquota,
+              baseCalculo: tax.pis.vBC,
+            },
+            cofins: {
+              cst: tax.cofins.cst,
+              aliquota: tax.cofins.aliquota,
+              baseCalculo: tax.cofins.vBC,
+            },
+          },
+          // Calculados para referência/relatório — sem campo de transmissão
+          // no NexosFiscal ainda (ver nota acima).
+          _fiscalCalculado: {
+            icmsSt: tax.icmsSt,
+            fcp: tax.fcp,
+            difal: tax.difal,
+            ipi: tax.ipi,
+            regrasAplicadas: tax.regrasAplicadas,
+          },
+        };
+      }),
     );
 
     return {
@@ -252,47 +349,7 @@ export class FiscalService {
           cep: customerCep,
         },
       },
-      itens: order.items.map((item: any) => {
-        const isM2 = ['M2', 'M²'].includes(
-          (item.product.unit || '').trim().toUpperCase(),
-        );
-        const qty =
-          isM2 && item.product.boxCoverage
-            ? Number((item.quantityBoxes * item.product.boxCoverage).toFixed(2))
-            : item.quantityBoxes;
-
-        const totalValue = item.totalCents / 100;
-        const unitPrice = totalValue / (qty || 1);
-
-        return {
-          codigo: item.product.id.substring(0, 20),
-          descricao: item.product.name,
-          ncm: item.product.ncm,
-          cest: item.product.cest || null,
-          cfop: item.product.cfop,
-          unidade: isM2 ? 'M2' : item.product.unit || 'UN',
-          quantidade: qty,
-          valorUnitario: Number(unitPrice.toFixed(2)),
-          valorTotal: Number(totalValue.toFixed(2)),
-          impostos: {
-            icms: {
-              cst: item.product.cst,
-              aliquota: 18.0,
-              baseCalculo: Number(totalValue.toFixed(2)),
-            },
-            pis: {
-              cst: '01',
-              aliquota: 1.65,
-              baseCalculo: Number(totalValue.toFixed(2)),
-            },
-            cofins: {
-              cst: '01',
-              aliquota: 7.6,
-              baseCalculo: Number(totalValue.toFixed(2)),
-            },
-          },
-        };
-      }),
+      itens,
       frete: {
         modalidade: order.deliveryFee > 0 ? 0 : 9,
         valorFrete: order.deliveryFee
@@ -310,6 +367,23 @@ export class FiscalService {
           },
         ],
       },
+      avisosFiscais,
+    };
+  }
+
+  /**
+   * O NexosFiscal ainda não tem campos para os cálculos extras (ICMS-ST,
+   * FCP, DIFAL, IPI) nem para os avisos internos — remove-os antes de
+   * transmitir, mantendo-os só na resposta local (preflight/tela de revisão).
+   */
+  private toTransmissionPayload(payload: any) {
+    const { avisosFiscais, ...rest } = payload;
+    return {
+      ...rest,
+      itens: payload.itens.map((item: any) => {
+        const { _fiscalCalculado, ...itemRest } = item;
+        return itemRest;
+      }),
     };
   }
 
@@ -470,16 +544,23 @@ export class FiscalService {
   async validateOrder(orderId: string, clinicId: string) {
     const { order, profile, config, apiKey, apiUrl } =
       await this.buildEmitContext(orderId, clinicId);
-    const payload = this.buildEmitPayload(order, config);
+    const payload = await this.buildEmitPayload(order, config, profile);
 
     const local = this.runLocalPreflight(order, payload, profile);
 
     let remote: any[] = [];
     try {
       const resp = await firstValueFrom(
-        this.httpService.post(`${apiUrl}/nfe/validate`, payload, {
-          headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
-        }),
+        this.httpService.post(
+          `${apiUrl}/nfe/validate`,
+          this.toTransmissionPayload(payload),
+          {
+            headers: {
+              'X-API-Key': apiKey,
+              'Content-Type': 'application/json',
+            },
+          },
+        ),
       );
       remote = (resp.data?.erros || []).map((e: any) => ({
         campo: e.campo,
@@ -517,7 +598,7 @@ export class FiscalService {
 
     const { order, profile, config, apiKey, apiUrl } =
       await this.buildEmitContext(orderId, clinicId);
-    const payload = this.buildEmitPayload(order, config);
+    const payload = await this.buildEmitPayload(order, config, profile);
 
     // Pré-flight local
     const local = this.runLocalPreflight(order, payload, profile);
@@ -549,7 +630,11 @@ export class FiscalService {
 
     try {
       const url = `${apiUrl}/nfe/emit`;
-      await firstValueFrom(this.httpService.post(url, payload, { headers }));
+      await firstValueFrom(
+        this.httpService.post(url, this.toTransmissionPayload(payload), {
+          headers,
+        }),
+      );
 
       // Manual upsert since orderId is not unique
       const fiscalDoc = await this.prisma.fiscalDocument.findFirst({
