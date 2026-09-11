@@ -4,10 +4,13 @@ import {
   IsOptional,
   IsEnum,
   IsInt,
+  IsBoolean,
+  IsIn,
   MinLength,
   MaxLength,
   Min,
   IsDateString,
+  Matches,
 } from 'class-validator';
 import { CustomerType } from '@prisma/client';
 
@@ -79,6 +82,33 @@ export class CreateCustomerDto {
   @IsString()
   @MaxLength(10)
   zipCode?: string;
+
+  // Fiscal (destinatário da NF-e)
+  @IsOptional()
+  @IsInt()
+  @IsIn([1, 2, 9], {
+    message: 'indicadorIe deve ser 1 (contribuinte), 2 (isento) ou 9 (não contribuinte).',
+  })
+  indicadorIe?: number;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{7}$/, { message: 'Código IBGE do município deve ter 7 dígitos.' })
+  municipioIbge?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4)
+  countryCode?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  consumidorFinal?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  suframa?: string;
 
   // Arquiteto vinculado
   @IsOptional()

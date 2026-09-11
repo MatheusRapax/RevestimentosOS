@@ -1,10 +1,18 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { UpdateFiscalSettingsDto } from '../dto/update-fiscal-settings.dto';
+import { UpsertFiscalProfileDto } from '../dto/upsert-fiscal-profile.dto';
 import FormData from 'form-data';
+import { CfopResolverService } from '../../fiscal-rules/services/cfop-resolver.service';
+import { TaxCalculatorService } from '../../fiscal-rules/services/tax-calculator.service';
 
 @Injectable()
 export class FiscalService {
@@ -14,7 +22,30 @@ export class FiscalService {
     private prisma: PrismaService,
     private httpService: HttpService,
     private configService: ConfigService,
+    private cfopResolver: CfopResolverService,
+    private taxCalculator: TaxCalculatorService,
   ) {}
+
+  /**
+   * Resolve a URL base do NexosFiscal e a API Key do tenant desta clínica
+   * (mesma lógica de fallback usada em emitirNota: config no banco → env).
+   */
+  private async resolveFiscalCreds(
+    clinicId: string,
+  ): Promise<{ apiUrl: string; apiKey: string }> {
+    const config = await this.prisma.clinicFiscalConfig.findUnique({
+      where: { clinicId },
+    });
+    const apiKey =
+      config?.nexosApiKey || this.configService.get<string>('FISCAL_API_KEY');
+    const apiUrl = this.configService.get<string>('FISCAL_MICROSERVICE_URL');
+    if (!apiKey || !apiUrl) {
+      throw new BadRequestException(
+        'Configuração fiscal (API Key / URL do serviço) ausente.',
+      );
+    }
+    return { apiUrl, apiKey };
+  }
 
   async setupNexosFiscal(
     clinicId: string,
@@ -23,6 +54,7 @@ export class FiscalService {
     pfxBuffer: Buffer,
     password: string,
     originalFileName: string,
+    fiscal?: { ie?: string; uf?: string; cityCode?: string; crt?: string },
   ) {
     const masterApiKey = this.configService.get<string>(
       'FISCAL_MASTER_API_KEY',
@@ -35,18 +67,46 @@ export class FiscalService {
       );
     }
 
+    // Ambiente vem do default fiscal da clínica ("1"=produção, "2"=homologação)
+    const [existing, profile] = await Promise.all([
+      this.prisma.clinicFiscalConfig.findUnique({ where: { clinicId } }),
+      this.prisma.fiscalProfile.findUnique({ where: { clinicId } }),
+    ]);
+    const environment =
+      existing?.environment === '1' ? 'producao' : 'homologacao';
+
+    // A API do NexosFiscal exige a identidade fiscal do emitente na criação do
+    // tenant. Os campos do formulário de setup são overrides; o padrão é o
+    // Perfil do Emitente (FiscalProfile).
+    const cnpj = (document || profile?.cnpj || '').replace(/\D/g, '');
+    const cityCode = (fiscal?.cityCode || profile?.municipioIbge || '').replace(
+      /\D/g,
+      '',
+    );
+    const tenantPayload = {
+      name,
+      cnpj,
+      ie: (fiscal?.ie || profile?.ie)?.trim() || undefined,
+      uf: (fiscal?.uf || profile?.uf || '').trim().toUpperCase(),
+      cityCode,
+      crt: Number(fiscal?.crt) || profile?.crt || 3, // 1=Simples, 2=Simples excesso, 3=Regime normal
+      environment,
+    };
+
+    if (cnpj.length !== 14 || tenantPayload.uf.length !== 2 || cityCode.length !== 7) {
+      throw new BadRequestException(
+        'Dados fiscais do emitente incompletos: informe CNPJ (14 díg.), UF (2 letras) e o código IBGE do município (7 díg.).',
+      );
+    }
+
     try {
       this.logger.log(`Starting NexosFiscal setup for clinic ${clinicId}`);
 
       // 1. Create Tenant
       const createTenantRes = await firstValueFrom(
-        this.httpService.post(
-          `${apiUrl}/tenants`,
-          { name, document },
-          {
-            headers: { 'X-API-Key': masterApiKey },
-          },
-        ),
+        this.httpService.post(`${apiUrl}/tenants`, tenantPayload, {
+          headers: { 'X-API-Key': masterApiKey },
+        }),
       );
       const tenantId = createTenantRes.data.id;
 
@@ -56,13 +116,19 @@ export class FiscalService {
       const createKeyRes = await firstValueFrom(
         this.httpService.post(
           `${apiUrl}/tenants/${tenantId}/api-keys`,
-          {},
+          { name: `${name} - ERP` },
           {
             headers: { 'X-API-Key': masterApiKey },
           },
         ),
       );
-      const apiKey = createKeyRes.data.key;
+      // O NexosFiscal retorna o campo `apiKey` (não `key`).
+      const apiKey = createKeyRes.data.apiKey || createKeyRes.data.key;
+      if (!apiKey) {
+        throw new Error(
+          'O serviço fiscal não retornou a API Key na criação da chave.',
+        );
+      }
 
       this.logger.log(`API Key generated for tenant: ${tenantId}`);
 
@@ -113,18 +179,13 @@ export class FiscalService {
     }
   }
 
-  async emitirNota(orderId: string, clinicId: string) {
-    this.logger.log(
-      `Initiating NF-e emission for Order ${orderId} in Clinic ${clinicId}`,
-    );
+  // ── Contexto + payload compartilhados por validate e emit ──────────────
 
-    // 1. Fetch Fiscal Config with Fallback
+  private async buildEmitContext(orderId: string, clinicId: string) {
     let config = await this.prisma.clinicFiscalConfig.findUnique({
       where: { clinicId },
     });
-
     if (!config) {
-      // Transient config from Env Vars
       config = {
         clinicId,
         id: 'transient',
@@ -141,94 +202,61 @@ export class FiscalService {
     const apiKey =
       config?.nexosApiKey || this.configService.get<string>('FISCAL_API_KEY');
     const apiUrl = this.configService.get<string>('FISCAL_MICROSERVICE_URL');
-
-    if (!apiKey) {
+    if (!apiKey || !apiUrl) {
       throw new BadRequestException(
-        'Configuração da API Key Fiscal (nexosApiKey ou FISCAL_API_KEY) não encontrada. Configure no painel ou no .env.',
+        'Configuração fiscal (API Key / URL do serviço) ausente. Configure no painel ou no .env.',
       );
     }
 
-    // 2. Fetch Order
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: {
-        customer: true,
-        items: {
-          include: {
-            product: true,
-          },
+    const [order, profile] = await Promise.all([
+      this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          customer: true,
+          items: { include: { product: true } },
+          delivery: true,
         },
-        delivery: true,
-      },
-    });
+      }),
+      this.prisma.fiscalProfile.findUnique({ where: { clinicId } }),
+    ]);
 
-    if (!order) {
-      throw new BadRequestException('Pedido não encontrado');
-    }
+    if (!order) throw new BadRequestException('Pedido não encontrado');
 
-    const blockedStatuses = [
-      'CRIADO',
-      'RASCUNHO',
-      'AGUARDANDO_PAGAMENTO',
-      'CANCELADO',
-    ];
-    if (blockedStatuses.includes(order.status)) {
-      throw new BadRequestException(
-        `Não é possível emitir NFe para um pedido no status ${order.status}. O pedido deve estar confirmado/pago.`,
-      );
-    }
-    if (!order.customer) throw new Error('Cliente não associado ao pedido.');
-    if (!order.customer.document)
-      throw new Error('CPF/CNPJ do cliente não cadastrado.');
+    return { order, profile, config, apiKey, apiUrl };
+  }
 
-    // 3. PreFlight Check: Fiscal Data Governance (Fast Input trigger)
-    const itemsMissingFiscalData = order.items.filter(
-      (item) => !item.product.ncm || !item.product.cfop || !item.product.cst,
+  /**
+   * Monta o payload de emissão. CFOP e tributos (ICMS/PIS/COFINS/IPI) vêm do
+   * motor de regras fiscais (CfopResolverService + TaxCalculatorService,
+   * Fase 1/0.4) — o `cfop`/`cst` cadastrados no produto seguem servindo como
+   * dado de referência/fallback e são validados no pré-flight.
+   *
+   * Limite conhecido: o payload do NexosFiscal só transporta
+   * icms{cst,aliquota,baseCalculo}/pis/cofins — ICMS-ST, FCP, DIFAL e IPI já
+   * são calculados (ver `avisosFiscais` no retorno) mas ainda não têm campo
+   * de transmissão no serviço; ficam disponíveis para log/tela de revisão.
+   */
+  private async buildEmitPayload(order: any, config: any, profile: any) {
+    const [logradouro, numero] = (order.customer?.address || '')
+      .split(',')
+      .map((s: string) => s.trim());
+
+    const customerDoc = (order.customer?.document || '').replace(/\D/g, '');
+    const customerCep = (order.customer?.zipCode || '01001000').replace(
+      /\D/g,
+      '',
     );
 
-    if (itemsMissingFiscalData.length > 0) {
-      throw new BadRequestException({
-        message:
-          'Existem produtos sem dados fiscais (NCM, CFOP ou CST). A emissão foi bloqueada.',
-        code: 'MISSING_FISCAL_DATA',
-        products: itemsMissingFiscalData.map((i) => ({
-          id: i.product.id,
-          name: i.product.name,
-        })),
-      });
-    }
+    const ufOrigem = profile?.uf || 'SP';
+    const ufDestino = order.customer?.state || 'SP';
+    const consumidorFinal = order.customer?.consumidorFinal ?? true;
+    const contribuinte = order.customer?.indicadorIe === 1;
+    const regime = profile?.crt ?? 3;
 
-    // 4. Prepare Payload
-    const baseUrl =
-      this.configService.get('APP_URL') || 'https://api.revestimentos.com.br';
+    const avisosFiscais: string[] = [];
 
-    // Fallbacks for address mapping
-    const [logradouro, numero] = (order.customer.address || '')
-      .split(',')
-      .map((s) => s.trim());
-
-    const payload = {
-      externalId: order.id,
-      naturezaOperacao:
-        config?.defaultNaturezaOperacao || 'Venda de mercadorias',
-      finalidade: 'NORMAL',
-      destinatario: {
-        tipo: order.customer.document.length > 11 ? 'PJ' : 'PF',
-        cnpjCpf: order.customer.document,
-        razaoSocial: order.customer.name,
-        endereco: {
-          logradouro:
-            logradouro || order.customer.address || 'Rua não informada',
-          numero: numero || 'S/N',
-          bairro: order.customer.neighborhood || 'Centro',
-          codigoMunicipio: '3550308', // Default until IBGE codes are added to Customer model
-          municipio: order.customer.city || 'São Paulo',
-          uf: order.customer.state || 'SP',
-          cep: order.customer.zipCode || '01001000',
-        },
-      },
-      itens: order.items.map((item) => {
-        // Tolerante a variações de cadastro ("m²", "M²", "m2"...).
+    const itens = await Promise.all(
+      order.items.map(async (item: any) => {
         const isM2 = ['M2', 'M²'].includes(
           (item.product.unit || '').trim().toUpperCase(),
         );
@@ -240,35 +268,88 @@ export class FiscalService {
         const totalValue = item.totalCents / 100;
         const unitPrice = totalValue / (qty || 1);
 
+        const cfopResolvido = this.cfopResolver.resolve({
+          operacao: 'VENDA',
+          ufOrigem,
+          ufDestino,
+          destinatarioContribuinte: contribuinte,
+          consumidorFinal,
+        });
+
+        const tax = await this.taxCalculator.calcular(
+          {
+            clinicId: order.clinicId,
+            ufOrigem,
+            ufDestino,
+            regime,
+            consumidorFinal,
+            contribuinte,
+          },
+          { ncm: item.product.ncm, origin: item.product.origin, baseCalculo: Number(totalValue.toFixed(2)) },
+        );
+        avisosFiscais.push(...tax.avisos);
+
         return {
           codigo: item.product.id.substring(0, 20),
           descricao: item.product.name,
           ncm: item.product.ncm,
           cest: item.product.cest || null,
-          cfop: item.product.cfop,
+          cfop: cfopResolvido.cfop,
           unidade: isM2 ? 'M2' : item.product.unit || 'UN',
           quantidade: qty,
           valorUnitario: Number(unitPrice.toFixed(2)),
           valorTotal: Number(totalValue.toFixed(2)),
           impostos: {
             icms: {
-              cst: item.product.cst,
-              aliquota: 18.0,
-              baseCalculo: Number(totalValue.toFixed(2)),
+              cst: tax.icms.cst,
+              aliquota: tax.icms.aliquota,
+              baseCalculo: tax.icms.vBC,
             },
             pis: {
-              cst: '01',
-              aliquota: 1.65,
-              baseCalculo: Number(totalValue.toFixed(2)),
+              cst: tax.pis.cst,
+              aliquota: tax.pis.aliquota,
+              baseCalculo: tax.pis.vBC,
             },
             cofins: {
-              cst: '01',
-              aliquota: 7.6,
-              baseCalculo: Number(totalValue.toFixed(2)),
+              cst: tax.cofins.cst,
+              aliquota: tax.cofins.aliquota,
+              baseCalculo: tax.cofins.vBC,
             },
+          },
+          // Calculados para referência/relatório — sem campo de transmissão
+          // no NexosFiscal ainda (ver nota acima).
+          _fiscalCalculado: {
+            icmsSt: tax.icmsSt,
+            fcp: tax.fcp,
+            difal: tax.difal,
+            ipi: tax.ipi,
+            regrasAplicadas: tax.regrasAplicadas,
           },
         };
       }),
+    );
+
+    return {
+      externalId: order.id,
+      naturezaOperacao:
+        config?.defaultNaturezaOperacao || 'Venda de mercadorias',
+      finalidade: 'NORMAL',
+      destinatario: {
+        tipo: customerDoc.length > 11 ? 'PJ' : 'PF',
+        cnpjCpf: customerDoc,
+        razaoSocial: order.customer?.name,
+        endereco: {
+          logradouro:
+            logradouro || order.customer?.address || 'Rua não informada',
+          numero: order.customer?.addressNumber || numero || 'S/N',
+          bairro: order.customer?.neighborhood || 'Centro',
+          codigoMunicipio: order.customer?.municipioIbge || '3550308',
+          municipio: order.customer?.city || 'São Paulo',
+          uf: order.customer?.state || 'SP',
+          cep: customerCep,
+        },
+      },
+      itens,
       frete: {
         modalidade: order.deliveryFee > 0 ? 0 : 9,
         valorFrete: order.deliveryFee
@@ -286,9 +367,274 @@ export class FiscalService {
           },
         ],
       },
+      avisosFiscais,
+    };
+  }
+
+  /**
+   * O NexosFiscal ainda não tem campos para os cálculos extras (ICMS-ST,
+   * FCP, DIFAL, IPI) nem para os avisos internos — remove-os antes de
+   * transmitir, mantendo-os só na resposta local (preflight/tela de revisão).
+   */
+  private toTransmissionPayload(payload: any) {
+    const { avisosFiscais, ...rest } = payload;
+    return {
+      ...rest,
+      itens: payload.itens.map((item: any) => {
+        const { _fiscalCalculado, ...itemRest } = item;
+        return itemRest;
+      }),
+    };
+  }
+
+  /**
+   * Pré-flight LOCAL: valida o pedido/cadastros contra o que o ERP conhece,
+   * antes de qualquer chamada ao serviço fiscal. Nunca lança — devolve a lista.
+   * A validação estrutural/XSD/regras da SEFAZ fica no NexosFiscal (/nfe/validate).
+   */
+  private runLocalPreflight(order: any, payload: any, profile: any) {
+    const erros: {
+      campo: string;
+      mensagem: string;
+      severidade: 'error' | 'warning';
+      origem: 'erp';
+    }[] = [];
+    const err = (campo: string, mensagem: string) =>
+      erros.push({ campo, mensagem, severidade: 'error', origem: 'erp' });
+    const warn = (campo: string, mensagem: string) =>
+      erros.push({ campo, mensagem, severidade: 'warning', origem: 'erp' });
+
+    // Primeiros 2 dígitos do código IBGE = código numérico da UF
+    const UF_COD: Record<string, string> = {
+      RO: '11', AC: '12', AM: '13', RR: '14', PA: '15', AP: '16', TO: '17',
+      MA: '21', PI: '22', CE: '23', RN: '24', PB: '25', PE: '26', AL: '27',
+      SE: '28', BA: '29', MG: '31', ES: '32', RJ: '33', SP: '35', PR: '41',
+      SC: '42', RS: '43', MS: '50', MT: '51', GO: '52', DF: '53',
     };
 
-    // 4. Send Request
+    // ── Pedido ──
+    if (
+      ['CRIADO', 'RASCUNHO', 'AGUARDANDO_PAGAMENTO', 'CANCELADO'].includes(
+        order.status,
+      )
+    ) {
+      err(
+        'pedido.status',
+        `Pedido no status ${order.status} — precisa estar confirmado/pago para emitir.`,
+      );
+    }
+
+    // ── Emitente (Perfil do Emitente) ──
+    if (!profile) {
+      err('emitente', 'Perfil do Emitente não configurado (Admin › Fiscal).');
+    } else {
+      if (!/^\d{14}$/.test(profile.cnpj || '')) {
+        err('emitente.cnpj', 'CNPJ do emitente ausente ou inválido (14 dígitos).');
+      }
+      if (!profile.ie) {
+        warn('emitente.ie', 'Inscrição Estadual do emitente não informada.');
+      }
+      if (!/^\d{2}$/.test(UF_COD[(profile.uf || '').toUpperCase()] || '')) {
+        err('emitente.uf', 'UF do emitente ausente ou inválida.');
+      }
+      if (!/^\d{7}$/.test(profile.municipioIbge || '')) {
+        err(
+          'emitente.municipioIbge',
+          'Código IBGE do município do emitente ausente (7 dígitos).',
+        );
+      } else if (
+        UF_COD[(profile.uf || '').toUpperCase()] &&
+        profile.municipioIbge.slice(0, 2) !==
+          UF_COD[(profile.uf || '').toUpperCase()]
+      ) {
+        err(
+          'emitente.municipioIbge',
+          `Código IBGE (${profile.municipioIbge}) não corresponde à UF ${profile.uf} do emitente.`,
+        );
+      }
+    }
+
+    // ── Cliente / destinatário ──
+    const c = order.customer;
+    if (!c) {
+      err('cliente', 'Pedido sem cliente associado.');
+    } else {
+      const doc = (c.document || '').replace(/\D/g, '');
+      if (doc.length !== 11 && doc.length !== 14) {
+        err('cliente.document', 'CPF/CNPJ do cliente ausente ou inválido.');
+      }
+      const uf = (c.state || '').toUpperCase();
+      if (!UF_COD[uf]) {
+        err('cliente.state', 'UF do cliente ausente ou inválida.');
+      }
+      if (!/^\d{7}$/.test(c.municipioIbge || '')) {
+        err(
+          'cliente.municipioIbge',
+          'Código IBGE do município do cliente ausente (7 dígitos). Cadastre-o no cliente.',
+        );
+      } else if (UF_COD[uf] && c.municipioIbge.slice(0, 2) !== UF_COD[uf]) {
+        err(
+          'cliente.municipioIbge',
+          `Código IBGE (${c.municipioIbge}) não corresponde à UF ${uf} do cliente.`,
+        );
+      }
+      if (c.stateRegistration && c.indicadorIe !== 1) {
+        warn(
+          'cliente.indicadorIe',
+          'Cliente tem Inscrição Estadual mas o indicador de IE não é "1 - Contribuinte".',
+        );
+      }
+      if (!c.stateRegistration && c.indicadorIe === 1) {
+        err(
+          'cliente.indicadorIe',
+          'Indicador de IE "1 - Contribuinte" exige Inscrição Estadual no cadastro.',
+        );
+      }
+    }
+
+    // ── Itens ──
+    order.items.forEach((item: any, i: number) => {
+      const p = item.product;
+      const tag = `item[${i}] (${p.name})`;
+      if (!/^\d{8}$/.test(p.ncm || '')) err(`item.ncm`, `${tag}: NCM ausente ou inválido (8 dígitos).`);
+      if (!p.cfop) err(`item.cfop`, `${tag}: CFOP sugerido não cadastrado.`);
+      if (!p.cst) err(`item.cst`, `${tag}: CST/CSOSN não cadastrado.`);
+      if (p.origin == null) err(`item.origin`, `${tag}: Origem da mercadoria não cadastrada.`);
+    });
+
+    // ── Totais ──
+    const somaItens = payload.itens.reduce(
+      (s: number, it: any) => s + it.valorTotal,
+      0,
+    );
+    const subtotal = order.subtotalCents / 100;
+    if (Math.abs(somaItens - subtotal) > 0.05) {
+      err(
+        'totais',
+        `Soma dos itens (R$ ${somaItens.toFixed(2)}) não bate com o subtotal do pedido (R$ ${subtotal.toFixed(2)}).`,
+      );
+    }
+    if ((order.discountCents || 0) > 0) {
+      warn(
+        'totais.desconto',
+        'O pedido tem desconto que ainda não é enviado como vDesc na NF-e (será tratado no motor de regras).',
+      );
+    }
+
+    return erros;
+  }
+
+  /** Erros de item que abrem o modal de preenchimento rápido (FastInputModal). */
+  private missingItemFiscalProducts(order: any) {
+    return order.items
+      .filter(
+        (item: any) =>
+          !/^\d{8}$/.test(item.product.ncm || '') ||
+          !item.product.cfop ||
+          !item.product.cst ||
+          item.product.origin == null,
+      )
+      .map((i: any) => ({ id: i.product.id, name: i.product.name }));
+  }
+
+  /**
+   * Dry-run: pré-flight local + POST /nfe/validate do NexosFiscal.
+   * Não emite nada. Devolve a lista consolidada de erros/avisos.
+   */
+  async validateOrder(orderId: string, clinicId: string) {
+    const { order, profile, config, apiKey, apiUrl } =
+      await this.buildEmitContext(orderId, clinicId);
+    const payload = await this.buildEmitPayload(order, config, profile);
+
+    const local = this.runLocalPreflight(order, payload, profile);
+
+    let remote: any[] = [];
+    try {
+      const resp = await firstValueFrom(
+        this.httpService.post(
+          `${apiUrl}/nfe/validate`,
+          this.toTransmissionPayload(payload),
+          {
+            headers: {
+              'X-API-Key': apiKey,
+              'Content-Type': 'application/json',
+            },
+          },
+        ),
+      );
+      remote = (resp.data?.erros || []).map((e: any) => ({
+        campo: e.campo,
+        mensagem: e.mensagem,
+        severidade: e.severidade || 'error',
+        origem: 'fiscal' as const,
+      }));
+    } catch (error: any) {
+      this.logger.warn(
+        `Serviço de validação fiscal indisponível: ${error.response?.status || ''} ${error.message}`,
+      );
+      remote = [
+        {
+          campo: 'servico',
+          mensagem:
+            'Serviço de validação fiscal indisponível — só o pré-flight local foi aplicado.',
+          severidade: 'warning',
+          origem: 'fiscal',
+        },
+      ];
+    }
+
+    const erros = [...local, ...remote];
+    return {
+      valido: !erros.some((e) => e.severidade === 'error'),
+      erros,
+      payload,
+    };
+  }
+
+  /** Mapeia o `status` textual do NexosFiscal (resposta de dedupe do /nfe/emit
+   * e dos eventos de webhook) para o enum FiscalStatus do ERP. */
+  private mapNexosDedupeStatus(
+    status: string,
+  ): 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'PROCESSING' {
+    const s = (status || '').toUpperCase();
+    if (s === 'AUTHORIZED' || s === 'APPROVED') return 'APPROVED';
+    if (s === 'REJECTED' || s === 'DENIED') return 'REJECTED';
+    if (s === 'CANCELLED' || s === 'CANCELED') return 'CANCELLED';
+    return 'PROCESSING';
+  }
+
+  async emitirNota(orderId: string, clinicId: string) {
+    this.logger.log(
+      `Initiating NF-e emission for Order ${orderId} in Clinic ${clinicId}`,
+    );
+
+    const { order, profile, config, apiKey, apiUrl } =
+      await this.buildEmitContext(orderId, clinicId);
+    const payload = await this.buildEmitPayload(order, config, profile);
+
+    // Pré-flight local
+    const local = this.runLocalPreflight(order, payload, profile);
+
+    // Erros de item ausente → abre o FastInputModal (mantém o fluxo atual)
+    const missingProducts = this.missingItemFiscalProducts(order);
+    if (missingProducts.length > 0) {
+      throw new BadRequestException({
+        message:
+          'Existem produtos sem dados fiscais completos (NCM, CFOP, CST, Origem). A emissão foi bloqueada.',
+        code: 'MISSING_FISCAL_DATA',
+        products: missingProducts,
+      });
+    }
+
+    const hardErrors = local.filter((e) => e.severidade === 'error');
+    if (hardErrors.length > 0) {
+      throw new BadRequestException({
+        message: 'Pré-flight fiscal falhou. Corrija os itens abaixo.',
+        code: 'PREFLIGHT_FAILED',
+        erros: hardErrors,
+      });
+    }
+
     const headers = {
       'X-API-Key': apiKey,
       'Content-Type': 'application/json',
@@ -296,19 +642,69 @@ export class FiscalService {
 
     try {
       const url = `${apiUrl}/nfe/emit`;
-      await firstValueFrom(this.httpService.post(url, payload, { headers }));
+      const resp = await firstValueFrom(
+        this.httpService.post(url, this.toTransmissionPayload(payload), {
+          headers,
+        }),
+      );
 
       // Manual upsert since orderId is not unique
       const fiscalDoc = await this.prisma.fiscalDocument.findFirst({
         where: { orderId },
       });
 
+      // O NexosFiscal deduplica por externalId: se o documento já existe
+      // (204→200 "Document already exists", com o `status` real no corpo),
+      // não é uma nova emissão — ele nunca vai disparar um novo webhook para
+      // este pedido. Sincroniza direto com esse status em vez de sobrescrever
+      // para PROCESSING, senão o documento fica "PROCESSING" para sempre.
+      const dedupeStatus: string | undefined = resp.data?.status;
+      if (dedupeStatus) {
+        const mapped = this.mapNexosDedupeStatus(dedupeStatus);
+        const data = {
+          status: mapped,
+          type: 'NFE' as const,
+          uuid: resp.data?.documentId || fiscalDoc?.uuid,
+          errorMessage:
+            mapped === 'REJECTED'
+              ? resp.data?.rejectionReason ||
+                fiscalDoc?.errorMessage ||
+                'Nota rejeitada pela SEFAZ.'
+              : null,
+        };
+        if (fiscalDoc) {
+          await this.prisma.fiscalDocument.update({
+            where: { id: fiscalDoc.id },
+            data,
+          });
+        } else {
+          await this.prisma.fiscalDocument.create({
+            data: { clinicId, orderId, ...data },
+          });
+        }
+
+        const messages: Record<string, string> = {
+          APPROVED: 'Esta Nota Fiscal já havia sido emitida e autorizada.',
+          REJECTED:
+            'Esta Nota Fiscal já foi emitida e rejeitada pela SEFAZ — corrija os dados e reemita.',
+          CANCELLED: 'Esta Nota Fiscal já havia sido cancelada.',
+          PROCESSING: 'Nota Fiscal já está em processamento.',
+        };
+        return {
+          status: mapped,
+          message: messages[mapped] || 'Nota Fiscal já emitida para este pedido.',
+        };
+      }
+
+      // Caminho normal: NexosFiscal aceitou uma emissão nova (202) e vai
+      // processar de forma assíncrona, avisando via webhook.
       if (fiscalDoc) {
         await this.prisma.fiscalDocument.update({
           where: { id: fiscalDoc.id },
           data: {
             status: 'PROCESSING',
             type: 'NFE',
+            uuid: resp.data?.documentId || fiscalDoc.uuid,
             errorMessage: null,
           },
         });
@@ -319,6 +715,7 @@ export class FiscalService {
             orderId,
             status: 'PROCESSING',
             type: 'NFE',
+            uuid: resp.data?.documentId,
           },
         });
       }
@@ -335,18 +732,23 @@ export class FiscalService {
         where: { orderId },
       });
 
+      const remoteErros = error.response?.data?.erros as any[] | undefined;
       const errorMessage =
         error.response?.data?.message ||
         error.message ||
         'Falha na comunicação com a API Fiscal.';
 
+      const stored =
+        remoteErros && remoteErros.length
+          ? `${errorMessage} — ${remoteErros
+              .map((e) => `${e.campo}: ${e.mensagem}`)
+              .join(' | ')}`
+          : errorMessage;
+
       if (errorDoc) {
         await this.prisma.fiscalDocument.update({
           where: { id: errorDoc.id },
-          data: {
-            status: 'REJECTED',
-            errorMessage: errorMessage,
-          },
+          data: { status: 'REJECTED', errorMessage: stored },
         });
       } else {
         await this.prisma.fiscalDocument.create({
@@ -355,21 +757,46 @@ export class FiscalService {
             orderId,
             status: 'REJECTED',
             type: 'NFE',
-            errorMessage: errorMessage,
+            errorMessage: stored,
           },
         });
       }
 
-      throw new BadRequestException(errorMessage);
+      throw new BadRequestException({
+        message: errorMessage,
+        code: 'FISCAL_REJECTED',
+        ...(remoteErros && remoteErros.length
+          ? {
+              erros: remoteErros.map((e) => ({ ...e, origem: 'fiscal' })),
+            }
+          : {}),
+      });
     }
   }
 
-  async getSettings(clinicId: string) {
+  async getSettings(clinicId?: string) {
+    const hasEnvCredentials = !!process.env.FISCAL_MASTER_API_KEY;
+
+    // Super admin sem clínica selecionada: devolve só o estado do ambiente,
+    // sem consultar o banco (evita findUnique com clinicId undefined → 500).
+    if (!clinicId) {
+      return {
+        hasCredentials: hasEnvCredentials,
+        source: 'env',
+        environment: '2',
+        defaultNaturezaOperacao: 'Venda de mercadoria',
+        defaultTaxClass: null,
+        defaultNcm: null,
+        defaultCest: null,
+        defaultCfop: null,
+        defaultCst: null,
+        defaultOrigin: 0,
+      };
+    }
+
     const config = await this.prisma.clinicFiscalConfig.findUnique({
       where: { clinicId },
     });
-
-    const hasEnvCredentials = !!process.env.FISCAL_MASTER_API_KEY;
 
     if (!config) {
       return {
@@ -410,6 +837,28 @@ export class FiscalService {
         clinicId,
         ...dto,
       },
+    });
+  }
+
+  // ── Perfil fiscal do emitente ──────────────────────────────────────────
+
+  async getFiscalProfile(clinicId?: string) {
+    if (!clinicId) return null;
+    return this.prisma.fiscalProfile.findUnique({ where: { clinicId } });
+  }
+
+  async upsertFiscalProfile(clinicId: string, dto: UpsertFiscalProfileDto) {
+    if (!clinicId) {
+      throw new BadRequestException('Clínica não identificada.');
+    }
+    const data = {
+      ...dto,
+      uf: dto.uf ? dto.uf.trim().toUpperCase() : undefined,
+    };
+    return this.prisma.fiscalProfile.upsert({
+      where: { clinicId },
+      update: data,
+      create: { clinicId, ...data },
     });
   }
 
@@ -461,5 +910,65 @@ export class FiscalService {
       `Updated FiscalDocument for Order ${orderId} to ${newStatus}`,
     );
     return { status: 'SUCCESS' };
+  }
+
+  /**
+   * Baixa o XML autorizado ou o DANFE de um FiscalDocument, fazendo proxy
+   * autenticado (X-API-Key) para o NexosFiscal. O serviço fiscal removeu o
+   * acesso público a /storage, então o ERP precisa buscar pelos endpoints
+   * autenticados GET /nfe/{documentId}/{xml|danfe}.
+   */
+  async downloadFiscalFile(
+    fiscalDocumentId: string,
+    clinicId: string,
+    kind: 'xml' | 'danfe',
+  ): Promise<{ data: Buffer; contentType: string; filename: string }> {
+    const doc = await this.prisma.fiscalDocument.findFirst({
+      where: { id: fiscalDocumentId, clinicId }, // escopo por clínica
+    });
+    if (!doc) {
+      throw new NotFoundException('Documento fiscal não encontrado.');
+    }
+    if (!doc.uuid) {
+      throw new BadRequestException(
+        'Documento fiscal ainda sem referência no serviço fiscal.',
+      );
+    }
+
+    const { apiUrl, apiKey } = await this.resolveFiscalCreds(clinicId);
+    const path = kind === 'xml' ? 'xml' : 'danfe';
+
+    let resp;
+    try {
+      resp = await firstValueFrom(
+        this.httpService.get(`${apiUrl}/nfe/${doc.uuid}/${path}`, {
+          headers: { 'X-API-Key': apiKey },
+          responseType: 'arraybuffer',
+        }),
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `Falha ao baixar ${kind} do doc ${fiscalDocumentId}: ${
+          error.response?.status || ''
+        } ${error.message}`,
+      );
+      if (error.response?.status === 404) {
+        throw new NotFoundException(
+          `Arquivo ${kind.toUpperCase()} não disponível no serviço fiscal.`,
+        );
+      }
+      throw new BadRequestException(
+        `Não foi possível obter o ${kind.toUpperCase()} do serviço fiscal.`,
+      );
+    }
+
+    const contentType = kind === 'xml' ? 'application/xml' : 'application/pdf';
+    const ext = kind === 'xml' ? 'xml' : 'pdf';
+    const base = doc.key || doc.uuid;
+    return {
+      data: Buffer.from(resp.data),
+      contentType,
+      filename: `${base}-${kind === 'xml' ? 'procNFe' : 'danfe'}.${ext}`,
+    };
   }
 }
