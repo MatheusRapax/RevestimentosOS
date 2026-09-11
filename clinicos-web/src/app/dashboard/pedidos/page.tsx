@@ -26,18 +26,11 @@ import {
     Receipt,
     AlertTriangle
 } from 'lucide-react';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useOrders } from '@/hooks/useOrders';
 import { FastInputModal } from './components/FastInputModal';
+import { FiscalReviewModal } from './components/FiscalReviewModal';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
     CRIADO: { label: 'Novo / Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
@@ -109,7 +102,7 @@ export default function OrdersPage() {
     // Fast Input Fiscal State
     const [missingFiscalProducts, setMissingFiscalProducts] = useState<any[]>([]);
     const [isFastInputModalOpen, setIsFastInputModalOpen] = useState(false);
-    const [isEmitConfirmOpen, setIsEmitConfirmOpen] = useState(false);
+    const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
     useEffect(() => {
         if (isConfirmingPayment && selectedOrder) {
@@ -163,12 +156,11 @@ export default function OrdersPage() {
     };
 
     const handleEmitFiscalClick = () => {
-        setIsEmitConfirmOpen(true);
+        setIsReviewModalOpen(true);
     };
 
     const handleEmitFiscal = async () => {
         if (!displayOrder?.id) return;
-        setIsEmitConfirmOpen(false);
         setIsEmitting(true);
         try {
             const response = await api.post(`/fiscal/emit/${displayOrder.id}`);
@@ -339,22 +331,6 @@ export default function OrdersPage() {
         onError: (error: any) => {
             const msg = error.response?.data?.message || 'Erro ao atualizar data de entrega';
             toast.error(msg);
-        }
-    });
-
-    // Fiscal Emission Mutation
-    const emitFiscalMutation = useMutation({
-        mutationFn: async () => {
-            const response = await api.post(`/fiscal/emit/${selectedOrder.id}`);
-            return response.data;
-        },
-        onSuccess: (data) => {
-            toast.success('Emissão de NF-e iniciada! Acompanhe o status.');
-            // Invalidating orders might not be enough if status is async, but good start
-            queryClient.invalidateQueries({ queryKey: ['orders'] });
-        },
-        onError: (err: any) => {
-            toast.error(err.response?.data?.message || 'Erro ao emitir NF-e');
         }
     });
 
@@ -1188,11 +1164,10 @@ export default function OrdersPage() {
                                     <Button
                                         variant="outline"
                                         className="flex-1 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                                        onClick={() => emitFiscalMutation.mutate()}
-                                        disabled={emitFiscalMutation.isPending}
+                                        onClick={handleEmitFiscalClick}
                                     >
                                         <Receipt className="h-4 w-4 mr-2" />
-                                        {emitFiscalMutation.isPending ? 'Emitindo...' : 'Emitir NF-e'}
+                                        Emitir NF-e
                                     </Button>
                                 )}
 
@@ -1367,25 +1342,19 @@ export default function OrdersPage() {
                 onSuccess={() => handleEmitFiscal()} 
             />
 
-            <Dialog open={isEmitConfirmOpen} onOpenChange={setIsEmitConfirmOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Emitir Nota Fiscal</DialogTitle>
-                        <DialogDescription>
-                            Deseja realmente emitir a Nota Fiscal para este pedido?
-                            Essa ação enviará os dados para o servidor da SEFAZ.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="mt-4">
-                        <Button variant="outline" onClick={() => setIsEmitConfirmOpen(false)}>
-                            Cancelar
-                        </Button>
-                        <Button onClick={handleEmitFiscal} className="bg-blue-600 hover:bg-blue-700 text-white">
-                            Confirmar Emissão
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <FiscalReviewModal
+                isOpen={isReviewModalOpen}
+                onClose={() => setIsReviewModalOpen(false)}
+                orderId={displayOrder?.id || null}
+                onMissingFiscalData={(products) => {
+                    setMissingFiscalProducts(products);
+                    setIsFastInputModalOpen(true);
+                }}
+                onEmitted={() => {
+                    refetchDetails();
+                    queryClient.invalidateQueries({ queryKey: ['orders'] });
+                }}
+            />
         </div>
     );
 }
