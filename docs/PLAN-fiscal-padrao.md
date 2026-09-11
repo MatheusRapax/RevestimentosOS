@@ -1,5 +1,19 @@
 # Plano — Padrão fiscal correto (ERP ⟷ NexosFiscal)
 
+> **Status (2026-09-11):** Passos 1–6 da ordem sugerida abaixo estão ✅ **implementados e
+> testados** — `FiscalProfile` + campos fiscais de `Customer`/`Product` (Fase 0.1/0.2/0.3),
+> pré-flight forte + `POST /fiscal/validate/:orderId` (Fase 2.1/2.2), motor de CFOP + tax
+> calculator (Fase 1) rodando sobre as tabelas `RegraIcms`/`RegraPisCofins`/`RegraIpi` com seed
+> genérico (Fase 0.4), e a tela de revisão fiscal com preenchimento rápido e acesso à
+> Configuração Fiscal (Fase 2.3). Relatório completo de QA end-to-end em
+> `docs/QA-FISCAL-FINDINGS.md` (4 bugs achados e corrigidos, commit `8b54dc0`).
+>
+> **Pendente:** Fase 2.4 (fluxo de rejeição/reemissão — ver nota abaixo sobre reemissão
+> permanecer travada por `externalId` no NexosFiscal, mesmo já corrigida a sincronização de
+> status no ERP), importador de tabela NCM oficial, tabela real de alíquotas (a seed atual é
+> **genérica/placeholder**, sinalizada para revisão contábil), e NFC-e (modelo 65, não
+> implementado — só modelado nos campos).
+
 Objetivo: sair do estado atual (dados fiscais chumbados, CFOP fixo por produto, validação só
 de formato) para um emissor de NF-e sólido, com **flexibilidade para o operador** e **validação
 antes de enviar**.
@@ -203,20 +217,28 @@ Enquanto o `Fiscal__Transmitter` estiver em `mock`, dá para desenvolver e valid
 
 ## Ordem sugerida de execução no ERP
 
-1. **Fase 0.1 + 0.3** — `FiscalProfile` e campos fiscais do `Customer` (migrations + telas). Sem isso, nada fecha.
-2. **Fase 0.2** — campos fiscais do `Product` + importador de NCM.
-3. **Fase 2.1 + 2.2** — pré-flight forte + `POST /fiscal/validate/:orderId` (já dá para chamar o `/nfe/validate` do NexosFiscal).
-4. **Fase 1** — motor de CFOP + tax calculator + operações (começa com 3 operações).
-5. **Fase 0.4** — tabelas de tributação (paralelo à Fase 1, com o contador).
-6. **Fase 2.3** — tela de revisão consumindo tudo.
-7. **Fase 2.4** — fluxo de rejeição/reemissão.
+1. ✅ **Fase 0.1 + 0.3** — `FiscalProfile` e campos fiscais do `Customer` (migrations + telas). Sem isso, nada fecha.
+2. ✅ **Fase 0.2** — campos fiscais do `Product`. *(Importador de tabela NCM oficial ainda não feito — validação continua só de formato, 8 dígitos.)*
+3. ✅ **Fase 2.1 + 2.2** — pré-flight forte + `POST /fiscal/validate/:orderId` (já chama o `/nfe/validate` do NexosFiscal e combina os erros).
+4. ✅ **Fase 1** — motor de CFOP + tax calculator, cobrindo Venda (mesma UF/interestadual, com/sem contribuinte) e Devolução.
+5. ✅ **Fase 0.4** — tabelas `RegraIcms`/`RegraPisCofins`/`RegraIpi` com seed genérico (Normal × Simples, mesma-UF × interestadual) — **placeholder**, precisa de revisão contábil antes de operar com alíquotas reais.
+6. ✅ **Fase 2.3** — tela de revisão fiscal, preenchimento rápido de item incompleto e acesso rápido à Configuração Fiscal.
+7. ⏳ **Fase 2.4** — fluxo de rejeição/reemissão. Ainda não implementada; ver nota abaixo — o
+   NexosFiscal deduplica por `externalId` independente do status, então corrigir e reemitir uma
+   nota rejeitada pode exigir decisão de contrato (reprocessar o mesmo `externalId` quando o
+   status é terminal-de-falha, endpoint dedicado de retry, ou o ERP gerar um novo `externalId` por
+   tentativa).
 
 ## Contrato com o NexosFiscal (resumo para não divergir)
 
 - Base URL: `FISCAL_MICROSERVICE_URL` · auth: `X-API-Key` do tenant.
 - `POST /nfe/validate` — body = `EmitNfeRequest`; resp `200 { valido, erros:[{campo, mensagem, severidade}] }`.
 - `POST /nfe/emit` — mesmo body; roda o pré-flight; `400 { message, erros[] }` se houver `error`,
-  senão `202 { DocumentId }` e resultado via webhook.
+  senão `202 { message, documentId }` (documento novo, na fila) e resultado via webhook. Se já
+  existe um documento para aquele `externalId` (qualquer status), responde `200
+  { message: "Document already exists.", documentId, status }` **sem** disparar novo webhook — o
+  ERP precisa ler esse `status` da resposta e sincronizar direto (feito em
+  `fiscal.service.ts::emitirNota`), senão a nota fica presa em `PROCESSING` mesmo já aprovada.
 - Campos do `EmitNfeRequest`: ver `NexosFiscal/docs/API_REFERENCE.md`. Documento e CEP **só dígitos**
   (já corrigido no `fiscal.service.ts` — `ERP-1`).
 - Numeração: **não** alocar no ERP; o NexosFiscal atribui na autorização.

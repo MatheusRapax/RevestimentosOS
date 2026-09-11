@@ -232,6 +232,120 @@ const GROUPS: Group[] = [
                     <><b>Gerar Boleto</b> (aba Financeiro) só para pedido <b>não pago</b>; não gera duplicado.</>,
                 ],
             },
+            {
+                id: 'nfe',
+                path: 'Comercial › Pedidos › Nota Fiscal',
+                title: 'Emissão de Nota Fiscal (NF-e)',
+                lead: (
+                    <>
+                        No card <b>Nota Fiscal</b> do pedido, o botão <b>Emitir Nota</b> abre a{' '}
+                        <b>Revisão Fiscal</b> — uma conferência automática antes de qualquer coisa ir para a SEFAZ.
+                        CFOP, ICMS, PIS e COFINS são <b>calculados sozinhos</b> a partir do cadastro do cliente e do
+                        Perfil do Emitente — você não digita alíquota nem CFOP na hora de emitir.
+                    </>
+                ),
+                flow: [
+                    { label: 'Emitir Nota', tone: 'mut' },
+                    { label: 'Revisão Fiscal', tone: 'info' },
+                    { label: 'Processando', tone: 'warn' },
+                    { label: 'Aprovada', tone: 'ok' },
+                ],
+                notes: [
+                    {
+                        tone: 'crit',
+                        label: 'Se a revisão bloquear a emissão',
+                        body: (
+                            <>
+                                Falta <b>NCM, CFOP, CST ou Origem</b> em algum produto → o botão vira{' '}
+                                <Mono>Preencher Dados e Emitir</Mono>: preencha ali mesmo e a nota já sai emitida
+                                em seguida, sem precisar clicar em emitir de novo. Falta <b>código IBGE do
+                                cliente</b> ou outro dado de cadastro → aparece um atalho <Mono>Editar Cliente</Mono>{' '}
+                                (ou <Mono>Configuração Fiscal</Mono>, se o problema for no cadastro da loja) direto
+                                no aviso.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Avisos não bloqueiam',
+                        body: (
+                            <>
+                                A revisão também mostra <b>avisos</b> em amarelo (ex.: desconto no pedido que ainda
+                                não vai como desconto na nota, ou pedido cuja loja ainda não tem uma regra de
+                                imposto cadastrada para aquele caso) — o botão muda para{' '}
+                                <Mono>Emitir Mesmo Assim</Mono> e a emissão segue normalmente.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'Depois de emitida',
+                        body: (
+                            <>
+                                O status atualiza sozinho na tela (a SEFAZ responde em segundos a minutos) — não
+                                precisa recarregar a página. Nota <b>Aprovada</b> libera os botões <Mono>XML</Mono>{' '}
+                                e <Mono>PDF</Mono> (DANFE) no mesmo card. Pedido cujo <b>status ainda não está
+                                confirmado/pago</b> não deixa emitir — regularize o pagamento primeiro.
+                            </>
+                        ),
+                    },
+                ],
+                steps: [
+                    <>Abra o pedido → card <b>Nota Fiscal</b> → <b>Emitir Nota</b>.</>,
+                    <>A <b>Revisão Fiscal</b> mostra o destinatário e os itens já com CFOP e impostos calculados.
+                        Sem erros → <b>Confirmar e Emitir</b>.</>,
+                    <>Com erro de produto → preencha NCM/CFOP/CST/Origem no formulário que abre e confirme; a
+                        emissão continua sozinha.</>,
+                    <>Com erro de cadastro (cliente ou loja) → use o atalho mostrado no aviso, corrija e volte em{' '}
+                        <b>Emitir Nota</b>.</>,
+                    <>Acompanhe o status no próprio card; quando aprovar, baixe <b>XML</b> e <b>PDF</b> ali mesmo.</>,
+                ],
+            },
+            {
+                id: 'fiscal-config',
+                path: 'Administração › Configuração Fiscal',
+                title: 'Configuração Fiscal da loja',
+                lead: (
+                    <>
+                        Os dados fiscais da própria loja (usados em <b>toda</b> nota emitida): CNPJ, Inscrição
+                        Estadual, regime tributário e endereço do emitente, o certificado digital e os padrões
+                        usados quando um produto não tem configuração própria. Quem tem a permissão de{' '}
+                        <Mono>fiscal.config</Mono> acessa direto — não precisa ser super admin.
+                    </>
+                ),
+                notes: [
+                    {
+                        tone: 'warn',
+                        label: 'Código IBGE precisa casar com a UF',
+                        body: (
+                            <>
+                                O <b>Código IBGE do Município</b> do Perfil do Emitente tem que corresponder à{' '}
+                                <b>UF</b> informada — é um dos motivos mais comuns de a Revisão Fiscal bloquear a
+                                emissão. Os dois primeiros dígitos do código IBGE identificam o estado.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'Regime Tributário decide o cálculo',
+                        body: (
+                            <>
+                                O <b>Regime Tributário (CRT)</b> aqui é o que o motor de impostos usa para
+                                escolher a alíquota de ICMS/PIS/COFINS de cada nota — Simples Nacional recolhe
+                                esses impostos embutidos no DAS (alíquota 0% na nota); Regime Normal calcula a
+                                alíquota cheia. Mudar o CRT aqui muda o cálculo de <b>todas</b> as próximas
+                                emissões.
+                            </>
+                        ),
+                    },
+                ],
+                steps: [
+                    <>Preencha o <b>Perfil do Emitente</b> primeiro (CNPJ, IE, endereço, código IBGE, regime) e{' '}
+                        <b>Salvar Perfil</b>.</>,
+                    <>Configure o <b>certificado digital A1</b> (.pfx) em <b>Setup Inicial</b> — obrigatório para
+                        emitir de verdade.</>,
+                    <>Ajuste as <b>Regras de Emissão</b> (ambiente de homologação/produção e padrões de
+                        NCM/CFOP/CST/Origem) se necessário.</>,
+                ],
+            },
         ],
     },
     {
