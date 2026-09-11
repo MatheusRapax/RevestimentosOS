@@ -38,15 +38,69 @@ interface FiscalSettingsFormProps {
     clinicId?: string;
 }
 
+const EMPTY_PROFILE = {
+    cnpj: '', ie: '', im: '', crt: '3', cnae: '',
+    logradouro: '', numero: '', complemento: '', bairro: '',
+    municipioIbge: '', municipioNome: '', uf: '', cep: '',
+    serieNfe: '1',
+};
+
 export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isSavingSetup, setIsSavingSetup] = useState(false);
     const [settings, setSettings] = useState<FiscalSettings | null>(null);
 
+    const [profile, setProfile] = useState<Record<string, string>>({ ...EMPTY_PROFILE });
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
+
     const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FiscalSettings>();
 
+    async function loadProfile() {
+        try {
+            const resp = await api.get('/fiscal/profile', {
+                params: { clinicId },
+                headers: clinicId ? { 'X-Clinic-Id': clinicId } : {},
+            });
+            if (resp.data) {
+                setProfile({
+                    ...EMPTY_PROFILE,
+                    ...Object.fromEntries(
+                        Object.entries(resp.data).map(([k, v]) => [k, v == null ? '' : String(v)]),
+                    ),
+                });
+            } else {
+                setProfile({ ...EMPTY_PROFILE });
+            }
+        } catch {
+            setProfile({ ...EMPTY_PROFILE });
+        }
+    }
+
+    async function saveProfile() {
+        setIsSavingProfile(true);
+        try {
+            const body: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(profile)) {
+                if (v === '' || v == null) continue;
+                if (k === 'crt' || k === 'serieNfe' || k === 'serieNfce') body[k] = Number(v);
+                else body[k] = v;
+            }
+            await api.put('/fiscal/profile', body, {
+                params: { clinicId },
+                headers: clinicId ? { 'X-Clinic-Id': clinicId } : {},
+            });
+            toast.success('Perfil do emitente salvo.');
+            loadProfile();
+        } catch (e: any) {
+            toast.error(e.response?.data?.message?.[0] || e.response?.data?.message || 'Erro ao salvar o perfil do emitente.');
+        } finally {
+            setIsSavingProfile(false);
+        }
+    }
+
     useEffect(() => {
+        loadProfile();
         loadSettings();
     }, [clinicId]);
 
@@ -105,27 +159,34 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             return;
         }
 
-        if (!data.document || !data.name || !data.password) {
-            toast.error('Preencha todos os campos do setup.');
+        if (!data.name || !data.password) {
+            toast.error('Informe a Razão Social e a senha do certificado.');
             return;
         }
 
-        if (!data.uf || !data.cityCode) {
-            toast.error('Informe a UF e o código IBGE do município da loja.');
+        if (!data.document && !profile.cnpj) {
+            toast.error('Informe o CNPJ aqui ou no Perfil do Emitente.');
+            return;
+        }
+
+        const hasProfileAddress = !!(profile.uf && profile.municipioIbge);
+        if (!hasProfileAddress && (!data.uf || !data.cityCode)) {
+            toast.error('Informe UF e código IBGE no Perfil do Emitente antes do setup.');
             return;
         }
 
         setIsSavingSetup(true);
         try {
             const formData = new FormData();
-            formData.append('document', data.document);
+            if (data.document) formData.append('document', data.document);
             formData.append('name', data.name);
             formData.append('password', data.password);
             formData.append('certificate', data.certificate[0]);
+            // Campos abaixo são override; se em branco, o backend usa o Perfil do Emitente.
             if (data.ie) formData.append('ie', data.ie);
-            formData.append('uf', data.uf);
-            formData.append('cityCode', data.cityCode);
-            formData.append('crt', data.crt || '3');
+            if (data.uf) formData.append('uf', data.uf);
+            if (data.cityCode) formData.append('cityCode', data.cityCode);
+            if (data.crt) formData.append('crt', data.crt);
 
             await api.post('/fiscal/setup', formData, {
                 params: { clinicId },
@@ -197,6 +258,96 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                 </CardContent>
             </Card>
 
+            {/* Perfil do Emitente */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Perfil do Emitente</CardTitle>
+                    <CardDescription>
+                        Identidade fiscal da loja emissora. É a fonte destes dados para a NF-e —
+                        e o padrão usado no setup do NexosFiscal.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                            <Label>CNPJ <span className="text-xs text-gray-400">(14 dígitos)</span></Label>
+                            <Input value={profile.cnpj} onChange={(e) => setProfile({ ...profile, cnpj: e.target.value.replace(/\D/g, '') })} maxLength={14} placeholder="00000000000000" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Inscrição Estadual</Label>
+                            <Input value={profile.ie} onChange={(e) => setProfile({ ...profile, ie: e.target.value })} placeholder="Número ou ISENTO" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Inscrição Municipal</Label>
+                            <Input value={profile.im} onChange={(e) => setProfile({ ...profile, im: e.target.value })} placeholder="Opcional" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Regime Tributário (CRT)</Label>
+                            <Select value={profile.crt} onValueChange={(v) => setProfile({ ...profile, crt: v })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="1">1 - Simples Nacional</SelectItem>
+                                    <SelectItem value="2">2 - Simples Nacional, excesso de sublimite</SelectItem>
+                                    <SelectItem value="3">3 - Regime Normal</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>CNAE Principal</Label>
+                            <Input value={profile.cnae} onChange={(e) => setProfile({ ...profile, cnae: e.target.value })} placeholder="Opcional" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Série NF-e</Label>
+                            <Input type="number" min={1} value={profile.serieNfe} onChange={(e) => setProfile({ ...profile, serieNfe: e.target.value })} />
+                        </div>
+                    </div>
+
+                    <div className="border-t pt-4">
+                        <h3 className="text-sm font-medium mb-4 text-gray-900">Endereço do Emitente</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2 md:col-span-2">
+                                <Label>Logradouro</Label>
+                                <Input value={profile.logradouro} onChange={(e) => setProfile({ ...profile, logradouro: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Número</Label>
+                                <Input value={profile.numero} onChange={(e) => setProfile({ ...profile, numero: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Complemento</Label>
+                                <Input value={profile.complemento} onChange={(e) => setProfile({ ...profile, complemento: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Bairro</Label>
+                                <Input value={profile.bairro} onChange={(e) => setProfile({ ...profile, bairro: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>CEP <span className="text-xs text-gray-400">(8 dígitos)</span></Label>
+                                <Input value={profile.cep} onChange={(e) => setProfile({ ...profile, cep: e.target.value.replace(/\D/g, '') })} maxLength={8} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Município</Label>
+                                <Input value={profile.municipioNome} onChange={(e) => setProfile({ ...profile, municipioNome: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Código IBGE <span className="text-xs text-gray-400">(7 díg — casa com a UF)</span></Label>
+                                <Input value={profile.municipioIbge} onChange={(e) => setProfile({ ...profile, municipioIbge: e.target.value.replace(/\D/g, '') })} maxLength={7} placeholder="Ex: 3550308" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>UF</Label>
+                                <Input value={profile.uf} onChange={(e) => setProfile({ ...profile, uf: e.target.value.toUpperCase().slice(0, 2) })} maxLength={2} placeholder="Ex: SP" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                        <Button type="button" onClick={saveProfile} disabled={isSavingProfile}>
+                            {isSavingProfile ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</>) : 'Salvar Perfil'}
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
             {/* Setup Form */}
             <form onSubmit={handleSubmit(onSubmitSetup)}>
                 <Card className="mb-6 border-blue-200">
@@ -207,39 +358,18 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6 pt-6">
+                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                            Preencha o <strong>Perfil do Emitente</strong> acima antes de subir o certificado —
+                            CNPJ, UF, município e regime vêm de lá.
+                        </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>CNPJ da Loja</Label>
-                                <Input {...register('document', { required: true })} placeholder="Ex: 00.000.000/0000-00" />
+                                <Label>CNPJ da Loja <span className="text-xs text-gray-400">(opcional se no Perfil)</span></Label>
+                                <Input {...register('document')} placeholder="Ex: 00.000.000/0000-00" />
                             </div>
                             <div className="space-y-2">
                                 <Label>Razão Social</Label>
                                 <Input {...register('name', { required: true })} placeholder="Ex: Loja de Revestimentos LTDA" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Inscrição Estadual</Label>
-                                <Input {...register('ie')} placeholder="Opcional (ou ISENTO)" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>UF</Label>
-                                <Input {...register('uf', { required: true })} maxLength={2} placeholder="Ex: SP" className="uppercase" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Código do Município (IBGE)</Label>
-                                <Input {...register('cityCode', { required: true })} maxLength={7} placeholder="7 dígitos — ex: 3550308 (São Paulo)" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Regime Tributário (CRT)</Label>
-                                <Select defaultValue="3" onValueChange={(val) => setValue('crt', val)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione o regime" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="1">1 - Simples Nacional</SelectItem>
-                                        <SelectItem value="2">2 - Simples Nacional, excesso de sublimite</SelectItem>
-                                        <SelectItem value="3">3 - Regime Normal</SelectItem>
-                                    </SelectContent>
-                                </Select>
                             </div>
                             <div className="space-y-2">
                                 <Label>Certificado Digital A1 (.pfx)</Label>

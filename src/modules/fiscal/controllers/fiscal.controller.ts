@@ -22,6 +22,7 @@ import { Permissions } from '../../../core/rbac/decorators/permissions.decorator
 import { PERMISSIONS } from '../../../core/rbac/permissions';
 import { CurrentUser } from '../../../core/auth/decorators/current-user.decorator';
 import { UpdateFiscalSettingsDto } from '../dto/update-fiscal-settings.dto';
+import { UpsertFiscalProfileDto } from '../dto/upsert-fiscal-profile.dto';
 import { Public } from '../../../core/auth/decorators/public.decorator';
 import { Request, Response } from 'express';
 import * as crypto from 'crypto';
@@ -96,6 +97,31 @@ export class FiscalController {
     const targetClinicId =
       user.isSuperAdmin && clinicId ? clinicId : user.clinicId;
     return this.fiscalService.updateSettings(targetClinicId, dto);
+  }
+
+  @Get('profile')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async getFiscalProfile(
+    @Req() req: any,
+    @CurrentUser() user: any,
+    @Query('clinicId') clinicId?: string,
+  ) {
+    const targetClinicId =
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
+    return this.fiscalService.getFiscalProfile(targetClinicId);
+  }
+
+  @Put('profile')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async upsertFiscalProfile(
+    @Body() dto: UpsertFiscalProfileDto,
+    @Req() req: any,
+    @CurrentUser() user: any,
+    @Query('clinicId') clinicId?: string,
+  ) {
+    const targetClinicId =
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
+    return this.fiscalService.upsertFiscalProfile(targetClinicId, dto);
   }
 
   @Post('setup')

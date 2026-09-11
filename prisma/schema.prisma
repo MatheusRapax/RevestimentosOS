@@ -169,6 +169,7 @@ model Clinic {
   scheduleBlocks       ScheduleBlock[]
   fiscalDocuments      FiscalDocument[]
   fiscalConfig         ClinicFiscalConfig?
+  fiscalProfile        FiscalProfile?
 
   categories               Category[]
   brands                   Brand[]
@@ -1153,6 +1154,13 @@ model Customer {
   state         String?
   zipCode       String?
 
+  // Fiscal (destinatário da NF-e)
+  indicadorIe     Int?     // 1=Contribuinte ICMS, 2=Isento de IE, 9=Não contribuinte
+  municipioIbge   String?  // 7 dígitos — precisa casar com o `state`
+  countryCode     String?  @default("1058") // 1058 = Brasil
+  consumidorFinal Boolean  @default(true) // varejo: por padrão sim
+  suframa         String?  // inscrição SUFRAMA (Zona Franca), quando aplicável
+
   // Relacionamentos
   architectId String? // Arquiteto que indicou
   architect   Architect? @relation(fields: [architectId], references: [id])
@@ -1807,6 +1815,44 @@ model ClinicFiscalConfig {
   defaultCfop             String?
   defaultCst              String?
   defaultOrigin           Int?    @default(0) // 0=Nacional, etc.
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+}
+
+// Fiscal: perfil fiscal do EMITENTE (a loja). 1:1 com Clinic.
+// Separado do ClinicFiscalConfig (que é credencial de integração + defaults de item)
+// porque isto é identidade + endereço + numeração da empresa emissora.
+model FiscalProfile {
+  id       String @id @default(uuid())
+  clinicId String @unique
+
+  // Identidade
+  cnpj String? // 14 dígitos
+  ie   String? // Inscrição Estadual (ou "ISENTO")
+  im   String? // Inscrição Municipal
+  crt  Int     @default(3) // 1=Simples Nacional, 2=SN excesso sublimite, 3=Regime Normal
+  cnae String?
+
+  // Endereço do emitente
+  logradouro    String?
+  numero        String?
+  complemento   String?
+  bairro        String?
+  municipioIbge String? // 7 dígitos — precisa casar com a UF
+  municipioNome String?
+  uf            String? // 2 letras
+  cep           String? // 8 dígitos
+
+  // Numeração / séries (informativo; hoje o NexosFiscal fixa série 1)
+  serieNfe  Int @default(1)
+  serieNfce Int @default(1)
+
+  // NFC-e (modelo 65) — fluxo ainda não implementado
+  cscId    String?
+  cscToken String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 }

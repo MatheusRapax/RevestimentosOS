@@ -9,6 +9,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { UpdateFiscalSettingsDto } from '../dto/update-fiscal-settings.dto';
+import { UpsertFiscalProfileDto } from '../dto/upsert-fiscal-profile.dto';
 import FormData from 'form-data';
 
 @Injectable()
@@ -63,22 +64,28 @@ export class FiscalService {
     }
 
     // Ambiente vem do default fiscal da clínica ("1"=produção, "2"=homologação)
-    const existing = await this.prisma.clinicFiscalConfig.findUnique({
-      where: { clinicId },
-    });
+    const [existing, profile] = await Promise.all([
+      this.prisma.clinicFiscalConfig.findUnique({ where: { clinicId } }),
+      this.prisma.fiscalProfile.findUnique({ where: { clinicId } }),
+    ]);
     const environment =
       existing?.environment === '1' ? 'producao' : 'homologacao';
 
-    // A API do NexosFiscal exige a identidade fiscal do emitente na criação do tenant.
-    const cnpj = (document || '').replace(/\D/g, '');
-    const cityCode = (fiscal?.cityCode || '').replace(/\D/g, '');
+    // A API do NexosFiscal exige a identidade fiscal do emitente na criação do
+    // tenant. Os campos do formulário de setup são overrides; o padrão é o
+    // Perfil do Emitente (FiscalProfile).
+    const cnpj = (document || profile?.cnpj || '').replace(/\D/g, '');
+    const cityCode = (fiscal?.cityCode || profile?.municipioIbge || '').replace(
+      /\D/g,
+      '',
+    );
     const tenantPayload = {
       name,
       cnpj,
-      ie: fiscal?.ie?.trim() || undefined,
-      uf: (fiscal?.uf || '').trim().toUpperCase(),
+      ie: (fiscal?.ie || profile?.ie)?.trim() || undefined,
+      uf: (fiscal?.uf || profile?.uf || '').trim().toUpperCase(),
       cityCode,
-      crt: Number(fiscal?.crt) || 3, // 1=Simples, 2=Simples excesso, 3=Regime normal
+      crt: Number(fiscal?.crt) || profile?.crt || 3, // 1=Simples, 2=Simples excesso, 3=Regime normal
       environment,
     };
 
@@ -266,6 +273,12 @@ export class FiscalService {
     const customerDoc = (order.customer.document || '').replace(/\D/g, '');
     const customerCep = (order.customer.zipCode || '01001000').replace(/\D/g, '');
 
+    if (!order.customer.municipioIbge) {
+      this.logger.warn(
+        `Cliente ${order.customer.id} sem código IBGE do município — usando fallback 3550308. Cadastre o código para evitar rejeição da SEFAZ.`,
+      );
+    }
+
     const payload = {
       externalId: order.id,
       naturezaOperacao:
@@ -278,9 +291,9 @@ export class FiscalService {
         endereco: {
           logradouro:
             logradouro || order.customer.address || 'Rua não informada',
-          numero: numero || 'S/N',
+          numero: order.customer.addressNumber || numero || 'S/N',
           bairro: order.customer.neighborhood || 'Centro',
-          codigoMunicipio: '3550308', // Default until IBGE codes are added to Customer model
+          codigoMunicipio: order.customer.municipioIbge || '3550308',
           municipio: order.customer.city || 'São Paulo',
           uf: order.customer.state || 'SP',
           cep: customerCep,
@@ -486,6 +499,28 @@ export class FiscalService {
         clinicId,
         ...dto,
       },
+    });
+  }
+
+  // ── Perfil fiscal do emitente ──────────────────────────────────────────
+
+  async getFiscalProfile(clinicId?: string) {
+    if (!clinicId) return null;
+    return this.prisma.fiscalProfile.findUnique({ where: { clinicId } });
+  }
+
+  async upsertFiscalProfile(clinicId: string, dto: UpsertFiscalProfileDto) {
+    if (!clinicId) {
+      throw new BadRequestException('Clínica não identificada.');
+    }
+    const data = {
+      ...dto,
+      uf: dto.uf ? dto.uf.trim().toUpperCase() : undefined,
+    };
+    return this.prisma.fiscalProfile.upsert({
+      where: { clinicId },
+      update: data,
+      create: { clinicId, ...data },
     });
   }
 
