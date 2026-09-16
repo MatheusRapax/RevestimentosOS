@@ -89,6 +89,12 @@ export class QuotesController {
     return this.quotesService.update(id, req.clinicId, updateQuoteDto);
   }
 
+  @Post(':id/refresh-prices')
+  @Permissions(PERMISSIONS.QUOTE_UPDATE)
+  refreshPrices(@Request() req: any, @Param('id') id: string) {
+    return this.quotesService.refreshPrices(id, req.clinicId);
+  }
+
   @Post(':id/send')
   @Permissions(PERMISSIONS.QUOTE_SEND)
   sendQuote(@Request() req: any, @Param('id') id: string) {

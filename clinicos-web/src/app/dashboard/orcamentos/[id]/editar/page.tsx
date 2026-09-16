@@ -24,6 +24,8 @@ import {
     Check,
     Boxes,
     BadgePercent,
+    RefreshCw,
+    Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { StockLotSelector } from '@/components/stock/StockLotSelector';
@@ -87,6 +89,7 @@ export default function EditOrcamentoPage() {
     const params = useParams();
     const quoteId = params.id as string;
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const originalItemsRef = useRef<QuoteItem[]>([]);
@@ -524,6 +527,49 @@ export default function EditOrcamentoPage() {
         }
     };
 
+    // Puxa o preço ATUAL do catálogo (produto + promoção ativa) para cada
+    // item — ação explícita, nada muda sozinho ao só abrir o orçamento,
+    // porque o preço aqui pode ter sido negociado manualmente com o cliente.
+    const handleRefreshPrices = async () => {
+        try {
+            setIsRefreshingPrices(true);
+            const { data } = await api.post(`/quotes/${quoteId}/refresh-prices`);
+
+            if (data.updatedCount === 0) {
+                toast.success('Os preços já estão atualizados — nada mudou.');
+                return;
+            }
+
+            const mappedItems = data.quote.items.map((item: any) => ({
+                id: item.id,
+                productId: item.productId,
+                product: item.product,
+                inputArea: item.inputArea || 0,
+                quantityBoxes: item.quantityBoxes,
+                resultingArea: item.resultingArea,
+                unitPriceCents: item.unitPriceCents,
+                marginPercent: item.marginPercent ?? '',
+                discountPercent: item.discountPercent || 0,
+                discountCents: item.discountCents || 0,
+                totalCents: item.totalCents || 0,
+                preferredLotId: item.preferredLotId || undefined,
+                environmentId: item.environmentId || undefined,
+            }));
+            setItems(mappedItems);
+            originalItemsRef.current = mappedItems;
+
+            const plural = data.updatedCount > 1;
+            toast.success(
+                `Preço${plural ? 's' : ''} atualizado${plural ? 's' : ''} em ${data.updatedCount} ite${plural ? 'ns' : 'm'}. Confira e clique em Salvar para gravar.`,
+            );
+        } catch (err: any) {
+            console.error('Error refreshing prices:', err);
+            toast.error(err.response?.data?.message || 'Erro ao atualizar preços do orçamento');
+        } finally {
+            setIsRefreshingPrices(false);
+        }
+    };
+
     if (isLoading) {
         return <div className="p-8 text-center text-gray-500">Carregando orçamento...</div>;
     }
@@ -560,19 +606,35 @@ export default function EditOrcamentoPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center gap-4">
-                <Link href="/dashboard/orcamentos">
-                    <Button variant="ghost" size="sm">
-                        <ArrowLeft className="h-4 w-4 mr-1" />
-                        Voltar
-                    </Button>
-                </Link>
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Editar Orçamento</h1>
-                    <p className="text-gray-600 mt-1">
-                        Edite o orçamento e recalcule as quantidades
-                    </p>
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <Link href="/dashboard/orcamentos">
+                        <Button variant="ghost" size="sm">
+                            <ArrowLeft className="h-4 w-4 mr-1" />
+                            Voltar
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">Editar Orçamento</h1>
+                        <p className="text-gray-600 mt-1">
+                            Edite o orçamento e recalcule as quantidades
+                        </p>
+                    </div>
                 </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleRefreshPrices}
+                    disabled={isRefreshingPrices || items.length === 0}
+                    title="Puxa o preço atual do catálogo para os itens deste orçamento (marca/categoria/produto podem ter mudado de preço desde que foi criado)"
+                >
+                    {isRefreshingPrices ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Atualizar Preços
+                </Button>
             </div>
 
             {/* Customer & Architect Selection */}
