@@ -3,6 +3,7 @@
 import { createContext, useState, useEffect, ReactNode } from 'react';
 import api from '@/lib/api';
 import { startSessionKeepAlive } from '@/lib/session-activity';
+import { SessionExpiredModal } from '@/components/auth/session-expired-modal';
 
 interface Clinic {
     id: string;
@@ -129,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }}
         >
             {children}
+            <SessionExpiredModal />
         </AuthContext.Provider>
     );
 }

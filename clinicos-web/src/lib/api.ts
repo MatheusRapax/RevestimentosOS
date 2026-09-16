@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { markActivity } from './session-activity';
+import { emitSessionExpired } from './session-expired-bus';
 
 const isServer = typeof window === 'undefined';
 
@@ -52,17 +53,24 @@ api.interceptors.response.use(
         }
 
         if (error.response?.status === 401) {
-            // Se o erro de 401 vier da PRÓPRIA rota de login (senha errada), NÃO redireciona,
-            // pois o usuário já está na tela de login e queremos mostrar o erro a ele.
-            const isLoginRequest = error.config?.url?.includes('/auth/login');
+            // Se o erro de 401 vier da PRÓPRIA rota de login (senha errada) ou
+            // do refresh silencioso de sessão, NÃO aciona o modal — quem
+            // chamou já sabe tratar (tela de login mostra o erro; o refresh
+            // em segundo plano só desiste em silêncio).
+            const url = error.config?.url || '';
+            const isLoginRequest = url.includes('/auth/login');
+            const isRefreshRequest = url.includes('/auth/refresh');
 
-            if (!isLoginRequest && typeof window !== 'undefined') {
-                localStorage.removeItem('token');
-                localStorage.removeItem('clinicId');
-                localStorage.removeItem('user');
-                // Adiciona pathname check para não ficar em loop
+            if (!isLoginRequest && !isRefreshRequest && typeof window !== 'undefined') {
+                // Sessão expirou de vez (nem o refresh em segundo plano
+                // salvou — provavelmente ficou ocioso por perto das 8h).
+                // Em vez de limpar tudo e forçar um redirect (que destrói
+                // qualquer trabalho não salvo na tela, ex.: itens já
+                // adicionados a um orçamento), avisa a UI pra mostrar um
+                // modal de "faça login de novo" SEM navegar pra lugar
+                // nenhum — a tela atual e seu estado continuam intactos.
                 if (window.location.pathname !== '/login') {
-                    window.location.href = '/login';
+                    emitSessionExpired();
                 }
             }
         }
