@@ -67,6 +67,19 @@ const GROUPS: Group[] = [
                             </>
                         ),
                     },
+                    {
+                        label: 'Sessão',
+                        body: (
+                            <>
+                                Enquanto você está usando o sistema (clicando, digitando, navegando), a sessão se
+                                renova sozinha em segundo plano — não é preciso logar de novo. O login expira de fato
+                                só depois de um período <b>parado</b> (sem nenhuma ação). Se isso acontecer no meio de
+                                um orçamento ou pedido, um aviso <b>&quot;Sua sessão expirou&quot;</b> aparece por cima
+                                da própria tela: digite a senha de novo ali mesmo (o e-mail já vem preenchido) e
+                                repita a última ação (ex.: <b>Salvar</b>) — nada do que você já preencheu é perdido.
+                            </>
+                        ),
+                    },
                 ],
             },
         ],
