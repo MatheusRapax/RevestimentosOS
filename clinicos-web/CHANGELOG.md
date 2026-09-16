@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.15.1](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.15.0...v1.15.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* **auth:** reautenticação sem perda de dados quando a sessão expira de vez ([8574c59](https://github.com/MatheusRapax/RevestimentosOS/commit/8574c5910578306905a016206d2f3999296f2bc6))
+* **auth:** renovação de sessão deslizante — token não expira mais durante uso ativo ([8a38e01](https://github.com/MatheusRapax/RevestimentosOS/commit/8a38e017dafa977cd9c08eae49340c2d835def7a))
+
 ## [1.15.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.14.0...v1.15.0) (2026-09-16)
 
 
