@@ -67,6 +67,19 @@ const GROUPS: Group[] = [
                             </>
                         ),
                     },
+                    {
+                        label: 'Sessão',
+                        body: (
+                            <>
+                                Enquanto você está usando o sistema (clicando, digitando, navegando), a sessão se
+                                renova sozinha em segundo plano — não é preciso logar de novo. O login expira de fato
+                                só depois de um período <b>parado</b> (sem nenhuma ação). Se isso acontecer no meio de
+                                um orçamento ou pedido, um aviso <b>&quot;Sua sessão expirou&quot;</b> aparece por cima
+                                da própria tela: digite a senha de novo ali mesmo (o e-mail já vem preenchido) e
+                                repita a última ação (ex.: <b>Salvar</b>) — nada do que você já preencheu é perdido.
+                            </>
+                        ),
+                    },
                 ],
             },
         ],
@@ -177,6 +190,31 @@ const GROUPS: Group[] = [
                                 atual do catálogo para os itens — nada muda sem você clicar, então um preço negociado à
                                 mão com o cliente fica seguro até você decidir atualizar. Só disponível em rascunho; um
                                 orçamento já enviado ao cliente não pode ter os preços trocados por baixo.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Ocultar desconto na impressão',
+                        body: (
+                            <>
+                                Item com desconto tem a opção <Mono>Ocultar desconto na impressão</Mono>. Marcando, o
+                                PDF/impressão desse item mostra só o preço já com desconto, como se fosse o preço
+                                normal do produto — sem &quot;De/Por&quot; e sem a coluna de desconto, nem no resumo
+                                do rodapé. É só uma questão de aparência no documento entregue ao cliente: o desconto
+                                real continua gravado normalmente no sistema e nos relatórios financeiros, e você
+                                sempre vê o valor verdadeiro (com um aviso &quot;Oculto na impressão&quot;) na tela de
+                                detalhe do orçamento.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'Adicionar Item',
+                        body: (
+                            <>
+                                O botão para adicionar item fica sempre logo abaixo do último item da lista (e também
+                                como área de destaque quando o orçamento ainda não tem nenhum item) — não precisa
+                                rolar a tela até o topo para adicionar mais um item em orçamentos com muitos itens.
                             </>
                         ),
                     },

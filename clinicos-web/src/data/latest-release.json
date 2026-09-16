@@ -1,4 +1,4 @@
 {
-  "version": "1.15.0",
-  "content": "### Features\n\n* **fiscal:** Fase 0.1 + 0.3 — perfil do emitente + campos fiscais do cliente\n* **fiscal:** Fase 0.2 — campos fiscais de unidade do produto + origem\n* **fiscal:** Fase 1 + 0.4 — motor de CFOP e cálculo de tributos\n* **fiscal:** Fase 2.1 + 2.2 — pré-flight forte + POST /fiscal/validate/:orderId\n* **fiscal:** Fase 2.3 — tela de revisão fiscal antes de emitir\n\n### Bug Fixes\n\n* **fiscal:** 3 bugs achados no QA completo do módulo fiscal\n* **fiscal:** download autenticado de XML/DANFE + status reativo + setup alinhado\n* **fiscal:** normalizar documento e CEP antes de enviar ao NexosFiscal\n* **fiscal:** pré-preencher NCM/CFOP/CST/Origem já cadastrados no FastInputModal\n* **fiscal:** sincronizar status ao reemitir pedido já processado\n* **precos:** recálculo automático de markup + atualização de preço em orçamento\n* **tenant:** req.user.clinicId sempre undefined em brands/categories/import + falha de isolamento entre clínicas"
+  "version": "1.16.0",
+  "content": "### Features\n\n* **orcamentos:** ocultar desconto na impressão por item (sem afetar dado financeiro)"
 }
