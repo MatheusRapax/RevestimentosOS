@@ -394,8 +394,13 @@ export class QuotePdfService {
             );
           }
 
-          if (item.discountCents > 0) {
+          if (item.discountCents > 0 && !item.hideDiscount) {
             unitCostText = `De: ${this.formatCurrency(originalPriceCents)}\nPor: ${this.formatCurrency(discountedPriceCents)}`;
+          } else if (item.discountCents > 0 && item.hideDiscount) {
+            // Desconto ocultado: mostra o preço já com desconto como se
+            // fosse o preço normal do produto — sem "De/Por". O valor real
+            // (unitPriceCents/discountCents) continua intacto no banco.
+            unitCostText = this.formatCurrency(discountedPriceCents);
           } else {
             unitCostText = this.formatCurrency(originalPriceCents);
           }
@@ -415,7 +420,7 @@ export class QuotePdfService {
         const sku = item.product.sku || '-';
 
         const discountText =
-          item.discountCents > 0
+          item.discountCents > 0 && !item.hideDiscount
             ? `-${this.formatCurrency(item.discountCents)}${item.discountPercent ? ` (${item.discountPercent}%)` : ''}`
             : '-';
 
@@ -449,8 +454,13 @@ export class QuotePdfService {
       currentY = 50;
     }
 
+    // Só soma o desconto de itens com o desconto VISÍVEL na impressão — um
+    // item com hideDiscount não pode "vazar" seu desconto aqui, senão o
+    // subtotal bruto (subtotal + descontos) não bateria com a soma dos
+    // preços mostrados linha a linha, entregando ao cliente que existe
+    // desconto escondido em algum item.
     const itemDiscounts = quote.items.reduce(
-      (sum, i) => sum + (i.discountCents || 0),
+      (sum, i) => sum + (i.hideDiscount ? 0 : i.discountCents || 0),
       0,
     );
     const grossSubtotal = quote.subtotalCents + itemDiscounts;

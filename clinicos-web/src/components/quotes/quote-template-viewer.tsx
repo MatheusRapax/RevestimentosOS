@@ -19,6 +19,7 @@ interface QuoteItem {
     areaWithMargin?: number;
     discountCents?: number;
     discountPercent?: number;
+    hideDiscount?: boolean;
     environment?: { name: string } | null;
 }
 
@@ -101,6 +102,16 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
     };
 
     const data = (quote as Quote) || sampleQuote;
+
+    // Só soma o desconto de itens com o desconto VISÍVEL na impressão — um
+    // item com hideDiscount não pode "vazar" seu desconto aqui, senão o
+    // subtotal bruto não bateria com a soma dos preços mostrados linha a
+    // linha, entregando ao cliente que existe desconto escondido em algum
+    // item. O valor real (discountCents) continua intacto no banco.
+    const visibleItemDiscounts = data.items.reduce(
+        (sum, i) => sum + (i.hideDiscount ? 0 : i.discountCents || 0),
+        0,
+    );
 
     return (
         <div className="bg-white p-8 print:p-0 print:m-0 print:w-full print:h-auto" style={{ fontFamily: 'Arial, sans-serif', fontSize: '12px', minHeight: '297mm', width: '210mm', margin: '0 auto', boxSizing: 'border-box' }}>
@@ -243,8 +254,13 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                                             discountedPriceCents = Math.round(discountedPriceCents / item.product.boxCoverage);
                                         }
 
-                                        if ((item.discountCents || 0) > 0) {
+                                        if ((item.discountCents || 0) > 0 && !item.hideDiscount) {
                                             unitCostText = `De: ${formatCurrency(originalPriceCents)}\nPor: ${formatCurrency(discountedPriceCents)}`;
+                                        } else if ((item.discountCents || 0) > 0 && item.hideDiscount) {
+                                            // Desconto ocultado: mostra o preço já com desconto como se
+                                            // fosse o preço normal — sem "De/Por". O valor real continua
+                                            // intacto no banco (unitPriceCents/discountCents inalterados).
+                                            unitCostText = formatCurrency(discountedPriceCents);
                                         } else {
                                             unitCostText = formatCurrency(originalPriceCents);
                                         }
@@ -254,7 +270,7 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                                         }
                                     }
 
-                                    const discountText = (item.discountCents || 0) > 0 
+                                    const discountText = (item.discountCents || 0) > 0 && !item.hideDiscount
                                         ? `-${formatCurrency(item.discountCents || 0)}${item.discountPercent ? ` (${item.discountPercent}%)` : ''}`
                                         : '-';
 
@@ -285,10 +301,10 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                             (template.showUnitPrice !== false ? 1 : 0) + 1
                         } className="p-2 text-right">Subtotal:</td>
                         <td className="p-2 text-right">
-                            {formatCurrency(data.subtotalCents + data.items.reduce((sum, i) => sum + (i.discountCents || 0), 0))}
+                            {formatCurrency(data.subtotalCents + visibleItemDiscounts)}
                         </td>
                     </tr>
-                    {data.items.reduce((sum, i) => sum + (i.discountCents || 0), 0) > 0 && (
+                    {visibleItemDiscounts > 0 && (
                         <tr className="text-red-600">
                             <td colSpan={
                                 4 +
@@ -296,7 +312,7 @@ export function QuoteTemplateViewer({ template, quote }: QuoteTemplateViewerProp
                                 (template.showUnitArea !== false ? 1 : 0) +
                                 (template.showUnitPrice !== false ? 1 : 0) + 1
                             } className="p-2 text-right">Desc. por item:</td>
-                            <td className="p-2 text-right">-{formatCurrency(data.items.reduce((sum, i) => sum + (i.discountCents || 0), 0))}</td>
+                            <td className="p-2 text-right">-{formatCurrency(visibleItemDiscounts)}</td>
                         </tr>
                     )}
                     {data.discountCents > 0 && (

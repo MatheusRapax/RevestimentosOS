@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsNumber,
   IsInt,
+  IsBoolean,
   IsDateString,
   IsArray,
   ArrayMinSize,
@@ -46,6 +47,13 @@ export class CreateQuoteItemDto {
   @Min(0)
   @Max(100)
   discountPercent?: number;
+
+  // Só afeta a impressão/PDF (esconde o "De/Por" e mostra o preço já com
+  // desconto como se fosse o preço normal) — nunca muda unitPriceCents/
+  // discountCents/totalCents nem nenhum cálculo financeiro.
+  @IsOptional()
+  @IsBoolean()
+  hideDiscount?: boolean;
 
   // Margem de perda por item (opcional)
   @IsOptional()

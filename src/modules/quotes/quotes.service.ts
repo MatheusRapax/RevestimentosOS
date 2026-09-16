@@ -49,7 +49,9 @@ export class QuotesService {
     resultingArea: number | null;
     unitPriceCents: number;
     discountCents: number;
+    discountPercent: number | null;
     totalCents: number;
+    hideDiscount: boolean;
     environmentId: string | null;
     preferredLotId: string | null;
     notes: string | null;
@@ -125,7 +127,9 @@ export class QuotesService {
       resultingArea,
       unitPriceCents: item.unitPriceCents,
       discountCents,
+      discountPercent: item.discountPercent ?? null,
       totalCents: Math.max(0, totalCents),
+      hideDiscount: item.hideDiscount ?? false,
       environmentId: item.environmentId !== undefined ? item.environmentId : null,
       preferredLotId: item.preferredLotId !== undefined ? item.preferredLotId : null,
       notes: item.notes !== undefined ? item.notes : null,
@@ -1003,6 +1007,8 @@ export class QuotesService {
       discountCents: dto.discountCents ?? currentItem.discountCents,
       discountPercent:
         dto.discountPercent ?? currentItem.discountPercent ?? undefined,
+      hideDiscount:
+        dto.hideDiscount ?? currentItem.hideDiscount ?? undefined,
       environmentId:
         dto.environmentId !== undefined ? dto.environmentId : currentItem.environmentId,
       preferredLotId:
@@ -1070,7 +1076,8 @@ export class QuotesService {
         resultingArea: processed.resultingArea,
         unitPriceCents: processed.unitPriceCents,
         discountCents: processed.discountCents,
-        discountPercent: inputForCalc.discountPercent, // Note: processed object doesn't have discountPercent but we use input
+        discountPercent: processed.discountPercent,
+        hideDiscount: processed.hideDiscount,
         totalCents: processed.totalCents,
         preferredLotId: processed.preferredLotId,
         environmentId: processed.environmentId,
@@ -1121,6 +1128,7 @@ export class QuotesService {
           unitPriceCents: product.priceCents ?? item.unitPriceCents,
           discountCents: item.discountCents,
           discountPercent: item.discountPercent ?? undefined,
+          hideDiscount: item.hideDiscount ?? undefined,
           environmentId: item.environmentId ?? undefined,
           notes: item.notes ?? undefined,
         };
