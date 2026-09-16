@@ -174,4 +174,18 @@ export class AuthService {
     const payload = { sub: userId, email };
     return this.jwtService.signAsync(payload);
   }
+
+  /**
+   * Renova a sessão: emite um token novo (mesmas 8h de validade, a partir de
+   * agora) para quem já está autenticado. Chamado pelo frontend enquanto o
+   * usuário está ativo, para a sessão não expirar no meio de um trabalho
+   * longo (ex.: orçamento com vários itens) — só expira de verdade se ficar
+   * ocioso o suficiente para o frontend parar de chamar isto.
+   */
+  async refreshToken(
+    userId: string,
+    email: string,
+  ): Promise<{ access_token: string }> {
+    return { access_token: await this.generateToken(userId, email) };
+  }
 }

@@ -2,6 +2,7 @@
 
 import { createContext, useState, useEffect, ReactNode } from 'react';
 import api from '@/lib/api';
+import { startSessionKeepAlive } from '@/lib/session-activity';
 
 interface Clinic {
     id: string;
@@ -58,6 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         setIsLoading(false);
+    }, []);
+
+    // Renovação de sessão deslizante — o timer em si vive no módulo (não
+    // depende de `user`/re-renders); isso só o arma uma vez ao montar o app.
+    // O módulo se protege contra chamadas repetidas (StrictMode chama efeitos
+    // 2x em dev), então é seguro mesmo que este efeito rode mais de uma vez.
+    useEffect(() => {
+        startSessionKeepAlive();
     }, []);
 
     const setActiveClinic = (clinicId: string) => {

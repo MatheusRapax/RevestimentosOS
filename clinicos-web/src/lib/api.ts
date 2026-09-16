@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { markActivity } from './session-activity';
 
 const isServer = typeof window === 'undefined';
 
@@ -30,6 +31,9 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
     (response) => {
+        // Uma chamada à API que teve sucesso já é, por si só, prova de que o
+        // usuário está ativo — conta para a renovação deslizante de sessão.
+        markActivity();
         return response;
     },
     (error) => {
