@@ -1,4 +1,4 @@
 {
-  "version": "1.14.0",
-  "content": "### Features\n\n* Manual do Operador dentro do sistema"
+  "version": "1.15.1",
+  "content": "### Bug Fixes\n\n* **auth:** reautenticação sem perda de dados quando a sessão expira de vez\n* **auth:** renovação de sessão deslizante — token não expira mais durante uso ativo"
 }

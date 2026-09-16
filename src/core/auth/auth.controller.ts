@@ -30,4 +30,14 @@ export class AuthController {
   async getProfile(@Request() req: any) {
     return req.user;
   }
+
+  // Renova o token (mesma validade de sempre, a partir de agora) enquanto a
+  // sessão atual ainda for válida. JwtAuthGuard já rejeita token expirado —
+  // isso só funciona se chamado ANTES de expirar, é o que dá o efeito de
+  // "sessão desliza enquanto o usuário está ativo".
+  @UseGuards(JwtAuthGuard)
+  @Post('refresh')
+  async refresh(@Request() req: any) {
+    return this.authService.refreshToken(req.user.id, req.user.email);
+  }
 }
