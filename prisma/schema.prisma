@@ -169,6 +169,7 @@ model Clinic {
   scheduleBlocks       ScheduleBlock[]
   fiscalDocuments      FiscalDocument[]
   fiscalConfig         ClinicFiscalConfig?
+  fiscalProfile        FiscalProfile?
 
   categories               Category[]
   brands                   Brand[]
@@ -481,13 +482,18 @@ model Product {
   isAdhoc     Boolean @default(false) // Se true, é um produto criado avulso para um orçamento específico
 
   // Campos Fiscais
-  ncm      String? // Nomenclatura Comum do Mercosul (8 digits)
+  ncm      String? // Nomenclatura Comum do Mercosul (8 dígitos)
   cest     String? // Código Especificador da Substituição Tributária
-  cfop     String? // Código Fiscal de Operações e Prestações
-  cst      String? // Código de Situação Tributária
-  origin   Int? // Origem da Mercadoria (0, 1, 2...)
+  cfop     String? // CFOP SUGERIDO p/ operação padrão (venda no estado). O CFOP real da NF-e sai do motor de regras (Fase 1)
+  cst      String? // Código de Situação Tributária (ou CSOSN, conforme CRT)
+  origin   Int? // Origem da Mercadoria (0 a 8) — obrigatório na emissão
   mva      Float? // Margem de Valor Agregado (%)
-  taxClass String? // Classe de Imposto (Webmania ID)
+  taxClass String? // Legado (Webmania). Será substituído por perfilTributario (Fase 0.4)
+
+  // Unidade tributável (NF-e). Quando null, usa a mesma da unidade comercial.
+  gtin              String? // EAN/GTIN da embalagem; "SEM GTIN" quando não houver
+  unidadeTributavel String? // uTrib — se diferente da unidade comercial
+  fatorConversao    Float? // comercial → tributável (qTrib = qCom * fator). Null = 1
 
   // Campos Dimensionais para Revestimentos
   saleType       SaleType @default(UNIT) // Tipo de venda: unidade, área ou ambos
@@ -1153,6 +1159,13 @@ model Customer {
   state         String?
   zipCode       String?
 
+  // Fiscal (destinatário da NF-e)
+  indicadorIe     Int?     // 1=Contribuinte ICMS, 2=Isento de IE, 9=Não contribuinte
+  municipioIbge   String?  // 7 dígitos — precisa casar com o `state`
+  countryCode     String?  @default("1058") // 1058 = Brasil
+  consumidorFinal Boolean  @default(true) // varejo: por padrão sim
+  suframa         String?  // inscrição SUFRAMA (Zona Franca), quando aplicável
+
   // Relacionamentos
   architectId String? // Arquiteto que indicou
   architect   Architect? @relation(fields: [architectId], references: [id])
@@ -1811,6 +1824,44 @@ model ClinicFiscalConfig {
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 }
 
+// Fiscal: perfil fiscal do EMITENTE (a loja). 1:1 com Clinic.
+// Separado do ClinicFiscalConfig (que é credencial de integração + defaults de item)
+// porque isto é identidade + endereço + numeração da empresa emissora.
+model FiscalProfile {
+  id       String @id @default(uuid())
+  clinicId String @unique
+
+  // Identidade
+  cnpj String? // 14 dígitos
+  ie   String? // Inscrição Estadual (ou "ISENTO")
+  im   String? // Inscrição Municipal
+  crt  Int     @default(3) // 1=Simples Nacional, 2=SN excesso sublimite, 3=Regime Normal
+  cnae String?
+
+  // Endereço do emitente
+  logradouro    String?
+  numero        String?
+  complemento   String?
+  bairro        String?
+  municipioIbge String? // 7 dígitos — precisa casar com a UF
+  municipioNome String?
+  uf            String? // 2 letras
+  cep           String? // 8 dígitos
+
+  // Numeração / séries (informativo; hoje o NexosFiscal fixa série 1)
+  serieNfe  Int @default(1)
+  serieNfce Int @default(1)
+
+  // NFC-e (modelo 65) — fluxo ainda não implementado
+  cscId    String?
+  cscToken String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+}
+
 enum FiscalStatus {
   DRAFT
   PROCESSING
@@ -1986,4 +2037,109 @@ model OccurrenceItem {
   @@index([occurrenceId])
   @@index([productId])
   @@index([lotId])
+}
+
+// ============================================================================
+// FISCAL — Motor de regras de tributação (Fase 0.4)
+//
+// Tabelas consultáveis (não "if" no código) para ICMS, PIS/COFINS e IPI.
+// São GLOBAIS por padrão (clinicId null) porque a legislação é nacional —
+// a mesma tabela responde certo para qualquer loja, filtrando por UF/regime
+// do PRÓPRIO emitente (FiscalProfile) e do destinatário. `clinicId` só é
+// preenchido para um override específico de uma loja (ex.: benefício fiscal
+// próprio) e tem prioridade sobre a regra global equivalente.
+//
+// O seed inicial é GENÉRICO/PLACEHOLDER (marcado em `observacao`) — a matriz
+// real (por NCM, ST/MVA, DIFAL por UF) é dado do contador e entra depois,
+// sem precisar mudar código: só nova linha nestas tabelas.
+// ============================================================================
+
+model RegraIcms {
+  id       String  @id @default(uuid())
+  codigo   String? @unique // slug estável p/ seed idempotente e referência humana
+  clinicId String? // null = regra global; preenchido = override de uma loja
+
+  // UF exatas = override específico para aquele par (ex.: DIFAL SP→RJ).
+  // Quando null, usa `mesmaUf` como atalho genérico (uma regra só cobre
+  // "toda venda dentro do estado" ou "toda venda interestadual").
+  ufOrigem  String? // 2 letras — UF do emitente
+  ufDestino String? // 2 letras — UF do destinatário
+  mesmaUf   Boolean? // true = intraestadual (qualquer UF=UF), false = interestadual
+
+  regime Int // CRT do emitente: 1/2=Simples Nacional, 3=Normal
+
+  // Filtros opcionais — null = "vale para qualquer valor" (regra mais genérica)
+  ncm             String? // 8 dígitos
+  origemMercadoria Int? // 0-8 (Product.origin)
+  consumidorFinal Boolean? // indFinal
+  contribuinte    Boolean? // destinatário é contribuinte de ICMS?
+
+  cst   String // CST (regime Normal) ou CSOSN (Simples)
+  modBC Int    @default(0) // modalidade de determinação da BC do ICMS
+
+  aliquota    Float // % ICMS próprio
+  reducaoBase Float? // % de redução da base de cálculo
+
+  temSt         Boolean @default(false)
+  mvaSt         Float? // % MVA para ICMS-ST
+  aliquotaFcp   Float? // % Fundo de Combate à Pobreza
+
+  // DIFAL (só relevante quando ufOrigem != ufDestino e consumidorFinal = true)
+  aliquotaInterna Float? // alíquota interna da UF de destino
+
+  observacao String? @db.Text // nota do contador / origem do dado
+
+  vigenciaInicio DateTime  @default(now())
+  vigenciaFim    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ufOrigem, ufDestino, regime])
+  @@index([mesmaUf, regime])
+  @@index([clinicId])
+}
+
+model RegraPisCofins {
+  id       String  @id @default(uuid())
+  codigo   String? @unique
+  clinicId String?
+
+  regime Int // CRT do emitente
+
+  cst            String // CST do PIS/COFINS (01, 04, 06, 07, 08, 09...)
+  aliquotaPis    Float
+  aliquotaCofins Float
+
+  observacao String? @db.Text
+
+  vigenciaInicio DateTime  @default(now())
+  vigenciaFim    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([regime, cst])
+  @@index([clinicId])
+}
+
+model RegraIpi {
+  id       String  @id @default(uuid())
+  codigo   String? @unique
+  clinicId String?
+
+  ncm      String // 8 dígitos
+  cst      String
+  aliquota Float  @default(0)
+
+  observacao String? @db.Text
+
+  vigenciaInicio DateTime  @default(now())
+  vigenciaFim    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ncm])
+  @@index([clinicId])
 }

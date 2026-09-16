@@ -12,25 +12,26 @@ import {
 import { CategoriesService } from '../services/categories.service';
 import { CreateCategoryDto, UpdateCategoryDto } from '../dto/category.dto';
 import { JwtAuthGuard } from '../../../core/auth/guards/jwt.guard';
+import { TenantGuard } from '../../../core/tenant/guards/tenant.guard';
 
 @Controller('catalogue/categories')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Post()
   create(@Request() req: any, @Body() createCategoryDto: CreateCategoryDto) {
-    return this.categoriesService.create(req.user.clinicId, createCategoryDto);
+    return this.categoriesService.create(req.clinicId, createCategoryDto);
   }
 
   @Get()
   findAll(@Request() req: any) {
-    return this.categoriesService.findAll(req.user.clinicId);
+    return this.categoriesService.findAll(req.clinicId);
   }
 
   @Get(':id')
   findOne(@Request() req: any, @Param('id') id: string) {
-    return this.categoriesService.findOne(id, req.user.clinicId);
+    return this.categoriesService.findOne(id, req.clinicId);
   }
 
   @Patch(':id')
@@ -41,13 +42,13 @@ export class CategoriesController {
   ) {
     return this.categoriesService.update(
       id,
-      req.user.clinicId,
+      req.clinicId,
       updateCategoryDto,
     );
   }
 
   @Delete(':id')
   remove(@Request() req: any, @Param('id') id: string) {
-    return this.categoriesService.remove(id, req.user.clinicId);
+    return this.categoriesService.remove(id, req.clinicId);
   }
 }

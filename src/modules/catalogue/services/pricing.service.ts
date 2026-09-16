@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Product, Brand, Category, Clinic } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../../core/prisma/prisma.service';
 
 export interface PricingFactors {
   productMarkup: number | null;
@@ -18,6 +19,8 @@ export interface CalculatedPrice {
 @Injectable()
 export class PricingService {
   private readonly logger = new Logger(PricingService.name);
+
+  constructor(private prisma: PrismaService) {}
 
   calculatePrice(costCents: number, factors: PricingFactors): CalculatedPrice {
     // 1. Manual Override
@@ -64,5 +67,74 @@ export class PricingService {
       appliedMarkup: markup,
       source,
     };
+  }
+
+  /**
+   * Recalcula e persiste Product.priceCents para os produtos afetados por uma
+   * mudança de markup (de marca, categoria ou global da loja). Produtos com
+   * `manualPrice: true` nunca são tocados — o preço deles é uma decisão do
+   * operador, não do motor de precificação.
+   *
+   * Sem isso, mudar o markup padrão de uma marca/categoria/loja não tem
+   * nenhum efeito nos produtos já cadastrados: `priceCents` é um valor
+   * gravado, não recalculado em cada leitura (ver stock.service.ts, que só
+   * cai no cálculo por markup quando o preço salvo está zerado/ausente).
+   *
+   * @param where Filtro adicional além de `clinicId`/`manualPrice: false` —
+   *   `{ brandId }`, `{ categoryId }` ou `{}` (loja inteira, no caso do
+   *   markup global).
+   * @returns quantos produtos tiveram o preço efetivamente alterado.
+   */
+  async recalculatePrices(
+    clinicId: string,
+    where: Prisma.ProductWhereInput = {},
+  ): Promise<number> {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { globalMarkup: true },
+    });
+    const globalMarkup = clinic?.globalMarkup ?? 40.0;
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        ...where,
+        clinicId,
+        manualPrice: false,
+        isActive: true,
+        costCents: { not: null },
+      },
+      include: { brand: true, category: true },
+    });
+
+    const updates: { id: string; priceCents: number }[] = [];
+    for (const product of products) {
+      const { priceCents } = this.calculatePrice(product.costCents ?? 0, {
+        productMarkup: product.markup,
+        brandMarkup: product.brand?.defaultMarkup ?? null,
+        categoryMarkup: product.category?.defaultMarkup ?? null,
+        globalMarkup,
+        manualPrice: false,
+      });
+      if (priceCents !== product.priceCents) {
+        updates.push({ id: product.id, priceCents });
+      }
+    }
+
+    if (updates.length === 0) return 0;
+
+    await this.prisma.$transaction(
+      updates.map((u) =>
+        this.prisma.product.update({
+          where: { id: u.id },
+          data: { priceCents: u.priceCents },
+        }),
+      ),
+    );
+
+    this.logger.log(
+      `Recalculados ${updates.length} preço(s) de produto na clínica ${clinicId} (filtro: ${JSON.stringify(where)})`,
+    );
+
+    return updates.length;
   }
 }

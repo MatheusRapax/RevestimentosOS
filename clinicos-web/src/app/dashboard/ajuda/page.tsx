@@ -165,12 +165,29 @@ const GROUPS: Group[] = [
                             </>
                         ),
                     },
+                    {
+                        tone: 'info',
+                        label: 'Atualizar Preços',
+                        body: (
+                            <>
+                                Um orçamento em <b>rascunho</b> guarda o preço de cada item no momento em que foi
+                                adicionado — se o preço padrão do produto mudou depois (por exemplo, você ajustou o{' '}
+                                <A href="#marcas-categorias">markup de uma marca</A>), o orçamento não atualiza sozinho.
+                                Use o botão <Mono>Atualizar Preços</Mono>, no topo da tela de edição, para puxar o preço
+                                atual do catálogo para os itens — nada muda sem você clicar, então um preço negociado à
+                                mão com o cliente fica seguro até você decidir atualizar. Só disponível em rascunho; um
+                                orçamento já enviado ao cliente não pode ter os preços trocados por baixo.
+                            </>
+                        ),
+                    },
                 ],
                 steps: [
                     <><b>Novo Orçamento</b> → cliente, (arquiteto), itens (por área m² ou caixas), ajustes globais. Salvar.</>,
                     <><b>Abrir PDF</b> para enviar ao cliente. Use <b>Enviar</b> quando mandar oficialmente.</>,
                     <>Cliente aceitou → <b>Aprovar</b> → <b>Converter em Pedido</b>. O orçamento fica <Mono>Convertido</Mono>.</>,
                     <>Cliente recusou → <b>Rejeitar</b> (pede o motivo). Dá para <b>Reabrir</b> depois. <b>Duplicar</b> aproveita um parecido.</>,
+                    <>Preço do produto mudou depois de criar o orçamento? Reabra para editar e clique em{' '}
+                        <b>Atualizar Preços</b> antes de salvar.</>,
                 ],
             },
             {
@@ -232,6 +249,120 @@ const GROUPS: Group[] = [
                     <><b>Gerar Boleto</b> (aba Financeiro) só para pedido <b>não pago</b>; não gera duplicado.</>,
                 ],
             },
+            {
+                id: 'nfe',
+                path: 'Comercial › Pedidos › Nota Fiscal',
+                title: 'Emissão de Nota Fiscal (NF-e)',
+                lead: (
+                    <>
+                        No card <b>Nota Fiscal</b> do pedido, o botão <b>Emitir Nota</b> abre a{' '}
+                        <b>Revisão Fiscal</b> — uma conferência automática antes de qualquer coisa ir para a SEFAZ.
+                        CFOP, ICMS, PIS e COFINS são <b>calculados sozinhos</b> a partir do cadastro do cliente e do
+                        Perfil do Emitente — você não digita alíquota nem CFOP na hora de emitir.
+                    </>
+                ),
+                flow: [
+                    { label: 'Emitir Nota', tone: 'mut' },
+                    { label: 'Revisão Fiscal', tone: 'info' },
+                    { label: 'Processando', tone: 'warn' },
+                    { label: 'Aprovada', tone: 'ok' },
+                ],
+                notes: [
+                    {
+                        tone: 'crit',
+                        label: 'Se a revisão bloquear a emissão',
+                        body: (
+                            <>
+                                Falta <b>NCM, CFOP, CST ou Origem</b> em algum produto → o botão vira{' '}
+                                <Mono>Preencher Dados e Emitir</Mono>: preencha ali mesmo e a nota já sai emitida
+                                em seguida, sem precisar clicar em emitir de novo. Falta <b>código IBGE do
+                                cliente</b> ou outro dado de cadastro → aparece um atalho <Mono>Editar Cliente</Mono>{' '}
+                                (ou <Mono>Configuração Fiscal</Mono>, se o problema for no cadastro da loja) direto
+                                no aviso.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Avisos não bloqueiam',
+                        body: (
+                            <>
+                                A revisão também mostra <b>avisos</b> em amarelo (ex.: desconto no pedido que ainda
+                                não vai como desconto na nota, ou pedido cuja loja ainda não tem uma regra de
+                                imposto cadastrada para aquele caso) — o botão muda para{' '}
+                                <Mono>Emitir Mesmo Assim</Mono> e a emissão segue normalmente.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'Depois de emitida',
+                        body: (
+                            <>
+                                O status atualiza sozinho na tela (a SEFAZ responde em segundos a minutos) — não
+                                precisa recarregar a página. Nota <b>Aprovada</b> libera os botões <Mono>XML</Mono>{' '}
+                                e <Mono>PDF</Mono> (DANFE) no mesmo card. Pedido cujo <b>status ainda não está
+                                confirmado/pago</b> não deixa emitir — regularize o pagamento primeiro.
+                            </>
+                        ),
+                    },
+                ],
+                steps: [
+                    <>Abra o pedido → card <b>Nota Fiscal</b> → <b>Emitir Nota</b>.</>,
+                    <>A <b>Revisão Fiscal</b> mostra o destinatário e os itens já com CFOP e impostos calculados.
+                        Sem erros → <b>Confirmar e Emitir</b>.</>,
+                    <>Com erro de produto → preencha NCM/CFOP/CST/Origem no formulário que abre e confirme; a
+                        emissão continua sozinha.</>,
+                    <>Com erro de cadastro (cliente ou loja) → use o atalho mostrado no aviso, corrija e volte em{' '}
+                        <b>Emitir Nota</b>.</>,
+                    <>Acompanhe o status no próprio card; quando aprovar, baixe <b>XML</b> e <b>PDF</b> ali mesmo.</>,
+                ],
+            },
+            {
+                id: 'fiscal-config',
+                path: 'Administração › Configuração Fiscal',
+                title: 'Configuração Fiscal da loja',
+                lead: (
+                    <>
+                        Os dados fiscais da própria loja (usados em <b>toda</b> nota emitida): CNPJ, Inscrição
+                        Estadual, regime tributário e endereço do emitente, o certificado digital e os padrões
+                        usados quando um produto não tem configuração própria. Quem tem a permissão de{' '}
+                        <Mono>fiscal.config</Mono> acessa direto — não precisa ser super admin.
+                    </>
+                ),
+                notes: [
+                    {
+                        tone: 'warn',
+                        label: 'Código IBGE precisa casar com a UF',
+                        body: (
+                            <>
+                                O <b>Código IBGE do Município</b> do Perfil do Emitente tem que corresponder à{' '}
+                                <b>UF</b> informada — é um dos motivos mais comuns de a Revisão Fiscal bloquear a
+                                emissão. Os dois primeiros dígitos do código IBGE identificam o estado.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'Regime Tributário decide o cálculo',
+                        body: (
+                            <>
+                                O <b>Regime Tributário (CRT)</b> aqui é o que o motor de impostos usa para
+                                escolher a alíquota de ICMS/PIS/COFINS de cada nota — Simples Nacional recolhe
+                                esses impostos embutidos no DAS (alíquota 0% na nota); Regime Normal calcula a
+                                alíquota cheia. Mudar o CRT aqui muda o cálculo de <b>todas</b> as próximas
+                                emissões.
+                            </>
+                        ),
+                    },
+                ],
+                steps: [
+                    <>Preencha o <b>Perfil do Emitente</b> primeiro (CNPJ, IE, endereço, código IBGE, regime) e{' '}
+                        <b>Salvar Perfil</b>.</>,
+                    <>Configure o <b>certificado digital A1</b> (.pfx) em <b>Setup Inicial</b> — obrigatório para
+                        emitir de verdade.</>,
+                    <>Ajuste as <b>Regras de Emissão</b> (ambiente de homologação/produção e padrões de
+                        NCM/CFOP/CST/Origem) se necessário.</>,
+                ],
+            },
         ],
     },
     {
@@ -283,11 +414,68 @@ const GROUPS: Group[] = [
                             </>
                         ),
                     },
+                    {
+                        label: 'Preço de venda — de onde ele vem',
+                        body: (
+                            <>
+                                Se você não digitar um preço de venda na mão, o sistema calcula sozinho:{' '}
+                                <Mono>custo × (1 + markup)</Mono>. Veja em{' '}
+                                <A href="#marcas-categorias">Marcas, Categorias e Markup</A> de onde vem esse markup e o
+                                que muda quando você ajusta o markup padrão de uma marca ou categoria.
+                            </>
+                        ),
+                    },
                 ],
                 steps: [
                     <><b>Novo Produto</b> → nome, SKU, unidade. Para revestimento em m², preencha <b>m²/caixa</b> — é o que converte área em caixas.</>,
                     <>Preços: <b>custo</b> e <b>venda</b>. O custo inicial pode ser ajustado; depois passa a ser calculado por média a cada entrada.</>,
                     <><b>Importar</b> → suba a planilha, confira o mapeamento das colunas, confirme. <b>Colunas</b> escolhe o que aparece na lista.</>,
+                ],
+            },
+            {
+                id: 'marcas-categorias',
+                path: 'Administração › Config. de Catálogo',
+                title: 'Marcas, Categorias e Markup',
+                lead: (
+                    <>
+                        Onde ficam cadastradas as <b>marcas</b> e <b>categorias</b> de produto, cada uma com um{' '}
+                        <b>markup padrão</b> (%) — a margem usada para calcular o preço de venda de quem não tem preço
+                        digitado na mão.
+                    </>
+                ),
+                notes: [
+                    {
+                        label: 'Ordem de prioridade do markup',
+                        body: (
+                            <>
+                                Pra cada produto, o sistema usa o primeiro que encontrar, nesta ordem:{' '}
+                                <b>markup do produto</b> (se você preencheu um específico) → <b>markup da marca</b> →{' '}
+                                <b>markup da categoria</b> → <b>markup padrão da loja</b> (Config. de Catálogo →
+                                Configurações Gerais). Um produto com <b>preço manual</b> nunca usa markup — o preço
+                                digitado nele é sempre o que vale.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Mudar o markup atualiza os produtos já cadastrados',
+                        body: (
+                            <>
+                                Ao salvar um novo markup padrão numa marca, categoria ou na loja, o preço de venda de{' '}
+                                <b>todos os produtos afetados</b> (sem preço manual) é recalculado e atualizado na
+                                hora — não precisa editar produto por produto. Isso vale só para o <b>catálogo</b>; um{' '}
+                                <A href="#orcamentos">orçamento</A> já criado guarda o preço que tinha no momento —
+                                use <b>Atualizar Preços</b> nele se quiser puxar o valor novo.
+                            </>
+                        ),
+                    },
+                ],
+                steps: [
+                    <>Cadastre a <b>marca</b> ou <b>categoria</b> com um markup padrão (ex.: 40%).</>,
+                    <>Precisa reajustar? Edite o markup dela a qualquer momento — os produtos que dependem desse nível
+                        da hierarquia mudam de preço junto, automaticamente.</>,
+                    <>Um produto específico precisa de margem diferente do resto da marca? Preencha o{' '}
+                        <b>markup do produto</b> direto no cadastro dele — tem prioridade sobre marca e categoria.</>,
                 ],
             },
             {

@@ -372,6 +372,80 @@ export class QuotesService {
     };
   }
 
+  /**
+   * Puxa o preço ATUAL do catálogo (produto + promoção ativa, mesma lógica
+   * de `StockService.findOne`) para cada item do orçamento. Ação explícita
+   * do vendedor — nada recalcula sozinho ao abrir o orçamento, porque
+   * `unitPriceCents` pode ser um preço negociado manualmente com o cliente,
+   * não necessariamente o preço de tabela.
+   *
+   * Só disponível em orçamentos ainda em rascunho (mesma trava de `update`/
+   * `updateItem`) — depois de enviado/aprovado o preço já foi comunicado ao
+   * cliente e não deve mudar sozinho.
+   */
+  async refreshPrices(id: string, clinicId: string) {
+    const quote = await this.findOne(id, clinicId);
+
+    if (quote.status !== QuoteStatus.EM_ORCAMENTO) {
+      throw new BadRequestException(
+        'Apenas orçamentos em rascunho podem ter os preços atualizados',
+      );
+    }
+
+    const changes: {
+      itemId: string;
+      productId: string;
+      productName: string;
+      oldUnitPriceCents: number;
+      newUnitPriceCents: number;
+    }[] = [];
+
+    for (const item of quote.items) {
+      let product: any;
+      try {
+        product = await this.stockService.findOne(item.productId, clinicId);
+      } catch {
+        // Produto excluído/inativo desde que entrou no orçamento — mantém
+        // o preço do item como estava, não quebra a atualização dos outros.
+        continue;
+      }
+
+      const newUnitPriceCents: number =
+        product.promotionalPriceCents ?? product.priceCents ?? item.unitPriceCents;
+
+      if (newUnitPriceCents === item.unitPriceCents) continue;
+
+      const subtotal = item.quantityBoxes * newUnitPriceCents;
+      const discountCents = item.discountPercent
+        ? Math.round(subtotal * (item.discountPercent / 100))
+        : Math.min(item.discountCents || 0, subtotal);
+      const totalCents = Math.max(0, subtotal - discountCents);
+
+      await this.prisma.quoteItem.update({
+        where: { id: item.id },
+        data: { unitPriceCents: newUnitPriceCents, discountCents, totalCents },
+      });
+
+      changes.push({
+        itemId: item.id,
+        productId: item.productId,
+        productName: item.product?.name ?? product.name,
+        oldUnitPriceCents: item.unitPriceCents,
+        newUnitPriceCents,
+      });
+    }
+
+    if (changes.length > 0) {
+      await this.recalculateQuoteTotals(id);
+    }
+
+    return {
+      updatedCount: changes.length,
+      changes,
+      quote: await this.findOne(id, clinicId),
+    };
+  }
+
   async update(id: string, clinicId: string, updateQuoteDto: UpdateQuoteDto) {
     const quote = await this.findOne(id, clinicId);
 

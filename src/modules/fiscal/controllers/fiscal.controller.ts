@@ -22,6 +22,7 @@ import { Permissions } from '../../../core/rbac/decorators/permissions.decorator
 import { PERMISSIONS } from '../../../core/rbac/permissions';
 import { CurrentUser } from '../../../core/auth/decorators/current-user.decorator';
 import { UpdateFiscalSettingsDto } from '../dto/update-fiscal-settings.dto';
+import { UpsertFiscalProfileDto } from '../dto/upsert-fiscal-profile.dto';
 import { Public } from '../../../core/auth/decorators/public.decorator';
 import { Request, Response } from 'express';
 import * as crypto from 'crypto';
@@ -37,14 +38,59 @@ export class FiscalController {
     return this.fiscalService.emitirNota(orderId, req.clinicId);
   }
 
+  @Post('validate/:orderId')
+  @Permissions(PERMISSIONS.FISCAL_EMIT)
+  async validateOrder(@Param('orderId') orderId: string, @Req() req: any) {
+    return this.fiscalService.validateOrder(orderId, req.clinicId);
+  }
+
+  @Get('documents/:id/xml')
+  @Permissions(PERMISSIONS.FISCAL_VIEW)
+  async downloadXml(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const file = await this.fiscalService.downloadFiscalFile(
+      id,
+      req.clinicId,
+      'xml',
+    );
+    res.set({
+      'Content-Type': file.contentType,
+      'Content-Disposition': `inline; filename="${file.filename}"`,
+    });
+    res.send(file.data);
+  }
+
+  @Get('documents/:id/danfe')
+  @Permissions(PERMISSIONS.FISCAL_VIEW)
+  async downloadDanfe(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const file = await this.fiscalService.downloadFiscalFile(
+      id,
+      req.clinicId,
+      'danfe',
+    );
+    res.set({
+      'Content-Type': file.contentType,
+      'Content-Disposition': `inline; filename="${file.filename}"`,
+    });
+    res.send(file.data);
+  }
+
   @Get('settings')
   @Permissions(PERMISSIONS.FISCAL_CONFIG)
   async getSettings(
+    @Req() req: any,
     @CurrentUser() user: any,
     @Query('clinicId') clinicId?: string,
   ) {
     const targetClinicId =
-      user.isSuperAdmin && clinicId ? clinicId : user.clinicId;
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
     return this.fiscalService.getSettings(targetClinicId);
   }
 
@@ -52,12 +98,38 @@ export class FiscalController {
   @Permissions(PERMISSIONS.FISCAL_CONFIG)
   async updateSettings(
     @Body() dto: UpdateFiscalSettingsDto,
+    @Req() req: any,
     @CurrentUser() user: any,
     @Query('clinicId') clinicId?: string,
   ) {
     const targetClinicId =
-      user.isSuperAdmin && clinicId ? clinicId : user.clinicId;
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
     return this.fiscalService.updateSettings(targetClinicId, dto);
+  }
+
+  @Get('profile')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async getFiscalProfile(
+    @Req() req: any,
+    @CurrentUser() user: any,
+    @Query('clinicId') clinicId?: string,
+  ) {
+    const targetClinicId =
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
+    return this.fiscalService.getFiscalProfile(targetClinicId);
+  }
+
+  @Put('profile')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async upsertFiscalProfile(
+    @Body() dto: UpsertFiscalProfileDto,
+    @Req() req: any,
+    @CurrentUser() user: any,
+    @Query('clinicId') clinicId?: string,
+  ) {
+    const targetClinicId =
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
+    return this.fiscalService.upsertFiscalProfile(targetClinicId, dto);
   }
 
   @Post('setup')
@@ -66,11 +138,12 @@ export class FiscalController {
   async setupNexosFiscal(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: any,
+    @Req() req: any,
     @CurrentUser() user: any,
     @Query('clinicId') clinicId?: string,
   ) {
     const targetClinicId =
-      user.isSuperAdmin && clinicId ? clinicId : user.clinicId;
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
 
     if (!file) {
       throw new BadRequestException('Certificado (.pfx) é obrigatório.');
@@ -83,6 +156,12 @@ export class FiscalController {
       file.buffer,
       body.password,
       file.originalname,
+      {
+        ie: body.ie,
+        uf: body.uf,
+        cityCode: body.cityCode,
+        crt: body.crt,
+      },
     );
   }
 

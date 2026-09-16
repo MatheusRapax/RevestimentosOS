@@ -28,11 +28,22 @@ interface FiscalSettings {
     name?: string;
     certificate?: FileList;
     password?: string;
+    ie?: string;
+    uf?: string;
+    cityCode?: string;
+    crt?: string;
 }
 
 interface FiscalSettingsFormProps {
     clinicId?: string;
 }
+
+const EMPTY_PROFILE = {
+    cnpj: '', ie: '', im: '', crt: '3', cnae: '',
+    logradouro: '', numero: '', complemento: '', bairro: '',
+    municipioIbge: '', municipioNome: '', uf: '', cep: '',
+    serieNfe: '1',
+};
 
 export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
     const [isLoading, setIsLoading] = useState(true);
@@ -40,9 +51,79 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
     const [isSavingSetup, setIsSavingSetup] = useState(false);
     const [settings, setSettings] = useState<FiscalSettings | null>(null);
 
-    const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FiscalSettings>();
+    const [profile, setProfile] = useState<Record<string, string>>({ ...EMPTY_PROFILE });
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+    // Duas instâncias separadas: "Setup" e "Regras" são <form>s independentes.
+    // Um único useForm() compartilhado fazia os campos obrigatórios do Setup
+    // (certificado, senha, razão social) bloquearem silenciosamente o submit
+    // das Regras sempre que o certificado ainda não tivesse sido enviado —
+    // handleSubmit valida TODOS os campos registrados no hook, não só os do
+    // <form> que disparou o submit, e sem errorHandler o formSetup inválido
+    // simplesmente não chamava onSubmit (sem toast, sem request, nada).
+    const {
+        register: registerRules,
+        handleSubmit: handleSubmitRules,
+        setValue,
+        watch,
+    } = useForm<FiscalSettings>();
+    const {
+        register: registerSetup,
+        handleSubmit: handleSubmitSetup,
+    } = useForm<FiscalSettings>();
+
+    async function loadProfile() {
+        try {
+            const resp = await api.get('/fiscal/profile', {
+                params: { clinicId },
+                headers: clinicId ? { 'X-Clinic-Id': clinicId } : {},
+            });
+            if (resp.data) {
+                // Só os campos editáveis do perfil entram no estado — o GET também
+                // devolve id/clinicId/createdAt/updatedAt, e se esses forem
+                // reenviados no PUT o DTO (forbidNonWhitelisted) rejeita com
+                // "property id should not exist".
+                const editableKeys = Object.keys(EMPTY_PROFILE);
+                setProfile({
+                    ...EMPTY_PROFILE,
+                    ...Object.fromEntries(
+                        Object.entries(resp.data)
+                            .filter(([k]) => editableKeys.includes(k))
+                            .map(([k, v]) => [k, v == null ? '' : String(v)]),
+                    ),
+                });
+            } else {
+                setProfile({ ...EMPTY_PROFILE });
+            }
+        } catch {
+            setProfile({ ...EMPTY_PROFILE });
+        }
+    }
+
+    async function saveProfile() {
+        setIsSavingProfile(true);
+        try {
+            const body: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(profile)) {
+                if (v === '' || v == null) continue;
+                if (k === 'crt' || k === 'serieNfe' || k === 'serieNfce') body[k] = Number(v);
+                else body[k] = v;
+            }
+            await api.put('/fiscal/profile', body, {
+                params: { clinicId },
+                headers: clinicId ? { 'X-Clinic-Id': clinicId } : {},
+            });
+            toast.success('Perfil do emitente salvo.');
+            loadProfile();
+        } catch (e: any) {
+            toast.error(e.response?.data?.message?.[0] || e.response?.data?.message || 'Erro ao salvar o perfil do emitente.');
+        } finally {
+            setIsSavingProfile(false);
+        }
+    }
 
     useEffect(() => {
+        loadProfile();
         loadSettings();
     }, [clinicId]);
 
@@ -101,18 +182,34 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             return;
         }
 
-        if (!data.document || !data.name || !data.password) {
-            toast.error('Preencha todos os campos do setup.');
+        if (!data.name || !data.password) {
+            toast.error('Informe a Razão Social e a senha do certificado.');
+            return;
+        }
+
+        if (!data.document && !profile.cnpj) {
+            toast.error('Informe o CNPJ aqui ou no Perfil do Emitente.');
+            return;
+        }
+
+        const hasProfileAddress = !!(profile.uf && profile.municipioIbge);
+        if (!hasProfileAddress && (!data.uf || !data.cityCode)) {
+            toast.error('Informe UF e código IBGE no Perfil do Emitente antes do setup.');
             return;
         }
 
         setIsSavingSetup(true);
         try {
             const formData = new FormData();
-            formData.append('document', data.document);
+            if (data.document) formData.append('document', data.document);
             formData.append('name', data.name);
             formData.append('password', data.password);
             formData.append('certificate', data.certificate[0]);
+            // Campos abaixo são override; se em branco, o backend usa o Perfil do Emitente.
+            if (data.ie) formData.append('ie', data.ie);
+            if (data.uf) formData.append('uf', data.uf);
+            if (data.cityCode) formData.append('cityCode', data.cityCode);
+            if (data.crt) formData.append('crt', data.crt);
 
             await api.post('/fiscal/setup', formData, {
                 params: { clinicId },
@@ -184,8 +281,98 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                 </CardContent>
             </Card>
 
+            {/* Perfil do Emitente */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Perfil do Emitente</CardTitle>
+                    <CardDescription>
+                        Identidade fiscal da loja emissora. É a fonte destes dados para a NF-e —
+                        e o padrão usado no setup do NexosFiscal.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                            <Label>CNPJ <span className="text-xs text-gray-400">(14 dígitos)</span></Label>
+                            <Input value={profile.cnpj} onChange={(e) => setProfile({ ...profile, cnpj: e.target.value.replace(/\D/g, '') })} maxLength={14} placeholder="00000000000000" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Inscrição Estadual</Label>
+                            <Input value={profile.ie} onChange={(e) => setProfile({ ...profile, ie: e.target.value })} placeholder="Número ou ISENTO" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Inscrição Municipal</Label>
+                            <Input value={profile.im} onChange={(e) => setProfile({ ...profile, im: e.target.value })} placeholder="Opcional" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Regime Tributário (CRT)</Label>
+                            <Select value={profile.crt} onValueChange={(v) => setProfile({ ...profile, crt: v })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="1">1 - Simples Nacional</SelectItem>
+                                    <SelectItem value="2">2 - Simples Nacional, excesso de sublimite</SelectItem>
+                                    <SelectItem value="3">3 - Regime Normal</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>CNAE Principal</Label>
+                            <Input value={profile.cnae} onChange={(e) => setProfile({ ...profile, cnae: e.target.value })} placeholder="Opcional" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Série NF-e</Label>
+                            <Input type="number" min={1} value={profile.serieNfe} onChange={(e) => setProfile({ ...profile, serieNfe: e.target.value })} />
+                        </div>
+                    </div>
+
+                    <div className="border-t pt-4">
+                        <h3 className="text-sm font-medium mb-4 text-gray-900">Endereço do Emitente</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2 md:col-span-2">
+                                <Label>Logradouro</Label>
+                                <Input value={profile.logradouro} onChange={(e) => setProfile({ ...profile, logradouro: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Número</Label>
+                                <Input value={profile.numero} onChange={(e) => setProfile({ ...profile, numero: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Complemento</Label>
+                                <Input value={profile.complemento} onChange={(e) => setProfile({ ...profile, complemento: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Bairro</Label>
+                                <Input value={profile.bairro} onChange={(e) => setProfile({ ...profile, bairro: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>CEP <span className="text-xs text-gray-400">(8 dígitos)</span></Label>
+                                <Input value={profile.cep} onChange={(e) => setProfile({ ...profile, cep: e.target.value.replace(/\D/g, '') })} maxLength={8} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Município</Label>
+                                <Input value={profile.municipioNome} onChange={(e) => setProfile({ ...profile, municipioNome: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Código IBGE <span className="text-xs text-gray-400">(7 díg — casa com a UF)</span></Label>
+                                <Input value={profile.municipioIbge} onChange={(e) => setProfile({ ...profile, municipioIbge: e.target.value.replace(/\D/g, '') })} maxLength={7} placeholder="Ex: 3550308" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>UF</Label>
+                                <Input value={profile.uf} onChange={(e) => setProfile({ ...profile, uf: e.target.value.toUpperCase().slice(0, 2) })} maxLength={2} placeholder="Ex: SP" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                        <Button type="button" onClick={saveProfile} disabled={isSavingProfile}>
+                            {isSavingProfile ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</>) : 'Salvar Perfil'}
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
             {/* Setup Form */}
-            <form onSubmit={handleSubmit(onSubmitSetup)}>
+            <form onSubmit={handleSubmitSetup(onSubmitSetup)}>
                 <Card className="mb-6 border-blue-200">
                     <CardHeader className="bg-blue-50/50">
                         <CardTitle>Setup Inicial (NexosFiscal)</CardTitle>
@@ -194,22 +381,26 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6 pt-6">
+                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                            Preencha o <strong>Perfil do Emitente</strong> acima antes de subir o certificado —
+                            CNPJ, UF, município e regime vêm de lá.
+                        </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>CNPJ da Loja</Label>
-                                <Input {...register('document', { required: true })} placeholder="Ex: 00.000.000/0000-00" />
+                                <Label>CNPJ da Loja <span className="text-xs text-gray-400">(opcional se no Perfil)</span></Label>
+                                <Input {...registerSetup('document')} placeholder="Ex: 00.000.000/0000-00" />
                             </div>
                             <div className="space-y-2">
                                 <Label>Razão Social</Label>
-                                <Input {...register('name', { required: true })} placeholder="Ex: Loja de Revestimentos LTDA" />
+                                <Input {...registerSetup('name', { required: true })} placeholder="Ex: Loja de Revestimentos LTDA" />
                             </div>
                             <div className="space-y-2">
                                 <Label>Certificado Digital A1 (.pfx)</Label>
-                                <Input type="file" accept=".pfx,.p12" {...register('certificate', { required: true })} />
+                                <Input type="file" accept=".pfx,.p12" {...registerSetup('certificate', { required: true })} />
                             </div>
                             <div className="space-y-2">
                                 <Label>Senha do Certificado</Label>
-                                <Input type="password" {...register('password', { required: true })} placeholder="Senha do arquivo .pfx" />
+                                <Input type="password" {...registerSetup('password', { required: true })} placeholder="Senha do arquivo .pfx" />
                             </div>
                         </div>
                         <div className="flex justify-end mt-4">
@@ -229,7 +420,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             </form>
 
             {/* Rules Form */}
-            <form onSubmit={handleSubmit(onSubmit)}>
+            <form onSubmit={handleSubmitRules(onSubmit)}>
                 <Card>
                     <CardHeader>
                         <CardTitle>Regras de Emissão</CardTitle>
@@ -259,7 +450,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
 
                             <div className="space-y-2">
                                 <Label>Natureza da Operação (Padrão)</Label>
-                                <Input {...register('defaultNaturezaOperacao')} placeholder="Ex: Venda de mercadoria" />
+                                <Input {...registerRules('defaultNaturezaOperacao')} placeholder="Ex: Venda de mercadoria" />
                             </div>
                         </div>
 
@@ -271,24 +462,24 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                                         <Label>ID da Classe de Imposto</Label>
                                         <span className="text-xs text-gray-500">Opcional</span>
                                     </div>
-                                    <Input {...register('defaultTaxClass')} placeholder="Ex: classe_01" />
+                                    <Input {...registerRules('defaultTaxClass')} placeholder="Ex: classe_01" />
                                     <p className="text-xs text-gray-500">
                                         ID do grupo de impostos caso utilize perfil pré-configurado.
                                     </p>
                                 </div>
                                 <div className="space-y-2">
                                     <Label>NCM Padrão</Label>
-                                    <Input {...register('defaultNcm')} placeholder="0000.00.00" />
+                                    <Input {...registerRules('defaultNcm')} placeholder="0000.00.00" />
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label>Cest Padrão</Label>
-                                    <Input {...register('defaultCest')} placeholder="" />
+                                    <Input {...registerRules('defaultCest')} placeholder="" />
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label>CFOP Padrão (Saída)</Label>
-                                    <Input {...register('defaultCfop')} placeholder="Ex: 5102 (Revenda)" />
+                                    <Input {...registerRules('defaultCfop')} placeholder="Ex: 5102 (Revenda)" />
                                     <p className="text-xs text-gray-500">Usado ao dar entrada em notas de compra para evitar conflito com o CFOP do fornecedor.</p>
                                     {(() => {
                                         const currentCfop = watch('defaultCfop');
@@ -306,7 +497,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
 
                                 <div className="space-y-2">
                                     <Label>CST Padrão</Label>
-                                    <Input {...register('defaultCst')} placeholder="Ex: 00" />
+                                    <Input {...registerRules('defaultCst')} placeholder="Ex: 00" />
                                 </div>
 
                                 <div className="space-y-2">

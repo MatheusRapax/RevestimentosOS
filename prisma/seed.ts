@@ -542,6 +542,103 @@ async function main() {
         },
     });
     console.log('✅ Created Super Admin: superadmin@revestimentos.com');
+
+    // =========================================
+    // 13. FISCAL TAX RULES (seed genérico/placeholder)
+    // =========================================
+    // Regras GLOBAIS (clinicId null) para destravar o motor de CFOP/tributos
+    // (Fase 1/0.4 do plano fiscal). São alíquotas GENÉRICAS de referência —
+    // cada loja deve revisar com o contador e, se precisar de algo
+    // diferente, cadastrar uma regra específica (com clinicId preenchido)
+    // que terá prioridade sobre estas. upsert por `codigo` para não duplicar
+    // a cada restart do container.
+    const OBS_PLACEHOLDER =
+        'Regra genérica de referência — revisar alíquota real com o contador antes de operar em produção.';
+
+    await prisma.regraIcms.upsert({
+        where: { codigo: 'ICMS-NORMAL-MESMA-UF' },
+        update: {},
+        create: {
+            codigo: 'ICMS-NORMAL-MESMA-UF',
+            regime: 3, // Regime Normal
+            mesmaUf: true,
+            cst: '00',
+            aliquota: 18.0,
+            observacao: OBS_PLACEHOLDER,
+        },
+    });
+    await prisma.regraIcms.upsert({
+        where: { codigo: 'ICMS-NORMAL-INTERESTADUAL' },
+        update: {},
+        create: {
+            codigo: 'ICMS-NORMAL-INTERESTADUAL',
+            regime: 3,
+            mesmaUf: false,
+            cst: '00',
+            aliquota: 12.0,
+            aliquotaInterna: 18.0, // referência p/ cálculo de DIFAL
+            observacao: OBS_PLACEHOLDER,
+        },
+    });
+    await prisma.regraIcms.upsert({
+        where: { codigo: 'ICMS-SIMPLES-MESMA-UF' },
+        update: {},
+        create: {
+            codigo: 'ICMS-SIMPLES-MESMA-UF',
+            regime: 1, // Simples Nacional
+            mesmaUf: true,
+            cst: '102', // CSOSN: tributada pelo Simples Nacional sem permissão de crédito
+            aliquota: 0,
+            observacao:
+                OBS_PLACEHOLDER + ' ICMS do Simples é recolhido via DAS (guia única).',
+        },
+    });
+    await prisma.regraIcms.upsert({
+        where: { codigo: 'ICMS-SIMPLES-INTERESTADUAL' },
+        update: {},
+        create: {
+            codigo: 'ICMS-SIMPLES-INTERESTADUAL',
+            regime: 1,
+            mesmaUf: false,
+            cst: '102',
+            aliquota: 0,
+            observacao:
+                OBS_PLACEHOLDER + ' ICMS do Simples é recolhido via DAS (guia única).',
+        },
+    });
+
+    await prisma.regraPisCofins.upsert({
+        where: { codigo: 'PISCOFINS-NORMAL' },
+        update: {},
+        create: {
+            codigo: 'PISCOFINS-NORMAL',
+            regime: 3,
+            cst: '01',
+            aliquotaPis: 1.65,
+            aliquotaCofins: 7.6,
+            observacao: OBS_PLACEHOLDER,
+        },
+    });
+    await prisma.regraPisCofins.upsert({
+        where: { codigo: 'PISCOFINS-SIMPLES' },
+        update: {},
+        create: {
+            codigo: 'PISCOFINS-SIMPLES',
+            regime: 1,
+            cst: '08', // Operação sem incidência da contribuição
+            aliquotaPis: 0,
+            aliquotaCofins: 0,
+            observacao:
+                OBS_PLACEHOLDER +
+                ' PIS/COFINS do Simples é recolhido via DAS (guia única).',
+        },
+    });
+
+    // Nenhuma RegraIpi é semeada por padrão: esta loja é revenda (não
+    // industrializa), então a ausência de regra faz o cálculo omitir o
+    // grupo IPI do item — comportamento correto até que um produto
+    // específico exija o contrário (cadastrar por NCM quando aparecer).
+    console.log('✅ Seeded fiscal tax rules (ICMS/PIS/COFINS — genéricas)');
 }
 
 main()

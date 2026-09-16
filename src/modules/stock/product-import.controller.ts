@@ -20,11 +20,12 @@ import {
 import { AiImportService } from './services/ai-import.service';
 import { StockService } from './stock.service';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
+import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 import { ImportProductsDto } from './dto/import-products.dto';
 import { Public } from '../../core/auth/decorators/public.decorator';
 
 @Controller('stock/products/import')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class ProductImportController {
   constructor(
     private readonly importService: ProductImportService,
@@ -63,7 +64,12 @@ export class ProductImportController {
   ) {
     if (!file) throw new BadRequestException('File is required');
 
-    const clinicId = queryClinicId || req.user?.clinicId;
+    // queryClinicId só sobrepõe o clinicId validado pelo TenantGuard quando
+    // o chamador é super admin — senão qualquer usuário autenticado poderia
+    // ler custo/SKU de outra clínica só passando ?clinicId= na query, já que
+    // essa rota consulta findExistingProductsData (inclui oldCostCents).
+    const clinicId =
+      req.user?.isSuperAdmin && queryClinicId ? queryClinicId : req.clinicId;
     if (!clinicId) {
       throw new BadRequestException(
         'clinicId é obrigatório para visualização da importação',
@@ -112,7 +118,10 @@ export class ProductImportController {
     if (!supplierId)
       throw new BadRequestException('supplierId is required for AI mapping');
 
-    const clinicId = queryClinicId || req.user?.clinicId;
+    // Mesma regra: só super admin pode sobrepor via query; usuário comum usa
+    // sempre o clinicId já validado pelo TenantGuard.
+    const clinicId =
+      req.user?.isSuperAdmin && queryClinicId ? queryClinicId : req.clinicId;
     if (!clinicId) throw new BadRequestException('clinicId is required');
 
     // 1. Flatten the Excel
@@ -334,9 +343,13 @@ export class ProductImportController {
   @Post('execute')
   async executeImport(@Body() dto: ImportProductsDto, @Req() req: any) {
     try {
-      // req.user provided by JwtAuthGuard
-      // Super admins don't have clinicId in JWT, so use DTO's clinicId
-      const clinicId = dto.clinicId || req.user.clinicId;
+      // dto.clinicId só pode sobrepor o clinicId validado pelo TenantGuard
+      // (req.clinicId) quando o chamador é super admin — senão qualquer
+      // usuário comum poderia importar produtos para uma clínica alheia só
+      // informando o clinicId no corpo, sem nenhuma checagem de acesso
+      // (TenantGuard só valida o clinicId resolvido do header/JWT).
+      const clinicId =
+        req.user?.isSuperAdmin && dto.clinicId ? dto.clinicId : req.clinicId;
 
       if (!clinicId) {
         throw new BadRequestException('clinicId é obrigatório para importação');

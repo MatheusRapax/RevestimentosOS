@@ -37,6 +37,9 @@ interface Customer {
     state?: string;
     zipCode?: string;
     birthDate?: string;
+    indicadorIe?: number | null;
+    municipioIbge?: string | null;
+    consumidorFinal?: boolean;
     isActive: boolean;
     architectId?: string;
     architect?: { id: string; name: string } | null;
@@ -62,6 +65,9 @@ const emptyForm = {
     zipCode: '',
     birthDate: '',
     architectId: '',
+    indicadorIe: '9', // 1=contribuinte, 2=isento, 9=não contribuinte (padrão varejo)
+    municipioIbge: '',
+    consumidorFinal: true,
 };
 
 export default function ClientesPage() {
@@ -201,6 +207,9 @@ export default function ClientesPage() {
             zipCode: customer.zipCode ? maskCEP(customer.zipCode) : '',
             birthDate: customer.birthDate ? new Date(customer.birthDate).toLocaleDateString('pt-BR') : '',
             architectId: customer.architectId || '',
+            indicadorIe: customer.indicadorIe != null ? String(customer.indicadorIe) : '9',
+            municipioIbge: customer.municipioIbge || '',
+            consumidorFinal: customer.consumidorFinal ?? true,
         });
         setFormError('');
         setIsFormDialogOpen(true);
@@ -224,6 +233,9 @@ export default function ClientesPage() {
                 zipCode: unmask(formData.zipCode) || undefined,
                 birthDate: formData.birthDate ? new Date(formData.birthDate.split('/').reverse().join('-')).toISOString() : undefined,
                 architectId: formData.architectId && formData.architectId !== 'none' ? formData.architectId : undefined,
+                indicadorIe: formData.indicadorIe ? Number(formData.indicadorIe) : undefined,
+                municipioIbge: formData.municipioIbge?.trim() || undefined,
+                consumidorFinal: !!formData.consumidorFinal,
             };
 
             if (editingCustomer) {
@@ -682,6 +694,49 @@ export default function ClientesPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+                    </div>
+
+                    <div className="border-t pt-4 mt-2">
+                        <h3 className="text-sm font-medium text-gray-900 mb-3">Dados Fiscais (NF-e)</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label htmlFor="indicadorIe">Indicador de IE</Label>
+                                <Select
+                                    value={formData.indicadorIe}
+                                    onValueChange={(v) => setFormData({ ...formData, indicadorIe: v })}
+                                >
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="1">1 - Contribuinte de ICMS</SelectItem>
+                                        <SelectItem value="2">2 - Isento de Inscrição Estadual</SelectItem>
+                                        <SelectItem value="9">9 - Não contribuinte</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label htmlFor="consumidorFinal">Consumidor Final</Label>
+                                <Select
+                                    value={formData.consumidorFinal ? 'sim' : 'nao'}
+                                    onValueChange={(v) => setFormData({ ...formData, consumidorFinal: v === 'sim' })}
+                                >
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="sim">Sim</SelectItem>
+                                        <SelectItem value="nao">Não</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label htmlFor="municipioIbge">Código do Município (IBGE)</Label>
+                                <Input
+                                    id="municipioIbge"
+                                    value={formData.municipioIbge}
+                                    onChange={(e) => setFormData({ ...formData, municipioIbge: e.target.value.replace(/\D/g, '').slice(0, 7) })}
+                                    placeholder="7 dígitos — casa com a UF"
+                                    maxLength={7}
+                                />
+                            </div>
                         </div>
                     </div>
 
