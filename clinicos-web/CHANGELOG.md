@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.15.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.14.0...v1.15.0) (2026-09-16)
+
+
+### Features
+
+* **fiscal:** Fase 0.1 + 0.3 — perfil do emitente + campos fiscais do cliente ([8ac6124](https://github.com/MatheusRapax/RevestimentosOS/commit/8ac61240d28c87439be414226e77849a301b1760))
+* **fiscal:** Fase 0.2 — campos fiscais de unidade do produto + origem ([fc07950](https://github.com/MatheusRapax/RevestimentosOS/commit/fc07950815fc3ca70076a91270d5502f36602d09))
+* **fiscal:** Fase 1 + 0.4 — motor de CFOP e cálculo de tributos ([29cfc32](https://github.com/MatheusRapax/RevestimentosOS/commit/29cfc32ec79cd97b2cc20585c476325f56207189))
+* **fiscal:** Fase 2.1 + 2.2 — pré-flight forte + POST /fiscal/validate/:orderId ([6ad85aa](https://github.com/MatheusRapax/RevestimentosOS/commit/6ad85aab453c33ec38f4631a11d0b087166711d6))
+* **fiscal:** Fase 2.3 — tela de revisão fiscal antes de emitir ([7201391](https://github.com/MatheusRapax/RevestimentosOS/commit/7201391b72fdc6a11d12bb241f46fd8c3e20362a))
+
+
+### Bug Fixes
+
+* **fiscal:** 3 bugs achados no QA completo do módulo fiscal ([8b54dc0](https://github.com/MatheusRapax/RevestimentosOS/commit/8b54dc0520d52b206f314c972592f4f39cd90c89))
+* **fiscal:** download autenticado de XML/DANFE + status reativo + setup alinhado ([af3c841](https://github.com/MatheusRapax/RevestimentosOS/commit/af3c841781799d74b7cf80ae7f61934ccae46154))
+* **fiscal:** normalizar documento e CEP antes de enviar ao NexosFiscal ([08fb0dc](https://github.com/MatheusRapax/RevestimentosOS/commit/08fb0dc2129f496d0cbfc1a1433ecde3b75a37c5))
+* **fiscal:** pré-preencher NCM/CFOP/CST/Origem já cadastrados no FastInputModal ([1ed0956](https://github.com/MatheusRapax/RevestimentosOS/commit/1ed095686ad5c2afae4a7e5c3ca0996fbea75b7f))
+* **fiscal:** sincronizar status ao reemitir pedido já processado ([95db115](https://github.com/MatheusRapax/RevestimentosOS/commit/95db115471b8020677f94b773b935faaa5a243fe))
+* **precos:** recálculo automático de markup + atualização de preço em orçamento ([6b896a5](https://github.com/MatheusRapax/RevestimentosOS/commit/6b896a5895c28a9db2dffebfeadb7e9fdec35239))
+* **tenant:** req.user.clinicId sempre undefined em brands/categories/import + falha de isolamento entre clínicas ([aed99f1](https://github.com/MatheusRapax/RevestimentosOS/commit/aed99f1d3c56bc90fc69ba60b46ee6d91bc43c17))
+
 ## [1.14.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.13.1...v1.14.0) (2026-09-05)
 
 
