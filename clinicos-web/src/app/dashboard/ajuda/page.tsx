@@ -165,12 +165,29 @@ const GROUPS: Group[] = [
                             </>
                         ),
                     },
+                    {
+                        tone: 'info',
+                        label: 'Atualizar Preços',
+                        body: (
+                            <>
+                                Um orçamento em <b>rascunho</b> guarda o preço de cada item no momento em que foi
+                                adicionado — se o preço padrão do produto mudou depois (por exemplo, você ajustou o{' '}
+                                <A href="#marcas-categorias">markup de uma marca</A>), o orçamento não atualiza sozinho.
+                                Use o botão <Mono>Atualizar Preços</Mono>, no topo da tela de edição, para puxar o preço
+                                atual do catálogo para os itens — nada muda sem você clicar, então um preço negociado à
+                                mão com o cliente fica seguro até você decidir atualizar. Só disponível em rascunho; um
+                                orçamento já enviado ao cliente não pode ter os preços trocados por baixo.
+                            </>
+                        ),
+                    },
                 ],
                 steps: [
                     <><b>Novo Orçamento</b> → cliente, (arquiteto), itens (por área m² ou caixas), ajustes globais. Salvar.</>,
                     <><b>Abrir PDF</b> para enviar ao cliente. Use <b>Enviar</b> quando mandar oficialmente.</>,
                     <>Cliente aceitou → <b>Aprovar</b> → <b>Converter em Pedido</b>. O orçamento fica <Mono>Convertido</Mono>.</>,
                     <>Cliente recusou → <b>Rejeitar</b> (pede o motivo). Dá para <b>Reabrir</b> depois. <b>Duplicar</b> aproveita um parecido.</>,
+                    <>Preço do produto mudou depois de criar o orçamento? Reabra para editar e clique em{' '}
+                        <b>Atualizar Preços</b> antes de salvar.</>,
                 ],
             },
             {
@@ -397,11 +414,68 @@ const GROUPS: Group[] = [
                             </>
                         ),
                     },
+                    {
+                        label: 'Preço de venda — de onde ele vem',
+                        body: (
+                            <>
+                                Se você não digitar um preço de venda na mão, o sistema calcula sozinho:{' '}
+                                <Mono>custo × (1 + markup)</Mono>. Veja em{' '}
+                                <A href="#marcas-categorias">Marcas, Categorias e Markup</A> de onde vem esse markup e o
+                                que muda quando você ajusta o markup padrão de uma marca ou categoria.
+                            </>
+                        ),
+                    },
                 ],
                 steps: [
                     <><b>Novo Produto</b> → nome, SKU, unidade. Para revestimento em m², preencha <b>m²/caixa</b> — é o que converte área em caixas.</>,
                     <>Preços: <b>custo</b> e <b>venda</b>. O custo inicial pode ser ajustado; depois passa a ser calculado por média a cada entrada.</>,
                     <><b>Importar</b> → suba a planilha, confira o mapeamento das colunas, confirme. <b>Colunas</b> escolhe o que aparece na lista.</>,
+                ],
+            },
+            {
+                id: 'marcas-categorias',
+                path: 'Administração › Config. de Catálogo',
+                title: 'Marcas, Categorias e Markup',
+                lead: (
+                    <>
+                        Onde ficam cadastradas as <b>marcas</b> e <b>categorias</b> de produto, cada uma com um{' '}
+                        <b>markup padrão</b> (%) — a margem usada para calcular o preço de venda de quem não tem preço
+                        digitado na mão.
+                    </>
+                ),
+                notes: [
+                    {
+                        label: 'Ordem de prioridade do markup',
+                        body: (
+                            <>
+                                Pra cada produto, o sistema usa o primeiro que encontrar, nesta ordem:{' '}
+                                <b>markup do produto</b> (se você preencheu um específico) → <b>markup da marca</b> →{' '}
+                                <b>markup da categoria</b> → <b>markup padrão da loja</b> (Config. de Catálogo →
+                                Configurações Gerais). Um produto com <b>preço manual</b> nunca usa markup — o preço
+                                digitado nele é sempre o que vale.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Mudar o markup atualiza os produtos já cadastrados',
+                        body: (
+                            <>
+                                Ao salvar um novo markup padrão numa marca, categoria ou na loja, o preço de venda de{' '}
+                                <b>todos os produtos afetados</b> (sem preço manual) é recalculado e atualizado na
+                                hora — não precisa editar produto por produto. Isso vale só para o <b>catálogo</b>; um{' '}
+                                <A href="#orcamentos">orçamento</A> já criado guarda o preço que tinha no momento —
+                                use <b>Atualizar Preços</b> nele se quiser puxar o valor novo.
+                            </>
+                        ),
+                    },
+                ],
+                steps: [
+                    <>Cadastre a <b>marca</b> ou <b>categoria</b> com um markup padrão (ex.: 40%).</>,
+                    <>Precisa reajustar? Edite o markup dela a qualquer momento — os produtos que dependem desse nível
+                        da hierarquia mudam de preço junto, automaticamente.</>,
+                    <>Um produto específico precisa de margem diferente do resto da marca? Preencha o{' '}
+                        <b>markup do produto</b> direto no cadastro dele — tem prioridade sobre marca e categoria.</>,
                 ],
             },
             {
