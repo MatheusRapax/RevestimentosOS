@@ -14,6 +14,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     ArrowLeft,
     Plus,
@@ -26,6 +27,7 @@ import {
     BadgePercent,
     RefreshCw,
     Loader2,
+    EyeOff,
 } from 'lucide-react';
 import Link from 'next/link';
 import { StockLotSelector } from '@/components/stock/StockLotSelector';
@@ -79,6 +81,7 @@ interface QuoteItem {
     discountPercent: number;
     discountCents: number;
     totalCents: number;
+    hideDiscount?: boolean;
     preferredLotId?: string;
     environmentId?: string;
     sequence?: number;
@@ -184,10 +187,11 @@ export default function EditOrcamentoPage() {
                         discountPercent: item.discountPercent || 0,
                         discountCents: item.discountCents || 0,
                         totalCents: item.totalCents || 0,
+                        hideDiscount: item.hideDiscount || false,
                         preferredLotId: item.preferredLotId || undefined,
                         environmentId: item.environmentId || undefined,
                     }));
-                    
+
                     setItems(mappedItems);
                     originalItemsRef.current = mappedItems;
                 } else if (settingsRes.data?.defaultDeliveryFee) {
@@ -476,6 +480,7 @@ export default function EditOrcamentoPage() {
                         unitPriceCents: item.unitPriceCents,
                         discountPercent: item.discountPercent !== undefined ? item.discountPercent : 0,
                         discountCents: item.discountPercent === 0 ? 0 : undefined,
+                        hideDiscount: !!item.hideDiscount,
                         preferredLotId: item.preferredLotId || undefined,
                         environmentId: item.environmentId || null,
                         sequence: i,
@@ -492,6 +497,7 @@ export default function EditOrcamentoPage() {
                         unitPriceCents: item.unitPriceCents,
                         discountPercent: item.discountPercent !== undefined ? item.discountPercent : 0,
                         discountCents: item.discountPercent === 0 ? 0 : undefined,
+                        hideDiscount: !!item.hideDiscount,
                         preferredLotId: item.preferredLotId || undefined,
                         environmentId: item.environmentId || null,
                         sequence: i,
@@ -511,6 +517,7 @@ export default function EditOrcamentoPage() {
                     unitPriceCents: item.unitPriceCents,
                     discountPercent: item.discountPercent !== undefined ? item.discountPercent : 0,
                     discountCents: item.discountPercent === 0 ? 0 : undefined,
+                    hideDiscount: !!item.hideDiscount,
                     preferredLotId: item.preferredLotId || undefined,
                     environmentId: item.environmentId || null,
                     sequence: i,
@@ -552,6 +559,7 @@ export default function EditOrcamentoPage() {
                 discountPercent: item.discountPercent || 0,
                 discountCents: item.discountCents || 0,
                 totalCents: item.totalCents || 0,
+                hideDiscount: item.hideDiscount || false,
                 preferredLotId: item.preferredLotId || undefined,
                 environmentId: item.environmentId || undefined,
             }));
@@ -724,20 +732,20 @@ export default function EditOrcamentoPage() {
                         <Boxes className="h-5 w-5" />
                         Itens do Orçamento
                     </h2>
-                    <Button onClick={addItem} variant="outline" size="sm">
-                        <Plus className="h-4 w-4 mr-1" />
-                        Adicionar Item
-                    </Button>
                 </div>
 
                 {items.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                        <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <p>Nenhum item adicionado</p>
-                        <Button onClick={addItem} variant="link" className="mt-2">
-                            Adicionar primeiro item
-                        </Button>
-                    </div>
+                    <button
+                        type="button"
+                        onClick={addItem}
+                        className="w-full flex flex-col items-center justify-center gap-2 py-10 rounded-lg border-2 border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors"
+                    >
+                        <Package className="h-10 w-10 opacity-50" />
+                        <span className="font-medium">Nenhum item adicionado</span>
+                        <span className="inline-flex items-center gap-1 text-sm text-blue-600">
+                            <Plus className="h-4 w-4" /> Adicionar primeiro item
+                        </span>
+                    </button>
                 ) : (
                     <div className="space-y-4">
                         {items.map((item, index) => (
@@ -1013,10 +1021,39 @@ export default function EditOrcamentoPage() {
                                                 {formatCurrency(item.totalCents)}
                                             </p>
                                         </div>
+                                        {item.discountCents > 0 && (
+                                            <div className="col-span-2 md:col-span-5 flex items-start gap-2 pt-1">
+                                                <Checkbox
+                                                    id={`hide-discount-${index}`}
+                                                    checked={!!item.hideDiscount}
+                                                    onCheckedChange={(checked) =>
+                                                        updateItem(index, 'hideDiscount', checked === true)
+                                                    }
+                                                />
+                                                <Label htmlFor={`hide-discount-${index}`} className="text-xs text-gray-600 leading-tight cursor-pointer">
+                                                    <span className="inline-flex items-center gap-1 font-medium text-gray-700">
+                                                        <EyeOff className="h-3 w-3" /> Ocultar desconto na impressão
+                                                    </span>
+                                                    <br />
+                                                    No PDF/impressão, este item aparece com o preço já com desconto
+                                                    (ex.: {formatCurrency(item.unitPriceCents - Math.round(item.discountCents / (item.quantityBoxes || 1)))}) como se fosse o preço normal — sem mostrar o desconto ao cliente.
+                                                    O valor real continua registrado normalmente no sistema e nos relatórios financeiros.
+                                                </Label>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
                         ))}
+
+                        <button
+                            type="button"
+                            onClick={addItem}
+                            className="w-full flex items-center justify-center gap-2 py-4 rounded-lg border-2 border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors"
+                        >
+                            <Plus className="h-5 w-5" />
+                            <span className="font-medium">Adicionar Item</span>
+                        </button>
                     </div>
                 )}
             </Card>

@@ -1364,6 +1364,11 @@ model QuoteItem {
   discountCents   Int    @default(0)
   discountPercent Float?
   totalCents      Int
+  // Só afeta a impressão/PDF: some com o "De/Por" e o desconto some da tabela
+  // de itens, mostrando o preço já com desconto como se fosse o preço normal.
+  // NUNCA reflete em unitPriceCents/discountCents/totalCents nem em nenhum
+  // cálculo financeiro — é puramente de apresentação no documento do cliente.
+  hideDiscount Boolean @default(false)
 
   // Lote preferido (opcional)
   preferredLotId String?

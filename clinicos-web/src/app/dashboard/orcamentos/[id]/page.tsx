@@ -28,7 +28,8 @@ import {
     Copy,
     RotateCcw,
     Ban,
-    MoreHorizontal
+    MoreHorizontal,
+    EyeOff,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -77,6 +78,7 @@ interface QuoteItem {
     unitPriceCents: number;
     discountPercent?: number;
     discountCents: number;
+    hideDiscount?: boolean;
     totalCents: number;
     notes?: string;
     reservations?: { quantity: number }[];
@@ -843,6 +845,14 @@ export default function QuoteDetailPage() {
                                                 <span className="text-red-600 font-medium">-{formatCurrency(item.discountCents)}</span>
                                                 {item.discountPercent && item.discountPercent > 0 && (
                                                     <div className="text-xs text-red-400">{item.discountPercent}%</div>
+                                                )}
+                                                {item.hideDiscount && (
+                                                    <div
+                                                        className="mt-0.5 inline-flex items-center gap-1 text-xs text-amber-600"
+                                                        title="Este desconto não aparece no PDF/impressão para o cliente — só aqui, internamente."
+                                                    >
+                                                        <EyeOff className="h-3 w-3" /> Oculto na impressão
+                                                    </div>
                                                 )}
                                             </div>
                                         ) : '-'}
