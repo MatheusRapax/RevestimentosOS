@@ -5,10 +5,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateClinicDto } from './dto/create-clinic.dto';
+import { PricingService } from '../catalogue/services/pricing.service';
 
 @Injectable()
 export class ClinicsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private pricingService: PricingService,
+  ) {}
 
   async createClinic(createClinicDto: CreateClinicDto, userId: string) {
     const { name } = createClinicDto;
@@ -146,9 +150,19 @@ export class ClinicsService {
   }
 
   async updateClinic(id: string, data: any) {
-    return this.prisma.clinic.update({
+    const clinic = await this.prisma.clinic.update({
       where: { id },
       data,
     });
+
+    // Markup global mudou: recalcula o preço de todos os produtos sem
+    // markup próprio/de marca/de categoria (a hierarquia de precificação já
+    // trata quem tem override mais específico — recalcular todos é seguro,
+    // só quem realmente resolve para o global muda de preço de fato).
+    if (data.globalMarkup !== undefined) {
+      await this.pricingService.recalculatePrices(id);
+    }
+
+    return clinic;
   }
 }
