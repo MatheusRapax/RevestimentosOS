@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.16.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.15.1...v1.16.0) (2026-09-16)
+
+
+### Features
+
+* **orcamentos:** ocultar desconto na impressão por item (sem afetar dado financeiro) ([d64e841](https://github.com/MatheusRapax/RevestimentosOS/commit/d64e8414617a1f591e03ee18dee55b5d8e82323e))
+
 ### [1.15.1](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.15.0...v1.15.1) (2026-09-16)
 
 
