@@ -208,6 +208,16 @@ const GROUPS: Group[] = [
                             </>
                         ),
                     },
+                    {
+                        label: 'Adicionar Item',
+                        body: (
+                            <>
+                                O botão para adicionar item fica sempre logo abaixo do último item da lista (e também
+                                como área de destaque quando o orçamento ainda não tem nenhum item) — não precisa
+                                rolar a tela até o topo para adicionar mais um item em orçamentos com muitos itens.
+                            </>
+                        ),
+                    },
                 ],
                 steps: [
                     <><b>Novo Orçamento</b> → cliente, (arquiteto), itens (por área m² ou caixas), ajustes globais. Salvar.</>,
