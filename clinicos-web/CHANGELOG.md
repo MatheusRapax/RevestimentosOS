@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.17.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.16.0...v1.17.0) (2026-10-02)
+
+
+### Features
+
+* **orcamentos:** duplicar item do orçamento + produto avulso direto no catálogo ([db0440e](https://github.com/MatheusRapax/RevestimentosOS/commit/db0440e0c2e1dd17de606840bad0ed7b6df5d5eb))
+
 ## [1.16.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.15.1...v1.16.0) (2026-09-16)
 
 
