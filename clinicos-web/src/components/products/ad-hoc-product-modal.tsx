@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronDown, AlertCircle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ChevronDown, AlertCircle, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -19,6 +20,7 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
     const [categories, setCategories] = useState<any[]>([]);
     const [brands, setBrands] = useState<any[]>([]);
     const [showExtras, setShowExtras] = useState(false);
+    const [addToCatalog, setAddToCatalog] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -114,7 +116,7 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
         try {
             const payload: any = {
                 name: name.trim(),
-                isAdhoc: true,
+                isAdhoc: !addToCatalog,
                 unit,
                 saleType,
                 manualPrice: false,
@@ -146,7 +148,11 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
             }
 
             const response = await api.post('/stock/products', payload);
-            toast.success('Produto avulso criado com sucesso!');
+            toast.success(
+                addToCatalog
+                    ? 'Produto criado e já disponível no catálogo!'
+                    : 'Produto avulso criado com sucesso!'
+            );
             onSuccess(response.data);
             resetForm();
             onClose();
@@ -165,6 +171,7 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
         setFormat(''); setColor(''); setLine('');
         setHeight(''); setWidth(''); setNcm(''); setSku('');
         setShowExtras(false);
+        setAddToCatalog(false);
     };
 
     return (
@@ -173,11 +180,36 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
                 <DialogHeader>
                     <DialogTitle>Produto Extraordinário (Sob Encomenda)</DialogTitle>
                     <DialogDescription>
-                        Crie um produto avulso para este orçamento. Ele ficará oculto do catálogo principal, mas pode ser promovido depois.
+                        {addToCatalog
+                            ? 'Crie um produto novo que já entra no catálogo da loja, disponível para busca neste e em outros orçamentos.'
+                            : 'Crie um produto avulso para este orçamento. Ele ficará oculto do catálogo principal, mas pode ser promovido depois.'}
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-5 py-2">
+
+                    {/* Avulso x Catálogo */}
+                    <label
+                        className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                            addToCatalog ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50'
+                        }`}
+                    >
+                        <Checkbox
+                            checked={addToCatalog}
+                            onCheckedChange={(checked) => setAddToCatalog(checked === true)}
+                            className="mt-0.5"
+                        />
+                        <span className="text-sm">
+                            <span className={`flex items-center gap-1.5 font-medium ${addToCatalog ? 'text-green-700' : 'text-gray-700'}`}>
+                                <Sparkles className="h-3.5 w-3.5" /> Adicionar direto ao catálogo
+                            </span>
+                            <span className="text-gray-500">
+                                {addToCatalog
+                                    ? 'Este produto já nasce visível no catálogo — aparece na busca deste e de qualquer outro orçamento, sem precisar promover depois.'
+                                    : 'Desmarcado, o produto fica avulso: visível só aqui, oculto do catálogo e de novos orçamentos até alguém promovê-lo manualmente.'}
+                            </span>
+                        </span>
+                    </label>
 
                     {/* Nome */}
                     <div className="space-y-1.5">
@@ -376,8 +408,12 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
                         <Button type="button" variant="outline" onClick={() => { resetForm(); onClose(); }} disabled={isLoading}>
                             Cancelar
                         </Button>
-                        <Button type="submit" disabled={isLoading} className="bg-amber-600 hover:bg-amber-700">
-                            {isLoading ? 'Salvando...' : 'Adicionar Produto'}
+                        <Button
+                            type="submit"
+                            disabled={isLoading}
+                            className={addToCatalog ? 'bg-green-600 hover:bg-green-700' : 'bg-amber-600 hover:bg-amber-700'}
+                        >
+                            {isLoading ? 'Salvando...' : addToCatalog ? 'Adicionar ao Catálogo' : 'Adicionar Produto'}
                         </Button>
                     </DialogFooter>
                 </form>
