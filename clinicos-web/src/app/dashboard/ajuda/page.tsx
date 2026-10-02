@@ -1,13 +1,17 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     BookOpen,
     ChevronRight,
+    ChevronDown,
     Info,
     AlertTriangle,
     ArrowRight,
+    Search,
+    X,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 /* ------------------------------------------------------------------ */
 /*  Estrutura do manual                                                */
@@ -215,6 +219,29 @@ const GROUPS: Group[] = [
                                 O botão para adicionar item fica sempre logo abaixo do último item da lista (e também
                                 como área de destaque quando o orçamento ainda não tem nenhum item) — não precisa
                                 rolar a tela até o topo para adicionar mais um item em orçamentos com muitos itens.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'Duplicar item',
+                        body: (
+                            <>
+                                O ícone de cópia ao lado do item duplica produto, quantidade, desconto, ambiente e
+                                lote preferencial — útil para repetir um item parecido (ex.: o mesmo produto em outro
+                                ambiente) sem preencher tudo de novo.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Produto avulso direto no catálogo',
+                        body: (
+                            <>
+                                Ao criar um <A href="#produtos">produto avulso</A> (<Mono>+ Produto Avulso</Mono>),
+                                marque <Mono>Adicionar direto ao catálogo</Mono> se esse produto não é único deste
+                                orçamento — ele já nasce visível na busca de qualquer orçamento, sem precisar de
+                                promoção manual depois. Desmarcado (padrão), continua avulso: só aparece aqui, oculto
+                                do catálogo até alguém promovê-lo.
                             </>
                         ),
                     },
@@ -1034,11 +1061,99 @@ function ScreenMock({ s }: { s: NonNullable<ModuleDoc['screen']> }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Busca                                                              */
+/* ------------------------------------------------------------------ */
+
+// Remove acentos para a busca ser tolerante ("orcamento" encontra "Orçamento").
+function normalize(s: string): string {
+    return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+// Texto usado para buscar um módulo: título, caminho e o rótulo de cada nota
+// (ex.: "Ocultar desconto na impressão") — cobre buscas por uma funcionalidade
+// específica, não só pelo nome do módulo inteiro.
+function moduleSearchText(m: ModuleDoc): string {
+    return normalize([m.title, m.path, ...(m.notes?.map((n) => n.label) ?? [])].join(' '));
+}
+
+function flowSearchText(f: FlowDoc): string {
+    return normalize([f.title, f.tag, ...f.steps.map((st) => st.title)].join(' '));
+}
+
+function ManualNavList({
+    groups,
+    flows,
+    activeId,
+    onNavigate,
+}: {
+    groups: Group[];
+    flows: FlowDoc[];
+    activeId: string;
+    onNavigate?: () => void;
+}) {
+    if (groups.length === 0 && flows.length === 0) {
+        return <p className="px-2.5 py-1 text-gray-400">Nenhum resultado para essa busca.</p>;
+    }
+    return (
+        <>
+            {groups.map((g) => (
+                <div key={g.id} className="mb-4">
+                    <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                        {g.title}
+                    </div>
+                    {g.modules.map((m) => (
+                        <a
+                            key={m.id}
+                            href={`#${m.id}`}
+                            onClick={onNavigate}
+                            className={`block rounded-md px-2.5 py-1 ${activeId === m.id ? 'bg-blue-50 font-semibold text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                        >
+                            {m.title}
+                        </a>
+                    ))}
+                </div>
+            ))}
+            {flows.length > 0 && (
+                <div className="mb-4">
+                    <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                        Fluxos completos
+                    </div>
+                    {flows.map((f) => (
+                        <a
+                            key={f.id}
+                            href={`#${f.id}`}
+                            onClick={onNavigate}
+                            className={`block rounded-md px-2.5 py-1 ${activeId === f.id ? 'bg-blue-50 font-semibold text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                        >
+                            {f.tag} · {f.title}
+                        </a>
+                    ))}
+                </div>
+            )}
+        </>
+    );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Página                                                             */
 /* ------------------------------------------------------------------ */
 
 export default function AjudaPage() {
     const [activeId, setActiveId] = useState<string>('acesso');
+    const [search, setSearch] = useState('');
+    const query = useMemo(() => normalize(search.trim()), [search]);
+
+    const filteredGroups = useMemo<Group[]>(() => {
+        if (!query) return GROUPS;
+        return GROUPS
+            .map((g) => ({ ...g, modules: g.modules.filter((m) => moduleSearchText(m).includes(query)) }))
+            .filter((g) => g.modules.length > 0);
+    }, [query]);
+
+    const filteredFlows = useMemo<FlowDoc[]>(() => {
+        if (!query) return FLOWS;
+        return FLOWS.filter((f) => flowSearchText(f).includes(query));
+    }, [query]);
 
     useEffect(() => {
         const ids = [
@@ -1063,7 +1178,7 @@ export default function AjudaPage() {
     return (
         <div className="pb-24">
             {/* Cabeçalho da página */}
-            <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
                     <div className="rounded-xl bg-blue-100 p-2.5">
                         <BookOpen className="h-6 w-6 text-blue-600" />
@@ -1078,46 +1193,56 @@ export default function AjudaPage() {
                 </div>
             </div>
 
+            {/* Busca */}
+            <div className="relative mb-6 max-w-md">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Buscar no manual... (ex: desconto, markup, pedido)"
+                    className="pl-9 pr-9"
+                />
+                {search && (
+                    <button
+                        type="button"
+                        onClick={() => setSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        aria-label="Limpar busca"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                )}
+            </div>
+
+            {/* Índice — versão mobile/tablet, recolhível */}
+            <details className="mb-6 rounded-lg border border-gray-200 lg:hidden">
+                <summary className="flex cursor-pointer select-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold text-gray-700">
+                    Índice do manual
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                </summary>
+                <div className="max-h-80 overflow-y-auto border-t border-gray-100 px-3 py-3 text-sm">
+                    <ManualNavList groups={filteredGroups} flows={filteredFlows} activeId={activeId} />
+                </div>
+            </details>
+
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
-                {/* Índice */}
+                {/* Índice — versão desktop, fixa na lateral */}
                 <nav className="hidden lg:block">
                     <div className="sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pr-2 text-sm">
-                        {GROUPS.map((g) => (
-                            <div key={g.id} className="mb-4">
-                                <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                                    {g.title}
-                                </div>
-                                {g.modules.map((m) => (
-                                    <a
-                                        key={m.id}
-                                        href={`#${m.id}`}
-                                        className={`block rounded-md px-2.5 py-1 ${activeId === m.id ? 'bg-blue-50 font-semibold text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
-                                    >
-                                        {m.title}
-                                    </a>
-                                ))}
-                            </div>
-                        ))}
-                        <div className="mb-4">
-                            <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                                Fluxos completos
-                            </div>
-                            {FLOWS.map((f) => (
-                                <a
-                                    key={f.id}
-                                    href={`#${f.id}`}
-                                    className={`block rounded-md px-2.5 py-1 ${activeId === f.id ? 'bg-blue-50 font-semibold text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
-                                >
-                                    {f.tag} · {f.title}
-                                </a>
-                            ))}
-                        </div>
+                        <ManualNavList groups={filteredGroups} flows={filteredFlows} activeId={activeId} />
                     </div>
                 </nav>
 
                 {/* Conteúdo */}
                 <div className="min-w-0 max-w-3xl">
-                    {GROUPS.map((g) => (
+                    {filteredGroups.length === 0 && filteredFlows.length === 0 && (
+                        <div className="rounded-lg border border-dashed border-gray-300 px-6 py-12 text-center text-gray-500">
+                            <Search className="mx-auto mb-3 h-8 w-8 text-gray-300" />
+                            <p className="font-medium">Nenhum resultado para &quot;{search}&quot;</p>
+                            <p className="mt-1 text-sm">Tente outro termo, como o nome de uma tela ou funcionalidade.</p>
+                        </div>
+                    )}
+                    {filteredGroups.map((g) => (
                         <section key={g.id} className="mb-14">
                             <h2 className="mb-1 border-b-2 border-gray-900 pb-2 text-xl font-bold text-gray-900">
                                 {g.title}
@@ -1166,6 +1291,7 @@ export default function AjudaPage() {
                     ))}
 
                     {/* Fluxos */}
+                    {filteredFlows.length > 0 && (
                     <section className="mb-14">
                         <h2 className="mb-1 border-b-2 border-gray-900 pb-2 text-xl font-bold text-gray-900">
                             Fluxos completos
@@ -1174,7 +1300,7 @@ export default function AjudaPage() {
                             Os cinco caminhos do dia a dia, do começo ao fim.
                         </p>
 
-                        {FLOWS.map((f) => (
+                        {filteredFlows.map((f) => (
                             <div key={f.id} id={f.id} className="mt-8 scroll-mt-24 overflow-hidden rounded-xl border border-gray-200 bg-white">
                                 <div className="border-b border-gray-200 bg-gray-50 px-5 py-4">
                                     <div className="font-mono text-xs font-semibold uppercase tracking-wider text-blue-600">
@@ -1208,6 +1334,7 @@ export default function AjudaPage() {
                             </div>
                         ))}
                     </section>
+                    )}
 
                     <p className="mt-12 border-t border-gray-200 pt-6 text-xs text-gray-400">
                         Manual do operador · núcleo operacional. Fora do escopo: Catálogo, Promoções, Agenda e o grupo
