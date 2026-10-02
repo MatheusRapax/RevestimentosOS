@@ -28,6 +28,7 @@ import {
     RefreshCw,
     Loader2,
     EyeOff,
+    Copy,
 } from 'lucide-react';
 import Link from 'next/link';
 import { StockLotSelector } from '@/components/stock/StockLotSelector';
@@ -303,6 +304,19 @@ export default function EditOrcamentoPage() {
     // Remove item
     const removeItem = (index: number) => {
         setItems(items.filter((_, i) => i !== index));
+    };
+
+    // Duplica um item (mesmo produto, quantidade, desconto etc.) logo abaixo dele.
+    // Sem `id`: ao salvar, a duplicata é tratada como item novo (POST), nunca
+    // sobrescreve o item original.
+    const duplicateItem = (index: number) => {
+        setItems((prev) => {
+            const copy: QuoteItem = { ...prev[index] };
+            delete copy.id;
+            const newItems = [...prev];
+            newItems.splice(index + 1, 0, copy);
+            return newItems;
+        });
     };
 
     // Direct product selection (used by ProductCombobox)
@@ -779,14 +793,26 @@ export default function EditOrcamentoPage() {
                                             Item #{index + 1}
                                         </span>
                                     </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => removeItem(index)}
-                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => duplicateItem(index)}
+                                            title="Duplicar item"
+                                            className="text-gray-500 hover:text-gray-700 hover:bg-gray-200"
+                                        >
+                                            <Copy className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removeItem(index)}
+                                            title="Remover item"
+                                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

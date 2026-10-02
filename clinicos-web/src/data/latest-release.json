@@ -1,4 +1,4 @@
 {
-  "version": "1.16.0",
-  "content": "### Features\n\n* **orcamentos:** ocultar desconto na impressão por item (sem afetar dado financeiro)"
+  "version": "1.17.0",
+  "content": "### Features\n\n* **orcamentos:** duplicar item do orçamento + produto avulso direto no catálogo"
 }
