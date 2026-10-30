@@ -407,7 +407,7 @@ export default function ProdutosPage() {
                         <Package className="h-16 w-16 mx-auto" />
                     </div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        {searchTerm ? 'Nenhum certificado encontrado' : 'Nenhum produto cadastrado'}
+                        {searchTerm ? 'Nenhum produto encontrado' : 'Nenhum produto cadastrado'}
                     </h3>
                     <p className="text-gray-600 mb-4">
                         {searchTerm ? 'Tente outro termo de busca' : 'Comece cadastrando um novo produto'}

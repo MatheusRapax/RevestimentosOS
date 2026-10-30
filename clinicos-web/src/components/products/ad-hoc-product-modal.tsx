@@ -13,14 +13,17 @@ interface AdHocProductModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: (product: any) => void;
+    // Fluxos como a entrada de estoque sempre cadastram produto real no catálogo
+    forceCatalog?: boolean;
 }
 
-export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductModalProps) {
+export function AdHocProductModal({ isOpen, onClose, onSuccess, forceCatalog = false }: AdHocProductModalProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [categories, setCategories] = useState<any[]>([]);
     const [brands, setBrands] = useState<any[]>([]);
     const [showExtras, setShowExtras] = useState(false);
-    const [addToCatalog, setAddToCatalog] = useState(false);
+    const [addToCatalogChoice, setAddToCatalog] = useState(false);
+    const addToCatalog = forceCatalog || addToCatalogChoice;
 
     useEffect(() => {
         if (isOpen) {
@@ -178,7 +181,7 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { resetForm(); onClose(); } }}>
             <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Produto Extraordinário (Sob Encomenda)</DialogTitle>
+                    <DialogTitle>{forceCatalog ? 'Cadastrar Produto' : 'Produto Extraordinário (Sob Encomenda)'}</DialogTitle>
                     <DialogDescription>
                         {addToCatalog
                             ? 'Crie um produto novo que já entra no catálogo da loja, disponível para busca neste e em outros orçamentos.'
@@ -189,7 +192,7 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
                 <form onSubmit={handleSubmit} className="space-y-5 py-2">
 
                     {/* Avulso x Catálogo */}
-                    <label
+                    {!forceCatalog && (<label
                         className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
                             addToCatalog ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50'
                         }`}
@@ -209,7 +212,7 @@ export function AdHocProductModal({ isOpen, onClose, onSuccess }: AdHocProductMo
                                     : 'Desmarcado, o produto fica avulso: visível só aqui, oculto do catálogo e de novos orçamentos até alguém promovê-lo manualmente.'}
                             </span>
                         </span>
-                    </label>
+                    </label>)}
 
                     {/* Nome */}
                     <div className="space-y-1.5">

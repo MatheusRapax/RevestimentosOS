@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.18.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.17.0...v1.18.0) (2026-10-30)
+
+
+### Features
+
+* **estoque:** entrada com busca por SKU, cadastro de produto na nota e lote obrigatório ([a801a2f](https://github.com/MatheusRapax/RevestimentosOS/commit/a801a2fa06db9debd6642ba7cf6eae92dff29285))
+
+
+### Bug Fixes
+
+* **estoque:** mensagem de busca sem resultado dizia "certificado" em vez de "produto" ([7514867](https://github.com/MatheusRapax/RevestimentosOS/commit/7514867609ed6dc96f609e1ce3099af6877b9b5f))
+
 ## [1.17.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.16.0...v1.17.0) (2026-10-02)
 
 

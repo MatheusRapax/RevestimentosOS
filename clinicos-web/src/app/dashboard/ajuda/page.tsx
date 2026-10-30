@@ -570,6 +570,20 @@ const GROUPS: Group[] = [
                             </>
                         ),
                     },
+                    {
+                        tone: 'info',
+                        label: 'Lançar itens na entrada',
+                        body: (
+                            <>
+                                No campo <Mono>Produto</Mono> da entrada, busque por <b>nome ou SKU</b>; abaixo dele
+                                aparecem SKU e m²/caixa do produto escolhido. O <b>Lote é obrigatório</b>: se a mercadoria
+                                não tem lote, digite um identificador (ex.: o número da NF). Para quantidade, prefira{' '}
+                                <b>CX</b> (caixas inteiras) — <b>M²</b> só fica disponível se o produto tem m²/caixa
+                                cadastrado. Produto novo? Use <Mono>+ Cadastrar produto</Mono> na própria linha: ele entra
+                                direto no catálogo e já vem selecionado.
+                            </>
+                        ),
+                    },
                 ],
             },
             {

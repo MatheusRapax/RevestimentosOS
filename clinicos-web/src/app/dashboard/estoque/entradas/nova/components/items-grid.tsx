@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { NFeItem } from '@/lib/nfe-parser';
 import api from '@/lib/api';
 import { ItemFiscalForm } from './item-fiscal-form';
+import { AdHocProductModal } from '@/components/products/ad-hoc-product-modal';
 
 interface ItemsGridProps {
     items: StockEntryItem[];
@@ -30,6 +31,7 @@ interface ItemsGridProps {
 interface Product {
     id: string;
     name: string;
+    sku?: string;
     unit?: string;
     boxCoverage?: number;
     piecesPerBox?: number;
@@ -37,6 +39,10 @@ interface Product {
 
 export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pendingItems, onResolvePending, onUpdate, availablePOs }: ItemsGridProps) {
     const [products, setProducts] = useState<Product[]>([]);
+    const [productSearch, setProductSearch] = useState('');
+    const [selectedCache, setSelectedCache] = useState<Product | null>(null);
+    const [isNewProductOpen, setIsNewProductOpen] = useState(false);
+    const [lotError, setLotError] = useState(false);
     const [open, setOpen] = useState(false);
     const [resolvingIndex, setResolvingIndex] = useState<number | null>(null);
     const [productId, setProductId] = useState('');
@@ -65,14 +71,18 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
     const [itemsPage, setItemsPage] = useState(1);
     const ITEMS_PER_PAGE = 50;
 
+    const selectedProduct = products.find(p => p.id === productId) ?? (selectedCache?.id === productId ? selectedCache : undefined);
+
+    // Busca no servidor (nome, SKU, código de barras...) — a lista completa pode passar de 50 produtos
     useEffect(() => {
-        fetchProducts();
-    }, []);
+        const t = setTimeout(() => fetchProducts(productSearch), 300);
+        return () => clearTimeout(t);
+    }, [productSearch]);
 
     // Auto-match removed from here, moved to render and handleAdd for better reliability
-    const fetchProducts = async () => {
+    const fetchProducts = async (search = '') => {
         try {
-            const res = await api.get('/stock/products?isActive=true');
+            const res = await api.get('/stock/products', { params: { isActive: true, limit: 50, ...(search.trim() && { search: search.trim() }) } });
             if (res.data && Array.isArray(res.data.data)) {
                 setProducts(res.data.data);
             } else if (Array.isArray(res.data)) {
@@ -87,18 +97,23 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
 
     const handleAdd = async () => {
         if (!productId || !quantity) return;
+        if (!lotNumber.trim()) {
+            setLotError(true);
+            return;
+        }
 
         let matchedPoItemId = purchaseOrderItemId;
         
         let finalQuantity = parseFloat(quantity);
         let finalUnitCost = unitCost ? parseFloat(unitCost) : undefined;
-        const selectedProductObj = products.find(p => p.id === productId);
+        const selectedProductObj = selectedProduct;
 
         // Se informou em M2 mas o produto usa cobertura (CX), calcula o custo por caixa,
         // mas NÃO arredonda a quantidade. O estoque aceitará a fração e o usuário deverá
         // decidir como corrigir (ex: rejeitar nota, alterar cadastro).
         if (inputUnit === 'M2' && selectedProductObj?.boxCoverage) {
-            finalQuantity = finalQuantity / selectedProductObj.boxCoverage;
+            // 4 casas evita caixa "quebrada" por erro de ponto flutuante (ex.: 52,00000000000001)
+            finalQuantity = Math.round((finalQuantity / selectedProductObj.boxCoverage) * 10000) / 10000;
             if (finalUnitCost) {
                 finalUnitCost = finalUnitCost * selectedProductObj.boxCoverage;
             }
@@ -119,7 +134,7 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
             productId,
             quantity: finalQuantity,
             unitCost: finalUnitCost,
-            lotNumber: lotNumber || undefined,
+            lotNumber: lotNumber.trim(),
             expirationDate: expirationDate || undefined,
             manufacturer: manufacturer || undefined,
             purchaseOrderId: globalPurchaseOrder?.id || availablePOs?.find(po => po.items?.some((pi: any) => pi.id === matchedPoItemId))?.id,
@@ -138,6 +153,7 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
         setInputUnit('CX');
         setUnitCost('');
         setLotNumber('');
+        setLotError(false);
         setExpirationDate('');
         setManufacturer('');
         setPurchaseOrderItemId('');
@@ -200,12 +216,13 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
 
     const handleSaveEdit = async () => {
         if (!editingItemId || !onUpdate) return;
+        if (!editLotNumber.trim()) return;
         try {
             setIsUpdating(true);
             await onUpdate(editingItemId, {
                 quantity: parseFloat(editQuantity),
                 unitCost: editUnitCost ? parseFloat(editUnitCost) : undefined,
-                lotNumber: editLotNumber || undefined
+                lotNumber: editLotNumber.trim()
             });
             setEditingItemId(null);
         } finally {
@@ -213,7 +230,6 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
         }
     };
 
-    const selectedProduct = products.find(p => p.id === productId);
 
     // Pagination logic
     const paginatedPending = pendingItems?.slice((pendingPage - 1) * ITEMS_PER_PAGE, pendingPage * ITEMS_PER_PAGE);
@@ -224,6 +240,17 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
 
     return (
         <div className="space-y-4 border p-4 rounded-md">
+
+            <AdHocProductModal
+                isOpen={isNewProductOpen}
+                forceCatalog
+                onClose={() => setIsNewProductOpen(false)}
+                onSuccess={(product) => {
+                    setProducts(prev => [product, ...prev.filter(p => p.id !== product.id)]);
+                    setSelectedCache(product);
+                    setProductId(product.id);
+                }}
+            />
 
             <ItemFiscalForm
                 open={showFiscal}
@@ -353,8 +380,19 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
             {!readOnly && (
                 <div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end bg-muted/50 p-2 rounded-md">
                     <div className="md:col-span-2 space-y-1 relative">
-                        <label className="text-xs font-medium">Produto</label>
-                        
+                        <div className="flex items-center justify-between">
+                            <label className="text-xs font-medium">Produto</label>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-5 px-2 text-[10px] text-blue-600 border-blue-200 hover:bg-blue-50"
+                                onClick={() => setIsNewProductOpen(true)}
+                            >
+                                + Cadastrar produto
+                            </Button>
+                        </div>
+
                         {/* Indicador de Auto-Match do PO */}
                         {globalPurchaseOrder && productId && (
                             <span className={cn(
@@ -375,24 +413,24 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                                     aria-expanded={open}
                                     className="w-full justify-between font-normal"
                                 >
-                                    {productId
-                                        ? products.find((p) => p.id === productId)?.name
-                                        : "Selecione o produto..."}
+                                    {selectedProduct?.name ?? "Selecione o produto..."}
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-[300px] p-0" align="start">
-                                <Command>
-                                    <CommandInput placeholder="Buscar produto..." />
+                            <PopoverContent className="w-[420px] max-w-[90vw] p-0" align="start">
+                                <Command shouldFilter={false}>
+                                    <CommandInput placeholder="Buscar por nome ou SKU..." value={productSearch} onValueChange={setProductSearch} />
                                     <CommandList>
                                         <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                                         <CommandGroup>
                                             {products.map((product) => (
                                                 <CommandItem
                                                     key={product.id}
-                                                    value={product.name}
+                                                    value={product.id}
                                                     onSelect={() => {
                                                         setProductId(product.id);
+                                                        setSelectedCache(product);
+                                                        if (!product.boxCoverage && inputUnit === 'M2') setInputUnit('CX');
                                                         setOpen(false);
                                                     }}
                                                     className="cursor-pointer data-[disabled]:pointer-events-auto data-[disabled]:opacity-100"
@@ -403,7 +441,13 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                                                             productId === product.id ? "opacity-100" : "opacity-0"
                                                         )}
                                                     />
-                                                    {product.name}
+                                                    <span className="flex flex-col min-w-0">
+                                                        <span className="truncate">{product.name}</span>
+                                                        <span className="text-[10px] text-muted-foreground">
+                                                            {product.sku ? `SKU ${product.sku}` : 'Sem SKU'}
+                                                            {product.boxCoverage ? ` • ${product.boxCoverage} m²/cx` : ''}
+                                                        </span>
+                                                    </span>
                                                 </CommandItem>
                                             ))}
                                         </CommandGroup>
@@ -411,6 +455,14 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                                 </Command>
                             </PopoverContent>
                         </Popover>
+                        {selectedProduct && (
+                            <p className="text-[10px] text-muted-foreground leading-tight">
+                                {selectedProduct.sku ? `SKU ${selectedProduct.sku}` : 'Sem SKU'}
+                                {selectedProduct.boxCoverage ? ` • ${selectedProduct.boxCoverage} m²/cx` : ' • sem m²/cx cadastrado'}
+                                {selectedProduct.piecesPerBox ? ` • ${selectedProduct.piecesPerBox} peças/cx` : ''}
+                                {selectedProduct.unit ? ` • unidade ${selectedProduct.unit}` : ''}
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-1 relative">
@@ -429,7 +481,7 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="CX">CX</SelectItem>
-                                    <SelectItem value="M2">M²</SelectItem>
+                                    <SelectItem value="M2" disabled={!!selectedProduct && !selectedProduct.boxCoverage}>M²</SelectItem>
                                     <SelectItem value="UN">UN</SelectItem>
                                 </SelectContent>
                             </Select>
@@ -439,7 +491,7 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                                 <p className="text-[10px] text-muted-foreground leading-tight">
                                     = {(parseFloat(quantity) / selectedProduct.boxCoverage).toFixed(2)} Caixas
                                 </p>
-                                {(parseFloat(quantity) / selectedProduct.boxCoverage) % 1 !== 0 && (
+                                {Math.abs(Math.round((parseFloat(quantity) / selectedProduct.boxCoverage) * 10000) / 10000 % 1) > 0 && (
                                     <p className="text-[10px] text-red-600 font-medium leading-tight mt-0.5">
                                         ⚠️ Fração de caixa detectada. Verifique os valores do XML ou atualize o M²/Caixa no cadastro.
                                     </p>
@@ -474,12 +526,16 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                     </div>
 
                     <div className="space-y-1">
-                        <label className="text-xs font-medium">Lote</label>
+                        <label className="text-xs font-medium">Lote <span className="text-red-500">*</span></label>
                         <Input
                             value={lotNumber}
-                            onChange={e => setLotNumber(e.target.value)}
+                            onChange={e => { setLotNumber(e.target.value); if (e.target.value.trim()) setLotError(false); }}
                             placeholder="Ex: NF-123456"
+                            className={lotError ? 'border-red-500 focus-visible:ring-red-500' : ''}
                         />
+                        {lotError && (
+                            <p className="text-[10px] text-red-600 font-medium leading-tight">Informe o lote. Sem lote, digite um identificador (ex.: número da NF).</p>
+                        )}
                     </div>
 
                     <div className="space-y-1 flex items-end">
@@ -610,7 +666,7 @@ export function ItemsGrid({ items, onAdd, onRemove, isLoading, readOnly, pending
                                                         size="icon"
                                                         className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
                                                         onClick={handleSaveEdit}
-                                                        disabled={isUpdating || !editQuantity}
+                                                        disabled={isUpdating || !editQuantity || !editLotNumber.trim()}
                                                     >
                                                         <Check className="h-4 w-4" />
                                                     </Button>
