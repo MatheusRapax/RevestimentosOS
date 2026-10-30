@@ -1,4 +1,4 @@
 {
-  "version": "1.17.0",
-  "content": "### Features\n\n* **orcamentos:** duplicar item do orçamento + produto avulso direto no catálogo"
+  "version": "1.18.0",
+  "content": "### Features\n\n* **estoque:** entrada com busca por SKU, cadastro de produto na nota e lote obrigatório\n\n### Bug Fixes\n\n* **estoque:** mensagem de busca sem resultado dizia \"certificado\" em vez de \"produto\""
 }
