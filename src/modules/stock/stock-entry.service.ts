@@ -34,10 +34,14 @@ export class StockEntryService {
   ) {
     let existingEntry = null;
 
+    // Chave vazia vira null: accessKey é UNIQUE, e "" em duas entradas manuais
+    // violaria a unicidade (500). null não conflita.
+    const accessKey = dto.accessKey?.trim() || null;
+
     // 1. Check for duplicate by Access Key (Primary)
-    if (dto.accessKey) {
+    if (accessKey) {
       existingEntry = await this.prisma.stockEntry.findUnique({
-        where: { accessKey: dto.accessKey },
+        where: { accessKey },
       });
     }
 
@@ -80,7 +84,7 @@ export class StockEntryService {
           notes: dto.notes,
 
           // --- Fiscal Data ---
-          accessKey: dto.accessKey, // Ensure accessKey is updated if it was missing
+          accessKey, // Ensure accessKey is updated if it was missing
           operationNature: dto.operationNature,
           protocol: dto.protocol,
           model: dto.model,
@@ -131,7 +135,7 @@ export class StockEntryService {
         notes: dto.notes,
 
         // --- Fiscal Data ---
-        accessKey: dto.accessKey,
+        accessKey,
         operationNature: dto.operationNature,
         protocol: dto.protocol,
         model: dto.model,

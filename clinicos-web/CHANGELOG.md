@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.18.1](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.18.0...v1.18.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **estoque:** nova entrada manual sem chave de acesso dava 500 na segunda tentativa ([f94d6fd](https://github.com/MatheusRapax/RevestimentosOS/commit/f94d6fdfb8d83c23cfcc7a9a732510d0ffb5c29f))
+
 ## [1.18.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.17.0...v1.18.0) (2026-10-30)
 
 
