@@ -44,7 +44,7 @@ interface FiscalSettingsFormProps {
 }
 
 const EMPTY_PROFILE = {
-    cnpj: '', ie: '', im: '', crt: '3', cnae: '',
+    cnpj: '', ie: '', im: '', crt: '', cnae: '',
     logradouro: '', numero: '', complemento: '', bairro: '',
     municipioIbge: '', municipioNome: '', uf: '', cep: '',
     serieNfe: '1',
@@ -59,6 +59,11 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
     const [profile, setProfile] = useState<Record<string, string>>({ ...EMPTY_PROFILE });
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [isLoadingSefaz, setIsLoadingSefaz] = useState(false);
+    const [sefaz, setSefaz] = useState<any>(null);
+    // Último perfil gravado no servidor: o Setup só vale para o que já foi salvo.
+    const [savedProfile, setSavedProfile] = useState<Record<string, string>>({ ...EMPTY_PROFILE });
 
     // Duas instâncias separadas: "Setup" e "Regras" são <form>s independentes.
     // Um único useForm() compartilhado fazia os campos obrigatórios do Setup
@@ -92,19 +97,58 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                 // reenviados no PUT o DTO (forbidNonWhitelisted) rejeita com
                 // "property id should not exist".
                 const editableKeys = Object.keys(EMPTY_PROFILE);
-                setProfile({
+                const loaded = {
                     ...EMPTY_PROFILE,
                     ...Object.fromEntries(
                         Object.entries(resp.data)
                             .filter(([k]) => editableKeys.includes(k))
                             .map(([k, v]) => [k, v == null ? '' : String(v)]),
                     ),
-                });
+                };
+                setProfile(loaded);
+                setSavedProfile(loaded);
             } else {
                 setProfile({ ...EMPTY_PROFILE });
+                setSavedProfile({ ...EMPTY_PROFILE });
             }
         } catch {
             setProfile({ ...EMPTY_PROFILE });
+            setSavedProfile({ ...EMPTY_PROFILE });
+        }
+    }
+
+    // Reflete o Perfil do Emitente (já salvo) no cadastro do serviço fiscal. Não mexe no ambiente.
+    async function syncTenant() {
+        setIsSyncing(true);
+        try {
+            const resp = await api.post('/fiscal/sync-tenant', {}, {
+                params: { clinicId },
+                headers: clinicId ? { 'X-Clinic-Id': clinicId } : {},
+            });
+            toast.success('Cadastro do emitente sincronizado com o serviço fiscal.');
+            (resp.data?.avisos as string[] | undefined)?.forEach((a) => toast.warning(a));
+            loadSefazStatus();
+        } catch (e: any) {
+            const m = e.response?.data?.message;
+            toast.error(Array.isArray(m) ? m.join(' ') : m || 'Erro ao sincronizar com o serviço fiscal.', { duration: 12000 });
+        } finally {
+            setIsSyncing(false);
+        }
+    }
+
+    // Conferência do certificado e da SEFAZ (não emite nada).
+    async function loadSefazStatus() {
+        setIsLoadingSefaz(true);
+        try {
+            const resp = await api.get('/fiscal/status', {
+                params: { clinicId },
+                headers: clinicId ? { 'X-Clinic-Id': clinicId } : {},
+            });
+            setSefaz(resp.data);
+        } catch {
+            setSefaz({ available: false, alertas: [{ nivel: 'erro', mensagem: 'Não foi possível consultar o status do certificado.' }] });
+        } finally {
+            setIsLoadingSefaz(false);
         }
     }
 
@@ -154,11 +198,20 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                 if (k === 'crt' || k === 'serieNfe' || k === 'serieNfce') body[k] = Number(v);
                 else body[k] = v;
             }
-            await api.put('/fiscal/profile', body, {
+            const resp = await api.put('/fiscal/profile', body, {
                 params: { clinicId },
                 headers: clinicId ? { 'X-Clinic-Id': clinicId } : {},
             });
-            toast.success('Perfil do emitente salvo.');
+            const sync = resp.data?.sync;
+            if (sync?.ok) {
+                toast.success('Perfil salvo e sincronizado com o serviço fiscal.');
+                (sync.avisos as string[] | undefined)?.forEach((a) => toast.warning(a));
+                loadSefazStatus();
+            } else if (sync && !sync.skipped) {
+                toast.warning(`Perfil salvo, mas NÃO sincronizado com o serviço fiscal: ${sync.message}`, { duration: 12000 });
+            } else {
+                toast.success('Perfil do emitente salvo.');
+            }
             loadProfile();
         } catch (e: any) {
             toast.error(e.response?.data?.message?.[0] || e.response?.data?.message || 'Erro ao salvar o perfil do emitente.');
@@ -181,6 +234,8 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             });
             const data = response.data;
             setSettings(data);
+            // Só consulta o serviço fiscal se já existe certificado instalado (leitura, não emite nada)
+            if (data.hasCertificate) loadSefazStatus();
 
             // Populate form
             setValue('defaultNaturezaOperacao', data.defaultNaturezaOperacao);
@@ -232,35 +287,27 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             return;
         }
 
-        if (!data.document && !profile.cnpj) {
-            toast.error('Informe o CNPJ aqui ou no Perfil do Emitente.');
+        // O Perfil do Emitente é a fonte da verdade e precisa estar SALVO: o servidor lê o
+        // perfil gravado, não o que está digitado na tela.
+        if (JSON.stringify(profile) !== JSON.stringify(savedProfile)) {
+            toast.error('Há alterações não salvas no Perfil do Emitente. Clique em "Salvar Perfil" antes de enviar o certificado.');
             return;
         }
-
-        const hasProfileAddress = !!(profile.uf && profile.municipioIbge);
-        if (!hasProfileAddress && (!data.uf || !data.cityCode)) {
-            toast.error('Informe UF e código IBGE no Perfil do Emitente antes do setup.');
+        if (!savedProfile.cnpj || !savedProfile.uf || !savedProfile.municipioIbge || !savedProfile.crt) {
+            toast.error('Complete o Perfil do Emitente (CNPJ, UF, código IBGE e regime tributário) e salve antes de enviar o certificado.');
             return;
         }
 
         setIsSavingSetup(true);
         try {
             const formData = new FormData();
-            // Se o campo do Setup está vazio, usa o que está preenchido no Perfil do Emitente
-            // (mesmo sem ter clicado em "Salvar Perfil" — o backend só enxerga o perfil salvo).
-            const document = data.document || profile.cnpj;
-            if (document) formData.append('document', document);
+            // Identidade do emitente (CNPJ, IE, regime, UF, município, endereço) vem SEMPRE do
+            // Perfil salvo; aqui só vai o que é do certificado. Se o CNPJ digitado no Setup
+            // divergir do perfil, o servidor recusa com a explicação.
+            if (data.document) formData.append('document', data.document);
             formData.append('name', data.name);
             formData.append('password', data.password);
             formData.append('certificate', data.certificate[0]);
-            const ie = data.ie || profile.ie;
-            const uf = data.uf || profile.uf;
-            const cityCode = data.cityCode || profile.municipioIbge;
-            const crt = data.crt || profile.crt;
-            if (ie) formData.append('ie', ie);
-            if (uf) formData.append('uf', uf);
-            if (cityCode) formData.append('cityCode', cityCode);
-            if (crt) formData.append('crt', crt);
 
             await api.post('/fiscal/setup', formData, {
                 params: { clinicId },
@@ -273,6 +320,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             toast.success('Certificado instalado com sucesso! Veja o status no topo da página.');
             resetSetup(); // limpa arquivo e senha: o status acima passa a mostrar o certificado instalado
             loadSettings(); // Reload to confirm state
+            loadSefazStatus(); // confere CNPJ do certificado x tenant, validade e SEFAZ (não emite nada)
         } catch (error: any) {
             console.error('Erro ao configurar NexosFiscal:', error);
             const msg = error?.response?.data?.message;
@@ -347,6 +395,41 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                             )}
                         </div>
                     </div>
+                    {settings?.hasCertificate && (
+                        <div className="p-4 bg-gray-50 rounded-lg border space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="font-medium text-sm">Conferência do certificado (SEFAZ)</p>
+                                    <p className="text-xs text-gray-500">Consulta o status da SEFAZ com o seu certificado. Não emite nenhuma nota.</p>
+                                </div>
+                                <Button type="button" variant="outline" size="sm" onClick={loadSefazStatus} disabled={isLoadingSefaz}>
+                                    {isLoadingSefaz ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verificar certificado'}
+                                </Button>
+                            </div>
+                            {sefaz?.certificado && (
+                                <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                    <div><dt className="inline text-gray-500">CNPJ do certificado: </dt><dd className="inline font-medium">{sefaz.certificado.cnpj || '—'}</dd></div>
+                                    <div>
+                                        <dt className="inline text-gray-500">CNPJ confere com o cadastro fiscal: </dt>
+                                        <dd className={`inline font-medium ${sefaz.certificado.cnpjMatchesTenant ? 'text-green-700' : 'text-red-700'}`}>
+                                            {sefaz.certificado.cnpjMatchesTenant ? 'Sim' : 'NÃO'}
+                                        </dd>
+                                    </div>
+                                    <div><dt className="inline text-gray-500">Válido até: </dt><dd className="inline font-medium">{sefaz.certificado.notAfterUtc ? new Date(sefaz.certificado.notAfterUtc).toLocaleDateString('pt-BR') : '—'}{sefaz.certificado.expired ? ' (VENCIDO)' : ''}</dd></div>
+                                    <div><dt className="inline text-gray-500">Ambiente do cadastro fiscal: </dt><dd className="inline font-medium">{sefaz.ambiente || '—'}</dd></div>
+                                    <div className="md:col-span-2"><dt className="inline text-gray-500">SEFAZ: </dt><dd className="inline font-medium">{sefaz.reachable ? `respondeu${sefaz.cStat ? ` (cStat ${sefaz.cStat}${sefaz.motivo ? ` — ${sefaz.motivo}` : ''})` : ''}` : 'sem resposta'}</dd></div>
+                                </dl>
+                            )}
+                            {sefaz?.alertas?.map((a: { nivel: string; mensagem: string }, i: number) => (
+                                <p key={i} className={`text-sm rounded border p-2 ${a.nivel === 'erro' ? 'border-red-300 bg-red-50 text-red-800' : 'border-amber-300 bg-amber-50 text-amber-900'}`}>
+                                    {a.nivel === 'erro' ? '⛔ ' : '⚠️ '}{a.mensagem}
+                                </p>
+                            ))}
+                            {sefaz?.available && sefaz?.alertas?.length === 0 && (
+                                <p className="text-sm rounded border border-green-300 bg-green-50 text-green-800 p-2">✅ Certificado confere com o cadastro, está dentro da validade e a SEFAZ respondeu.</p>
+                            )}
+                        </div>
+                    )}
                     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
                         <div className="space-y-1">
                             <p className="font-medium text-sm">Fonte das Credenciais</p>
@@ -391,6 +474,9 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                         <div className="space-y-2">
                             <Label>Inscrição Estadual <span className="text-xs text-gray-400">(não vem da consulta)</span></Label>
                             <Input value={profile.ie} onChange={(e) => setProfile({ ...profile, ie: e.target.value })} placeholder="Número ou ISENTO" />
+                            {/^isento$/i.test(profile.ie.trim()) && (
+                                <p className="text-[11px] text-amber-700">⚠️ IE &quot;ISENTO&quot; é incomum para quem vende mercadoria (comércio costuma ser contribuinte do ICMS e ter IE). Confirme com o contador e informe a IE real, se houver.</p>
+                            )}
                         </div>
                         <div className="space-y-2">
                             <Label>Inscrição Municipal</Label>
@@ -399,7 +485,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                         <div className="space-y-2">
                             <Label>Regime Tributário (CRT) <span className="text-xs text-gray-400">(confirme com o contador)</span></Label>
                             <Select value={profile.crt} onValueChange={(v) => setProfile({ ...profile, crt: v })}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectTrigger><SelectValue placeholder="Escolha o regime (obrigatório)" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="1">1 - Simples Nacional</SelectItem>
                                     <SelectItem value="2">2 - Simples Nacional, excesso de sublimite</SelectItem>
@@ -423,6 +509,12 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                             <div className="space-y-2 md:col-span-2">
                                 <Label>Logradouro</Label>
                                 <Input value={profile.logradouro} onChange={(e) => setProfile({ ...profile, logradouro: e.target.value })} />
+                                {profile.logradouro.includes('/') && (
+                                    <p className="text-[11px] text-amber-700">⚠️ O logradouro tem uma barra (&quot;/&quot;): parece a junção de dois endereços. Confira exatamente como deve sair na NF-e.</p>
+                                )}
+                                {profile.logradouro.length > 60 && (
+                                    <p className="text-[11px] text-red-700">⛔ Passa de 60 caracteres (limite da NF-e). Abrevie.</p>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <Label>Número</Label>
@@ -455,7 +547,12 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                         </div>
                     </div>
 
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                        {settings?.hasCertificate && (
+                            <Button type="button" variant="outline" onClick={syncTenant} disabled={isSyncing || isSavingProfile} title="Reflete o perfil salvo no cadastro do emitente do serviço fiscal (não muda o ambiente)">
+                                {isSyncing ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sincronizando...</>) : 'Sincronizar com o serviço fiscal'}
+                            </Button>
+                        )}
                         <Button type="button" onClick={saveProfile} disabled={isSavingProfile}>
                             {isSavingProfile ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</>) : 'Salvar Perfil'}
                         </Button>
