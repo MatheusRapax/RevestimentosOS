@@ -33,6 +33,9 @@ export interface CnpjResponse {
     ddd_fax: string;
     email: string | null;
     qsa: any[];
+    codigo_municipio_ibge?: number | string | null;
+    opcao_pelo_simples?: boolean | null;
+    opcao_pelo_mei?: boolean | null;
 }
 
 /**

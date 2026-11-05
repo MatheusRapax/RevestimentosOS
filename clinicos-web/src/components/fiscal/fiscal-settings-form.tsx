@@ -10,7 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, Search } from 'lucide-react';
+import { fetchCnpjInfo } from '@/lib/brasil-api';
 
 interface FiscalSettings {
     hasCredentials: boolean;
@@ -53,6 +54,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
 
     const [profile, setProfile] = useState<Record<string, string>>({ ...EMPTY_PROFILE });
     const [isSavingProfile, setIsSavingProfile] = useState(false);
+    const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
 
     // Duas instâncias separadas: "Setup" e "Regras" são <form>s independentes.
     // Um único useForm() compartilhado fazia os campos obrigatórios do Setup
@@ -70,6 +72,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
     const {
         register: registerSetup,
         handleSubmit: handleSubmitSetup,
+        setValue: setSetupValue,
     } = useForm<FiscalSettings>();
 
     async function loadProfile() {
@@ -97,6 +100,43 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             }
         } catch {
             setProfile({ ...EMPTY_PROFILE });
+        }
+    }
+
+    // Preenche o Perfil do Emitente a partir do CNPJ (BrasilAPI/Receita). Não vêm da
+    // consulta: Inscrição Estadual e Municipal e a série da NF-e. O regime (CRT) é só
+    // uma sugestão (Simples/MEI → 1, senão 3) — o contador confirma.
+    async function fillProfileFromCnpj() {
+        const cnpj = (profile.cnpj || '').replace(/\D/g, '');
+        if (cnpj.length !== 14) {
+            toast.error('Digite os 14 dígitos do CNPJ para buscar.');
+            return;
+        }
+        setIsLoadingCnpj(true);
+        try {
+            const data = await fetchCnpjInfo(cnpj);
+            if (!data) {
+                toast.error('CNPJ não encontrado na consulta pública. Confira os dígitos ou preencha manualmente.');
+                return;
+            }
+            const ibge = data.codigo_municipio_ibge ? String(data.codigo_municipio_ibge) : '';
+            setProfile((prev) => ({
+                ...prev,
+                logradouro: data.logradouro || prev.logradouro,
+                numero: data.numero || prev.numero,
+                complemento: data.complemento || prev.complemento,
+                bairro: data.bairro || prev.bairro,
+                cep: data.cep ? String(data.cep).replace(/\D/g, '') : prev.cep,
+                municipioNome: data.municipio || prev.municipioNome,
+                municipioIbge: ibge || prev.municipioIbge,
+                uf: data.uf || prev.uf,
+                cnae: data.cnae_fiscal ? String(data.cnae_fiscal) : prev.cnae,
+                crt: data.opcao_pelo_simples || data.opcao_pelo_mei ? '1' : '3',
+            }));
+            if (data.razao_social) setSetupValue('name', data.razao_social);
+            toast.success('Dados preenchidos pelo CNPJ. Informe a Inscrição Estadual, confira o regime tributário e clique em Salvar Perfil.');
+        } finally {
+            setIsLoadingCnpj(false);
         }
     }
 
@@ -201,15 +241,21 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
         setIsSavingSetup(true);
         try {
             const formData = new FormData();
-            if (data.document) formData.append('document', data.document);
+            // Se o campo do Setup está vazio, usa o que está preenchido no Perfil do Emitente
+            // (mesmo sem ter clicado em "Salvar Perfil" — o backend só enxerga o perfil salvo).
+            const document = data.document || profile.cnpj;
+            if (document) formData.append('document', document);
             formData.append('name', data.name);
             formData.append('password', data.password);
             formData.append('certificate', data.certificate[0]);
-            // Campos abaixo são override; se em branco, o backend usa o Perfil do Emitente.
-            if (data.ie) formData.append('ie', data.ie);
-            if (data.uf) formData.append('uf', data.uf);
-            if (data.cityCode) formData.append('cityCode', data.cityCode);
-            if (data.crt) formData.append('crt', data.crt);
+            const ie = data.ie || profile.ie;
+            const uf = data.uf || profile.uf;
+            const cityCode = data.cityCode || profile.municipioIbge;
+            const crt = data.crt || profile.crt;
+            if (ie) formData.append('ie', ie);
+            if (uf) formData.append('uf', uf);
+            if (cityCode) formData.append('cityCode', cityCode);
+            if (crt) formData.append('crt', crt);
 
             await api.post('/fiscal/setup', formData, {
                 params: { clinicId },
@@ -294,10 +340,16 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label>CNPJ <span className="text-xs text-gray-400">(14 dígitos)</span></Label>
-                            <Input value={profile.cnpj} onChange={(e) => setProfile({ ...profile, cnpj: e.target.value.replace(/\D/g, '') })} maxLength={14} placeholder="00000000000000" />
+                            <div className="flex gap-2">
+                                <Input value={profile.cnpj} onChange={(e) => setProfile({ ...profile, cnpj: e.target.value.replace(/\D/g, '') })} maxLength={14} placeholder="00000000000000" />
+                                <Button type="button" variant="outline" onClick={fillProfileFromCnpj} disabled={isLoadingCnpj} title="Buscar endereço, município (IBGE), CNAE e razão social pelo CNPJ">
+                                    {isLoadingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                </Button>
+                            </div>
+                            <p className="text-[11px] text-gray-500">Clique na lupa para preencher endereço, código IBGE, CNAE e razão social.</p>
                         </div>
                         <div className="space-y-2">
-                            <Label>Inscrição Estadual</Label>
+                            <Label>Inscrição Estadual <span className="text-xs text-gray-400">(não vem da consulta)</span></Label>
                             <Input value={profile.ie} onChange={(e) => setProfile({ ...profile, ie: e.target.value })} placeholder="Número ou ISENTO" />
                         </div>
                         <div className="space-y-2">
@@ -305,7 +357,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                             <Input value={profile.im} onChange={(e) => setProfile({ ...profile, im: e.target.value })} placeholder="Opcional" />
                         </div>
                         <div className="space-y-2">
-                            <Label>Regime Tributário (CRT)</Label>
+                            <Label>Regime Tributário (CRT) <span className="text-xs text-gray-400">(confirme com o contador)</span></Label>
                             <Select value={profile.crt} onValueChange={(v) => setProfile({ ...profile, crt: v })}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
