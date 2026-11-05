@@ -16,6 +16,9 @@ import { fetchCnpjInfo } from '@/lib/brasil-api';
 interface FiscalSettings {
     hasCredentials: boolean;
     source: 'env' | 'database';
+    hasCertificate?: boolean;
+    certificateFileName?: string | null;
+    certificateUploadedAt?: string | null;
     environment: '1' | '2';
     defaultNaturezaOperacao: string;
     defaultTaxClass: string | null;
@@ -73,6 +76,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
         register: registerSetup,
         handleSubmit: handleSubmitSetup,
         setValue: setSetupValue,
+        reset: resetSetup,
     } = useForm<FiscalSettings>();
 
     async function loadProfile() {
@@ -265,11 +269,15 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                 }
             });
             
-            toast.success('Certificado e Tenant configurados com sucesso!');
+            toast.success('Certificado instalado com sucesso! Veja o status no topo da página.');
+            resetSetup(); // limpa arquivo e senha: o status acima passa a mostrar o certificado instalado
             loadSettings(); // Reload to confirm state
-        } catch (error) {
+        } catch (error: any) {
             console.error('Erro ao configurar NexosFiscal:', error);
-            toast.error('Erro ao configurar o certificado.');
+            const msg = error?.response?.data?.message;
+            toast.error(
+                `Não foi possível instalar o certificado.${msg ? ` ${Array.isArray(msg) ? msg.join(' ') : msg}` : ''}`,
+            );
         } finally {
             setIsSavingSetup(false);
         }
@@ -290,23 +298,42 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         Status da Conexão
-                        {settings?.hasCredentials ? (
+                        {settings?.hasCertificate ? (
                             <Badge variant="default" className="bg-green-600 hover:bg-green-700">
                                 <CheckCircle2 className="w-3 h-3 mr-1" />
-                                Conectado
+                                Certificado instalado
                             </Badge>
                         ) : (
                             <Badge variant="destructive">
                                 <AlertCircle className="w-3 h-3 mr-1" />
-                                Não Configurado
+                                Certificado não instalado
                             </Badge>
                         )}
                     </CardTitle>
                     <CardDescription>
-                        Estado atual das credenciais da API NexosFiscal.
+                        Estado do certificado digital desta loja e da conexão com o NexosFiscal.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
+                        <div className="space-y-1">
+                            <p className="font-medium text-sm">Certificado Digital A1</p>
+                            <p className="text-sm text-gray-500">
+                                {settings?.hasCertificate
+                                    ? settings.certificateUploadedAt
+                                        ? `Enviado em ${new Date(settings.certificateUploadedAt).toLocaleString('pt-BR')}${settings.certificateFileName ? ` — arquivo ${settings.certificateFileName}` : ''}`
+                                        : 'Instalado (data do envio não registrada)'
+                                    : 'Nenhum certificado enviado para esta loja ainda. Use o Setup Inicial abaixo.'}
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            {settings?.hasCertificate ? (
+                                <span className="text-sm text-green-600 font-medium">Aceito pelo NexosFiscal</span>
+                            ) : (
+                                <span className="text-sm text-red-600 font-medium">Pendente</span>
+                            )}
+                        </div>
+                    </div>
                     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
                         <div className="space-y-1">
                             <p className="font-medium text-sm">Fonte das Credenciais</p>
@@ -433,10 +460,18 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6 pt-6">
-                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-                            Preencha o <strong>Perfil do Emitente</strong> acima antes de subir o certificado —
-                            CNPJ, UF, município e regime vêm de lá.
-                        </p>
+                        {settings?.hasCertificate ? (
+                            <p className="text-xs text-green-800 bg-green-50 border border-green-200 rounded p-2">
+                                <strong>Já existe um certificado instalado nesta loja.</strong> Não precisa enviar de novo:
+                                os campos abaixo ficam vazios de propósito. Só envie outro arquivo para substituir o atual
+                                (por exemplo, quando o certificado vencer).
+                            </p>
+                        ) : (
+                            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                                Preencha o <strong>Perfil do Emitente</strong> acima antes de subir o certificado —
+                                CNPJ, UF, município e regime vêm de lá.
+                            </p>
+                        )}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>CNPJ da Loja <span className="text-xs text-gray-400">(opcional se no Perfil)</span></Label>
@@ -463,7 +498,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                                         Configurando...
                                     </>
                                 ) : (
-                                    'Configurar Certificado'
+                                    settings?.hasCertificate ? 'Substituir Certificado' : 'Configurar Certificado'
                                 )}
                             </Button>
                         </div>
