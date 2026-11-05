@@ -1815,6 +1815,9 @@ model ClinicFiscalConfig {
   // NexosFiscal Credentials
   nexosTenantId String?
   nexosApiKey   String?
+  // Informativos do último certificado A1 enviado (o .pfx em si fica no NexosFiscal)
+  certificateFileName   String?
+  certificateUploadedAt DateTime?
 
   // Business Rules / Defaults
   environment             String  @default("2") // 1=Production, 2=Homologation
