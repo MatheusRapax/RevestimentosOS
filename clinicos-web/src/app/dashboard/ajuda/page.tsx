@@ -1143,6 +1143,21 @@ const GROUPS: Group[] = [
                 ),
                 notes: [
                     {
+                        tone: 'crit',
+                        label: 'Homologação x Produção (trava de segurança)',
+                        body: (
+                            <>
+                                Em <b>Homologação</b> as notas são de teste e <b>não têm valor fiscal</b>. Notas em{' '}
+                                <b>Produção</b> valem de verdade (e só se cancelam dentro do prazo legal). Por segurança, o
+                                servidor <b>bloqueia a emissão em produção</b> por padrão: a opção Produção aparece
+                                desabilitada e qualquer tentativa de emitir com a loja em produção é recusada. Para
+                                liberar, é preciso uma configuração no servidor feita pelo suporte (e só depois de
+                                homologar tudo com o contador). O card <b>Status da Conexão</b> sempre mostra em qual
+                                ambiente a loja está.
+                            </>
+                        ),
+                    },
+                    {
                         tone: 'warn',
                         label: 'Código IBGE precisa casar com a UF',
                         body: (

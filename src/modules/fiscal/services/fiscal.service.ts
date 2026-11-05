@@ -2,6 +2,7 @@ import {
   Injectable,
   Logger,
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
@@ -25,6 +26,34 @@ export class FiscalService {
     private cfopResolver: CfopResolverService,
     private taxCalculator: TaxCalculatorService,
   ) {}
+
+  /**
+   * TRAVA DE SEGURANÇA: emissão em PRODUÇÃO (nota com valor fiscal) só é possível
+   * se o servidor declarar FISCAL_ALLOW_PRODUCTION=true. Por padrão é sempre
+   * homologação — em teste, dev e na produção do ERP até alguém liberar de propósito.
+   */
+  private isProductionAllowed(): boolean {
+    return this.configService.get<string>('FISCAL_ALLOW_PRODUCTION') === 'true';
+  }
+
+  private static readonly PRODUCTION_BLOCKED_MESSAGE =
+    'Emissão em PRODUÇÃO está bloqueada neste servidor: notas emitidas em produção têm valor fiscal. ' +
+    'Use o ambiente de Homologação. (Liberar exige FISCAL_ALLOW_PRODUCTION=true no servidor.)';
+
+  /** Recusa qualquer emissão enquanto a loja estiver configurada em produção e o servidor não liberou. */
+  private async assertEmissionAllowed(clinicId: string) {
+    if (this.isProductionAllowed()) return;
+    const config = await this.prisma.clinicFiscalConfig.findUnique({
+      where: { clinicId },
+      select: { environment: true },
+    });
+    if (config?.environment === '1') {
+      this.logger.error(
+        `Emissão BLOQUEADA (ambiente de produção não liberado) — clinic ${clinicId}`,
+      );
+      throw new ForbiddenException(FiscalService.PRODUCTION_BLOCKED_MESSAGE);
+    }
+  }
 
   /**
    * Resolve a URL base do NexosFiscal e a API Key do tenant desta clínica
@@ -72,8 +101,11 @@ export class FiscalService {
       this.prisma.clinicFiscalConfig.findUnique({ where: { clinicId } }),
       this.prisma.fiscalProfile.findUnique({ where: { clinicId } }),
     ]);
+    // Tenant de PRODUÇÃO só se o servidor liberou; caso contrário, sempre homologação.
     const environment =
-      existing?.environment === '1' ? 'producao' : 'homologacao';
+      existing?.environment === '1' && this.isProductionAllowed()
+        ? 'producao'
+        : 'homologacao';
 
     // A API do NexosFiscal exige a identidade fiscal do emitente na criação do
     // tenant. Os campos do formulário de setup são overrides; o padrão é o
@@ -623,6 +655,7 @@ export class FiscalService {
     this.logger.log(
       `Initiating NF-e emission for Order ${orderId} in Clinic ${clinicId}`,
     );
+    await this.assertEmissionAllowed(clinicId);
 
     const { order, profile, config, apiKey, apiUrl } =
       await this.buildEmitContext(orderId, clinicId);
@@ -791,6 +824,12 @@ export class FiscalService {
   }
 
   async getSettings(clinicId?: string) {
+    const settings = await this.getSettingsRaw(clinicId);
+    // A tela usa isto para travar a opção "Produção" e avisar quando o ambiente salvo é produção
+    return { ...settings, productionAllowed: this.isProductionAllowed() };
+  }
+
+  private async getSettingsRaw(clinicId?: string) {
     const hasEnvCredentials = !!process.env.FISCAL_MASTER_API_KEY;
 
     // Super admin sem clínica selecionada: devolve só o estado do ambiente,
@@ -850,6 +889,9 @@ export class FiscalService {
   }
 
   async updateSettings(clinicId: string, dto: UpdateFiscalSettingsDto) {
+    if (dto.environment === '1' && !this.isProductionAllowed()) {
+      throw new ForbiddenException(FiscalService.PRODUCTION_BLOCKED_MESSAGE);
+    }
     return this.prisma.clinicFiscalConfig.upsert({
       where: { clinicId },
       update: { ...dto },

@@ -16,6 +16,7 @@ import { fetchCnpjInfo } from '@/lib/brasil-api';
 interface FiscalSettings {
     hasCredentials: boolean;
     source: 'env' | 'database';
+    productionAllowed?: boolean;
     hasCertificate?: boolean;
     certificateFileName?: string | null;
     certificateUploadedAt?: string | null;
@@ -315,6 +316,18 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    {settings?.environment === '1' ? (
+                        <div className="p-4 rounded-lg border border-red-300 bg-red-50 text-sm text-red-800">
+                            <strong>Ambiente salvo: PRODUÇÃO.</strong> Notas emitidas em produção têm valor fiscal.
+                            {settings.productionAllowed
+                                ? ' Confirme que é isso mesmo que você quer.'
+                                : ' Este servidor está com a emissão em produção BLOQUEADA — nenhuma nota será emitida até você voltar para Homologação.'}
+                        </div>
+                    ) : (
+                        <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 text-sm text-amber-900">
+                            <strong>Ambiente: HOMOLOGAÇÃO.</strong> As notas emitidas são de teste e não têm valor fiscal.
+                        </div>
+                    )}
                     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
                         <div className="space-y-1">
                             <p className="font-medium text-sm">Certificado Digital A1</p>
@@ -529,10 +542,15 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="2">Homologação (Testes)</SelectItem>
-                                        <SelectItem value="1">Produção</SelectItem>
+                                        <SelectItem value="1" disabled={!settings?.productionAllowed}>
+                                            Produção{!settings?.productionAllowed ? ' (bloqueada neste servidor)' : ''}
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <p className="text-xs text-gray-500">Homologação emite notas sem valor fiscal.</p>
+                                <p className="text-xs text-gray-500">
+                                    Homologação emite notas sem valor fiscal.
+                                    {!settings?.productionAllowed && ' A emissão em produção está travada por segurança neste servidor.'}
+                                </p>
                             </div>
 
                             <div className="space-y-2">
