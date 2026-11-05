@@ -1165,12 +1165,53 @@ const GROUPS: Group[] = [
                             </>
                         ),
                     },
+                    {
+                        tone: 'info',
+                        label: 'Preencher o perfil pelo CNPJ',
+                        body: (
+                            <>
+                                Digite o CNPJ e clique na <b>lupa</b> ao lado dele: o sistema consulta a Receita (via
+                                BrasilAPI) e preenche <b>endereço, CEP, município, UF, código IBGE e CNAE</b>, além da
+                                Razão Social do Setup. Não vêm da consulta: a <b>Inscrição Estadual</b> e a Municipal
+                                (preencha você) e o <b>regime tributário</b>, que é só uma sugestão (Simples/MEI = 1, senão
+                                3) — confirme com o contador.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Como saber se o certificado foi instalado',
+                        body: (
+                            <>
+                                O card <b>Status da Conexão</b> mostra o selo <b>Certificado instalado</b> (ou{' '}
+                                <b>Certificado não instalado</b>) e, no card <b>Certificado Digital A1</b>, a data e o
+                                arquivo enviados. Só aparece como instalado depois que o NexosFiscal aceitou o certificado
+                                (senha correta e arquivo válido). Com certificado já instalado, o botão vira{' '}
+                                <b>Substituir Certificado</b> — use só quando o certificado vencer ou for trocado, e{' '}
+                                <b>não clique várias vezes</b> em Configurar: cada envio cria um novo cadastro no serviço
+                                fiscal.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'O que os "padrões" das Regras de Emissão fazem',
+                        body: (
+                            <>
+                                O <b>CFOP da nota de venda é calculado sozinho</b> (5102 dentro do estado, 6102 para outro
+                                estado, 6108 para consumidor final não contribuinte de outro estado). Os padrões de{' '}
+                                <b>CFOP e CST</b> só preenchem produtos ainda sem esses dados quando você lança uma entrada
+                                de estoque com &quot;Atualizar dados fiscais dos produtos&quot;. <b>NCM, CEST e Classe de
+                                Imposto</b> padrão ainda não são usados na emissão: o que vale é o cadastro de cada produto
+                                (NCM de 8 dígitos e origem são obrigatórios).
+                            </>
+                        ),
+                    },
                 ],
                 steps: [
-                    <>Preencha o <b>Perfil do Emitente</b> primeiro (CNPJ, IE, endereço, código IBGE, regime) e{' '}
+                    <>Preencha o <b>Perfil do Emitente</b> primeiro (CNPJ — use a lupa —, IE, endereço, código IBGE, regime) e{' '}
                         <b>Salvar Perfil</b>.</>,
                     <>Configure o <b>certificado digital A1</b> (.pfx) em <b>Setup Inicial</b> — obrigatório para
-                        emitir de verdade.</>,
+                        emitir de verdade — e confira o selo <b>Certificado instalado</b> no topo.</>,
                     <>Ajuste as <b>Regras de Emissão</b> (ambiente de homologação/produção e padrões de
                         NCM/CFOP/CST/Origem) se necessário.</>,
                 ],
