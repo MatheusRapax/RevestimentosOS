@@ -383,49 +383,85 @@ const GROUPS: Group[] = [
                 ],
             },
             {
-                id: 'fiscal-config',
-                path: 'Administração › Configuração Fiscal',
-                title: 'Configuração Fiscal da loja',
+                id: 'catalogo-vendas',
+                path: 'Comercial › Catálogo de Produtos',
+                title: 'Catálogo de Produtos (consulta de vendas)',
                 lead: (
                     <>
-                        Os dados fiscais da própria loja (usados em <b>toda</b> nota emitida): CNPJ, Inscrição
-                        Estadual, regime tributário e endereço do emitente, o certificado digital e os padrões
-                        usados quando um produto não tem configuração própria. Quem tem a permissão de{' '}
-                        <Mono>fiscal.config</Mono> acessa direto — não precisa ser super admin.
+                        Vitrine de <b>consulta rápida</b> para o vendedor: busca, filtros, preço e disponibilidade de
+                        estoque de cada produto. É <b>somente leitura</b> — cadastro e edição ficam em{' '}
+                        <A href="#produtos">Estoque › Produtos</A>.
                     </>
                 ),
+                steps: [
+                    <>Digite na busca (nome, código, EAN, formato, linha…) — ela aplica sozinha quando você para de digitar.</>,
+                    <>Para filtrar por <b>Unidade Comercial</b>, <b>Formato</b>, <b>Cor / Acabamento</b>, <b>Linha / Coleção</b>, <b>Uso / Aplicação</b> ou <b>Marca</b>, escolha as opções e clique em <b>Aplicar Filtros</b>. <b>Limpar Filtros</b> volta ao todo.</>,
+                    <>Em um cartão, clique em <b>Ver Especificações</b> para ver preço, medidas, dados da caixa e do palete e a <b>disponibilidade</b> (Físico, Reservado, Disponível e os lotes).</>,
+                ],
                 notes: [
                     {
-                        tone: 'warn',
-                        label: 'Código IBGE precisa casar com a UF',
+                        label: 'Preço por m²',
                         body: (
                             <>
-                                O <b>Código IBGE do Município</b> do Perfil do Emitente tem que corresponder à{' '}
-                                <b>UF</b> informada — é um dos motivos mais comuns de a Revisão Fiscal bloquear a
-                                emissão. Os dois primeiros dígitos do código IBGE identificam o estado.
+                                Em produto vendido por m², o sistema guarda o preço da <b>caixa</b> e mostra o preço por
+                                m² = preço da caixa ÷ m² por caixa (a linha &quot;Cx&quot; do cartão mostra o valor da caixa
+                                fechada).
                             </>
                         ),
                     },
                     {
-                        label: 'Regime Tributário decide o cálculo',
+                        tone: 'warn',
+                        label: 'O que não aparece',
                         body: (
                             <>
-                                O <b>Regime Tributário (CRT)</b> aqui é o que o motor de impostos usa para
-                                escolher a alíquota de ICMS/PIS/COFINS de cada nota — Simples Nacional recolhe
-                                esses impostos embutidos no DAS (alíquota 0% na nota); Regime Normal calcula a
-                                alíquota cheia. Mudar o CRT aqui muda o cálculo de <b>todas</b> as próximas
-                                emissões.
+                                Só entram produtos <b>ativos e não avulsos</b> (um avulso sem &quot;Adicionar direto ao
+                                catálogo&quot; não aparece). O cartão mostra o preço normal: uma{' '}
+                                <A href="#promocoes">promoção ativa</A> só entra no preço quando o produto é adicionado a um
+                                orçamento.
                             </>
                         ),
                     },
                 ],
+            },
+            {
+                id: 'promocoes',
+                path: 'Comercial › Promoções',
+                title: 'Promoções',
+                lead: (
+                    <>
+                        Campanhas com <b>desconto percentual</b> aplicado a produtos escolhidos, por período. O preço
+                        promocional entra automaticamente nos <A href="#orcamentos">orçamentos</A> enquanto a campanha
+                        estiver valendo.
+                    </>
+                ),
                 steps: [
-                    <>Preencha o <b>Perfil do Emitente</b> primeiro (CNPJ, IE, endereço, código IBGE, regime) e{' '}
-                        <b>Salvar Perfil</b>.</>,
-                    <>Configure o <b>certificado digital A1</b> (.pfx) em <b>Setup Inicial</b> — obrigatório para
-                        emitir de verdade.</>,
-                    <>Ajuste as <b>Regras de Emissão</b> (ambiente de homologação/produção e padrões de
-                        NCM/CFOP/CST/Origem) se necessário.</>,
+                    <><b>Nova Campanha</b> → <b>Nome da Campanha</b>, <b>Desconto (%)</b> (1 a 100), <b>Início</b> e <b>Término</b>.</>,
+                    <>Em <b>Produtos Participantes</b>, busque por nome ou SKU e marque as linhas (ou use <b>Todos Filtrados</b> / <b>Limpar</b>). É preciso escolher pelo menos um produto.</>,
+                    <>Deixe <b>Ativa imediatamente</b> ligado e clique em <b>Salvar Campanha</b>.</>,
+                    <>Na lista, o interruptor <b>Ativa</b> liga/desliga a campanha na hora; o menu de três pontos tem <b>Editar</b> e <b>Excluir</b>.</>,
+                ],
+                notes: [
+                    {
+                        label: 'Status da campanha',
+                        body: (
+                            <>
+                                <b>Em andamento</b> (ativa e dentro do período), <b>Agendada</b> (ativa, ainda não
+                                começou), <b>Encerrada</b> (passou do término) e <b>Pausada</b> (desligada). O período vale
+                                o <b>dia inteiro</b> nas duas pontas.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Mais de uma promoção no mesmo produto',
+                        body: (
+                            <>
+                                Vale a de <b>maior desconto</b>. <b>Excluir</b> apaga a campanha de vez; para só parar de
+                                aplicar, desligue o interruptor <b>Ativa</b>. Orçamentos já criados guardam o preço do
+                                momento — use <b>Atualizar Preços</b> neles se precisar.
+                            </>
+                        ),
+                    },
                 ],
             },
         ],
@@ -495,52 +531,6 @@ const GROUPS: Group[] = [
                     <><b>Novo Produto</b> → nome, SKU, unidade. Para revestimento em m², preencha <b>m²/caixa</b> — é o que converte área em caixas.</>,
                     <>Preços: <b>custo</b> e <b>venda</b>. O custo inicial pode ser ajustado; depois passa a ser calculado por média a cada entrada.</>,
                     <><b>Importar</b> → suba a planilha, confira o mapeamento das colunas, confirme. <b>Colunas</b> escolhe o que aparece na lista.</>,
-                ],
-            },
-            {
-                id: 'marcas-categorias',
-                path: 'Administração › Config. de Catálogo',
-                title: 'Marcas, Categorias e Markup',
-                lead: (
-                    <>
-                        Onde ficam cadastradas as <b>marcas</b> e <b>categorias</b> de produto, cada uma com um{' '}
-                        <b>markup padrão</b> (%) — a margem usada para calcular o preço de venda de quem não tem preço
-                        digitado na mão.
-                    </>
-                ),
-                notes: [
-                    {
-                        label: 'Ordem de prioridade do markup',
-                        body: (
-                            <>
-                                Pra cada produto, o sistema usa o primeiro que encontrar, nesta ordem:{' '}
-                                <b>markup do produto</b> (se você preencheu um específico) → <b>markup da marca</b> →{' '}
-                                <b>markup da categoria</b> → <b>markup padrão da loja</b> (Config. de Catálogo →
-                                Configurações Gerais). Um produto com <b>preço manual</b> nunca usa markup — o preço
-                                digitado nele é sempre o que vale.
-                            </>
-                        ),
-                    },
-                    {
-                        tone: 'info',
-                        label: 'Mudar o markup atualiza os produtos já cadastrados',
-                        body: (
-                            <>
-                                Ao salvar um novo markup padrão numa marca, categoria ou na loja, o preço de venda de{' '}
-                                <b>todos os produtos afetados</b> (sem preço manual) é recalculado e atualizado na
-                                hora — não precisa editar produto por produto. Isso vale só para o <b>catálogo</b>; um{' '}
-                                <A href="#orcamentos">orçamento</A> já criado guarda o preço que tinha no momento —
-                                use <b>Atualizar Preços</b> nele se quiser puxar o valor novo.
-                            </>
-                        ),
-                    },
-                ],
-                steps: [
-                    <>Cadastre a <b>marca</b> ou <b>categoria</b> com um markup padrão (ex.: 40%).</>,
-                    <>Precisa reajustar? Edite o markup dela a qualquer momento — os produtos que dependem desse nível
-                        da hierarquia mudam de preço junto, automaticamente.</>,
-                    <>Um produto específico precisa de margem diferente do resto da marca? Preencha o{' '}
-                        <b>markup do produto</b> direto no cadastro dele — tem prioridade sobre marca e categoria.</>,
                 ],
             },
             {
@@ -809,6 +799,492 @@ const GROUPS: Group[] = [
                     },
                 ],
             },
+        ],
+    },
+    {
+        id: 'administracao',
+        title: 'Administração',
+        modules: [
+            {
+                id: 'admin-acesso',
+                path: 'Administração › Visão geral',
+                title: 'Quem acessa o quê',
+                lead: (
+                    <>
+                        A área de <b>Administração</b> reúne usuários, papéis, configurações da loja, auditoria e os
+                        cadastros de apoio. O menu mostra os itens conforme os <b>módulos ativos da loja</b>; cada tela
+                        ainda exige uma <b>permissão</b> do papel da pessoa. Quem não tem a permissão vê a tela{' '}
+                        <b>Acesso Restrito</b> (&quot;Você não possui permissão para visualizar este conteúdo&quot;).
+                    </>
+                ),
+                screen: {
+                    route: 'Papéis de fábrica',
+                    head: 'Telas da Administração por papel',
+                    sub: 'Configuração padrão — a loja pode ter ajustado os papéis em Papéis e Acessos',
+                    cols: ['Tela', 'Administrador', 'Gerente', 'Estoquista', 'Vendedor'],
+                    rows: [
+                        ['Usuários · Papéis · Auditoria', 'Sim', 'Sim', '—', '—'],
+                        ['Configurações Globais · Templates', 'Sim', '—', '—', '—'],
+                        ['Configuração Fiscal', 'Sim', '—', '—', '—'],
+                        ['Regras de Comissão', 'Sim', 'Sim', '—', '—'],
+                        ['Config. de Catálogo · Ambientes', 'Sim', 'Sim', 'Sim', '—'],
+                    ],
+                },
+                notes: [
+                    {
+                        tone: 'info',
+                        label: 'Os quatro papéis padrão',
+                        body: (
+                            <>
+                                <b>Administrador</b>: acesso total. <b>Gerente</b>: gerência da loja (vendas, estoque,
+                                financeiro, comissões, usuários e auditoria), sem as configurações globais, os templates e
+                                a configuração fiscal. <b>Estoquista</b>: produtos, fornecedores, estoque e avarias.{' '}
+                                <b>Vendedor</b>: clientes, orçamentos, pedidos, entregas e consulta ao catálogo. Para ver
+                                ou mudar o que cada papel pode, use <A href="#papeis">Papéis e Acessos</A>.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Item no menu não significa acesso',
+                        body: (
+                            <>
+                                O menu só esconde o item quando o <b>módulo</b> está desligado na loja. Se o módulo está
+                                ligado mas o seu papel não tem a permissão, o item continua aparecendo — e ao clicar você
+                                cai em <b>Acesso Restrito</b>. Nesse caso peça a um Administrador para ajustar o papel.
+                            </>
+                        ),
+                    },
+                ],
+            },
+            {
+                id: 'usuarios',
+                path: 'Administração › Usuários',
+                title: 'Usuários',
+                lead: (
+                    <>
+                        Lista quem tem acesso à loja ativa, deixa <b>trocar o papel</b> de cada pessoa e{' '}
+                        <b>criar novos acessos</b>.
+                    </>
+                ),
+                screen: {
+                    route: '/dashboard/admin/usuarios',
+                    head: 'Usuários da Loja',
+                    sub: 'Gerencie os usuários e seus papéis no sistema',
+                    cols: ['Nome', 'Email', 'Status', 'Papel', 'Regra de Comissão'],
+                    rows: [
+                        ['Administrador Mosaic (você)', 'admin@loja.com', <Pill key="s" tone="ok">Ativo</Pill>, 'Administrador', '—'],
+                        ['Carla Souza', 'carla@loja.com', <Pill key="s" tone="ok">Ativo</Pill>, 'Vendedor', 'Padrão da Loja'],
+                    ],
+                },
+                steps: [
+                    <><b>Adicionar Usuário</b> → <b>Nome completo</b>, <b>Email</b>, <b>Senha Inicial</b> (mínimo 6 caracteres) e <b>Papel</b>. Salvar com <b>Adicionar Usuário</b>.</>,
+                    <>Se o papel for <b>Vendedor</b>, aparece o campo <b>Regra de Comissão</b>: deixe em <i>Padrão (Regra Global de Vendedores)</i> ou escolha uma regra específica (ver <A href="#comissoes-regra">Regras de comissão</A>).</>,
+                    <>Para mudar o papel de alguém, troque o seletor na linha da pessoa — grava na hora, sem botão Salvar (aparece um check verde quando salvou).</>,
+                    <>Passe a senha inicial à pessoa por um canal seguro.</>,
+                ],
+                notes: [
+                    {
+                        tone: 'warn',
+                        label: 'Você não altera o seu próprio papel',
+                        body: (
+                            <>
+                                O seletor do seu usuário fica bloqueado (e a regra de comissão também) — evita alguém se
+                                tirar do próprio acesso por engano. Outro Administrador faz a troca.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'E-mail que já existe em outra loja',
+                        body: (
+                            <>
+                                O e-mail é único no sistema. Se já existir em outra loja, a pessoa é apenas{' '}
+                                <b>vinculada a esta loja</b> com o papel escolhido: o nome e a senha digitados são{' '}
+                                <b>ignorados</b> e ela continua entrando com a senha que já tem. Se já estiver nesta loja,
+                                o sistema avisa que ela já está vinculada.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Não há botão para desativar ou excluir',
+                        body: (
+                            <>
+                                Esta tela cria acessos e troca papéis, mas <b>não desativa nem remove</b> usuários. Para
+                                bloquear o acesso de alguém que saiu da empresa, peça ao suporte para desativar o acesso.
+                            </>
+                        ),
+                    },
+                ],
+            },
+            {
+                id: 'papeis',
+                path: 'Administração › Papéis e Acessos',
+                title: 'Papéis e Acessos',
+                lead: (
+                    <>
+                        Um <b>papel</b> é um conjunto de permissões (o que a pessoa pode ver e fazer). Aqui você vê os
+                        papéis, <b>marca as permissões</b> de cada um e cria papéis novos.
+                    </>
+                ),
+                screen: {
+                    route: '/dashboard/admin/papeis',
+                    head: 'Papéis e Acessos',
+                    sub: 'Gerencie as permissões de cada papel',
+                    cols: ['Nome', 'Chave', 'Permissões'],
+                    rows: [
+                        ['Administrador', 'ADMIN', <Pill key="p" tone="info">todas</Pill>],
+                        ['Vendedor', 'SELLER', <Pill key="p" tone="mut">parciais</Pill>],
+                    ],
+                },
+                steps: [
+                    <><b>Novo Papel</b> → <b>Nome do Papel</b> (ex.: Auxiliar Administrativo) e, se quiser, uma descrição. <b>Criar Papel</b>.</>,
+                    <>O papel novo nasce <b>sem nenhuma permissão</b>: clique em <b>Editar</b> na linha dele.</>,
+                    <>Marque as permissões (agrupadas por área: Estoque, Orçamentos, Financeiro, Fiscal…) e clique em <b>Salvar Permissões</b>.</>,
+                    <>Depois vá em <A href="#usuarios">Usuários</A> e atribua o papel às pessoas.</>,
+                ],
+                notes: [
+                    {
+                        tone: 'crit',
+                        label: 'Papéis valem para todas as lojas',
+                        body: (
+                            <>
+                                Papéis e permissões <b>não são por loja</b>: mudar as permissões de um papel afeta
+                                todas as pessoas que usam esse papel, em todas as lojas do sistema. Prefira criar um papel
+                                novo em vez de alterar um dos padrões.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Cuidado ao remover permissões do seu próprio papel',
+                        body: (
+                            <>
+                                Não existe trava: dá para tirar de um papel a permissão de gerenciar papéis e perder o
+                                acesso a esta tela. Salvar substitui o conjunto inteiro de permissões. Não é possível
+                                excluir nem renomear um papel pela tela. Se uma mudança não aparecer no menu, saia e entre
+                                de novo no sistema.
+                            </>
+                        ),
+                    },
+                ],
+            },
+            {
+                id: 'config-globais',
+                path: 'Administração › Configurações Globais',
+                title: 'Configurações Globais',
+                lead: (
+                    <>
+                        Valores padrão da loja inteira. Hoje há <b>uma</b> configuração aqui: a{' '}
+                        <b>Taxa de Entrega Padrão</b>.
+                    </>
+                ),
+                steps: [
+                    <>Abra <b>Administração › Configurações Globais</b> e preencha <b>Taxa de Entrega Padrão (R$)</b>.</>,
+                    <>Clique em <b>Salvar Alterações</b>. A partir daí, todo <A href="#orcamentos">orçamento novo</A> já vem com esse valor no campo de frete.</>,
+                ],
+                notes: [
+                    {
+                        tone: 'info',
+                        label: 'É só um valor inicial',
+                        body: (
+                            <>
+                                A taxa padrão apenas <b>pré-preenche</b> o frete: dá para alterá-la orçamento a orçamento.
+                                Na edição de um orçamento que já tem itens, o frete salvo é mantido.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Procurando outra configuração?',
+                        body: (
+                            <>
+                                O <b>Markup Global Padrão</b> fica em <A href="#marcas-categorias">Config. de Catálogo ›
+                                Configurações</A>. A <b>validade do orçamento</b> e os termos ficam nos{' '}
+                                <A href="#templates">Templates</A>. As regras de impostos ficam em{' '}
+                                <A href="#fiscal-config">Configuração Fiscal</A>.
+                            </>
+                        ),
+                    },
+                ],
+            },
+            {
+                id: 'auditoria',
+                path: 'Administração › Auditoria',
+                title: 'Auditoria',
+                lead: (
+                    <>
+                        Histórico <b>somente leitura</b> das alterações feitas no sistema: quem fez, quando, o quê e em
+                        qual cadastro. Serve para investigar &quot;quem mudou isso?&quot;.
+                    </>
+                ),
+                screen: {
+                    route: '/dashboard/admin/auditoria',
+                    head: 'Logs de Auditoria',
+                    sub: 'Histórico de ações administrativas',
+                    cols: ['Data/Hora', 'Ação', 'Entidade', 'Usuário', 'Mensagem'],
+                    rows: [
+                        ['02/11/2026 14:32', <Pill key="a" tone="info">Atualização</Pill>, 'Order', 'Carla Souza', 'Atualizou Order (Campos: status)'],
+                        ['02/11/2026 14:10', <Pill key="a" tone="ok">Criação</Pill>, 'Quote', 'Carla Souza', 'Criou Quote (Campos: customerId, items…)'],
+                    ],
+                },
+                steps: [
+                    <>Abra <b>Administração › Auditoria</b>: as ações mais recentes aparecem primeiro.</>,
+                    <>Clique na lupa (<b>Ver Detalhes</b>) de uma linha para abrir <b>Detalhes da Ação</b>, com os dados enviados na alteração.</>,
+                ],
+                notes: [
+                    {
+                        tone: 'warn',
+                        label: 'Só os 100 registros mais recentes, sem filtros',
+                        body: (
+                            <>
+                                A tela mostra no máximo os <b>100 últimos</b> registros da loja e ainda não tem busca nem
+                                filtro por usuário, data ou tipo. Ações mais antigas não aparecem aqui.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'O que é registrado',
+                        body: (
+                            <>
+                                Toda <b>criação, alteração e exclusão</b> feita no sistema (orçamentos, pedidos, produtos,
+                                papéis, configurações, regras de comissão, movimentações de estoque, pagamentos…).
+                                Consultas não entram. Senhas e tokens aparecem mascarados como <Mono>[REDACTED]</Mono>.
+                                É normal uma mesma ação gerar <b>duas linhas</b> (uma automática e outra detalhada pelo
+                                módulo), e algumas mensagens técnicas aparecem em inglês.
+                            </>
+                        ),
+                    },
+                ],
+            },
+            {
+                id: 'templates',
+                path: 'Administração › Templates',
+                title: 'Templates de orçamento',
+                lead: (
+                    <>
+                        Modelos do <b>PDF/impressão do orçamento</b>: dados da empresa, logo, dados bancários, termos e
+                        aparência. Dá para ter mais de um e escolher qual usar ao imprimir.
+                    </>
+                ),
+                steps: [
+                    <><b>Novo Template</b> → preencha as abas <b>Empresa</b> (nome, CNPJ, telefone, e-mail, logo, endereço), <b>Banco</b> (banco, agência, conta, titular, chave PIX) e <b>Termos</b> (validade em dias, prazo de entrega, termos e condições, formas de pagamento, rodapé).</>,
+                    <>Na aba <b>Aparência</b> escolha as cores e o que aparece no PDF: linhas de assinatura, dados bancários, termos, formas de pagamento e as colunas <i>Qtd</i>, <i>Área (m²)</i> e <i>Preço Unitário</i>.</>,
+                    <>Confira na aba <b>Preview</b> e clique em <b>Criar Template</b> (ou <b>Salvar Alterações</b>).</>,
+                    <>Para usar um modelo por padrão, clique na <b>estrela</b> do cartão dele.</>,
+                ],
+                notes: [
+                    {
+                        tone: 'info',
+                        label: 'Atalho pelo CNPJ',
+                        body: (
+                            <>
+                                Ao digitar o CNPJ (14 dígitos) o sistema consulta a BrasilAPI e preenche razão social,
+                                endereço e telefone. Confira os dados antes de salvar.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Padrão e exclusão',
+                        body: (
+                            <>
+                                O <b>primeiro template criado vira o Padrão</b> sozinho; marcar outro como padrão tira o
+                                título do anterior. <b>Excluir apaga de vez</b>: se o excluído era o padrão, o template mais
+                                antigo que sobrar assume. Só o nome é obrigatório. A validade padrão é de 10 dias — é daqui
+                                que vem o &quot;Este orçamento é válido por N dias&quot; do <A href="#orcamentos">PDF</A>.
+                            </>
+                        ),
+                    },
+                ],
+            },
+            {
+                id: 'ambientes',
+                path: 'Administração › Ambientes',
+                title: 'Ambientes de venda',
+                lead: (
+                    <>
+                        Os ambientes (Cozinha, Sala, Banheiro Suíte…) que o vendedor associa aos itens do{' '}
+                        <A href="#orcamentos">orçamento</A> — o PDF agrupa os itens por ambiente.
+                    </>
+                ),
+                steps: [
+                    <><b>Novo Ambiente</b> → <b>Nome do Ambiente</b> (único na loja) e o interruptor <b>Ambiente Ativo</b>. Salvar.</>,
+                    <>Para renomear ou tirar das opções, use <b>Editar</b> e desligue <b>Ambiente Ativo</b> — ele deixa de aparecer nos orçamentos novos, mas o histórico é preservado.</>,
+                    <>O vendedor também consegue criar um ambiente na hora, pelo <b>+ Novo</b> dentro do item do orçamento.</>,
+                ],
+                notes: [
+                    {
+                        tone: 'crit',
+                        label: 'Excluir é definitivo',
+                        body: (
+                            <>
+                                A lixeira <b>apaga o ambiente de vez</b>. Os itens de orçamentos e pedidos que o usavam{' '}
+                                <b>ficam sem ambiente</b>. Se você só quer parar de usá-lo, <b>desative</b> em vez de
+                                excluir.
+                            </>
+                        ),
+                    },
+                ],
+            },
+            {
+                id: 'fiscal-config',
+                path: 'Administração › Configuração Fiscal',
+                title: 'Configuração Fiscal da loja',
+                lead: (
+                    <>
+                        Os dados fiscais da própria loja (usados em <b>toda</b> nota emitida): CNPJ, Inscrição
+                        Estadual, regime tributário e endereço do emitente, o certificado digital e os padrões
+                        usados quando um produto não tem configuração própria. Quem tem a permissão de{' '}
+                        <Mono>fiscal.config</Mono> acessa direto — não precisa ser super admin.
+                    </>
+                ),
+                notes: [
+                    {
+                        tone: 'warn',
+                        label: 'Código IBGE precisa casar com a UF',
+                        body: (
+                            <>
+                                O <b>Código IBGE do Município</b> do Perfil do Emitente tem que corresponder à{' '}
+                                <b>UF</b> informada — é um dos motivos mais comuns de a Revisão Fiscal bloquear a
+                                emissão. Os dois primeiros dígitos do código IBGE identificam o estado.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'Regime Tributário decide o cálculo',
+                        body: (
+                            <>
+                                O <b>Regime Tributário (CRT)</b> aqui é o que o motor de impostos usa para
+                                escolher a alíquota de ICMS/PIS/COFINS de cada nota — Simples Nacional recolhe
+                                esses impostos embutidos no DAS (alíquota 0% na nota); Regime Normal calcula a
+                                alíquota cheia. Mudar o CRT aqui muda o cálculo de <b>todas</b> as próximas
+                                emissões.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Preencher o perfil pelo CNPJ',
+                        body: (
+                            <>
+                                Digite o CNPJ e clique na <b>lupa</b> ao lado dele: o sistema consulta a Receita (via
+                                BrasilAPI) e preenche <b>endereço, CEP, município, UF, código IBGE e CNAE</b>, além da
+                                Razão Social do Setup. Não vêm da consulta: a <b>Inscrição Estadual</b> e a Municipal
+                                (preencha você) e o <b>regime tributário</b>, que é só uma sugestão (Simples/MEI = 1, senão
+                                3) — confirme com o contador.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Como saber se o certificado foi instalado',
+                        body: (
+                            <>
+                                O card <b>Status da Conexão</b> mostra o selo <b>Certificado instalado</b> (ou{' '}
+                                <b>Certificado não instalado</b>) e, no card <b>Certificado Digital A1</b>, a data e o
+                                arquivo enviados. Só aparece como instalado depois que o NexosFiscal aceitou o certificado
+                                (senha correta e arquivo válido). Com certificado já instalado, o botão vira{' '}
+                                <b>Substituir Certificado</b> — use só quando o certificado vencer ou for trocado, e{' '}
+                                <b>não clique várias vezes</b> em Configurar: cada envio cria um novo cadastro no serviço
+                                fiscal.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'O que os "padrões" das Regras de Emissão fazem',
+                        body: (
+                            <>
+                                O <b>CFOP da nota de venda é calculado sozinho</b> (5102 dentro do estado, 6102 para outro
+                                estado, 6108 para consumidor final não contribuinte de outro estado). Os padrões de{' '}
+                                <b>CFOP e CST</b> só preenchem produtos ainda sem esses dados quando você lança uma entrada
+                                de estoque com &quot;Atualizar dados fiscais dos produtos&quot;. <b>NCM, CEST e Classe de
+                                Imposto</b> padrão ainda não são usados na emissão: o que vale é o cadastro de cada produto
+                                (NCM de 8 dígitos e origem são obrigatórios).
+                            </>
+                        ),
+                    },
+                ],
+                steps: [
+                    <>Preencha o <b>Perfil do Emitente</b> primeiro (CNPJ — use a lupa —, IE, endereço, código IBGE, regime) e{' '}
+                        <b>Salvar Perfil</b>.</>,
+                    <>Configure o <b>certificado digital A1</b> (.pfx) em <b>Setup Inicial</b> — obrigatório para
+                        emitir de verdade — e confira o selo <b>Certificado instalado</b> no topo.</>,
+                    <>Ajuste as <b>Regras de Emissão</b> (ambiente de homologação/produção e padrões de
+                        NCM/CFOP/CST/Origem) se necessário.</>,
+                ],
+            },
+            {
+                id: 'marcas-categorias',
+                path: 'Administração › Config. de Catálogo',
+                title: 'Marcas, Categorias e Markup',
+                lead: (
+                    <>
+                        Onde ficam cadastradas as <b>marcas</b> e <b>categorias</b> de produto, cada uma com um{' '}
+                        <b>markup padrão</b> (%) — a margem usada para calcular o preço de venda de quem não tem preço
+                        digitado na mão.
+                    </>
+                ),
+                notes: [
+                    {
+                        tone: 'info',
+                        label: 'Markup Global e calculadora',
+                        body: (
+                            <>
+                                Na aba <b>Configurações</b> fica o <b>Markup Global Padrão (%)</b> — usado por todo produto
+                                sem markup próprio, de marca ou de categoria (padrão 40%). A <b>Calculadora de Margem</b>{' '}
+                                soma <b>Imposto Médio</b>, <b>Custo Fixo/Operação</b>, <b>Comissão Venda</b> e{' '}
+                                <b>Lucro Líquido</b> para sugerir um markup; <b>Aplicar Markup</b> só preenche o campo —
+                                lembre de salvar. Salvar reprecifica os produtos que dependem do markup global.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Excluir marca ou categoria só desativa',
+                        body: (
+                            <>
+                                A lixeira <b>desativa</b> a marca/categoria: ela some da lista, os produtos que a usavam
+                                não mudam, e a tela não oferece como reativar. A busca da lista é pelo nome.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'Ordem de prioridade do markup',
+                        body: (
+                            <>
+                                Pra cada produto, o sistema usa o primeiro que encontrar, nesta ordem:{' '}
+                                <b>markup do produto</b> (se você preencheu um específico) → <b>markup da marca</b> →{' '}
+                                <b>markup da categoria</b> → <b>markup padrão da loja</b> (Config. de Catálogo →
+                                Configurações Gerais). Um produto com <b>preço manual</b> nunca usa markup — o preço
+                                digitado nele é sempre o que vale.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Mudar o markup atualiza os produtos já cadastrados',
+                        body: (
+                            <>
+                                Ao salvar um novo markup padrão numa marca, categoria ou na loja, o preço de venda de{' '}
+                                <b>todos os produtos afetados</b> (sem preço manual) é recalculado e atualizado na
+                                hora — não precisa editar produto por produto. Isso vale só para o <b>catálogo</b>; um{' '}
+                                <A href="#orcamentos">orçamento</A> já criado guarda o preço que tinha no momento —
+                                use <b>Atualizar Preços</b> nele se quiser puxar o valor novo.
+                            </>
+                        ),
+                    },
+                ],
+                steps: [
+                    <>Cadastre a <b>marca</b> ou <b>categoria</b> com um markup padrão (ex.: 40%).</>,
+                    <>Precisa reajustar? Edite o markup dela a qualquer momento — os produtos que dependem desse nível
+                        da hierarquia mudam de preço junto, automaticamente.</>,
+                    <>Um produto específico precisa de margem diferente do resto da marca? Preencha o{' '}
+                        <b>markup do produto</b> direto no cadastro dele — tem prioridade sobre marca e categoria.</>,
+                ],
+            },
             {
                 id: 'comissoes-regra',
                 path: 'Administração › Regras de Comissão',
@@ -821,8 +1297,8 @@ const GROUPS: Group[] = [
                     </>
                 ),
                 steps: [
-                    <><b>Nova Regra</b> → nome, alvo (<b>Vendedor</b> ou <b>Arquiteto</b>), apuração <b>Mensal</b>, marque <b>Global</b> se vale para todos.</>,
-                    <>Adicione <b>tiers</b>: "a partir de R$ X → Y%". O primeiro sempre começa em R$ 0. Máximo 100% por faixa; pelo menos um tier.</>,
+                    <><b>Nova Regra</b> → nome, alvo (<b>Vendedor</b> ou <b>Arquiteto</b>), <b>Período de Apuração</b> (Semanal, <b>Mensal</b> — o padrão —, Trimestral, Semestral ou Anual), marque <b>Global</b> se vale para todos.</>,
+                    <>Adicione <b>tiers</b>: "a partir de R$ X → Y%". Comece pela faixa de R$ 0 para a venda de qualquer valor ter comissão. Máximo 100% por faixa; pelo menos um tier.</>,
                     <>Para uma taxa diferente de um parceiro, crie a regra <b>não-global</b> e associe a ele em <A href="#arquitetos">Arquitetos</A>.</>,
                     <>Os valores calculados aparecem em <A href="#comissoes-rel">Financeiro › Comissões</A> e no detalhe de cada pedido.</>,
                 ],
@@ -1351,8 +1827,7 @@ export default function AjudaPage() {
                     )}
 
                     <p className="mt-12 border-t border-gray-200 pt-6 text-xs text-gray-400">
-                        Manual do operador · núcleo operacional. Fora do escopo: Catálogo, Promoções, Agenda e o grupo
-                        Administração (Usuários, Papéis, Templates, Ambientes, Auditoria, configurações fiscais).
+                        Manual do operador · cobre o dia a dia da loja e a área de Administração. Fora do escopo: telas de configuração da plataforma (lojas e módulos), reservadas ao suporte.
                     </p>
                 </div>
             </div>

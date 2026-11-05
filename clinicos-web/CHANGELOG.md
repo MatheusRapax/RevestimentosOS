@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.19.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.18.2...v1.19.0) (2026-11-05)
+
+
+### Features
+
+* **fiscal:** buscar Perfil do Emitente pelo CNPJ e enviar o perfil no setup ([37ee28c](https://github.com/MatheusRapax/RevestimentosOS/commit/37ee28c53f0dd15bd6efc2d64c96e3e3adaa81be))
+* **fiscal:** status real do certificado digital na tela fiscal ([ed1c269](https://github.com/MatheusRapax/RevestimentosOS/commit/ed1c269a77c6319d9eb6c479ae45bb334ea6f237))
+
+### [1.18.2](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.18.1...v1.18.2) (2026-11-05)
+
+
+### Bug Fixes
+
+* **promocoes:** telas Nova e Editar Campanha quebravam ([2d7312f](https://github.com/MatheusRapax/RevestimentosOS/commit/2d7312f3921e41ab1e1bb87b9444400a108c8184))
+
 ### [1.18.1](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.18.0...v1.18.1) (2026-11-04)
 
 

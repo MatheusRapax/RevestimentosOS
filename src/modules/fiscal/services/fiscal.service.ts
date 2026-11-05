@@ -156,11 +156,15 @@ export class FiscalService {
           clinicId,
           nexosTenantId: tenantId,
           nexosApiKey: apiKey,
+          certificateFileName: originalFileName,
+          certificateUploadedAt: new Date(),
           environment: '2', // default homologation
         },
         update: {
           nexosTenantId: tenantId,
           nexosApiKey: apiKey,
+          certificateFileName: originalFileName,
+          certificateUploadedAt: new Date(),
         },
       });
 
@@ -830,6 +834,10 @@ export class FiscalService {
     return {
       hasCredentials: hasDbCredentials || hasEnvCredentials,
       source: hasDbCredentials ? 'database' : 'env',
+      // O setup só grava tenant/chave depois que o NexosFiscal aceitou o certificado
+      hasCertificate: !!config.nexosTenantId && hasDbCredentials,
+      certificateFileName: config.certificateFileName,
+      certificateUploadedAt: config.certificateUploadedAt,
       environment: config.environment,
       defaultNaturezaOperacao: config.defaultNaturezaOperacao,
       defaultTaxClass: config.defaultTaxClass,

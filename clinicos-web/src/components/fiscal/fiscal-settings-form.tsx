@@ -10,11 +10,15 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, Search } from 'lucide-react';
+import { fetchCnpjInfo } from '@/lib/brasil-api';
 
 interface FiscalSettings {
     hasCredentials: boolean;
     source: 'env' | 'database';
+    hasCertificate?: boolean;
+    certificateFileName?: string | null;
+    certificateUploadedAt?: string | null;
     environment: '1' | '2';
     defaultNaturezaOperacao: string;
     defaultTaxClass: string | null;
@@ -53,6 +57,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
 
     const [profile, setProfile] = useState<Record<string, string>>({ ...EMPTY_PROFILE });
     const [isSavingProfile, setIsSavingProfile] = useState(false);
+    const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
 
     // Duas instâncias separadas: "Setup" e "Regras" são <form>s independentes.
     // Um único useForm() compartilhado fazia os campos obrigatórios do Setup
@@ -70,6 +75,8 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
     const {
         register: registerSetup,
         handleSubmit: handleSubmitSetup,
+        setValue: setSetupValue,
+        reset: resetSetup,
     } = useForm<FiscalSettings>();
 
     async function loadProfile() {
@@ -97,6 +104,43 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             }
         } catch {
             setProfile({ ...EMPTY_PROFILE });
+        }
+    }
+
+    // Preenche o Perfil do Emitente a partir do CNPJ (BrasilAPI/Receita). Não vêm da
+    // consulta: Inscrição Estadual e Municipal e a série da NF-e. O regime (CRT) é só
+    // uma sugestão (Simples/MEI → 1, senão 3) — o contador confirma.
+    async function fillProfileFromCnpj() {
+        const cnpj = (profile.cnpj || '').replace(/\D/g, '');
+        if (cnpj.length !== 14) {
+            toast.error('Digite os 14 dígitos do CNPJ para buscar.');
+            return;
+        }
+        setIsLoadingCnpj(true);
+        try {
+            const data = await fetchCnpjInfo(cnpj);
+            if (!data) {
+                toast.error('CNPJ não encontrado na consulta pública. Confira os dígitos ou preencha manualmente.');
+                return;
+            }
+            const ibge = data.codigo_municipio_ibge ? String(data.codigo_municipio_ibge) : '';
+            setProfile((prev) => ({
+                ...prev,
+                logradouro: data.logradouro || prev.logradouro,
+                numero: data.numero || prev.numero,
+                complemento: data.complemento || prev.complemento,
+                bairro: data.bairro || prev.bairro,
+                cep: data.cep ? String(data.cep).replace(/\D/g, '') : prev.cep,
+                municipioNome: data.municipio || prev.municipioNome,
+                municipioIbge: ibge || prev.municipioIbge,
+                uf: data.uf || prev.uf,
+                cnae: data.cnae_fiscal ? String(data.cnae_fiscal) : prev.cnae,
+                crt: data.opcao_pelo_simples || data.opcao_pelo_mei ? '1' : '3',
+            }));
+            if (data.razao_social) setSetupValue('name', data.razao_social);
+            toast.success('Dados preenchidos pelo CNPJ. Informe a Inscrição Estadual, confira o regime tributário e clique em Salvar Perfil.');
+        } finally {
+            setIsLoadingCnpj(false);
         }
     }
 
@@ -201,15 +245,21 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
         setIsSavingSetup(true);
         try {
             const formData = new FormData();
-            if (data.document) formData.append('document', data.document);
+            // Se o campo do Setup está vazio, usa o que está preenchido no Perfil do Emitente
+            // (mesmo sem ter clicado em "Salvar Perfil" — o backend só enxerga o perfil salvo).
+            const document = data.document || profile.cnpj;
+            if (document) formData.append('document', document);
             formData.append('name', data.name);
             formData.append('password', data.password);
             formData.append('certificate', data.certificate[0]);
-            // Campos abaixo são override; se em branco, o backend usa o Perfil do Emitente.
-            if (data.ie) formData.append('ie', data.ie);
-            if (data.uf) formData.append('uf', data.uf);
-            if (data.cityCode) formData.append('cityCode', data.cityCode);
-            if (data.crt) formData.append('crt', data.crt);
+            const ie = data.ie || profile.ie;
+            const uf = data.uf || profile.uf;
+            const cityCode = data.cityCode || profile.municipioIbge;
+            const crt = data.crt || profile.crt;
+            if (ie) formData.append('ie', ie);
+            if (uf) formData.append('uf', uf);
+            if (cityCode) formData.append('cityCode', cityCode);
+            if (crt) formData.append('crt', crt);
 
             await api.post('/fiscal/setup', formData, {
                 params: { clinicId },
@@ -219,11 +269,15 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                 }
             });
             
-            toast.success('Certificado e Tenant configurados com sucesso!');
+            toast.success('Certificado instalado com sucesso! Veja o status no topo da página.');
+            resetSetup(); // limpa arquivo e senha: o status acima passa a mostrar o certificado instalado
             loadSettings(); // Reload to confirm state
-        } catch (error) {
+        } catch (error: any) {
             console.error('Erro ao configurar NexosFiscal:', error);
-            toast.error('Erro ao configurar o certificado.');
+            const msg = error?.response?.data?.message;
+            toast.error(
+                `Não foi possível instalar o certificado.${msg ? ` ${Array.isArray(msg) ? msg.join(' ') : msg}` : ''}`,
+            );
         } finally {
             setIsSavingSetup(false);
         }
@@ -244,23 +298,42 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         Status da Conexão
-                        {settings?.hasCredentials ? (
+                        {settings?.hasCertificate ? (
                             <Badge variant="default" className="bg-green-600 hover:bg-green-700">
                                 <CheckCircle2 className="w-3 h-3 mr-1" />
-                                Conectado
+                                Certificado instalado
                             </Badge>
                         ) : (
                             <Badge variant="destructive">
                                 <AlertCircle className="w-3 h-3 mr-1" />
-                                Não Configurado
+                                Certificado não instalado
                             </Badge>
                         )}
                     </CardTitle>
                     <CardDescription>
-                        Estado atual das credenciais da API NexosFiscal.
+                        Estado do certificado digital desta loja e da conexão com o NexosFiscal.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
+                        <div className="space-y-1">
+                            <p className="font-medium text-sm">Certificado Digital A1</p>
+                            <p className="text-sm text-gray-500">
+                                {settings?.hasCertificate
+                                    ? settings.certificateUploadedAt
+                                        ? `Enviado em ${new Date(settings.certificateUploadedAt).toLocaleString('pt-BR')}${settings.certificateFileName ? ` — arquivo ${settings.certificateFileName}` : ''}`
+                                        : 'Instalado (data do envio não registrada)'
+                                    : 'Nenhum certificado enviado para esta loja ainda. Use o Setup Inicial abaixo.'}
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            {settings?.hasCertificate ? (
+                                <span className="text-sm text-green-600 font-medium">Aceito pelo NexosFiscal</span>
+                            ) : (
+                                <span className="text-sm text-red-600 font-medium">Pendente</span>
+                            )}
+                        </div>
+                    </div>
                     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
                         <div className="space-y-1">
                             <p className="font-medium text-sm">Fonte das Credenciais</p>
@@ -294,10 +367,16 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label>CNPJ <span className="text-xs text-gray-400">(14 dígitos)</span></Label>
-                            <Input value={profile.cnpj} onChange={(e) => setProfile({ ...profile, cnpj: e.target.value.replace(/\D/g, '') })} maxLength={14} placeholder="00000000000000" />
+                            <div className="flex gap-2">
+                                <Input value={profile.cnpj} onChange={(e) => setProfile({ ...profile, cnpj: e.target.value.replace(/\D/g, '') })} maxLength={14} placeholder="00000000000000" />
+                                <Button type="button" variant="outline" onClick={fillProfileFromCnpj} disabled={isLoadingCnpj} title="Buscar endereço, município (IBGE), CNAE e razão social pelo CNPJ">
+                                    {isLoadingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                </Button>
+                            </div>
+                            <p className="text-[11px] text-gray-500">Clique na lupa para preencher endereço, código IBGE, CNAE e razão social.</p>
                         </div>
                         <div className="space-y-2">
-                            <Label>Inscrição Estadual</Label>
+                            <Label>Inscrição Estadual <span className="text-xs text-gray-400">(não vem da consulta)</span></Label>
                             <Input value={profile.ie} onChange={(e) => setProfile({ ...profile, ie: e.target.value })} placeholder="Número ou ISENTO" />
                         </div>
                         <div className="space-y-2">
@@ -305,7 +384,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                             <Input value={profile.im} onChange={(e) => setProfile({ ...profile, im: e.target.value })} placeholder="Opcional" />
                         </div>
                         <div className="space-y-2">
-                            <Label>Regime Tributário (CRT)</Label>
+                            <Label>Regime Tributário (CRT) <span className="text-xs text-gray-400">(confirme com o contador)</span></Label>
                             <Select value={profile.crt} onValueChange={(v) => setProfile({ ...profile, crt: v })}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
@@ -381,10 +460,18 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6 pt-6">
-                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-                            Preencha o <strong>Perfil do Emitente</strong> acima antes de subir o certificado —
-                            CNPJ, UF, município e regime vêm de lá.
-                        </p>
+                        {settings?.hasCertificate ? (
+                            <p className="text-xs text-green-800 bg-green-50 border border-green-200 rounded p-2">
+                                <strong>Já existe um certificado instalado nesta loja.</strong> Não precisa enviar de novo:
+                                os campos abaixo ficam vazios de propósito. Só envie outro arquivo para substituir o atual
+                                (por exemplo, quando o certificado vencer).
+                            </p>
+                        ) : (
+                            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                                Preencha o <strong>Perfil do Emitente</strong> acima antes de subir o certificado —
+                                CNPJ, UF, município e regime vêm de lá.
+                            </p>
+                        )}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>CNPJ da Loja <span className="text-xs text-gray-400">(opcional se no Perfil)</span></Label>
@@ -411,7 +498,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                                         Configurando...
                                     </>
                                 ) : (
-                                    'Configurar Certificado'
+                                    settings?.hasCertificate ? 'Substituir Certificado' : 'Configurar Certificado'
                                 )}
                             </Button>
                         </div>

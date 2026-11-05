@@ -1,4 +1,4 @@
 {
-  "version": "1.18.1",
-  "content": "### Bug Fixes\n\n* **estoque:** nova entrada manual sem chave de acesso dava 500 na segunda tentativa"
+  "version": "1.19.0",
+  "content": "### Features\n\n* **fiscal:** buscar Perfil do Emitente pelo CNPJ e enviar o perfil no setup\n* **fiscal:** status real do certificado digital na tela fiscal"
 }
