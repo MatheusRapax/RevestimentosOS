@@ -44,8 +44,9 @@ export default function NovaPromocaoPage() {
     useEffect(() => {
         async function loadProducts() {
             try {
-                const { data } = await api.get('/stock/products?isActive=true');
-                setProducts(data);
+                const { data } = await api.get('/stock/products?isActive=true&limit=200');
+                // A API é paginada: { data: [...], meta }
+                setProducts(Array.isArray(data) ? data : (data?.data ?? []));
             } catch (error) {
                 toast.error('Erro ao carregar produtos');
             }

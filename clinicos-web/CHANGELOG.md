@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.18.2](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.18.1...v1.18.2) (2026-11-05)
+
+
+### Bug Fixes
+
+* **promocoes:** telas Nova e Editar Campanha quebravam ([2d7312f](https://github.com/MatheusRapax/RevestimentosOS/commit/2d7312f3921e41ab1e1bb87b9444400a108c8184))
+
 ### [1.18.1](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.18.0...v1.18.1) (2026-11-04)
 
 
