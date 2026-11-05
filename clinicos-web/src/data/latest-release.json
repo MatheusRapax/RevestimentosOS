@@ -1,4 +1,4 @@
 {
-  "version": "1.18.2",
-  "content": "### Bug Fixes\n\n* **promocoes:** telas Nova e Editar Campanha quebravam"
+  "version": "1.19.0",
+  "content": "### Features\n\n* **fiscal:** buscar Perfil do Emitente pelo CNPJ e enviar o perfil no setup\n* **fiscal:** status real do certificado digital na tela fiscal"
 }
