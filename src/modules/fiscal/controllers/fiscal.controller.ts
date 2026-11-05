@@ -132,6 +132,32 @@ export class FiscalController {
     return this.fiscalService.upsertFiscalProfile(targetClinicId, dto);
   }
 
+  /** Reflete o Perfil do Emitente no cadastro (tenant) do serviço fiscal. Não toca no ambiente. */
+  @Post('sync-tenant')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async syncTenant(
+    @Req() req: any,
+    @CurrentUser() user: any,
+    @Query('clinicId') clinicId?: string,
+  ) {
+    const targetClinicId =
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
+    return this.fiscalService.syncTenantFromProfile(targetClinicId);
+  }
+
+  /** Status do certificado e da SEFAZ (não emite nada). */
+  @Get('status')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async sefazStatus(
+    @Req() req: any,
+    @CurrentUser() user: any,
+    @Query('clinicId') clinicId?: string,
+  ) {
+    const targetClinicId =
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
+    return this.fiscalService.getSefazStatus(targetClinicId);
+  }
+
   @Post('setup')
   @Permissions(PERMISSIONS.FISCAL_CONFIG)
   @UseInterceptors(FileInterceptor('certificate'))

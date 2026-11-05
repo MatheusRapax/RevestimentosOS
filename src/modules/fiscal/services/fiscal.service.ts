@@ -14,6 +14,11 @@ import { UpsertFiscalProfileDto } from '../dto/upsert-fiscal-profile.dto';
 import FormData from 'form-data';
 import { CfopResolverService } from '../../fiscal-rules/services/cfop-resolver.service';
 import { TaxCalculatorService } from '../../fiscal-rules/services/tax-calculator.service';
+import {
+  divergenciasSetupVsPerfil,
+  formatCnpj,
+  montarIdentidadeTenant,
+} from './tenant-identity';
 
 @Injectable()
 export class FiscalService {
@@ -107,29 +112,41 @@ export class FiscalService {
         ? 'producao'
         : 'homologacao';
 
-    // A API do NexosFiscal exige a identidade fiscal do emitente na criação do
-    // tenant. Os campos do formulário de setup são overrides; o padrão é o
-    // Perfil do Emitente (FiscalProfile).
-    const cnpj = (document || profile?.cnpj || '').replace(/\D/g, '');
-    const cityCode = (fiscal?.cityCode || profile?.municipioIbge || '').replace(
-      /\D/g,
-      '',
-    );
-    const tenantPayload = {
-      name,
-      cnpj,
-      ie: (fiscal?.ie || profile?.ie)?.trim() || undefined,
-      uf: (fiscal?.uf || profile?.uf || '').trim().toUpperCase(),
-      cityCode,
-      crt: Number(fiscal?.crt) || profile?.crt || 3, // 1=Simples, 2=Simples excesso, 3=Regime normal
-      environment,
-    };
-
-    if (cnpj.length !== 14 || tenantPayload.uf.length !== 2 || cityCode.length !== 7) {
+    // O Perfil do Emitente é a FONTE DA VERDADE da identidade do tenant (CNPJ, IE, CRT,
+    // UF, município e endereço). Os campos opcionais do Setup só podem repetir o que o
+    // perfil já tem — divergência é erro, nunca sobrescrita silenciosa.
+    if (!profile) {
       throw new BadRequestException(
-        'Dados fiscais do emitente incompletos: informe CNPJ (14 díg.), UF (2 letras) e o código IBGE do município (7 díg.).',
+        'Perfil do Emitente não configurado. Preencha e salve o perfil antes de enviar o certificado.',
       );
     }
+    const divergencias = divergenciasSetupVsPerfil(
+      { document, ...(fiscal ?? {}) },
+      profile,
+    );
+    if (divergencias.length) {
+      throw new BadRequestException(
+        'Os dados do Setup divergem do Perfil do Emitente: ' +
+          divergencias.join('; ') +
+          '. O perfil é a fonte da verdade: corrija o perfil, salve, e deixe esses campos do Setup vazios.',
+      );
+    }
+    const { identidade, avisos } = montarIdentidadeTenant(profile);
+    if (avisos.length) {
+      this.logger.warn(`Setup fiscal clinic ${clinicId}: ${avisos.join(' | ')}`);
+    }
+    // POST /tenants: inclui o endereço (o transmissor real exige).
+    const tenantPayload = {
+      name,
+      cnpj: identidade.cnpj,
+      ie: identidade.ie,
+      im: identidade.im,
+      crt: identidade.crt,
+      uf: identidade.uf,
+      cityCode: identidade.cityCode,
+      address: identidade.address,
+      environment,
+    };
 
     try {
       this.logger.log(`Starting NexosFiscal setup for clinic ${clinicId}`);
@@ -213,6 +230,192 @@ export class FiscalService {
           (error.response?.data?.message || error.message),
       );
     }
+  }
+
+  private errMsg(e: any): string {
+    const r = e?.getResponse?.();
+    const m =
+      e?.response?.data?.message ??
+      (typeof r === 'object' ? r?.message : r) ??
+      e?.message;
+    return Array.isArray(m) ? m.join(' ') : String(m);
+  }
+
+  private masterCreds(): { masterApiKey: string; apiUrl: string } {
+    const masterApiKey = this.configService.get<string>('FISCAL_MASTER_API_KEY');
+    const apiUrl = this.configService.get<string>('FISCAL_MICROSERVICE_URL');
+    if (!masterApiKey || !apiUrl) {
+      throw new BadRequestException(
+        'Serviço fiscal não configurado no servidor (FISCAL_MASTER_API_KEY / FISCAL_MICROSERVICE_URL).',
+      );
+    }
+    return { masterApiKey, apiUrl };
+  }
+
+  /**
+   * Sincroniza o Perfil do Emitente com o tenant do NexosFiscal (PUT /tenants/{id}).
+   * - O CNPJ NÃO muda por PUT: se o do perfil for outro, falha e não altera nada
+   *   (e nunca recria o tenant sozinha).
+   * - Não envia `environment`: o ambiente do tenant não é tocado aqui.
+   */
+  async syncTenantFromProfile(clinicId: string) {
+    const { masterApiKey, apiUrl } = this.masterCreds();
+    const [config, profile] = await Promise.all([
+      this.prisma.clinicFiscalConfig.findUnique({ where: { clinicId } }),
+      this.prisma.fiscalProfile.findUnique({ where: { clinicId } }),
+    ]);
+    if (!config?.nexosTenantId) {
+      throw new BadRequestException(
+        'Esta loja ainda não tem cadastro no serviço fiscal. Envie o certificado em "Setup Inicial" primeiro.',
+      );
+    }
+    if (!profile) {
+      throw new BadRequestException('Perfil do Emitente não configurado.');
+    }
+    const { identidade, avisos } = montarIdentidadeTenant(profile);
+    const headers = { 'X-API-Key': masterApiKey };
+    const url = `${apiUrl}/tenants/${config.nexosTenantId}`;
+
+    let atual: any;
+    try {
+      atual = (await firstValueFrom(this.httpService.get(url, { headers }))).data;
+    } catch (e: any) {
+      throw new BadRequestException(
+        'Não foi possível consultar o cadastro no serviço fiscal: ' + this.errMsg(e),
+      );
+    }
+    const cnpjTenant = String(atual?.cnpj ?? atual?.Cnpj ?? '').replace(/\D/g, '');
+    if (cnpjTenant && cnpjTenant !== identidade.cnpj) {
+      throw new BadRequestException(
+        `O CNPJ do perfil (${formatCnpj(identidade.cnpj)}) não bate com o do tenant fiscal (${formatCnpj(cnpjTenant)}); ` +
+          'é preciso recriar o tenant e subir o certificado de novo. Nada foi alterado.',
+      );
+    }
+
+    // Sem `environment` e sem `cnpj` (imutável).
+    const body = {
+      ie: identidade.ie,
+      im: identidade.im,
+      crt: identidade.crt,
+      uf: identidade.uf,
+      cityCode: identidade.cityCode,
+      address: identidade.address,
+    };
+    try {
+      const res = await firstValueFrom(
+        this.httpService.put(url, body, { headers }),
+      );
+      const t = res.data ?? {};
+      return {
+        synced: true,
+        avisos,
+        tenant: {
+          cnpj: t.cnpj ?? cnpjTenant,
+          ie: t.ie ?? null,
+          crt: t.crt ?? null,
+          uf: t.uf ?? null,
+          cityCode: t.cityCode ?? null,
+          environment: t.environment ?? null,
+          address: t.address ?? null,
+        },
+      };
+    } catch (e: any) {
+      throw new BadRequestException(
+        'O serviço fiscal recusou a atualização do emitente: ' + this.errMsg(e),
+      );
+    }
+  }
+
+  /**
+   * Status do certificado/SEFAZ (GET /sefaz/status do NexosFiscal). Não emite nada.
+   * Devolve alertas em português para a tela.
+   */
+  async getSefazStatus(clinicId: string) {
+    const { apiUrl, apiKey } = await this.resolveFiscalCreds(clinicId);
+    let d: any;
+    try {
+      d = (
+        await firstValueFrom(
+          this.httpService.get(`${apiUrl}/sefaz/status`, {
+            headers: { 'X-API-Key': apiKey },
+          }),
+        )
+      ).data;
+    } catch (e: any) {
+      if (e?.response?.status === 404) {
+        return {
+          available: true,
+          hasCertificate: false,
+          alertas: [
+            {
+              nivel: 'erro' as const,
+              mensagem: 'O serviço fiscal não tem certificado ativo para esta loja.',
+            },
+          ],
+        };
+      }
+      return {
+        available: false,
+        alertas: [
+          {
+            nivel: 'erro' as const,
+            mensagem:
+              'Não foi possível consultar o serviço fiscal: ' + this.errMsg(e),
+          },
+        ],
+      };
+    }
+
+    const c = d?.certificado ?? {};
+    const alertas: { nivel: 'erro' | 'aviso'; mensagem: string }[] = [];
+    if (c.cnpjMatchesTenant === false) {
+      alertas.push({
+        nivel: 'erro',
+        mensagem: `O CNPJ do certificado (${c.cnpj ? formatCnpj(c.cnpj) : '—'}) NÃO confere com o do cadastro fiscal da loja. A emissão será recusada.`,
+      });
+    }
+    if (c.expired === true) {
+      alertas.push({ nivel: 'erro', mensagem: 'O certificado digital está VENCIDO.' });
+    } else if (c.notAfterUtc) {
+      const dias = Math.floor(
+        (new Date(c.notAfterUtc).getTime() - Date.now()) / 86400000,
+      );
+      if (dias <= 30) {
+        alertas.push({ nivel: 'aviso', mensagem: `O certificado vence em ${dias} dia(s).` });
+      }
+    }
+    if (d?.reachable === false) {
+      alertas.push({
+        nivel: 'aviso',
+        mensagem:
+          'A SEFAZ não respondeu à consulta de status' +
+          (d?.erro ? `: ${d.erro}` : '.'),
+      });
+    }
+    if (d?.ambiente && d.ambiente !== 'homologacao') {
+      alertas.push({
+        nivel: 'erro',
+        mensagem: `O cadastro fiscal está em "${d.ambiente}" (não é homologação). Notas emitidas assim têm valor fiscal.`,
+      });
+    }
+    return {
+      available: true,
+      hasCertificate: true,
+      ambiente: d?.ambiente ?? null,
+      uf: d?.uf ?? null,
+      reachable: d?.reachable ?? null,
+      cStat: d?.cStat ?? null,
+      motivo: d?.motivo ?? null,
+      certificado: {
+        subject: c.subject ?? null,
+        cnpj: c.cnpj ?? null,
+        notBeforeUtc: c.notBeforeUtc ?? null,
+        notAfterUtc: c.notAfterUtc ?? null,
+        expired: c.expired ?? null,
+        cnpjMatchesTenant: c.cnpjMatchesTenant ?? null,
+      },
+      alertas,
+    };
   }
 
   // ── Contexto + payload compartilhados por validate e emit ──────────────
@@ -469,6 +672,11 @@ export class FiscalService {
       }
       if (!profile.ie) {
         warn('emitente.ie', 'Inscrição Estadual do emitente não informada.');
+      } else if (/^isento$/i.test(profile.ie.trim())) {
+        warn(
+          'emitente.ie',
+          'Inscrição Estadual do emitente está como ISENTO; empresa que vende mercadoria costuma ter IE. Confirme com o contador.',
+        );
       }
       if (!/^\d{2}$/.test(UF_COD[(profile.uf || '').toUpperCase()] || '')) {
         err('emitente.uf', 'UF do emitente ausente ou inválida.');
@@ -917,11 +1125,31 @@ export class FiscalService {
       ...dto,
       uf: dto.uf ? dto.uf.trim().toUpperCase() : undefined,
     };
-    return this.prisma.fiscalProfile.upsert({
+    const saved = await this.prisma.fiscalProfile.upsert({
       where: { clinicId },
       update: data,
       create: { clinicId, ...data },
     });
+
+    // Perfil é a fonte da verdade: se a loja já tem tenant no serviço fiscal, reflete lá.
+    // Falha de sincronização NÃO desfaz o salvamento do perfil; vai como aviso para a tela.
+    let sync: { ok: boolean; skipped?: boolean; message?: string; avisos?: string[] } = {
+      ok: false,
+      skipped: true,
+    };
+    const config = await this.prisma.clinicFiscalConfig.findUnique({
+      where: { clinicId },
+      select: { nexosTenantId: true },
+    });
+    if (config?.nexosTenantId) {
+      try {
+        const r = await this.syncTenantFromProfile(clinicId);
+        sync = { ok: true, avisos: r.avisos };
+      } catch (e: any) {
+        sync = { ok: false, message: this.errMsg(e) };
+      }
+    }
+    return { ...saved, sync };
   }
 
   async handleWebhook(payload: any) {
