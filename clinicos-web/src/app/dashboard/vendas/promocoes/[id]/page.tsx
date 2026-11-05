@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { usePromotions } from '@/hooks/usePromotions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +23,9 @@ interface Product {
     brand?: { name: string };
 }
 
-export default function EditarPromocaoPage({ params }: { params: { id: string } }) {
+export default function EditarPromocaoPage() {
+    // No Next 16 a prop params é uma Promise; useParams() entrega o valor direto
+    const params = useParams<{ id: string }>();
     const router = useRouter();
     const { updatePromotion } = usePromotions();
 
@@ -46,11 +48,12 @@ export default function EditarPromocaoPage({ params }: { params: { id: string } 
         async function loadData() {
             try {
                 const [productsRes, promoRes] = await Promise.all([
-                    api.get('/stock/products?isActive=true'),
+                    api.get('/stock/products?isActive=true&limit=200'),
                     api.get(`/promotions/${params.id}`)
                 ]);
 
-                setProducts(productsRes.data);
+                // A API é paginada: { data: [...], meta }
+                setProducts(Array.isArray(productsRes.data) ? productsRes.data : (productsRes.data?.data ?? []));
 
                 const promo = promoRes.data;
                 setFormData({
