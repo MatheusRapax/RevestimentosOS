@@ -1204,7 +1204,29 @@ const GROUPS: Group[] = [
                                 (senha correta e arquivo válido). Com certificado já instalado, o botão vira{' '}
                                 <b>Substituir Certificado</b> — use só quando o certificado vencer ou for trocado, e{' '}
                                 <b>não clique várias vezes</b> em Configurar: cada envio cria um novo cadastro no serviço
-                                fiscal.
+                                fiscal. Logo abaixo, <b>Conferência do certificado (SEFAZ)</b> mostra o CNPJ do
+                                certificado, a validade, se o CNPJ <b>confere com o cadastro fiscal</b> e se a SEFAZ
+                                respondeu — sem emitir nenhuma nota. Alertas em vermelho (CNPJ não confere, certificado
+                                vencido) precisam ser resolvidos antes de emitir.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'O Perfil do Emitente é a fonte da verdade',
+                        body: (
+                            <>
+                                CNPJ, Inscrição Estadual, regime (CRT), UF, município e <b>endereço</b> do emitente saem
+                                sempre do <b>Perfil do Emitente salvo</b> — o Setup do certificado exige o perfil salvo e
+                                recusa dados divergentes em vez de sobrescrever. O <b>regime tributário não tem valor
+                                padrão</b>: escolha o seu e salve. Ao <b>Salvar Perfil</b>, o sistema já atualiza o cadastro
+                                do emitente no serviço fiscal; se não conseguir, o perfil fica salvo e aparece um aviso. O
+                                botão <b>Sincronizar com o serviço fiscal</b> repete essa atualização sob demanda. O{' '}
+                                <b>CNPJ não muda</b> em cadastro já criado: se o CNPJ do perfil for outro, a sincronização
+                                avisa e é preciso recriar o cadastro e subir o certificado de novo (nada é recriado
+                                sozinho). O sistema também avisa quando a IE está como <i>ISENTO</i> (incomum para quem vende
+                                mercadoria) e quando o logradouro tem uma barra (&quot;/&quot;), sinal de dois endereços
+                                colados.
                             </>
                         ),
                     },
