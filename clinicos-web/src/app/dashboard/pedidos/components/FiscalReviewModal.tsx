@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/use-auth';
+import { campoLabel, formatNcm, operacaoLabel } from '@/lib/fiscal-labels';
 
 interface FiscalError {
   campo: string;
@@ -31,6 +33,14 @@ interface FiscalValidateResponse {
   valido: boolean;
   erros: FiscalError[];
   payload: {
+    naturezaOperacao?: string;
+    /** Tipo de operação calculado pelo ERP (estado do emitente x estado do cliente). */
+    _operacao?: {
+      ufOrigem: string;
+      ufDestino: string;
+      interestadual: boolean;
+      descricao: string;
+    } | null;
     destinatario: {
       razaoSocial: string;
       cnpjCpf: string;
@@ -44,9 +54,9 @@ interface FiscalValidateResponse {
       valorUnitario: number;
       valorTotal: number;
       impostos: {
-        icms: { cst: string; aliquota: number };
-        pis: { cst: string; aliquota: number };
-        cofins: { cst: string; aliquota: number };
+        icms: { cst: string; aliquota: number; baseCalculo?: number };
+        pis: { cst: string; aliquota: number; baseCalculo?: number };
+        cofins: { cst: string; aliquota: number; baseCalculo?: number };
       };
       _fiscalCalculado?: {
         icmsSt?: unknown;
@@ -84,6 +94,15 @@ interface FiscalReviewModalProps {
 const money = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+type ItemRevisao = FiscalValidateResponse['payload']['itens'][number];
+
+/** Soma dos impostos destacados no item (ICMS + PIS + COFINS), em reais. */
+const impostosDoItem = (item: ItemRevisao) =>
+  (['icms', 'pis', 'cofins'] as const).reduce((soma, k) => {
+    const t = item.impostos[k];
+    return soma + ((t.baseCalculo ?? item.valorTotal) * t.aliquota) / 100;
+  }, 0);
+
 export const FiscalReviewModal = ({
   isOpen,
   onClose,
@@ -94,6 +113,11 @@ export const FiscalReviewModal = ({
   const [isValidating, setIsValidating] = useState(false);
   const [result, setResult] = useState<FiscalValidateResponse | null>(null);
   const [isEmitting, setIsEmitting] = useState(false);
+
+  // Os codigos fiscais (NCM, CFOP, CST...) so aparecem para quem cuida da parte fiscal.
+  const { user, activeClinic: activeClinicId } = useAuth();
+  const permissoes = user?.clinics.find((c) => c.id === activeClinicId)?.permissions || [];
+  const podeVerDetalhes = Boolean(user?.isSuperAdmin) || permissoes.includes('fiscal.config');
 
   useEffect(() => {
     if (!isOpen || !orderId) {
@@ -163,8 +187,8 @@ export const FiscalReviewModal = ({
         <DialogHeader>
           <DialogTitle>Revisão Fiscal — Antes de Emitir</DialogTitle>
           <DialogDescription>
-            Conferência automática do CFOP e tributos calculados, mais a validação do
-            NexosFiscal, antes de enviar a NF-e para a SEFAZ.
+            Confira a nota antes de enviar para a SEFAZ. O tipo da operação e os impostos
+            são calculados automaticamente a partir do cadastro da empresa e do cliente.
           </DialogDescription>
         </DialogHeader>
 
@@ -187,8 +211,11 @@ export const FiscalReviewModal = ({
                   <ul className="space-y-1.5">
                     {erros.map((e, i) => (
                       <li key={i} className="text-sm text-red-700 flex items-start gap-2">
-                        <span className="font-mono text-xs bg-red-100 text-red-800 px-1.5 py-0.5 rounded shrink-0 mt-0.5">
-                          {e.campo}
+                        <span
+                          title={e.campo}
+                          className="text-xs bg-red-100 text-red-800 px-1.5 py-0.5 rounded shrink-0 mt-0.5"
+                        >
+                          {campoLabel(e.campo)}
                         </span>
                         <span>{e.mensagem}</span>
                       </li>
@@ -199,7 +226,7 @@ export const FiscalReviewModal = ({
                       {erros.some((e) => e.campo.startsWith('emitente.')) && (
                         <a href="/dashboard/configuracoes/fiscal" target="_blank" rel="noreferrer">
                           <Button size="sm" variant="outline" className="gap-1.5 bg-white">
-                            <Settings className="h-3.5 w-3.5" /> Configuração Fiscal
+                            <Settings className="h-3.5 w-3.5" /> Dados da empresa (fiscal)
                           </Button>
                         </a>
                       )}
@@ -231,8 +258,11 @@ export const FiscalReviewModal = ({
                 <ul className="space-y-1">
                   {avisos.map((a, i) => (
                     <li key={i} className="text-sm text-amber-700 flex items-start gap-2">
-                      <span className="font-mono text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded shrink-0 mt-0.5">
-                        {a.campo}
+                      <span
+                        title={a.campo}
+                        className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded shrink-0 mt-0.5"
+                      >
+                        {campoLabel(a.campo)}
                       </span>
                       <span>{a.mensagem}</span>
                     </li>
@@ -241,21 +271,45 @@ export const FiscalReviewModal = ({
               </div>
             )}
 
-            {/* Destinatário */}
-            <div className="border rounded-lg p-4 bg-slate-50">
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
-                Destinatário
-              </p>
-              <p className="font-medium text-slate-900">
-                {result.payload.destinatario.razaoSocial}{' '}
-                <span className="text-slate-500 font-normal">
-                  ({result.payload.destinatario.cnpjCpf})
-                </span>
-              </p>
-              <p className="text-sm text-slate-600">
-                {result.payload.destinatario.endereco.municipio} /{' '}
-                {result.payload.destinatario.endereco.uf}
-              </p>
+            {/* Cliente e tipo de operação */}
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="border rounded-lg p-4 bg-slate-50">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                  Cliente
+                </p>
+                <p className="font-medium text-slate-900">
+                  {result.payload.destinatario.razaoSocial}{' '}
+                  <span className="text-slate-500 font-normal">
+                    ({result.payload.destinatario.cnpjCpf})
+                  </span>
+                </p>
+                <p className="text-sm text-slate-600">
+                  {result.payload.destinatario.endereco.municipio || 'Cidade não informada'}
+                  {result.payload.destinatario.endereco.uf
+                    ? ` / ${result.payload.destinatario.endereco.uf}`
+                    : ''}
+                </p>
+              </div>
+              <div className="border rounded-lg p-4 bg-slate-50">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                  Tipo de operação
+                </p>
+                {result.payload._operacao ? (
+                  <>
+                    <p className="font-medium text-slate-900">
+                      {operacaoLabel(result.payload._operacao)}
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      {result.payload.naturezaOperacao || 'Venda de mercadorias'} · definido
+                      automaticamente pelo estado do cliente
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-amber-700">
+                    Não deu para definir: falta o estado do cliente (ou da empresa) no cadastro.
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Itens */}
@@ -264,54 +318,23 @@ export const FiscalReviewModal = ({
                 <thead className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wide">
                   <tr>
                     <th className="text-left px-3 py-2">Produto</th>
-                    <th className="text-left px-3 py-2">NCM</th>
-                    <th className="text-left px-3 py-2">CFOP</th>
                     <th className="text-right px-3 py-2">Qtd</th>
-                    <th className="text-right px-3 py-2">Vlr. Total</th>
-                    <th className="text-left px-3 py-2">ICMS</th>
-                    <th className="text-left px-3 py-2">PIS/COFINS</th>
+                    <th className="text-right px-3 py-2">Valor total</th>
+                    <th className="text-right px-3 py-2">Impostos na nota</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {result.payload.itens.map((item, i) => {
-                    const extras = item._fiscalCalculado;
-                    const extraBadges = [
-                      extras?.icmsSt && 'ST',
-                      extras?.fcp && 'FCP',
-                      extras?.difal && 'DIFAL',
-                      extras?.ipi && 'IPI',
-                    ].filter(Boolean) as string[];
+                    const imposto = impostosDoItem(item);
                     return (
                       <tr key={i}>
                         <td className="px-3 py-2 text-slate-800">{item.descricao}</td>
-                        <td className="px-3 py-2 font-mono text-xs text-slate-600">{item.ncm}</td>
-                        <td className="px-3 py-2 font-mono text-xs text-slate-600">
-                          {item.cfop}
-                        </td>
-                        <td className="px-3 py-2 text-right text-slate-600">
-                          {item.quantidade}
-                        </td>
+                        <td className="px-3 py-2 text-right text-slate-600">{item.quantidade}</td>
                         <td className="px-3 py-2 text-right text-slate-800">
                           {money(item.valorTotal)}
                         </td>
-                        <td className="px-3 py-2 text-slate-600">
-                          {item.impostos.icms.cst} · {item.impostos.icms.aliquota}%
-                        </td>
-                        <td className="px-3 py-2 text-slate-600">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span>
-                              {item.impostos.pis.aliquota}% / {item.impostos.cofins.aliquota}%
-                            </span>
-                            {extraBadges.map((b) => (
-                              <span
-                                key={b}
-                                title="Calculado para referência — ainda sem transmissão ao NexosFiscal"
-                                className="text-[10px] font-semibold bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded"
-                              >
-                                +{b}
-                              </span>
-                            ))}
-                          </div>
+                        <td className="px-3 py-2 text-right text-slate-600">
+                          {imposto > 0 ? money(imposto) : 'Sem destaque'}
                         </td>
                       </tr>
                     );
@@ -320,21 +343,88 @@ export const FiscalReviewModal = ({
               </table>
             </div>
 
+            {podeVerDetalhes && (
+              <details className="border rounded-lg bg-white">
+                <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900">
+                  Ver detalhes fiscais (códigos)
+                </summary>
+                <div className="overflow-x-auto border-t">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wide">
+                      <tr>
+                        <th className="text-left px-3 py-2">Produto</th>
+                        <th className="text-left px-3 py-2">NCM</th>
+                        <th className="text-left px-3 py-2">CFOP</th>
+                        <th className="text-left px-3 py-2">ICMS</th>
+                        <th className="text-left px-3 py-2">PIS/COFINS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {result.payload.itens.map((item, i) => {
+                        const extras = item._fiscalCalculado;
+                        const extraBadges = [
+                          extras?.icmsSt && 'ST',
+                          extras?.fcp && 'FCP',
+                          extras?.difal && 'DIFAL',
+                          extras?.ipi && 'IPI',
+                        ].filter(Boolean) as string[];
+                        return (
+                          <tr key={i}>
+                            <td className="px-3 py-2 text-slate-800">{item.descricao}</td>
+                            <td className="px-3 py-2 font-mono text-xs text-slate-600">
+                              {formatNcm(item.ncm || '')}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-xs text-slate-600">
+                              {item.cfop}
+                            </td>
+                            <td className="px-3 py-2 text-slate-600">
+                              {item.impostos.icms.cst} · {item.impostos.icms.aliquota}%
+                            </td>
+                            <td className="px-3 py-2 text-slate-600">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span>
+                                  {item.impostos.pis.aliquota}% / {item.impostos.cofins.aliquota}%
+                                </span>
+                                {extraBadges.map((b) => (
+                                  <span
+                                    key={b}
+                                    title="Calculado para referência — ainda sem transmissão ao NexosFiscal"
+                                    className="text-[10px] font-semibold bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded"
+                                  >
+                                    +{b}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            )}
+
             <div className="flex items-start gap-2 text-xs text-slate-500">
               <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
               <p>
-                CFOP e tributos são resolvidos automaticamente pelo motor de regras fiscais a
-                partir do Perfil do Emitente e do cadastro do cliente. Precisa ajustar algo antes
-                de emitir?{' '}
-                <a
-                  href="/dashboard/configuracoes/fiscal"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline hover:text-slate-700"
-                >
-                  Abrir Configuração Fiscal
-                </a>
-                .
+                O tipo da operação e os impostos são calculados sozinhos, a partir do estado do
+                cliente e dos dados da empresa. Se algo parecer errado, corrija o cadastro do
+                cliente ou do produto{podeVerDetalhes ? ' (ou a configuração fiscal)' : ''}.
+                {podeVerDetalhes && (
+                  <>
+                    {' '}
+                    <a
+                      href="/dashboard/configuracoes/fiscal"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline hover:text-slate-700"
+                    >
+                      Abrir Configuração Fiscal
+                    </a>
+                    .
+                  </>
+                )}
               </p>
             </div>
           </div>
