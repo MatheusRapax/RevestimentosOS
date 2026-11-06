@@ -943,12 +943,18 @@ export class FiscalService {
           },
         ),
       );
-      remote = (resp.data?.erros || []).map((e: any) => ({
-        campo: e.campo,
-        mensagem: e.mensagem,
-        severidade: e.severidade || 'error',
-        origem: 'fiscal' as const,
-      }));
+      remote = (resp.data?.erros || []).map((e: any) => {
+        // erro de item ("itens[1].cest"): diz de qual produto é, pelo nome
+        const idx = /^itens\[(\d+)\]/i.exec(String(e.campo ?? ''))?.[1];
+        const produto =
+          idx !== undefined ? payload.itens?.[Number(idx)]?.descricao : undefined;
+        return {
+          campo: e.campo,
+          mensagem: produto ? `${produto}: ${e.mensagem}` : e.mensagem,
+          severidade: e.severidade || 'error',
+          origem: 'fiscal' as const,
+        };
+      });
     } catch (error: any) {
       this.logger.warn(
         `Serviço de validação fiscal indisponível: ${error.response?.status || ''} ${error.message}`,

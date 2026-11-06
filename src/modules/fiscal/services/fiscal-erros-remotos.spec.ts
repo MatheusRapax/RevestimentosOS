@@ -1,6 +1,6 @@
 import { normalizarErrosRemotos } from './nexos-status';
 import { FiscalService } from './fiscal.service';
-import { throwError } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 describe('normalizarErrosRemotos (400 do serviço fiscal em dois formatos)', () => {
   it('formato documentado { message, erros[] }', () => {
@@ -105,5 +105,60 @@ describe('FiscalService.emitirNota — 400 em ProblemDetails chega ao operador',
     ).toBe(
       'O serviço fiscal recusou os dados da nota. — itens[0].cest: CEST com 7 dígitos.',
     );
+  });
+});
+
+describe('FiscalService.validateOrder — erro do serviço diz de qual produto é', () => {
+  it('prefixa o nome do produto nos erros itens[N] e mantém os demais', async () => {
+    const http: any = {
+      post: jest.fn().mockReturnValue(
+        of({
+          data: {
+            valido: false,
+            erros: [
+              {
+                campo: 'itens[1].cest',
+                mensagem: 'CEST com 7 dígitos.',
+                severidade: 'error',
+              },
+              {
+                campo: 'pagamento',
+                mensagem: 'Soma menor.',
+                severidade: 'warning',
+              },
+            ],
+          },
+        }),
+      ),
+    };
+    const service: any = new FiscalService(
+      {} as any,
+      http,
+      { get: () => undefined } as any,
+      {} as any,
+      {} as any,
+    );
+    service.buildEmitContext = jest.fn().mockResolvedValue({
+      order: {},
+      profile: {},
+      config: {},
+      apiKey: 'k',
+      apiUrl: 'http://fiscal.teste/api/v1',
+    });
+    service.buildEmitPayload = jest.fn().mockResolvedValue({
+      itens: [
+        { descricao: 'Porcelanato 60x60' },
+        { descricao: 'Argamassa AC-III' },
+      ],
+    });
+    service.runLocalPreflight = jest.fn().mockReturnValue([]);
+
+    const r = await service.validateOrder('o1', 'c1');
+
+    expect(r.valido).toBe(false);
+    expect(r.erros.map((e: any) => e.mensagem)).toEqual([
+      'Argamassa AC-III: CEST com 7 dígitos.',
+      'Soma menor.',
+    ]);
   });
 });
