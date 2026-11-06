@@ -393,3 +393,48 @@ export function planejarCancelamentoPendente(
   }
   return null; // PENDING: segue esperando
 }
+
+// ── Erros de validação devolvidos pelo serviço (400) ─────────────────────────────────────────────
+
+export interface ErroRemoto {
+  campo: string;
+  mensagem: string;
+  severidade?: string;
+}
+
+/**
+ * O serviço recusa com DOIS formatos de 400: o documentado `{ message, erros: [{campo, mensagem}] }` (regras
+ * de negócio) e o padrão ASP.NET `ProblemDetails` `{ title, errors: { "Itens[0].Cest": ["..."] } }` (formato
+ * de campo, validado antes do pré-flight). Este helper entende os dois e devolve sempre a mesma lista.
+ */
+export function normalizarErrosRemotos(data: any): ErroRemoto[] {
+  if (!data || typeof data !== 'object') return [];
+  const lista: ErroRemoto[] = [];
+
+  if (Array.isArray(data.erros)) {
+    for (const e of data.erros) {
+      lista.push({
+        campo: String(e?.campo ?? 'nota'),
+        mensagem: String(e?.mensagem ?? e?.message ?? ''),
+        ...(e?.severidade ? { severidade: String(e.severidade) } : {}),
+      });
+    }
+  }
+
+  if (
+    data.errors &&
+    typeof data.errors === 'object' &&
+    !Array.isArray(data.errors)
+  ) {
+    for (const [chave, valor] of Object.entries<any>(data.errors)) {
+      // "Itens[0].Cest" -> "itens[0].cest" (mesmo estilo dos campos do /nfe/validate)
+      const campo = chave.replace(
+        /(^|\.)([A-Z])/g,
+        (_m, ponto, letra) => ponto + letra.toLowerCase(),
+      );
+      const mensagens = Array.isArray(valor) ? valor : [valor];
+      for (const m of mensagens) lista.push({ campo, mensagem: String(m) });
+    }
+  }
+  return lista.filter((e) => e.mensagem.trim() !== '');
+}

@@ -20,6 +20,7 @@ import {
   detalheAguardandoSefaz,
   mapearStatusNexos,
   normalizarAmbiente,
+  normalizarErrosRemotos,
   planejarWebhook,
 } from './nexos-status';
 import {
@@ -1142,9 +1143,13 @@ export class FiscalService {
         where: { orderId },
       });
 
-      const remoteErros = error.response?.data?.erros as any[] | undefined;
+      // O 400 do serviço pode vir como { message, erros[] } ou como ProblemDetails { errors{} }
+      const remoteErros = normalizarErrosRemotos(error.response?.data);
       const errorMessage =
         error.response?.data?.message ||
+        (remoteErros.length
+          ? 'O serviço fiscal recusou os dados da nota.'
+          : error.response?.data?.title) ||
         error.message ||
         'Falha na comunicação com a API Fiscal.';
 
