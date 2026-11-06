@@ -1,4 +1,4 @@
 {
-  "version": "1.18.1",
-  "content": "### Bug Fixes\n\n* **estoque:** nova entrada manual sem chave de acesso dava 500 na segunda tentativa"
+  "version": "1.18.2",
+  "content": "### Bug Fixes\n\n* **promocoes:** telas Nova e Editar Campanha quebravam"
 }
