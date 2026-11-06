@@ -399,6 +399,60 @@ const GROUPS: Group[] = [
                             </>
                         ),
                     },
+                    {
+                        tone: 'info',
+                        label: 'Aguardando a SEFAZ (a nota não se perde)',
+                        body: (
+                            <>
+                                Se a SEFAZ estiver fora do ar ou lenta, o card mostra <b>Aguardando a SEFAZ</b> em azul:
+                                <b> não é erro</b>. A nota é guardada e emitida sozinha assim que a SEFAZ voltar; não
+                                emita de novo. Se quiser forçar agora, use <Mono>Tentar novamente</Mono> (também aparece
+                                quando a nota falhou por um problema interno do sistema fiscal). Uma nota{' '}
+                                <b>rejeitada pela SEFAZ</b> é diferente: corrija o dado apontado e use{' '}
+                                <Mono>Emitir de novo</Mono>.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Homologação = sem valor fiscal',
+                        body: (
+                            <>
+                                Notas emitidas em ambiente de <b>homologação</b> (teste) trazem o selo{' '}
+                                <b>“Homologação — sem valor fiscal”</b> no card. Elas não valem como documento e não
+                                podem ser entregues ao cliente como nota de verdade. Em produção o selo não aparece, e
+                                a emissão em produção só é liberada por quem administra o servidor.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'crit',
+                        label: 'Cancelar uma nota',
+                        body: (
+                            <>
+                                Com a permissão de <b>cancelar nota fiscal</b>, o card de uma nota autorizada tem o botão{' '}
+                                <Mono>Cancelar nota</Mono>. Informe o motivo (de <b>15 a 255 caracteres</b>). O
+                                cancelamento <b>não é instantâneo</b>: o card passa a mostrar <b>Cancelamento em
+                                andamento</b> e a nota só vira cancelada quando a SEFAZ confirmar. A SEFAZ recusa fora do
+                                prazo legal (em geral, 24 h; varia por estado): nesse caso o card mostra o motivo da
+                                recusa e a nota <b>continua valendo</b>.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'O que vai na nota (e não precisa digitar)',
+                        body: (
+                            <>
+                                Vão sozinhos para a nota: o <b>desconto do pedido</b>, o <b>frete</b>, as{' '}
+                                <b>observações do pedido</b> (como informações complementares), a{' '}
+                                <b>forma de pagamento real</b> (PIX, dinheiro, cartão, boleto ou transferência, a partir
+                                dos pagamentos aprovados), a <b>origem</b> do produto e a inscrição estadual do cliente
+                                contribuinte. Pedido <b>sem pagamento aprovado</b> sai como “sem pagamento”, com um aviso
+                                na revisão. O sistema confere, de tempos em tempos, o status das notas no serviço fiscal e
+                                corrige sozinho qualquer atualização que tenha se perdido.
+                            </>
+                        ),
+                    },
                 ],
                 steps: [
                     <>Abra o pedido → card <b>Nota Fiscal</b> → <b>Emitir Nota</b>.</>,

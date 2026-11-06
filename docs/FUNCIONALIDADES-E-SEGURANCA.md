@@ -49,7 +49,12 @@ Cada loja (tenant) tem seus dados isolados, seus usuários, seus papéis e os m�
 | Revisão em linguagem simples | Tipo de operação, impostos em reais, etiquetas Cliente/Produto/Empresa; códigos só em “detalhes fiscais” | 🟡 |
 | Seletor de NCM | Atalhos de revestimento, busca na tabela oficial e conferência do número digitado | 🟡 |
 | Cálculo automático de CFOP e impostos | Dentro/fora do estado e consumidor final decididos pelo cadastro, sem perguntar ao operador | ✅ (motor) · 🟡 (tela) |
-| Cancelamento, CC-e, inutilização, contingência, NFC-e, ST | Recursos de ERP fiscal completo | 🔜 |
+| Cancelamento de NF-e pela tela | Justificativa de 15 a 255 caracteres; fica “cancelamento em andamento” até a SEFAZ confirmar; recusa por prazo mostra o motivo e a nota segue valendo | 🟡 |
+| Nota que não se perde (SEFAZ fora do ar) | “Aguardando a SEFAZ” em andamento, emissão retomada sozinha, botão “Tentar novamente” | 🟡 |
+| Conferência automática com o serviço fiscal | A cada 5 min o ERP confere o status das notas e corrige qualquer atualização perdida | 🟡 |
+| Nota fiel ao pedido | Desconto, frete, observações, forma de pagamento real, origem do produto e IE do cliente vão na nota | 🟡 |
+| Selo “Homologação — sem valor fiscal” | Nota de teste identificada na tela, com série e número guardados | 🟡 |
+| Carta de correção, inutilização, contingência, NFC-e, ST | Recursos de ERP fiscal completo | 🔜 |
 
 ### Estoque & Logística
 | Funcionalidade | O que entrega | Status |
@@ -146,10 +151,15 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 | Produto só com NCM e origem | Origem sem valor padrão, para não errar imposto por omissão | 🟡 |
 | Códigos fiscais só para quem tem permissão | “Ver detalhes fiscais” exige `fiscal.config` | 🟡 |
 | Deduplicação de emissão | O serviço fiscal deduplica por pedido; reenvio não gera segunda nota | ✅ |
+| Webhook fiscal sem segredo fixo | Em produção o webhook exige segredo próprio (sem ele, recusa); assinatura comparada em tempo constante | 🟡 |
+| Tributo que o serviço não emite bloqueia | CST/CSOSN fora da lista aceita pelo regime não é enviado: o operador vê a causa em vez de uma nota errada | 🟡 |
+| Atualização atrasada não desfaz nada | Webhook ou consulta atrasada não reabre nota cancelada nem rebaixa nota autorizada | 🟡 |
+| Cancelamento só com permissão | `fiscal.cancel` e escopo por loja; nada de cancelar nota de outra loja | 🟡 |
+| Pagamento e total conferem | O total pago enviado é o do pedido (frete não é somado duas vezes); soma divergente gera aviso | 🟡 |
 
 ### 3.5 Pontos de atenção de segurança (a resolver antes de produção)
-- **Segredo do webhook com valor padrão no código** — ver `docs/FISCAL-PENDENCIAS.md`. Sem a variável
-  `FISCAL_WEBHOOK_SECRET`, o webhook usaria um texto fixo conhecido. Correção planejada: recusar sem a variável. 🔜
+- **Segredo do webhook:** corrigido (em produção exige `FISCAL_WEBHOOK_SECRET` próprio e recusa o valor de exemplo). 🟡
+  Antes de produção, **definir a variável no servidor** e cadastrar o mesmo segredo no webhook do NexosFiscal.
 - **Alterar as configurações da loja** (`PATCH /settings`, ex.: taxa de entrega) hoje só exige o módulo
   Administração, sem permissão específica de papel. Correção pronta no stash `wip usuarios-desativar backend`
   (`clinic.settings.manage`); falta testar e mergear. 🔜

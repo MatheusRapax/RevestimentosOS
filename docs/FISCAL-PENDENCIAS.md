@@ -47,10 +47,10 @@ Levantado em 2026-11-05, ao revisar o que o ERP tem de regras de emissão frente
 
 ## Segurança — achado em 2026-11-05 (bloqueia produção)
 
-- [ ] **Segredo do webhook fiscal tem valor padrão no código.** `fiscal.controller.ts` usa
-      `process.env.FISCAL_WEBHOOK_SECRET || 'uma-senha-secreta-para-hmac'`. Se a variável faltar, qualquer
-      pessoa que conheça esse texto consegue assinar um webhook falso (marcar nota como aprovada/cancelada).
-      Correção: sem a variável, recusar o webhook (falhar fechado) e exigir a variável no boot em produção.
+- [x] **Segredo do webhook fiscal tinha valor padrão no código** — corrigido na branch
+      `feat/fiscal-contrato-nexos`: em produção, sem `FISCAL_WEBHOOK_SECRET` próprio (ou com o valor de exemplo) o
+      webhook responde 503. **Falta configurar a variável no servidor de produção e o mesmo segredo no webhook do
+      NexosFiscal** (`POST /webhook`).
 
 ## Combinado para o futuro (definido com o cliente em 2026-11-05)
 
@@ -61,3 +61,14 @@ Levantado em 2026-11-05, ao revisar o que o ERP tem de regras de emissão frente
 - [ ] **Busca de NCM por nome comum.** A tabela oficial usa termos técnicos; hoje há atalhos fixos de
       revestimento (`clinicos-web/src/lib/fiscal-labels.ts`). Evoluir para catálogo próprio por loja
       (produto → NCM já usado) e sugestão pelo nome do produto.
+
+## Do contrato do NexosFiscal (2026-11-06)
+
+- [ ] **Carta de correção (A5)** e **inutilização de numeração (A6)**: o serviço já suporta; o ERP ainda não
+      tem tela. A CC-e não corrige valores, base de cálculo, destinatário (CNPJ) nem datas: a tela deve avisar.
+- [ ] **ST, DIFAL, IPI e FCP não são transmitidos** pelo serviço: quando o motor calcula, o ERP só avisa. Antes de
+      produção, definir com o contador se alguma venda depende desses tributos.
+- [ ] **Testar de ponta a ponta em homologação:** emissão, cancelamento (a SEFAZ confirma pelo webhook) e queda
+      da SEFAZ (`AWAITING_SEFAZ`). Hoje esses fluxos estão cobertos por testes unitários e por validação a seco.
+- [ ] **Reconciliação:** conferir no ambiente real que o job não tem custo relevante com muitas lojas (uma
+      consulta paginada por loja a cada 5 min).
