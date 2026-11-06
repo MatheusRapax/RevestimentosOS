@@ -732,7 +732,7 @@ export default function OrdersPage() {
                                                     disabled={isEmitting || ['CRIADO', 'RASCUNHO', 'AGUARDANDO_PAGAMENTO', 'CANCELADO'].includes(displayOrder.status)}
                                                     title={['CRIADO', 'RASCUNHO', 'AGUARDANDO_PAGAMENTO', 'CANCELADO'].includes(displayOrder.status) ? 'O pedido deve estar pago/confirmado para emitir NFe' : ''}
                                                 >
-                                                    {isEmitting ? 'Emitindo...' : (displayOrder.fiscalDocuments?.length > 0 ? 'Tentar Novamente' : 'Emitir Nota')}
+                                                    {isEmitting ? 'Emitindo...' : (displayOrder.fiscalDocuments?.length > 0 ? 'Emitir de novo' : 'Emitir Nota')}
                                                 </Button>
                                             )}
                                         </div>

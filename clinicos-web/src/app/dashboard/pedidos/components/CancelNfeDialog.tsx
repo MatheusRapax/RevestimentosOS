@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertTriangle, Ban, Loader2 } from 'lucide-react';
+import { AlertTriangle, Ban, Clock, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
@@ -19,6 +19,8 @@ export interface FiscalDocInfo {
   id: string;
   status: string;
   environment?: string | null;
+  remoteStatus?: string | null;
+  statusDetail?: string | null;
   cancelRequestedAt?: string | null;
   cancelJustification?: string | null;
   eventError?: string | null;
@@ -39,17 +41,38 @@ export function NfeStatusExtras({
   const { user, activeClinic: activeClinicId } = useAuth();
   const permissoes = user?.clinics.find((c) => c.id === activeClinicId)?.permissions || [];
   const podeCancelar = Boolean(user?.isSuperAdmin) || permissoes.includes('fiscal.cancel');
+  const podeEmitir = Boolean(user?.isSuperAdmin) || permissoes.includes('fiscal.emit');
 
   const [aberto, setAberto] = useState(false);
   const [justificativa, setJustificativa] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [tentando, setTentando] = useState(false);
 
   const status = (doc.status || '').toUpperCase();
   const autorizada = status === 'APPROVED' || status === 'APROVADO';
   const emCancelamento = autorizada && Boolean(doc.cancelRequestedAt);
   const homologacao = (doc.environment || '').toLowerCase() === 'homologacao';
+  const remoto = (doc.remoteStatus || '').toUpperCase();
+  // SEFAZ fora do ar ou lenta: a nota é retomada sozinha. NUNCA é erro.
+  const aguardandoSefaz = remoto === 'AWAITING_SEFAZ' && !autorizada;
+  // Falha interna de processamento (não é recusa da SEFAZ): pode pedir nova tentativa.
+  const falhaInterna = remoto === 'FAILED' && !autorizada;
   const tamanho = justificativa.trim().length;
   const valida = tamanho >= MIN && tamanho <= MAX;
+
+  const tentarNovamente = async () => {
+    setTentando(true);
+    try {
+      const resp = await api.post(`/fiscal/documents/${doc.id}/retry`);
+      toast.success(resp.data?.message || 'Nova tentativa enviada.');
+      onChanged();
+    } catch (error: any) {
+      const msg = error.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg[0] : msg || 'Não foi possível pedir nova tentativa.');
+    } finally {
+      setTentando(false);
+    }
+  };
 
   const enviar = async () => {
     if (!valida) return;
@@ -75,6 +98,39 @@ export function NfeStatusExtras({
       {homologacao && (
         <div className="mt-2 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
           <strong>Homologação — sem valor fiscal.</strong> Esta nota é de teste; não vale como documento.
+        </div>
+      )}
+
+      {aguardandoSefaz && (
+        <div className="mt-2 flex items-start gap-2 rounded bg-blue-50 p-2 text-xs text-blue-800">
+          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            <strong>Aguardando a SEFAZ.</strong> A SEFAZ está fora do ar ou lenta; a nota será emitida
+            automaticamente, sem você precisar fazer nada.
+            {doc.statusDetail && (
+              <span className="mt-1 block text-blue-700/80">{doc.statusDetail}</span>
+            )}
+          </span>
+        </div>
+      )}
+
+      {(aguardandoSefaz || falhaInterna) && podeEmitir && (
+        <div className="mt-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={tentarNovamente}
+            disabled={tentando}
+          >
+            {tentando ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            Tentar novamente
+          </Button>
         </div>
       )}
 
