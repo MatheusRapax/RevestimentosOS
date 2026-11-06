@@ -17,6 +17,7 @@ import { CfopResolverService } from '../../fiscal-rules/services/cfop-resolver.s
 import { TaxCalculatorService } from '../../fiscal-rules/services/tax-calculator.service';
 import {
   AGUARDANDO_SEFAZ_MENSAGEM,
+  detalheAguardandoSefaz,
   mapearStatusNexos,
   normalizarAmbiente,
   planejarWebhook,
@@ -1045,6 +1046,14 @@ export class FiscalService {
                   ? 'Falha definitiva no processamento da nota no serviço fiscal.'
                   : 'Nota rejeitada pela SEFAZ.')
               : null,
+          remoteStatus: rawStatus,
+          statusDetail:
+            rawStatus === 'AWAITING_SEFAZ'
+              ? detalheAguardandoSefaz(
+                  resp.data?.rejectionReason,
+                  resp.data?.attempts,
+                )
+              : null,
         };
         if (fiscalDoc) {
           await this.prisma.fiscalDocument.update({
@@ -1086,6 +1095,8 @@ export class FiscalService {
             type: 'NFE',
             uuid: resp.data?.documentId || fiscalDoc.uuid,
             errorMessage: null,
+            remoteStatus: null,
+            statusDetail: null,
             // ambiente em que a nota está sendo emitida (a reconciliação confirma depois)
             ...(normalizarAmbiente(config?.environment)
               ? { environment: normalizarAmbiente(config?.environment)! }
@@ -1387,6 +1398,72 @@ export class FiscalService {
       data: Buffer.from(resp.data),
       contentType,
       filename: `${base}-${kind === 'xml' ? 'procNFe' : 'danfe'}.${ext}`,
+    };
+  }
+
+  /**
+   * "Tentar novamente" (A11): pede ao serviço fiscal nova tentativa de uma nota em AWAITING_SEFAZ
+   * (SEFAZ fora do ar) ou FAILED (falha interna). É seguro: o serviço sempre consulta a SEFAZ antes
+   * de reenviar, então não duplica a nota. Nota REJECTED pela SEFAZ não passa por aqui: exige nova
+   * emissão com os dados corrigidos.
+   */
+  async tentarNovamente(fiscalDocumentId: string, clinicId: string) {
+    const doc = await this.prisma.fiscalDocument.findFirst({
+      where: { id: fiscalDocumentId, clinicId }, // escopo por loja
+    });
+    if (!doc) throw new NotFoundException('Documento fiscal não encontrado.');
+    if (!doc.uuid) {
+      throw new BadRequestException(
+        'Documento fiscal ainda sem referência no serviço fiscal.',
+      );
+    }
+    const bruto = (doc.remoteStatus ?? '').toUpperCase();
+    if (bruto !== 'AWAITING_SEFAZ' && bruto !== 'FAILED') {
+      throw new BadRequestException(
+        'Só dá para tentar de novo uma nota aguardando a SEFAZ ou com falha de processamento. Nota rejeitada pela SEFAZ precisa ser emitida de novo com os dados corrigidos.',
+      );
+    }
+
+    const { apiUrl, apiKey } = await this.resolveFiscalCreds(clinicId);
+    try {
+      await firstValueFrom(
+        this.httpService.post(
+          `${apiUrl}/nfe/${doc.uuid}/retry`,
+          {},
+          { headers: { 'X-API-Key': apiKey } },
+        ),
+      );
+    } catch (error: any) {
+      const status = error.response?.status;
+      const msg = error.response?.data?.message;
+      this.logger.warn(
+        `Nova tentativa da nota ${doc.id} recusada pelo serviço fiscal: ${status || ''} ${msg || error.message}`,
+      );
+      if (status === 409) {
+        throw new ConflictException(
+          msg ||
+            'O serviço fiscal não aceita nova tentativa neste momento (a nota não está aguardando a SEFAZ nem com falha).',
+        );
+      }
+      throw new BadRequestException(
+        msg ||
+          'Não foi possível falar com o serviço fiscal. Tente de novo em instantes.',
+      );
+    }
+
+    await this.prisma.fiscalDocument.update({
+      where: { id: doc.id },
+      data: {
+        status: 'PROCESSING',
+        errorMessage: null,
+        remoteStatus: 'PROCESSING',
+        statusDetail: 'Nova tentativa solicitada; aguardando o serviço fiscal.',
+      },
+    });
+    return {
+      status: 'PROCESSING',
+      message:
+        'Nova tentativa enviada. A nota será emitida automaticamente; a tela atualiza sozinha.',
     };
   }
 

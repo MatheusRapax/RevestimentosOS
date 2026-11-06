@@ -6,6 +6,7 @@ import {
   Post,
   Put,
   UseGuards,
+  Logger,
   Query,
   Req,
   Res,
@@ -32,6 +33,9 @@ import * as crypto from 'crypto';
 @Controller('fiscal')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class FiscalController {
+  private readonly logger = new Logger(FiscalController.name);
+  private avisouSegredoPadrao = false;
+
   constructor(
     private readonly fiscalService: FiscalService,
     private readonly reconciliation: FiscalReconciliationService,
@@ -96,6 +100,13 @@ export class FiscalController {
     @Req() req: any,
   ) {
     return this.fiscalService.cancelarNota(id, req.clinicId, dto.justificativa);
+  }
+
+  /** Nova tentativa de uma nota aguardando a SEFAZ ou com falha de processamento. */
+  @Post('documents/:id/retry')
+  @Permissions(PERMISSIONS.FISCAL_EMIT)
+  async tentarNovamente(@Param('id') id: string, @Req() req: any) {
+    return this.fiscalService.tentarNovamente(id, req.clinicId);
   }
 
   /** Confere agora, no serviço fiscal, as notas desta loja (o mesmo que o job periódico faz). */
@@ -214,11 +225,41 @@ export class FiscalController {
     );
   }
 
+  /**
+   * Segredo HMAC do webhook. Em produção é obrigatório e não pode ser o valor de exemplo; fora dela
+   * (dev/teste) cai num valor fixo conhecido, com aviso, para não quebrar o ambiente local.
+   */
+  private resolverSegredoWebhook(): string | null {
+    const EXEMPLOS = [
+      'uma-senha-secreta-para-hmac',
+      'troque-por-um-segredo-aleatorio-forte',
+    ];
+    const definido = (process.env.FISCAL_WEBHOOK_SECRET || '').trim();
+    const valido = definido && !EXEMPLOS.includes(definido);
+    if (valido) return definido;
+    if (process.env.NODE_ENV === 'production') return null;
+    if (!this.avisouSegredoPadrao) {
+      this.avisouSegredoPadrao = true;
+      this.logger.warn(
+        'FISCAL_WEBHOOK_SECRET não definido (ou de exemplo): usando segredo fixo só porque não é produção.',
+      );
+    }
+    return definido || EXEMPLOS[0];
+  }
+
   @Public()
   @Post('webhook')
   async handleWebhook(@Req() req: Request, @Res() res: Response) {
-    const secret =
-      process.env.FISCAL_WEBHOOK_SECRET || 'uma-senha-secreta-para-hmac';
+    const secret = this.resolverSegredoWebhook();
+    if (!secret) {
+      // Falha fechada: sem segredo próprio, qualquer um assinaria um webhook falso.
+      this.logger.error(
+        'FISCAL_WEBHOOK_SECRET ausente ou com valor de exemplo em produção: webhook recusado.',
+      );
+      return res
+        .status(HttpStatus.SERVICE_UNAVAILABLE)
+        .send('Webhook fiscal não configurado');
+    }
     const signatureFromHeader = req.headers['x-webhook-signature'];
 
     // Validate signature
@@ -236,7 +277,13 @@ export class FiscalController {
       .update(rawBody)
       .digest('base64');
 
-    if (expectedSignature !== signatureFromHeader) {
+    // Comparação em tempo constante (evita descobrir a assinatura por tempo de resposta)
+    const esperado = Buffer.from(expectedSignature);
+    const recebido = Buffer.from(String(signatureFromHeader));
+    if (
+      esperado.length !== recebido.length ||
+      !crypto.timingSafeEqual(esperado, recebido)
+    ) {
       return res.status(HttpStatus.UNAUTHORIZED).send('Invalid signature');
     }
 

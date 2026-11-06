@@ -37,6 +37,22 @@ export function mapearStatusNexos(status: string | null | undefined): {
 export const AGUARDANDO_SEFAZ_MENSAGEM =
   'Aguardando a SEFAZ; a nota será emitida automaticamente.';
 
+/**
+ * Texto de apoio de uma nota em AWAITING_SEFAZ. Nesse status `rejectionReason` é só a ÚLTIMA mensagem
+ * de erro de comunicação (não uma rejeição) e `attempts` conta as tentativas (A11).
+ */
+export function detalheAguardandoSefaz(
+  ultimoErro?: unknown,
+  tentativas?: unknown,
+): string {
+  const partes = [AGUARDANDO_SEFAZ_MENSAGEM];
+  const n = Number(tentativas);
+  if (Number.isFinite(n) && n > 0) partes.push(`Tentativas: ${n}.`);
+  const erro = String(ultimoErro ?? '').trim();
+  if (erro) partes.push(`Último erro de comunicação: ${erro}`);
+  return partes.join(' ');
+}
+
 /** "homologacao" | "producao" a partir do que o serviço (ou a config local) informar. */
 export function normalizarAmbiente(
   valor: unknown,
@@ -124,6 +140,8 @@ export function planejarWebhook(
         dados: {
           status: 'APPROVED',
           errorMessage: null,
+          remoteStatus: 'AUTHORIZED',
+          statusDetail: null,
           ...referencias(),
           ...acompanhamento,
         },
@@ -143,6 +161,9 @@ export function planejarWebhook(
           status: 'REJECTED',
           errorMessage:
             d.rejectionreason || d.motivo || 'Nota rejeitada pela SEFAZ.',
+          // FAILED = falha interna (permite "tentar novamente"); REJECTED = recusa da SEFAZ
+          remoteStatus: String(d.status ?? 'REJECTED').toUpperCase(),
+          statusDetail: null,
           ...referencias(),
           ...acompanhamento,
         },
@@ -154,6 +175,8 @@ export function planejarWebhook(
         resumo: 'CANCELLED',
         dados: {
           status: 'CANCELLED',
+          remoteStatus: 'CANCELLED',
+          statusDetail: null,
           cancelEventId: null,
           cancelRequestedAt: null,
           eventError: null,
@@ -190,10 +213,25 @@ export function planejarWebhook(
     }
 
     case 'NFeDelayed':
-      // B1: a SEFAZ está lenta/fora; a nota segue em andamento e o serviço retoma sozinho.
+      // A11: a SEFAZ está lenta/fora; a nota segue "em andamento" e o serviço retoma sozinho.
+      // Nunca é erro. Guarda o aviso (e Number/Series/Environment, A12) sem apagar nada.
+      if (doc.status === 'APPROVED' || doc.status === 'CANCELLED') {
+        return {
+          acao: 'ignorar',
+          motivo: 'aviso de espera atrasado para nota já concluída',
+        };
+      }
       return {
-        acao: 'ignorar',
-        motivo: 'nota em espera da SEFAZ (segue em andamento)',
+        acao: 'atualizar',
+        resumo: 'AWAITING_SEFAZ',
+        dados: {
+          status: 'PROCESSING',
+          errorMessage: null,
+          remoteStatus: 'AWAITING_SEFAZ',
+          statusDetail: detalheAguardandoSefaz(d.motivo, d.attempts),
+          ...(d.documentid ? { uuid: d.documentid } : {}),
+          ...acompanhamento,
+        },
       };
 
     case 'NFeCorrection':
@@ -233,6 +271,8 @@ export interface NotaRemota {
 }
 
 export interface DocumentoReconciliavel extends DocumentoLocal {
+  remoteStatus?: string | null;
+  statusDetail?: string | null;
   uuid?: string | null;
   key?: string | null;
   serie?: string | null;
@@ -274,6 +314,22 @@ export function planejarReconciliacao(
       dados.status = 'PROCESSING';
       dados.errorMessage = null;
     }
+  }
+
+  // Status bruto do serviço (AWAITING_SEFAZ, FAILED...) e detalhe. Uma leitura atrasada não mexe
+  // em nota cancelada nem rebaixa uma autorizada.
+  const congelada =
+    local.status === 'CANCELLED' ||
+    (local.status === 'APPROVED' && alvo === 'PROCESSING');
+  if (!congelada) {
+    const bruto = String(remota.status ?? '').toUpperCase();
+    if (bruto && bruto !== (local.remoteStatus ?? ''))
+      dados.remoteStatus = bruto;
+    const detalhe =
+      bruto === 'AWAITING_SEFAZ'
+        ? detalheAguardandoSefaz(remota.rejectionReason, remota.attempts)
+        : null;
+    if (detalhe !== (local.statusDetail ?? null)) dados.statusDetail = detalhe;
   }
 
   // Acompanhamento: série, número, ambiente, chave e referência da nota no serviço

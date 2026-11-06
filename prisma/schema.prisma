@@ -1805,6 +1805,12 @@ model FiscalDocument {
   cancelRequestedAt   DateTime?
   cancelJustification String?   @db.Text
 
+  // Status bruto no serviço fiscal (AUTHORIZED, AWAITING_SEFAZ, FAILED...) e um texto de apoio.
+  // AWAITING_SEFAZ = SEFAZ fora do ar/lenta: a nota segue "em andamento" e é retomada sozinha
+  // (nunca é erro). statusDetail guarda a última mensagem de comunicação, só para mostrar.
+  remoteStatus String?
+  statusDetail String? @db.Text
+
   // Último evento recusado pela SEFAZ (cancelamento, carta de correção) com o motivo.
   // Não muda o status da nota: ela segue autorizada.
   eventError     String? @db.Text

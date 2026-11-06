@@ -147,7 +147,6 @@ describe('planejarWebhook (A4)', () => {
     for (const ev of [
       'NFeCorrection',
       'RangeDisabled',
-      'NFeDelayed',
       'EventoNovoQualquer',
       undefined,
     ]) {
@@ -160,14 +159,63 @@ describe('planejarWebhook (A4)', () => {
     }
   });
 
-  it('NFeDelayed (B1) deixa a nota em andamento', () => {
+  it('NFeDelayed (A11): nota segue em andamento (nunca erro) e guarda o aviso, série, número e ambiente', () => {
     const p: any = planejarWebhook(
       'NFeDelayed',
-      { Status: 'AWAITING_SEFAZ', Motivo: 'SEFAZ fora do ar', Attempts: 2 },
+      {
+        DocumentId: 'u1',
+        Status: 'AWAITING_SEFAZ',
+        Motivo: 'SEFAZ fora do ar',
+        Attempts: 2,
+        Number: 9,
+        Series: 1,
+        Environment: 'homologacao',
+      },
       { status: 'PROCESSING' },
     );
-    expect(p.acao).toBe('ignorar');
-    expect(p.motivo).toMatch(/segue em andamento/);
+    expect(p.acao).toBe('atualizar');
+    expect(p.dados).toMatchObject({
+      status: 'PROCESSING',
+      errorMessage: null,
+      remoteStatus: 'AWAITING_SEFAZ',
+      uuid: 'u1',
+      serie: '1',
+      number: '9',
+      environment: 'homologacao',
+    });
+    expect(p.dados.statusDetail).toBe(
+      'Aguardando a SEFAZ; a nota será emitida automaticamente. Tentativas: 2. Último erro de comunicação: SEFAZ fora do ar',
+    );
+  });
+
+  it('NFeDelayed: nota que estava rejeitada por falha de envio volta a "em andamento"; concluída é ignorada', () => {
+    const p: any = planejarWebhook(
+      'NFeDelayed',
+      { Motivo: 'timeout' },
+      { status: 'REJECTED' },
+    );
+    expect(p.dados.status).toBe('PROCESSING');
+    expect(planejarWebhook('NFeDelayed', {}, { status: 'APPROVED' }).acao).toBe(
+      'ignorar',
+    );
+    expect(
+      planejarWebhook('NFeDelayed', {}, { status: 'CANCELLED' }).acao,
+    ).toBe('ignorar');
+  });
+
+  it('NFeRejected guarda o status bruto: FAILED permite "tentar novamente"', () => {
+    const falha: any = planejarWebhook(
+      'NFeRejected',
+      { Status: 'FAILED', RejectionReason: 'erro interno' },
+      { status: 'PROCESSING' },
+    );
+    expect(falha.dados.remoteStatus).toBe('FAILED');
+    const recusa: any = planejarWebhook(
+      'NFeRejected',
+      { Status: 'REJECTED', RejectionReason: 'Rejeição 204' },
+      { status: 'PROCESSING' },
+    );
+    expect(recusa.dados.remoteStatus).toBe('REJECTED');
   });
 
   it('webhook atrasado não desfaz um cancelamento', () => {
@@ -305,6 +353,7 @@ describe('planejarReconciliacao (A7)', () => {
   it('nota já correta e completa não gera atualização', () => {
     const local = {
       status: 'APPROVED',
+      remoteStatus: 'AUTHORIZED',
       uuid: 'u1',
       key: 'K44',
       environment: 'homologacao',
@@ -319,7 +368,12 @@ describe('planejarReconciliacao (A7)', () => {
       { status: 'APPROVED', uuid: 'u1', key: 'K44' },
       remota(),
     );
-    expect(d).toEqual({ environment: 'homologacao', serie: '1', number: '7' });
+    expect(d).toEqual({
+      remoteStatus: 'AUTHORIZED',
+      environment: 'homologacao',
+      serie: '1',
+      number: '7',
+    });
   });
 
   it('rejeição e FAILED viram rejeitada com o motivo', () => {
@@ -356,7 +410,39 @@ describe('planejarReconciliacao (A7)', () => {
         rejectionReason: 'timeout ao falar com a SEFAZ',
       }),
     );
-    expect(d).toEqual({ status: 'PROCESSING', errorMessage: null });
+    expect(d).toEqual({
+      status: 'PROCESSING',
+      errorMessage: null,
+      remoteStatus: 'AWAITING_SEFAZ',
+      statusDetail:
+        'Aguardando a SEFAZ; a nota será emitida automaticamente. Último erro de comunicação: timeout ao falar com a SEFAZ',
+    });
+  });
+
+  it('AWAITING_SEFAZ já refletido localmente não gera atualização; ao autorizar, o aviso some', () => {
+    const espera = {
+      status: 'PROCESSING',
+      remoteStatus: 'AWAITING_SEFAZ',
+      statusDetail:
+        'Aguardando a SEFAZ; a nota será emitida automaticamente. Tentativas: 3.',
+      uuid: 'u1',
+      key: 'K44',
+      environment: 'homologacao',
+      serie: '1',
+      number: '7',
+    };
+    expect(
+      planejarReconciliacao(
+        espera,
+        remota({ status: 'AWAITING_SEFAZ', attempts: 3 }),
+      ),
+    ).toBeNull();
+    const d: any = planejarReconciliacao(espera, remota());
+    expect(d).toMatchObject({
+      status: 'APPROVED',
+      remoteStatus: 'AUTHORIZED',
+      statusDetail: null,
+    });
   });
 
   it('leitura atrasada não rebaixa nota autorizada', () => {
