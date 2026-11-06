@@ -322,8 +322,10 @@ const GROUPS: Group[] = [
                     <>
                         No card <b>Nota Fiscal</b> do pedido, o botão <b>Emitir Nota</b> abre a{' '}
                         <b>Revisão Fiscal</b> — uma conferência automática antes de qualquer coisa ir para a SEFAZ.
-                        CFOP, ICMS, PIS e COFINS são <b>calculados sozinhos</b> a partir do cadastro do cliente e do
-                        Perfil do Emitente — você não digita alíquota nem CFOP na hora de emitir.
+                        O <b>tipo da operação</b> (venda dentro ou fora do estado), o CFOP e os impostos são{' '}
+                        <b>calculados sozinhos</b> a partir do estado do cliente e do Perfil do Emitente — você não
+                        digita código nem alíquota na hora de emitir, e o sistema <b>não pergunta</b> se a venda é
+                        dentro ou fora do estado: isso vem do cadastro.
                     </>
                 ),
                 flow: [
@@ -338,12 +340,39 @@ const GROUPS: Group[] = [
                         label: 'Se a revisão bloquear a emissão',
                         body: (
                             <>
-                                Falta <b>NCM, CFOP, CST ou Origem</b> em algum produto → o botão vira{' '}
-                                <Mono>Preencher Dados e Emitir</Mono>: preencha ali mesmo e a nota já sai emitida
-                                em seguida, sem precisar clicar em emitir de novo. Falta <b>código IBGE do
-                                cliente</b> ou outro dado de cadastro → aparece um atalho <Mono>Editar Cliente</Mono>{' '}
-                                (ou <Mono>Configuração Fiscal</Mono>, se o problema for no cadastro da loja) direto
-                                no aviso.
+                                Falta <b>a classificação fiscal (NCM) ou a origem</b> de algum produto → o botão
+                                vira <Mono>Preencher Dados e Emitir</Mono>: escolha a classificação (atalhos de
+                                revestimento ou busca pelo nome) e a origem ali mesmo; os dados ficam salvos no
+                                produto e a nota já sai emitida em seguida. Falta <b>estado (UF), cidade ou código
+                                IBGE do cliente</b> → aparece um atalho <Mono>Editar Cliente</Mono> (ou os dados da
+                                empresa, se o problema for no cadastro da loja) direto no aviso. Cada aviso vem com
+                                a etiqueta de quem precisa agir: <b>Cliente</b>, <b>Produto</b> ou <b>Empresa</b>.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Dentro ou fora do estado: o sistema decide',
+                        body: (
+                            <>
+                                O cartão <b>Tipo de operação</b> mostra, por exemplo, “Venda dentro do estado (MA → MA)”
+                                ou “Venda para outro estado (MA → SP)”. Ele sai da comparação entre o estado da empresa
+                                e o estado do cliente — não é uma escolha do operador, porque a SEFAZ rejeita a nota se
+                                não bater. Se o resultado parecer errado, corrija o <b>estado no cadastro do cliente</b>.
+                                O sistema <b>nunca assume um estado por conta própria</b>: sem estado cadastrado, a
+                                emissão é bloqueada com a instrução de corrigir o cadastro.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Detalhes fiscais (códigos)',
+                        body: (
+                            <>
+                                Quem tem a permissão de <b>configuração fiscal</b> vê, abaixo da lista de produtos,
+                                o item recolhido <Mono>Ver detalhes fiscais (códigos)</Mono> com NCM, CFOP, CST e
+                                alíquotas — para conferir com o contador. Os demais usuários veem só o produto, a
+                                quantidade, o valor e os impostos em reais.
                             </>
                         ),
                     },
@@ -373,10 +402,10 @@ const GROUPS: Group[] = [
                 ],
                 steps: [
                     <>Abra o pedido → card <b>Nota Fiscal</b> → <b>Emitir Nota</b>.</>,
-                    <>A <b>Revisão Fiscal</b> mostra o destinatário e os itens já com CFOP e impostos calculados.
-                        Sem erros → <b>Confirmar e Emitir</b>.</>,
-                    <>Com erro de produto → preencha NCM/CFOP/CST/Origem no formulário que abre e confirme; a
-                        emissão continua sozinha.</>,
+                    <>A <b>Revisão Fiscal</b> mostra o cliente, o tipo da operação (dentro/fora do estado) e os
+                        itens com os impostos já calculados. Sem erros → <b>Confirmar e Emitir</b>.</>,
+                    <>Com erro de produto → escolha a classificação fiscal e a origem no formulário que abre e
+                        confirme; a emissão continua sozinha. Isso é pedido <b>uma vez por produto</b>.</>,
                     <>Com erro de cadastro (cliente ou loja) → use o atalho mostrado no aviso, corrija e volte em{' '}
                         <b>Emitir Nota</b>.</>,
                     <>Acompanhe o status no próprio card; quando aprovar, baixe <b>XML</b> e <b>PDF</b> ali mesmo.</>,
@@ -1238,8 +1267,9 @@ const GROUPS: Group[] = [
                                 estado, 6108 para consumidor final não contribuinte de outro estado). Os padrões de{' '}
                                 <b>CFOP e CST</b> só preenchem produtos ainda sem esses dados quando você lança uma entrada
                                 de estoque com &quot;Atualizar dados fiscais dos produtos&quot;. <b>NCM, CEST e Classe de
-                                Imposto</b> padrão ainda não são usados na emissão: o que vale é o cadastro de cada produto
-                                (NCM de 8 dígitos e origem são obrigatórios).
+                                Imposto</b> padrão ainda não são usados na emissão: o que vale é o cadastro de cada produto.
+                                Na emissão, de cada produto só são exigidos <b>NCM (8 dígitos) e origem</b> — CFOP e CST
+                                <b> não</b> precisam estar no produto, porque saem do motor de regras fiscais.
                             </>
                         ),
                     },

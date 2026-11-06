@@ -38,8 +38,26 @@ Levantado em 2026-11-05, ao revisar o que o ERP tem de regras de emissão frente
       O **CFOP/CST padrão** só entram nas entradas de estoque com "Atualizar dados fiscais".
 - [ ] Setup do certificado **cria um tenant novo a cada clique** no NexosFiscal. Deveria reaproveitar o
       tenant existente quando só o certificado muda.
-- [ ] `GET /settings` e `PATCH /settings` (Configurações Globais): PATCH já exige `clinic.settings.manage`;
-      conferir se outros controllers só com `TenantGuard` precisam de permissão.
+- [ ] `PATCH /settings` (Configurações Globais) só exige o módulo Administração, sem permissão de papel; a
+      correção (`clinic.settings.manage`) está no stash `wip usuarios-desativar backend`. Conferir também se
+      outros controllers só com `TenantGuard` precisam de permissão.
 - [ ] Usuários: faltam desativar/reativar na tela e o bloqueio efetivo de acesso (ver stash
       `wip usuarios-desativar backend`).
 - [ ] Filtros e paginação na tela de Auditoria (hoje: 100 últimos, sem filtro).
+
+## Segurança — achado em 2026-11-05 (bloqueia produção)
+
+- [ ] **Segredo do webhook fiscal tem valor padrão no código.** `fiscal.controller.ts` usa
+      `process.env.FISCAL_WEBHOOK_SECRET || 'uma-senha-secreta-para-hmac'`. Se a variável faltar, qualquer
+      pessoa que conheça esse texto consegue assinar um webhook falso (marcar nota como aprovada/cancelada).
+      Correção: sem a variável, recusar o webhook (falhar fechado) e exigir a variável no boot em produção.
+
+## Combinado para o futuro (definido com o cliente em 2026-11-05)
+
+- [ ] **Outras operações** (devolução, remessa, bonificação, conserto) como “natureza da operação”, restritas a
+      quem tem permissão fiscal. Dentro/fora do estado **continua automático** (sem botão de trocar).
+- [ ] **Endereço de entrega** diferente do endereço do cliente (obra em outro estado): hoje a operação segue só o
+      endereço do cadastro do cliente. Conferir com o contador e, se preciso, cadastrar endereço de entrega.
+- [ ] **Busca de NCM por nome comum.** A tabela oficial usa termos técnicos; hoje há atalhos fixos de
+      revestimento (`clinicos-web/src/lib/fiscal-labels.ts`). Evoluir para catálogo próprio por loja
+      (produto → NCM já usado) e sugestão pelo nome do produto.
