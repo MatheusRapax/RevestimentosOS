@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { enriquecerPermissao } from '../../core/rbac/permission-catalog';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { CreateTenantDto, UpdateTenantDto } from './dto/tenant.dto';
@@ -387,9 +388,12 @@ export class AdminService {
   }
 
   async getAllPermissions() {
-    return this.prisma.permission.findMany({
+    const permissoes = await this.prisma.permission.findMany({
       orderBy: { key: 'asc' },
     });
+    return permissoes
+      .map((p) => enriquecerPermissao(p))
+      .sort((a, b) => a.ordem - b.ordem);
   }
 
   async getMappingCaches() {

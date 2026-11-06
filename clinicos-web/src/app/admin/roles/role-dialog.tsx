@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Role, Permission } from '@/hooks/use-admin-roles';
 import { Loader2 } from 'lucide-react';
+import { PermissionPicker, PermissaoDaApi } from '@/components/admin/permission-picker';
 
 interface RoleDialogProps {
     open: boolean;
@@ -86,12 +87,6 @@ export function RoleDialog({ open, onOpenChange, role, allPermissions, onSave }:
     };
 
     // Group Permissions by prefix (e.g., 'customer.read' -> 'customer')
-    const groupedPermissions = allPermissions.reduce((acc, perm) => {
-        const prefix = perm.key.split('.')[0] || 'other';
-        if (!acc[prefix]) acc[prefix] = [];
-        acc[prefix].push(perm);
-        return acc;
-    }, {} as Record<string, Permission[]>);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -130,60 +125,13 @@ export function RoleDialog({ open, onOpenChange, role, allPermissions, onSave }:
 
                     <TabsContent value="permissions" className="flex-1 flex flex-col overflow-hidden">
                         <ScrollArea className="h-[500px] pr-4">
-                            <div className="space-y-6 py-4">
-                                {Object.entries(groupedPermissions).map(([group, perms]) => {
-                                    const allSelected = perms.every(p => selectedPermissions.has(p.key));
-
-                                    return (
-                                        <div key={group} className="border rounded-lg p-4 bg-slate-50">
-                                            <div className="flex items-center justify-between mb-3 border-b pb-2">
-                                                <h3 className="font-semibold capitalize text-slate-800">{group} Module</h3>
-                                                <div className="space-x-2">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => toggleGroup(perms.map(p => p.key), true)}
-                                                        className="text-xs h-6"
-                                                    >
-                                                        Selecionar Todos
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => toggleGroup(perms.map(p => p.key), false)}
-                                                        className="text-xs h-6 text-red-500 hover:text-red-700"
-                                                    >
-                                                        Limpar
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                {perms.map(perm => (
-                                                    <div key={perm.id} className="flex items-start gap-2 p-2 bg-white rounded border hover:border-blue-300 transition-colors">
-                                                        <Checkbox
-                                                            id={perm.id}
-                                                            checked={selectedPermissions.has(perm.key)}
-                                                            onCheckedChange={() => togglePermission(perm.key)}
-                                                        />
-                                                        <div className="grid gap-0.5">
-                                                            <label
-                                                                htmlFor={perm.id}
-                                                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                                            >
-                                                                {perm.key}
-                                                            </label>
-                                                            {perm.description && (
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    {perm.description}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                            <div className="py-4">
+                                <PermissionPicker
+                                    permissoes={allPermissions as PermissaoDaApi[]}
+                                    selecionadas={selectedPermissions}
+                                    idDe={(perm) => perm.key}
+                                    onAlterar={(ids, marcar) => toggleGroup(ids, marcar)}
+                                />
                             </div>
                         </ScrollArea>
                     </TabsContent>

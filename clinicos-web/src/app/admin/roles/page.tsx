@@ -47,7 +47,7 @@ export default function RolesPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900">Papéis e Permissões</h1>
-                    <p className="text-slate-500">Gerencie roles globais e suas permissões de acesso.</p>
+                    <p className="text-slate-500">Gerencie os papéis globais e as permissões de cada um.</p>
                 </div>
                 <Button onClick={handleCreate}>
                     <Plus className="h-4 w-4 mr-2" />

@@ -1024,10 +1024,47 @@ const GROUPS: Group[] = [
                 steps: [
                     <><b>Novo Papel</b> → <b>Nome do Papel</b> (ex.: Auxiliar Administrativo) e, se quiser, uma descrição. <b>Criar Papel</b>.</>,
                     <>O papel novo nasce <b>sem nenhuma permissão</b>: clique em <b>Editar</b> na linha dele.</>,
-                    <>Marque as permissões (agrupadas por área: Estoque, Orçamentos, Financeiro, Fiscal…) e clique em <b>Salvar Permissões</b>.</>,
+                    <>Marque as permissões, agrupadas por área (<b>Vendas, Estoque e produtos, Compras, Entregas e avarias,
+                        Financeiro e comissões, Nota fiscal e Administração</b>), e clique em <b>Salvar Permissões</b>. Cada área
+                        tem <Mono>Marcar todas</Mono> e <Mono>Limpar</Mono>, e a busca no topo acha uma permissão pelo nome.</>,
                     <>Depois vá em <A href="#usuarios">Usuários</A> e atribua o papel às pessoas.</>,
                 ],
                 notes: [
+                    {
+                        tone: 'info',
+                        label: 'Como ler cada permissão',
+                        body: (
+                            <>
+                                Cada permissão traz o <b>nome em português</b>, uma frase dizendo <b>o que ela libera</b> e, quando
+                                abre uma tela do menu, a linha <b>“Abre: …”</b>. A etiqueta <b>Sensível</b> marca o que mexe com
+                                dinheiro, estoque, nota fiscal ou acessos, ou que apaga dados: dê só a quem precisa. Passe o mouse
+                                sobre uma permissão para ver o código técnico dela.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Permissões que ainda não controlam nada',
+                        body: (
+                            <>
+                                No fim da lista há duas seções recolhidas. <b>“Permissões que ainda não controlam nada”</b> reúne
+                                as que existem no cadastro mas que o sistema ainda não consulta (por exemplo, criar e cancelar
+                                pedidos, ou cadastrar fornecedores): marcá-las <b>não muda</b> o que a pessoa consegue fazer hoje.
+                                Algumas permissões mostram <b>“Hoje só esconde a tela”</b>: tiram o item do menu, mas ainda não
+                                bloqueiam a ação por dentro do sistema. <b>“Permissões antigas”</b> são sobras do modelo de
+                                clínica (agenda, pacientes, prontuário) e não abrem nenhuma tela da loja.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'Papel “Administrador da Loja (antigo)”',
+                        body: (
+                            <>
+                                Ele aparece na lista, sem nenhuma permissão, porque o fluxo antigo de criação de loja ainda o
+                                usa. <b>Não atribua esse papel</b> a ninguém: para dar acesso total, use <b>Administrador</b>.
+                            </>
+                        ),
+                    },
                     {
                         tone: 'crit',
                         label: 'Papéis valem para todas as lojas',
