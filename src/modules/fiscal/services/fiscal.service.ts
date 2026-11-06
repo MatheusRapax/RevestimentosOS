@@ -2,6 +2,7 @@ import {
   Injectable,
   Logger,
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -1379,6 +1380,96 @@ export class FiscalService {
       data: Buffer.from(resp.data),
       contentType,
       filename: `${base}-${kind === 'xml' ? 'procNFe' : 'danfe'}.${ext}`,
+    };
+  }
+
+  /**
+   * Pede o cancelamento de uma NF-e autorizada (A3). O cancelamento NÃO é instantâneo: o serviço
+   * responde 202 e a nota só vira CANCELLED quando a SEFAZ confirma (webhook NFeCanceled). Até lá a
+   * nota segue APPROVED, marcada como "cancelamento em andamento"; se a SEFAZ recusar (EventRejected,
+   * ex.: fora do prazo), volta ao normal e o motivo fica em `eventError`.
+   */
+  async cancelarNota(
+    fiscalDocumentId: string,
+    clinicId: string,
+    justificativa: string,
+  ) {
+    const texto = (justificativa ?? '').trim();
+    if (texto.length < 15 || texto.length > 255) {
+      throw new BadRequestException(
+        'A justificativa do cancelamento precisa ter de 15 a 255 caracteres.',
+      );
+    }
+
+    const doc = await this.prisma.fiscalDocument.findFirst({
+      where: { id: fiscalDocumentId, clinicId }, // escopo por loja
+    });
+    if (!doc) throw new NotFoundException('Documento fiscal não encontrado.');
+    if (doc.status !== 'APPROVED') {
+      throw new BadRequestException(
+        'Só é possível cancelar uma nota autorizada pela SEFAZ.',
+      );
+    }
+    if (!doc.uuid) {
+      throw new BadRequestException(
+        'Documento fiscal ainda sem referência no serviço fiscal.',
+      );
+    }
+    if (doc.cancelRequestedAt) {
+      throw new ConflictException(
+        'Já existe um pedido de cancelamento em andamento para esta nota. Aguarde a resposta da SEFAZ.',
+      );
+    }
+
+    const { apiUrl, apiKey } = await this.resolveFiscalCreds(clinicId);
+    let eventId: string | undefined;
+    try {
+      const resp = await firstValueFrom(
+        this.httpService.post(
+          `${apiUrl}/nfe/${doc.uuid}/cancel`,
+          { justificativa: texto },
+          { headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' } },
+        ),
+      );
+      eventId = resp.data?.eventId;
+    } catch (error: any) {
+      const status = error.response?.status;
+      const msg = error.response?.data?.message;
+      this.logger.warn(
+        `Cancelamento da nota ${doc.id} recusado pelo serviço fiscal: ${status || ''} ${msg || error.message}`,
+      );
+      if (status === 409) {
+        throw new ConflictException(
+          msg ||
+            'O serviço fiscal já tem um cancelamento pendente ou autorizado para esta nota.',
+        );
+      }
+      if (status === 400 || status === 404) {
+        throw new BadRequestException(
+          msg || 'O serviço fiscal recusou o pedido de cancelamento.',
+        );
+      }
+      throw new BadRequestException(
+        'Não foi possível falar com o serviço fiscal para cancelar. Tente de novo em instantes.',
+      );
+    }
+
+    await this.prisma.fiscalDocument.update({
+      where: { id: doc.id },
+      data: {
+        cancelEventId: eventId ?? null,
+        cancelRequestedAt: new Date(),
+        cancelJustification: texto,
+        eventError: null,
+        eventErrorType: null,
+      },
+    });
+
+    return {
+      status: 'CANCELLING',
+      eventId,
+      message:
+        'Pedido de cancelamento enviado. A nota só será cancelada quando a SEFAZ confirmar; acompanhe pelo status.',
     };
   }
 }

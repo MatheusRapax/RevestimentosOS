@@ -23,6 +23,7 @@ import { PERMISSIONS } from '../../../core/rbac/permissions';
 import { CurrentUser } from '../../../core/auth/decorators/current-user.decorator';
 import { UpdateFiscalSettingsDto } from '../dto/update-fiscal-settings.dto';
 import { UpsertFiscalProfileDto } from '../dto/upsert-fiscal-profile.dto';
+import { CancelDocumentDto } from '../dto/cancel-document.dto';
 import { Public } from '../../../core/auth/decorators/public.decorator';
 import { Request, Response } from 'express';
 import * as crypto from 'crypto';
@@ -80,6 +81,17 @@ export class FiscalController {
       'Content-Disposition': `inline; filename="${file.filename}"`,
     });
     res.send(file.data);
+  }
+
+  /** Pede à SEFAZ o cancelamento de uma nota autorizada (resultado chega por webhook). */
+  @Post('documents/:id/cancel')
+  @Permissions(PERMISSIONS.FISCAL_CANCEL)
+  async cancelarNota(
+    @Param('id') id: string,
+    @Body() dto: CancelDocumentDto,
+    @Req() req: any,
+  ) {
+    return this.fiscalService.cancelarNota(id, req.clinicId, dto.justificativa);
   }
 
   @Get('settings')
