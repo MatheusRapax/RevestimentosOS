@@ -750,7 +750,7 @@ export default function OrdersPage() {
                                                                     }`}>
                                                                     {doc.status}
                                                                 </span>
-                                                                {doc.number && <span className="ml-2 text-gray-600 font-mono">Nº {doc.number}</span>}
+                                                                {doc.number && <span className="ml-2 text-gray-600 font-mono">{doc.serie ? `Série ${doc.serie} · ` : ''}Nº {doc.number}</span>}
                                                             </div>
                                                             <div className="flex gap-2">
                                                                 {(doc.xmlUrl || (doc.uuid && ['APPROVED', 'APROVADO'].includes((doc.status || '').toUpperCase()))) && (

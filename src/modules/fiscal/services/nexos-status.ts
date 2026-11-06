@@ -438,3 +438,16 @@ export function normalizarErrosRemotos(data: any): ErroRemoto[] {
   }
   return lista.filter((e) => e.mensagem.trim() !== '');
 }
+
+/**
+ * Texto de erro do serviço fiscal. Ele responde com uma STRING pura (ex.: "Documento não encontrado.")
+ * em vários 404/409, e com objeto { message } ou ProblemDetails { title } em outros.
+ */
+export function mensagemDoServico(data: any): string | undefined {
+  if (typeof data === 'string') return data.trim() || undefined;
+  if (data && typeof data === 'object') {
+    const m = data.message ?? data.title ?? data.detail;
+    return typeof m === 'string' && m.trim() ? m.trim() : undefined;
+  }
+  return undefined;
+}

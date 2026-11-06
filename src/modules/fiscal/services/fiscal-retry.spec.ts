@@ -113,3 +113,44 @@ describe('FiscalService.tentarNovamente (A11)', () => {
     );
   });
 });
+
+describe('mensagem do serviço fiscal em string pura (visto em homologação)', () => {
+  const { mensagemDoServico } = jest.requireActual('./nexos-status');
+
+  it('lê string, { message } e ProblemDetails { title }', () => {
+    expect(mensagemDoServico('Documento não encontrado.')).toBe(
+      'Documento não encontrado.',
+    );
+    expect(mensagemDoServico({ message: 'Já existe.' })).toBe('Já existe.');
+    expect(mensagemDoServico({ title: 'Erro de validação' })).toBe(
+      'Erro de validação',
+    );
+    expect(mensagemDoServico(undefined)).toBeUndefined();
+    expect(mensagemDoServico('   ')).toBeUndefined();
+  });
+
+  it('retry: 404 e 409 do serviço chegam ao operador com o texto do próprio serviço', async () => {
+    const a = build(nota());
+    a.http.post.mockReturnValueOnce(
+      throwError(() => ({
+        response: { status: 404, data: 'Documento não encontrado.' },
+      })),
+    );
+    await expect(a.service.tentarNovamente('d1', 'c1')).rejects.toThrow(
+      'Documento não encontrado.',
+    );
+
+    const b = build(nota());
+    b.http.post.mockReturnValueOnce(
+      throwError(() => ({
+        response: {
+          status: 409,
+          data: 'Só notas aguardando a SEFAZ ou com falha podem ser reenviadas (status atual: AUTHORIZED).',
+        },
+      })),
+    );
+    await expect(b.service.tentarNovamente('d1', 'c1')).rejects.toThrow(
+      /status atual: AUTHORIZED/,
+    );
+  });
+});

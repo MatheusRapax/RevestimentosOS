@@ -57,6 +57,10 @@ export function NfeStatusExtras({
   const aguardandoSefaz = remoto === 'AWAITING_SEFAZ' && !autorizada;
   // Falha interna de processamento (não é recusa da SEFAZ): pode pedir nova tentativa.
   const falhaInterna = remoto === 'FAILED' && !autorizada;
+  // statusDetail começa com a frase padrão que o card já mostra: só sobra tentativas e último erro
+  const detalheEspera = (doc.statusDetail || '')
+    .replace(/^Aguardando a SEFAZ; a nota será emitida automaticamente\.?\s*/, '')
+    .trim();
   const tamanho = justificativa.trim().length;
   const valida = tamanho >= MIN && tamanho <= MAX;
 
@@ -107,8 +111,8 @@ export function NfeStatusExtras({
           <span>
             <strong>Aguardando a SEFAZ.</strong> A SEFAZ está fora do ar ou lenta; a nota será emitida
             automaticamente, sem você precisar fazer nada.
-            {doc.statusDetail && (
-              <span className="mt-1 block text-blue-700/80">{doc.statusDetail}</span>
+            {detalheEspera && (
+              <span className="mt-1 block text-blue-700/80">{detalheEspera}</span>
             )}
           </span>
         </div>

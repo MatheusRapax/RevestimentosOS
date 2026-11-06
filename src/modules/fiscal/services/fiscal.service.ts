@@ -19,6 +19,7 @@ import {
   AGUARDANDO_SEFAZ_MENSAGEM,
   detalheAguardandoSefaz,
   mapearStatusNexos,
+  mensagemDoServico,
   normalizarAmbiente,
   normalizarErrosRemotos,
   planejarWebhook,
@@ -1452,7 +1453,7 @@ export class FiscalService {
       );
     } catch (error: any) {
       const status = error.response?.status;
-      const msg = error.response?.data?.message;
+      const msg = mensagemDoServico(error.response?.data);
       this.logger.warn(
         `Nova tentativa da nota ${doc.id} recusada pelo serviço fiscal: ${status || ''} ${msg || error.message}`,
       );
@@ -1535,7 +1536,7 @@ export class FiscalService {
       eventId = resp.data?.eventId;
     } catch (error: any) {
       const status = error.response?.status;
-      const msg = error.response?.data?.message;
+      const msg = mensagemDoServico(error.response?.data);
       this.logger.warn(
         `Cancelamento da nota ${doc.id} recusado pelo serviço fiscal: ${status || ''} ${msg || error.message}`,
       );
