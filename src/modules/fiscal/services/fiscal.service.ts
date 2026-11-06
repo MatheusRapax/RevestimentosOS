@@ -15,6 +15,12 @@ import FormData from 'form-data';
 import { CfopResolverService } from '../../fiscal-rules/services/cfop-resolver.service';
 import { TaxCalculatorService } from '../../fiscal-rules/services/tax-calculator.service';
 import {
+  AGUARDANDO_SEFAZ_MENSAGEM,
+  mapearStatusNexos,
+  normalizarAmbiente,
+  planejarWebhook,
+} from './nexos-status';
+import {
   divergenciasSetupVsPerfil,
   formatCnpj,
   montarIdentidadeTenant,
@@ -895,16 +901,19 @@ export class FiscalService {
     };
   }
 
-  /** Mapeia o `status` textual do NexosFiscal (resposta de dedupe do /nfe/emit
-   * e dos eventos de webhook) para o enum FiscalStatus do ERP. */
+  /** Mapeia o `status` textual do NexosFiscal (resposta de dedupe do /nfe/emit,
+   * consulta GET /nfe e eventos) para o enum FiscalStatus do ERP.
+   * FAILED vira rejeitada; PENDING/PROCESSING/AWAITING_SEFAZ ficam "em andamento". */
   private mapNexosDedupeStatus(
     status: string,
   ): 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'PROCESSING' {
-    const s = (status || '').toUpperCase();
-    if (s === 'AUTHORIZED' || s === 'APPROVED') return 'APPROVED';
-    if (s === 'REJECTED' || s === 'DENIED') return 'REJECTED';
-    if (s === 'CANCELLED' || s === 'CANCELED') return 'CANCELLED';
-    return 'PROCESSING';
+    const r = mapearStatusNexos(status);
+    if (!r.conhecido) {
+      this.logger.warn(
+        `Status desconhecido do NexosFiscal: "${status}" — tratado como em andamento.`,
+      );
+    }
+    return r.status;
   }
 
   async emitirNota(orderId: string, clinicId: string) {
@@ -966,15 +975,19 @@ export class FiscalService {
       const dedupeStatus: string | undefined = resp.data?.status;
       if (dedupeStatus) {
         const mapped = this.mapNexosDedupeStatus(dedupeStatus);
+        const rawStatus = String(dedupeStatus).toUpperCase();
         const data = {
           status: mapped,
           type: 'NFE' as const,
           uuid: resp.data?.documentId || fiscalDoc?.uuid,
+          // AWAITING_SEFAZ: rejectionReason é só o último erro de comunicação, não rejeição.
           errorMessage:
             mapped === 'REJECTED'
               ? resp.data?.rejectionReason ||
                 fiscalDoc?.errorMessage ||
-                'Nota rejeitada pela SEFAZ.'
+                (rawStatus === 'FAILED'
+                  ? 'Falha definitiva no processamento da nota no serviço fiscal.'
+                  : 'Nota rejeitada pela SEFAZ.')
               : null,
         };
         if (fiscalDoc) {
@@ -993,11 +1006,17 @@ export class FiscalService {
           REJECTED:
             'Esta Nota Fiscal já foi emitida e rejeitada pela SEFAZ — corrija os dados e reemita.',
           CANCELLED: 'Esta Nota Fiscal já havia sido cancelada.',
-          PROCESSING: 'Nota Fiscal já está em processamento.',
+          PROCESSING:
+            rawStatus === 'AWAITING_SEFAZ'
+              ? AGUARDANDO_SEFAZ_MENSAGEM
+              : 'Nota Fiscal já está em processamento.',
         };
         return {
           status: mapped,
-          message: messages[mapped] || 'Nota Fiscal já emitida para este pedido.',
+          message:
+            (rawStatus === 'FAILED'
+              ? 'A emissão falhou no serviço fiscal — corrija os dados e reemita.'
+              : messages[mapped]) || 'Nota Fiscal já emitida para este pedido.',
         };
       }
 
@@ -1205,7 +1224,11 @@ export class FiscalService {
       `Received Webhook from NexosFiscal: ${JSON.stringify(payload)}`,
     );
 
-    const { event, data } = payload;
+    const { event, data } = payload || {};
+    if (!data || typeof data !== 'object') {
+      this.logger.warn('Webhook sem corpo de dados — ignorado');
+      return { status: 'IGNORED', message: 'Missing data' };
+    }
 
     const orderId = data.externalId || data.ExternalId;
 
@@ -1223,29 +1246,23 @@ export class FiscalService {
       return { status: 'NOT_FOUND', message: 'FiscalDocument not found' };
     }
 
-    let newStatus = fiscalDoc.status;
-    let errorMessage = null;
-
-    if (event === 'NFeAuthorized') newStatus = 'APPROVED';
-    else if (event === 'NFeRejected') {
-      newStatus = 'REJECTED';
-      errorMessage = data.rejectionReason || data.RejectionReason;
-    } else if (event === 'NFeCanceled') newStatus = 'CANCELLED';
+    // O que o evento muda (ou não): evento sem efeito ou desconhecido é ignorado
+    // com sucesso (200) — nunca erro, para o serviço não reentregar à toa.
+    const plano = planejarWebhook(event, data, fiscalDoc);
+    if (plano.acao === 'ignorar') {
+      this.logger.log(
+        `Webhook ${event ?? '(sem evento)'} ignorado para Order ${orderId}: ${plano.motivo}`,
+      );
+      return { status: 'IGNORED', message: plano.motivo };
+    }
 
     await this.prisma.fiscalDocument.update({
       where: { id: fiscalDoc.id },
-      data: {
-        status: newStatus,
-        uuid: data.documentId || data.DocumentId || fiscalDoc.uuid,
-        key: data.accessKey || data.AccessKey || fiscalDoc.key,
-        xmlUrl: data.xmlPath || data.XmlPath || fiscalDoc.xmlUrl,
-        danfeUrl: data.pdfPath || data.PdfPath || fiscalDoc.danfeUrl,
-        errorMessage: errorMessage,
-      },
+      data: plano.dados,
     });
 
     this.logger.log(
-      `Updated FiscalDocument for Order ${orderId} to ${newStatus}`,
+      `Updated FiscalDocument for Order ${orderId}: ${plano.resumo}`,
     );
     return { status: 'SUCCESS' };
   }
