@@ -93,6 +93,7 @@ export function campoLabel(campo: string): string {
   if (c.startsWith('pedido')) return 'Pedido';
   if (c.startsWith('totais')) return 'Valores';
   if (c === 'servico') return 'Serviço fiscal';
-  if (c === 'motor de tributos') return 'Impostos';
+  if (c === 'motor de tributos' || c.startsWith('tributos')) return 'Impostos';
+  if (c.startsWith('pagamento')) return 'Pagamento';
   return 'Nota fiscal';
 }

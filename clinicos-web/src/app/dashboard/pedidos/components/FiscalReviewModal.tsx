@@ -153,11 +153,36 @@ export const FiscalReviewModal = ({
       onEmitted();
       onClose();
     } catch (error: any) {
-      if (error.response?.data?.code === 'MISSING_FISCAL_DATA') {
-        onMissingFiscalData(error.response.data.products || []);
+      const corpo = error.response?.data;
+      if (corpo?.code === 'MISSING_FISCAL_DATA') {
+        onMissingFiscalData(corpo.products || []);
         onClose();
+      } else if (Array.isArray(corpo?.erros) && corpo.erros.length > 0) {
+        // O serviço fiscal (ou o pré-flight) recusou: mostra cada erro na própria revisão
+        // em vez de só uma mensagem genérica.
+        const novos: FiscalError[] = corpo.erros.map((e: any) => ({
+          campo: String(e.campo ?? 'nota'),
+          mensagem: String(e.mensagem ?? ''),
+          severidade: 'error' as const,
+          origem: e.origem === 'erp' ? 'erp' : 'fiscal',
+        }));
+        setResult((atual) =>
+          atual
+            ? {
+                ...atual,
+                valido: false,
+                erros: [
+                  ...atual.erros.filter(
+                    (a) => !novos.some((n) => n.campo === a.campo && n.mensagem === a.mensagem),
+                  ),
+                  ...novos,
+                ],
+              }
+            : atual,
+        );
+        toast.error(corpo.message || 'A nota foi recusada. Veja os motivos na tela.');
       } else {
-        toast.error(error.response?.data?.message || 'Erro ao emitir Nota Fiscal.');
+        toast.error(corpo?.message || 'Erro ao emitir Nota Fiscal.');
       }
     } finally {
       setIsEmitting(false);

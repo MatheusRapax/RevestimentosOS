@@ -26,6 +26,7 @@ import {
   informacoesComplementares,
   montarPagamento,
 } from './nfe-payload';
+import { cstNaoSuportados, tributosNaoTransmitidos } from './cst-suportados';
 import {
   divergenciasSetupVsPerfil,
   formatCnpj,
@@ -732,6 +733,12 @@ export class FiscalService {
       if (!/^\d{2}$/.test(UF_COD[(profile.uf || '').toUpperCase()] || '')) {
         err('emitente.uf', 'UF do emitente ausente ou inválida.');
       }
+      if (![1, 2, 3].includes(Number(profile.crt))) {
+        err(
+          'emitente.crt',
+          'Regime Tributário (CRT) do emitente não informado. Escolha o regime no Perfil do Emitente e salve.',
+        );
+      }
       if (!/^\d{7}$/.test(profile.municipioIbge || '')) {
         err(
           'emitente.municipioIbge',
@@ -835,6 +842,24 @@ export class FiscalService {
         `O desconto do pedido (R$ ${(order.discountCents / 100).toFixed(2)}) é maior que a soma dos itens (R$ ${somaItens.toFixed(2)}).`,
       );
     }
+
+    // Impostos que o serviço fiscal ainda não consegue transmitir (A2): bloqueia com mensagem clara
+    payload.itens.forEach((it: any) => {
+      const problemas = cstNaoSuportados(profile?.crt, it.impostos);
+      if (problemas.length > 0) {
+        err(
+          'tributos.cst',
+          `${it.descricao}: o serviço fiscal ainda não emite ${problemas.join('; ')}. Ajuste as regras fiscais com o contador (a nota não é enviada com tributo errado).`,
+        );
+      }
+      const extras = tributosNaoTransmitidos(it._fiscalCalculado);
+      if (extras.length > 0) {
+        warn(
+          'tributos.nao-transmitido',
+          `${it.descricao}: ${extras.join(', ')} foi calculado, mas o serviço fiscal ainda não transmite; a nota sairá sem esse valor. Confirme com o contador antes de emitir em produção.`,
+        );
+      }
+    });
 
     // Forma de pagamento real (pagamentos aprovados do pedido)
     for (const aviso of payload._pagamento?.avisos ?? []) {

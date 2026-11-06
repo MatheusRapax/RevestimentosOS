@@ -104,7 +104,9 @@ export class TaxCalculatorService {
         `Nenhuma regra de ICMS cadastrada para regime=${ctx.regime}, ${ctx.ufOrigem}→${ctx.ufDestino}, NCM=${item.ncm}. Usando 0% até a tabela ser configurada.`,
       );
       icms = {
-        cst: '00',
+        // Simples Nacional (CRT 1/2) usa CSOSN: "00" é CST do Regime Normal e o serviço fiscal recusa.
+        // 102 = tributada pelo Simples sem permissão de crédito (sem ICMS destacado).
+        cst: ctx.regime === 1 || ctx.regime === 2 ? '102' : '00',
         modBC: 0,
         aliquota: 0,
         reducaoBase: 0,
