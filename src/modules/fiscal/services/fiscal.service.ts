@@ -21,6 +21,12 @@ import {
   planejarWebhook,
 } from './nexos-status';
 import {
+  dadosIeDestinatario,
+  gtinParaNota,
+  informacoesComplementares,
+  montarPagamento,
+} from './nfe-payload';
+import {
   divergenciasSetupVsPerfil,
   formatCnpj,
   montarIdentidadeTenant,
@@ -460,6 +466,7 @@ export class FiscalService {
           customer: true,
           items: { include: { product: true } },
           delivery: true,
+          payments: true,
         },
       }),
       this.prisma.fiscalProfile.findUnique({ where: { clinicId } }),
@@ -524,6 +531,8 @@ export class FiscalService {
         }
       : null;
 
+    const pagamento = montarPagamento(order.payments, order.totalCents);
+
     const itens = await Promise.all(
       order.items.map(async (item: any) => {
         const isM2 = ['M2', 'M²'].includes(
@@ -563,26 +572,31 @@ export class FiscalService {
           descricao: item.product.name,
           ncm: item.product.ncm,
           cest: item.product.cest || null,
+          gtin: gtinParaNota(item.product.gtin),
           cfop: cfopResolvido.cfop,
           unidade: isM2 ? 'M2' : item.product.unit || 'UN',
           quantidade: qty,
           valorUnitario: Number(unitPrice.toFixed(2)),
           valorTotal: Number(totalValue.toFixed(2)),
           impostos: {
+            // origem (0 a 8) vai no XML; sem ela o serviço assume 0 (nacional), errado para importado
             icms: {
               cst: tax.icms.cst,
               aliquota: tax.icms.aliquota,
               baseCalculo: tax.icms.vBC,
+              origem: item.product.origin ?? undefined,
             },
             pis: {
               cst: tax.pis.cst,
               aliquota: tax.pis.aliquota,
               baseCalculo: tax.pis.vBC,
+              origem: item.product.origin ?? undefined,
             },
             cofins: {
               cst: tax.cofins.cst,
               aliquota: tax.cofins.aliquota,
               baseCalculo: tax.cofins.vBC,
+              origem: item.product.origin ?? undefined,
             },
           },
           // Calculados para referência/relatório — sem campo de transmissão
@@ -607,10 +621,12 @@ export class FiscalService {
         tipo: customerDoc.length > 11 ? 'PJ' : 'PF',
         cnpjCpf: customerDoc,
         razaoSocial: order.customer?.name,
+        ...dadosIeDestinatario(order.customer || {}),
         endereco: {
           logradouro:
             logradouro || order.customer?.address || 'Rua não informada',
           numero: order.customer?.addressNumber || numero || 'S/N',
+          complemento: order.customer?.complement || undefined,
           bairro: order.customer?.neighborhood || 'Centro',
           // Sem município/UF "padrão de São Paulo": o pré-flight exige os
           // dados reais do cliente antes de qualquer transmissão.
@@ -622,23 +638,25 @@ export class FiscalService {
       },
       itens,
       _operacao,
+      // Desconto do pedido (o serviço rateia entre os itens e fecha no centavo)
+      ...(order.discountCents > 0
+        ? { desconto: Number((order.discountCents / 100).toFixed(2)) }
+        : {}),
+      ...(informacoesComplementares(order.notes)
+        ? { informacoesComplementares: informacoesComplementares(order.notes) }
+        : {}),
       frete: {
         modalidade: order.deliveryFee > 0 ? 0 : 9,
         valorFrete: order.deliveryFee
           ? Number((order.deliveryFee / 100).toFixed(2))
           : 0,
       },
+      // totalCents do pedido já inclui o frete (subtotal - desconto + frete): não somar de novo.
       pagamento: {
         tipo: 'A_VISTA',
-        formas: [
-          {
-            meio: 'PIX',
-            valor: Number(
-              ((order.totalCents + (order.deliveryFee || 0)) / 100).toFixed(2),
-            ),
-          },
-        ],
+        formas: pagamento.formas,
       },
+      _pagamento: { fecha: pagamento.fecha, avisos: pagamento.avisos },
       avisosFiscais,
     };
   }
@@ -649,7 +667,7 @@ export class FiscalService {
    * transmitir, mantendo-os só na resposta local (preflight/tela de revisão).
    */
   private toTransmissionPayload(payload: any) {
-    const { avisosFiscais, _operacao, ...rest } = payload;
+    const { avisosFiscais, _operacao, _pagamento, ...rest } = payload;
     return {
       ...rest,
       itens: payload.itens.map((item: any) => {
@@ -764,6 +782,12 @@ export class FiscalService {
           `Código IBGE (${c.municipioIbge}) não corresponde à UF ${uf} do cliente.`,
         );
       }
+      if (c.indicadorIe === 1 && doc.length === 11) {
+        err(
+          'cliente.indicadorIe',
+          'Cliente com CPF não pode ser contribuinte de ICMS (indicador "1"). Ajuste o indicador no cadastro do cliente.',
+        );
+      }
       if (c.stateRegistration && c.indicadorIe !== 1) {
         warn(
           'cliente.indicadorIe',
@@ -804,11 +828,17 @@ export class FiscalService {
         `Soma dos itens (R$ ${somaItens.toFixed(2)}) não bate com o subtotal do pedido (R$ ${subtotal.toFixed(2)}).`,
       );
     }
-    if ((order.discountCents || 0) > 0) {
-      warn(
+    // O desconto do pedido agora é enviado (vDesc) e rateado pelo serviço; só não pode passar dos itens.
+    if ((order.discountCents || 0) / 100 > somaItens + 0.005) {
+      err(
         'totais.desconto',
-        'O pedido tem desconto que ainda não é enviado como vDesc na NF-e (será tratado no motor de regras).',
+        `O desconto do pedido (R$ ${(order.discountCents / 100).toFixed(2)}) é maior que a soma dos itens (R$ ${somaItens.toFixed(2)}).`,
       );
+    }
+
+    // Forma de pagamento real (pagamentos aprovados do pedido)
+    for (const aviso of payload._pagamento?.avisos ?? []) {
+      warn('pagamento', aviso);
     }
 
     return erros;
