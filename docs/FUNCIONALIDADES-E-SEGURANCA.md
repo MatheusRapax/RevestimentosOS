@@ -87,6 +87,7 @@ Cada loja (tenant) tem seus dados isolados, seus usuários, seus papéis e os m�
 |---|---|---|
 | Usuários | Criar usuários, atribuir papel | ✅ |
 | Papéis e acessos | Permissões por papel (Administrador, Gerente, Estoquista, Vendedor) e papéis próprios | ✅ |
+| Permissões em linguagem de loja | Áreas com explicação, nome claro, o que cada permissão libera, tela que abre, etiqueta “Sensível”, busca e marcar/limpar por área; as antigas de clínica e as sem efeito ficam recolhidas | 🟡 |
 | Configurações globais | Taxa de entrega padrão e valores iniciais | ✅ |
 | Auditoria | Histórico somente leitura de quem fez o quê | ✅ |
 | Templates de orçamento e ambientes de venda | Padronização do orçamento | ✅ |
@@ -122,6 +123,8 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 | Módulos por loja | `ModuleGuard`: a loja só acessa o que contratou (vendas, estoque, compras, financeiro, RMA, entregas, promoções, arquitetos, admin) | ✅ |
 | Área Super Admin protegida | `SuperAdminGuard` separa operação da plataforma da operação da loja | ✅ |
 | Usuário não altera o próprio papel | Evita elevar o próprio acesso | ✅ |
+| Catálogo de permissões com teste | Toda permissão nova precisa de texto claro (o teste falha sem ele); permissão ativa não pode usar termo de clínica | 🟡 |
+| Permissões sensíveis sinalizadas | Dinheiro, estoque, nota fiscal, acessos e exclusões aparecem marcados na hora de dar acesso | 🟡 |
 
 ### 3.2 Rastreabilidade
 | Proteção | Como funciona | Status |
@@ -160,6 +163,9 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 ### 3.5 Pontos de atenção de segurança (a resolver antes de produção)
 - **Segredo do webhook:** corrigido (em produção exige `FISCAL_WEBHOOK_SECRET` próprio e recusa o valor de exemplo). 🟡
   Antes de produção, **definir a variável no servidor** e cadastrar o mesmo segredo no webhook do NexosFiscal.
+- **Permissões que só valem na tela:** pedidos, compras, fornecedores, despesas, catálogo e auditoria não conferem permissão
+  no servidor (só o módulo da loja); 27 permissões não controlam nada hoje e 4 só escondem o menu. Levantamento e proposta em
+  `docs/PERMISSOES.md`. Depende de decidir quem faz o quê por papel antes de ligar no servidor. 🔜
 - **Alterar as configurações da loja** (`PATCH /settings`, ex.: taxa de entrega) hoje só exige o módulo
   Administração, sem permissão específica de papel. Correção pronta no stash `wip usuarios-desativar backend`
   (`clinic.settings.manage`); falta testar e mergear. 🔜
