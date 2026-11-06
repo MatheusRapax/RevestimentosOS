@@ -37,6 +37,8 @@ export function montarPagamento(
 ): {
   formas: FormaPagamento[];
   fecha: boolean;
+  /** Soma maior que o total: o serviço fiscal recusa (menor só avisa). */
+  excede: boolean;
   somaCents: number;
   avisos: string[];
 } {
@@ -55,6 +57,7 @@ export function montarPagamento(
   }));
   const somaCents = [...porMeio.values()].reduce((s, c) => s + c, 0);
   const fecha = Math.abs(somaCents - totalNotaCents) <= 1;
+  const excede = somaCents - totalNotaCents > 1;
   const avisos: string[] = [];
 
   if (formas.length === 0) {
@@ -69,7 +72,7 @@ export function montarPagamento(
       `Os pagamentos aprovados somam R$ ${reais(somaCents).toFixed(2)}, diferente do total da nota (R$ ${reais(totalNotaCents).toFixed(2)}).`,
     );
   }
-  return { formas, fecha, somaCents, avisos };
+  return { formas, fecha, excede, somaCents, avisos };
 }
 
 /** GTIN válido para a NF-e: 8, 12, 13 ou 14 dígitos. Qualquer outra coisa não é enviada ("SEM GTIN"). */

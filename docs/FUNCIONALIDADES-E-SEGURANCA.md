@@ -155,7 +155,7 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 | Tributo que o serviço não emite bloqueia | CST/CSOSN fora da lista aceita pelo regime não é enviado: o operador vê a causa em vez de uma nota errada | 🟡 |
 | Atualização atrasada não desfaz nada | Webhook ou consulta atrasada não reabre nota cancelada nem rebaixa nota autorizada | 🟡 |
 | Cancelamento só com permissão | `fiscal.cancel` e escopo por loja; nada de cancelar nota de outra loja | 🟡 |
-| Pagamento e total conferem | O total pago enviado é o do pedido (frete não é somado duas vezes); soma divergente gera aviso | 🟡 |
+| Pagamento e total conferem | O total pago enviado é o do pedido (frete não é somado duas vezes); pagamento menor que o total avisa, **maior bloqueia** a emissão | 🟡 |
 
 ### 3.5 Pontos de atenção de segurança (a resolver antes de produção)
 - **Segredo do webhook:** corrigido (em produção exige `FISCAL_WEBHOOK_SECRET` próprio e recusa o valor de exemplo). 🟡

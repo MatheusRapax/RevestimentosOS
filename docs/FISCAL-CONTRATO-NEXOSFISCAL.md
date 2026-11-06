@@ -32,11 +32,24 @@ Quando o contrato mudar, o NexosFiscal registra em `AJUSTES_ERP.md` e este doc �
 - **`totalCents` do pedido já inclui o frete** (`subtotal − desconto + frete`). O pagamento enviado é o total do
   pedido; somar o frete de novo (como era antes) fazia a nota divergir quando havia frete.
 - **Pedido sem pagamento aprovado** vai como `SEM_PAGAMENTO` com valor total (o serviço recusa lista vazia) e
-  gera aviso. Antes saía como PIX.
+  gera aviso. Antes saía como PIX. O serviço gera `tPag 90` com `vPag 0.00` no XML (a SEFAZ-MA autorizou em
+  homologação), então mandar o valor total está certo.
+- **Soma dos pagamentos × total da nota:** menor só avisa (a SEFAZ-MA autorizou PIX de 50,00 numa nota de
+  100,00); **maior é erro** no serviço, e o ERP já bloqueia antes (pré-flight, campo `pagamento`).
 - **CST padrão sem regra cadastrada:** Simples (CRT 1/2) usa `102`; Regime Normal usa `00`. O `00` para Simples é
   recusado pelo serviço.
 - **Webhook:** em produção, `FISCAL_WEBHOOK_SECRET` é obrigatório e não pode ser o valor de exemplo (responde 503).
   A assinatura é comparada em tempo constante.
+
+## Confirmado pelo NexosFiscal (2026-11-06)
+
+- `valorUnitario` pode continuar com 2 casas: o XML recalcula o unitário (até 10 casas) a partir do total e da
+  quantidade; o aviso falso de arredondamento em m² foi corrigido no serviço.
+- `GET /nfe/{id}/events` devolve lista simples; `GET /nfe/events` devolve `{ data: [...] }` paginado; com o evento
+  pendente, `cStat` e `motivo` são sempre nulos. O job de reconciliação aceita os dois formatos.
+- `GET /nfe`: `pageSize` máximo 100 (o ERP usa 50); `updatedSince` é inclusivo (o ERP relê 2 min antes do cursor).
+- `NFeCanceled`, `NFeCorrection` e `EventRejected` também trazem `Number`, `Series` e `Environment`.
+- ST, redução de base, DIFAL, IPI e FCP: sem previsão; não bloqueiam o cliente atual (Simples Nacional, CSOSN 102).
 
 ## Variáveis de ambiente
 

@@ -74,7 +74,15 @@ describe('montarPagamento (A1: meio real)', () => {
     const r = montarPagamento([pag('PIX', 5000)], 7600);
     expect(r.formas).toEqual([{ meio: 'PIX', valor: 50 }]);
     expect(r.fecha).toBe(false);
+    expect(r.excede).toBe(false);
     expect(r.avisos[0]).toMatch(/somam R\$ 50\.00.*R\$ 76\.00/);
+  });
+
+  it('soma MAIOR que o total é marcada (o serviço fiscal recusa); tolerância de 1 centavo', () => {
+    expect(montarPagamento([pag('PIX', 8000)], 7600).excede).toBe(true);
+    expect(montarPagamento([pag('PIX', 7601)], 7600).excede).toBe(false);
+    expect(montarPagamento([pag('PIX', 7602)], 7600).excede).toBe(true);
+    expect(montarPagamento([pag('PIX', 7000)], 7600).excede).toBe(false);
   });
 });
 
@@ -279,6 +287,28 @@ describe('FiscalService.runLocalPreflight — A1', () => {
       .runLocalPreflight(o, p, perfil)
       .find((e: any) => e.campo === 'pagamento');
     expect(aviso.severidade).toBe('warning');
+  });
+
+  it('pagamento MENOR que o total só avisa; MAIOR bloqueia com instrução (A1, resposta do serviço)', async () => {
+    const service = build();
+    const menor = pedido({
+      payments: [{ method: 'PIX', status: 'APPROVED', amountCents: 5000 }],
+    });
+    const p1 = await service.buildEmitPayload(menor, {}, perfil);
+    const e1 = service
+      .runLocalPreflight(menor, p1, perfil)
+      .find((e: any) => e.campo === 'pagamento');
+    expect(e1.severidade).toBe('warning');
+
+    const maior = pedido({
+      payments: [{ method: 'PIX', status: 'APPROVED', amountCents: 200000 }],
+    });
+    const p2 = await service.buildEmitPayload(maior, {}, perfil);
+    const e2 = service
+      .runLocalPreflight(maior, p2, perfil)
+      .find((e: any) => e.campo === 'pagamento');
+    expect(e2.severidade).toBe('error');
+    expect(e2.mensagem).toMatch(/Corrija os pagamentos do pedido/);
   });
 
   it('CPF como contribuinte é erro local', async () => {

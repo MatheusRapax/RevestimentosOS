@@ -659,7 +659,11 @@ export class FiscalService {
         tipo: 'A_VISTA',
         formas: pagamento.formas,
       },
-      _pagamento: { fecha: pagamento.fecha, avisos: pagamento.avisos },
+      _pagamento: {
+        fecha: pagamento.fecha,
+        excede: pagamento.excede,
+        avisos: pagamento.avisos,
+      },
       avisosFiscais,
     };
   }
@@ -864,8 +868,16 @@ export class FiscalService {
     });
 
     // Forma de pagamento real (pagamentos aprovados do pedido)
+    // Soma MAIOR que o total é recusada pelo serviço fiscal (erro); menor só avisa (a SEFAZ aceita).
     for (const aviso of payload._pagamento?.avisos ?? []) {
-      warn('pagamento', aviso);
+      if (payload._pagamento?.excede) {
+        err(
+          'pagamento',
+          `${aviso} Corrija os pagamentos do pedido antes de emitir.`,
+        );
+      } else {
+        warn('pagamento', aviso);
+      }
     }
 
     return erros;
