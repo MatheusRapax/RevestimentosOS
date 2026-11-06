@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/table';
 import { Shield, Edit, Users, Check, X } from 'lucide-react';
 import api from '@/lib/api';
+import { PermissionPicker, PermissaoDaApi } from '@/components/admin/permission-picker';
 
 interface Permission {
     id: string;
@@ -92,6 +93,14 @@ export default function RolesPage() {
         setSelectedPermissions(newSet);
     };
 
+    const alterarPermissoes = (ids: string[], marcar: boolean) => {
+        setSelectedPermissions((atual) => {
+            const novo = new Set(atual);
+            ids.forEach((id) => (marcar ? novo.add(id) : novo.delete(id)));
+            return novo;
+        });
+    };
+
     const savePermissions = async () => {
         if (!editingRole) return;
         setSaving(true);
@@ -118,17 +127,6 @@ export default function RolesPage() {
         description: '',
     });
 
-    const groupedPermissions = allPermissions.reduce((acc, perm) => {
-        const category = perm.key.includes('.')
-            ? perm.key.split('.')[0]
-            : perm.key.includes('_')
-                ? perm.key.split('_')[0].toLowerCase()
-                : 'other';
-        if (!acc[category]) acc[category] = [];
-        acc[category].push(perm);
-        return acc;
-    }, {} as Record<string, Permission[]>);
-
     const handleAddRole = async (e: React.FormEvent) => {
         e.preventDefault();
         
@@ -153,27 +151,6 @@ export default function RolesPage() {
         } finally {
             setIsAddingRole(false);
         }
-    };
-
-    const categoryNames: Record<string, string> = {
-        appointment: 'Agendamentos',
-        patient: 'Clientes',
-        encounter: 'Atendimentos',
-        record: 'Prontuário',
-        procedure: 'Procedimentos',
-        consumable: 'Consumíveis',
-        stock: 'Estoque',
-        clinic: 'Loja',
-        user: 'Usuários',
-        schedule: 'Agenda',
-        notice: 'Avisos',
-        specialty: 'Especialidades',
-        role: 'Papéis',
-        audit: 'Auditoria',
-        finance: 'Financeiro',
-        professional: 'Profissionais',
-        promotion: 'Promoções',
-        other: 'Outros',
     };
 
     if (loading) {
@@ -327,55 +304,26 @@ export default function RolesPage() {
 
             {/* Edit Permissions Modal */}
             <Dialog open={!!editingRole} onOpenChange={() => setEditingRole(null)}>
-                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-4xl max-h-[88vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Shield className="h-5 w-5" />
-                            Editar Permissões - {editingRole?.name}
+                            Permissões do papel: {editingRole?.name}
                         </DialogTitle>
                     </DialogHeader>
 
-                    <div className="space-y-6 py-4">
-                        {Object.entries(groupedPermissions).map(([category, perms]) => (
-                            <div key={category} className="space-y-2">
-                                <h3 className="font-semibold text-gray-900 capitalize">
-                                    {categoryNames[category] || category}
-                                </h3>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {perms.map((perm) => (
-                                        <label
-                                            key={perm.id}
-                                            className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${selectedPermissions.has(perm.id)
-                                                ? 'bg-blue-50 border-blue-300'
-                                                : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                                                }`}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedPermissions.has(perm.id)}
-                                                onChange={() => togglePermission(perm.id)}
-                                                className="w-4 h-4"
-                                            />
-                                            <div className="flex-1 min-w-0">
-                                                <code className="text-xs text-gray-600 block truncate">
-                                                    {perm.key}
-                                                </code>
-                                                {perm.description && (
-                                                    <span className="text-xs text-gray-500 block truncate">
-                                                        {perm.description}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {selectedPermissions.has(perm.id) ? (
-                                                <Check className="h-4 w-4 text-blue-600" />
-                                            ) : (
-                                                <X className="h-4 w-4 text-gray-300" />
-                                            )}
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
+                    <p className="text-sm text-gray-600">
+                        Marque o que as pessoas com este papel podem ver e fazer no sistema. As permissões
+                        estão agrupadas por área, e cada uma diz o que libera e qual tela abre.
+                    </p>
+
+                    <div className="py-2">
+                        <PermissionPicker
+                            permissoes={allPermissions as PermissaoDaApi[]}
+                            selecionadas={selectedPermissions}
+                            idDe={(perm) => perm.id}
+                            onAlterar={alterarPermissoes}
+                        />
                     </div>
 
                     <DialogFooter>
