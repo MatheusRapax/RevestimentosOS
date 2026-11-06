@@ -1795,6 +1795,21 @@ model FiscalDocument {
 
   errorMessage String? @db.Text
 
+  // Ambiente em que a nota foi emitida no serviço fiscal ("homologacao" | "producao").
+  // Nota de homologação não tem valor fiscal: a tela avisa.
+  environment String?
+
+  // Cancelamento: o serviço só confirma depois (webhook NFeCanceled). Enquanto isso a nota
+  // continua APPROVED e estes campos dizem "cancelamento em andamento".
+  cancelEventId       String?
+  cancelRequestedAt   DateTime?
+  cancelJustification String?   @db.Text
+
+  // Último evento recusado pela SEFAZ (cancelamento, carta de correção) com o motivo.
+  // Não muda o status da nota: ela segue autorizada.
+  eventError     String? @db.Text
+  eventErrorType String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1818,6 +1833,9 @@ model ClinicFiscalConfig {
   // Informativos do último certificado A1 enviado (o .pfx em si fica no NexosFiscal)
   certificateFileName   String?
   certificateUploadedAt DateTime?
+
+  // Reconciliação: até quando já conferimos GET /nfe?updatedSince= deste tenant
+  lastReconciledAt DateTime?
 
   // Business Rules / Defaults
   environment             String  @default("2") // 1=Production, 2=Homologation
