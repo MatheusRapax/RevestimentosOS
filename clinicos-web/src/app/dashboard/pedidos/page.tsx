@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 import { useOrders } from '@/hooks/useOrders';
 import { FastInputModal } from './components/FastInputModal';
 import { FiscalReviewModal } from './components/FiscalReviewModal';
+import { NfeStatusExtras } from './components/CancelNfeDialog';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
     CRIADO: { label: 'Novo / Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
@@ -258,9 +259,10 @@ export default function OrdersPage() {
         // Enquanto houver nota fiscal em processamento, o resultado real chega
         // via webhook (assíncrono). Faz polling curto só nesse período.
         refetchInterval: (query) => {
-            const docs = query.state.data?.fiscalDocuments as Array<{ status?: string }> | undefined;
+            const docs = query.state.data?.fiscalDocuments as Array<{ status?: string; cancelRequestedAt?: string | null }> | undefined;
+            // também enquanto um cancelamento aguarda a SEFAZ (a nota segue APPROVED até o webhook)
             const pending = docs?.some((d) =>
-                ['PROCESSING', 'DRAFT', 'PENDING'].includes((d.status || '').toUpperCase()),
+                ['PROCESSING', 'DRAFT', 'PENDING'].includes((d.status || '').toUpperCase()) || Boolean(d.cancelRequestedAt),
             );
             return pending ? 3000 : false;
         },
@@ -769,6 +771,8 @@ export default function OrdersPage() {
                                                                 <strong>Erro:</strong> {doc.errorMessage}
                                                             </div>
                                                         )}
+
+                                                        <NfeStatusExtras doc={doc} onChanged={refetchDetails} />
 
                                                         <div className="mt-1 text-xs text-gray-400">
                                                             Chave: {doc.key || '-'}
