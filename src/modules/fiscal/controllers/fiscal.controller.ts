@@ -15,6 +15,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FiscalService } from '../services/fiscal.service';
+import { FiscalReconciliationService } from '../services/fiscal-reconciliation.service';
 import { JwtAuthGuard } from '../../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../../core/tenant/guards/tenant.guard';
 import { PermissionsGuard } from '../../../core/rbac/guards/permissions.guard';
@@ -31,7 +32,10 @@ import * as crypto from 'crypto';
 @Controller('fiscal')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class FiscalController {
-  constructor(private readonly fiscalService: FiscalService) {}
+  constructor(
+    private readonly fiscalService: FiscalService,
+    private readonly reconciliation: FiscalReconciliationService,
+  ) {}
 
   @Post('emit/:orderId')
   @Permissions(PERMISSIONS.FISCAL_EMIT)
@@ -92,6 +96,13 @@ export class FiscalController {
     @Req() req: any,
   ) {
     return this.fiscalService.cancelarNota(id, req.clinicId, dto.justificativa);
+  }
+
+  /** Confere agora, no serviço fiscal, as notas desta loja (o mesmo que o job periódico faz). */
+  @Post('reconcile')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async reconciliar(@Req() req: any) {
+    return this.reconciliation.reconciliarClinica(req.clinicId);
   }
 
   @Get('settings')

@@ -186,3 +186,101 @@ describe('FiscalService.handleWebhook', () => {
     expect(r.status).toBe('NOT_FOUND');
   });
 });
+
+import { planejarCancelamentoPendente, planejarReconciliacao } from './nexos-status';
+
+describe('planejarReconciliacao (A7)', () => {
+  const remota = (over: any = {}) => ({
+    id: 'u1',
+    externalId: 'o1',
+    status: 'AUTHORIZED',
+    accessKey: 'K44',
+    environment: 'homologacao',
+    series: 1,
+    number: 7,
+    ...over,
+  });
+
+  it('corrige uma autorização perdida e guarda série, número, ambiente e chave', () => {
+    const d: any = planejarReconciliacao({ status: 'PROCESSING', uuid: null, key: null }, remota());
+    expect(d).toMatchObject({
+      status: 'APPROVED',
+      errorMessage: null,
+      uuid: 'u1',
+      key: 'K44',
+      environment: 'homologacao',
+      serie: '1',
+      number: '7',
+    });
+  });
+
+  it('nota já correta e completa não gera atualização', () => {
+    const local = { status: 'APPROVED', uuid: 'u1', key: 'K44', environment: 'homologacao', serie: '1', number: '7' };
+    expect(planejarReconciliacao(local, remota())).toBeNull();
+  });
+
+  it('só completa os campos de acompanhamento sem mexer no status', () => {
+    const d: any = planejarReconciliacao({ status: 'APPROVED', uuid: 'u1', key: 'K44' }, remota());
+    expect(d).toEqual({ environment: 'homologacao', serie: '1', number: '7' });
+  });
+
+  it('rejeição e FAILED viram rejeitada com o motivo', () => {
+    expect(
+      (planejarReconciliacao({ status: 'PROCESSING', uuid: 'u1' }, remota({ status: 'REJECTED', rejectionReason: 'Rejeição 204' })) as any).errorMessage,
+    ).toBe('Rejeição 204');
+    expect(
+      (planejarReconciliacao({ status: 'PROCESSING', uuid: 'u1' }, remota({ status: 'FAILED', rejectionReason: null })) as any).errorMessage,
+    ).toMatch(/Falha definitiva/);
+  });
+
+  it('AWAITING_SEFAZ nunca vira erro: nota rejeitada por falha de envio volta a "em andamento"', () => {
+    const d: any = planejarReconciliacao(
+      { status: 'REJECTED', uuid: 'u1', key: 'K44', environment: 'homologacao', serie: '1', number: '7' },
+      remota({ status: 'AWAITING_SEFAZ', rejectionReason: 'timeout ao falar com a SEFAZ' }),
+    );
+    expect(d).toEqual({ status: 'PROCESSING', errorMessage: null });
+  });
+
+  it('leitura atrasada não rebaixa nota autorizada', () => {
+    const d: any = planejarReconciliacao({ status: 'APPROVED', uuid: 'u1', key: 'K44' }, remota({ status: 'PENDING' }));
+    expect(d).not.toHaveProperty('status');
+  });
+
+  it('nota cancelada localmente não volta atrás', () => {
+    const d: any = planejarReconciliacao({ status: 'CANCELLED', uuid: 'u1', key: 'K44' }, remota({ status: 'AUTHORIZED' }));
+    expect(d).not.toHaveProperty('status');
+  });
+
+  it('cancelamento confirmado no serviço encerra o "em andamento"', () => {
+    const d: any = planejarReconciliacao(
+      { status: 'APPROVED', uuid: 'u1', cancelRequestedAt: new Date(), cancelEventId: 'e1' },
+      remota({ status: 'CANCELLED' }),
+    );
+    expect(d).toMatchObject({ status: 'CANCELLED', cancelRequestedAt: null, cancelEventId: null });
+  });
+});
+
+describe('planejarCancelamentoPendente (A7)', () => {
+  const pendente = { status: 'APPROVED', cancelEventId: 'e1', cancelRequestedAt: new Date() };
+
+  it('evento recusado e webhook perdido: volta ao normal com o motivo', () => {
+    const d: any = planejarCancelamentoPendente(pendente, [
+      { id: 'e1', type: 'CANCELLATION', status: 'REJECTED', cStat: 501, motivo: 'Prazo excedido' },
+    ]);
+    expect(d).not.toHaveProperty('status');
+    expect(d).toMatchObject({ cancelRequestedAt: null, eventErrorType: 'CANCELLATION' });
+    expect(d.eventError).toBe('Cancelamento recusado pela SEFAZ: Prazo excedido (cStat 501)');
+  });
+
+  it('evento autorizado: nota cancelada', () => {
+    const d: any = planejarCancelamentoPendente(pendente, [{ id: 'e1', type: 'CANCELLATION', status: 'AUTHORIZED' }]);
+    expect(d.status).toBe('CANCELLED');
+  });
+
+  it('evento ainda pendente, de outro tipo/outro id ou sem pedido local: nada a fazer', () => {
+    expect(planejarCancelamentoPendente(pendente, [{ id: 'e1', type: 'CANCELLATION', status: 'PENDING' }])).toBeNull();
+    expect(planejarCancelamentoPendente(pendente, [{ id: 'x', type: 'CANCELLATION', status: 'REJECTED' }])).toBeNull();
+    expect(planejarCancelamentoPendente(pendente, [{ id: 'e1', type: 'CORRECTION_LETTER', status: 'REJECTED' }])).toBeNull();
+    expect(planejarCancelamentoPendente({ status: 'APPROVED' }, [{ id: 'e1', type: 'CANCELLATION', status: 'REJECTED' }])).toBeNull();
+  });
+});

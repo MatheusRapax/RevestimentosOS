@@ -165,3 +165,118 @@ export function planejarWebhook(
       return { acao: 'ignorar', motivo: `evento desconhecido: ${nome || '(sem nome)'}` };
   }
 }
+
+// ── Reconciliação (A7): rede de segurança quando um webhook se perde ─────────────────────────────
+
+/** Nota como o serviço fiscal a devolve em GET /nfe e GET /nfe?updatedSince= */
+export interface NotaRemota {
+  id: string;
+  externalId?: string | null;
+  status: string;
+  accessKey?: string | null;
+  environment?: string | null;
+  series?: number | string | null;
+  number?: number | string | null;
+  rejectionReason?: string | null;
+  attempts?: number | null;
+  updatedAt?: string | null;
+}
+
+export interface DocumentoReconciliavel extends DocumentoLocal {
+  uuid?: string | null;
+  key?: string | null;
+  serie?: string | null;
+  number?: string | null;
+  environment?: string | null;
+}
+
+/**
+ * O que a consulta ao serviço corrige no documento local (ou null se já está certo).
+ * O serviço é a fonte da verdade, com três travas: nota cancelada localmente não volta atrás,
+ * nota autorizada não é "rebaixada" para em andamento por uma leitura atrasada e erro de comunicação
+ * (AWAITING_SEFAZ) nunca vira rejeição.
+ */
+export function planejarReconciliacao(
+  local: DocumentoReconciliavel,
+  remota: NotaRemota,
+): Record<string, any> | null {
+  const dados: Record<string, any> = {};
+  const alvo = mapearStatusNexos(remota.status).status;
+
+  if (local.status !== 'CANCELLED' && alvo !== local.status) {
+    if (alvo === 'APPROVED') {
+      dados.status = 'APPROVED';
+      dados.errorMessage = null;
+    } else if (alvo === 'CANCELLED') {
+      dados.status = 'CANCELLED';
+      dados.cancelEventId = null;
+      dados.cancelRequestedAt = null;
+      dados.eventError = null;
+      dados.eventErrorType = null;
+    } else if (alvo === 'REJECTED') {
+      dados.status = 'REJECTED';
+      dados.errorMessage =
+        remota.rejectionReason ||
+        (String(remota.status).toUpperCase() === 'FAILED'
+          ? 'Falha definitiva no processamento da nota no serviço fiscal.'
+          : 'Nota rejeitada pela SEFAZ.');
+    } else if (alvo === 'PROCESSING' && local.status !== 'APPROVED') {
+      dados.status = 'PROCESSING';
+      dados.errorMessage = null;
+    }
+  }
+
+  // Acompanhamento: série, número, ambiente, chave e referência da nota no serviço
+  if (remota.id && !local.uuid) dados.uuid = remota.id;
+  if (remota.accessKey && !local.key) dados.key = remota.accessKey;
+  const amb = normalizarAmbiente(remota.environment);
+  if (amb && amb !== local.environment) dados.environment = amb;
+  if (remota.series != null && String(remota.series) !== (local.serie ?? '')) dados.serie = String(remota.series);
+  if (remota.number != null && String(remota.number) !== (local.number ?? '')) dados.number = String(remota.number);
+
+  return Object.keys(dados).length > 0 ? dados : null;
+}
+
+/** Evento de cancelamento como o serviço devolve em GET /nfe/{id}/events */
+export interface EventoRemoto {
+  id: string;
+  type: string;
+  status: string;
+  cStat?: number | string | null;
+  motivo?: string | null;
+}
+
+/**
+ * Cancelamento em andamento no ERP + evento no serviço: se a SEFAZ já recusou (e o webhook
+ * EventRejected se perdeu), volta ao normal e guarda o motivo; se já autorizou, a nota está cancelada.
+ */
+export function planejarCancelamentoPendente(
+  local: DocumentoLocal,
+  eventos: EventoRemoto[],
+): Record<string, any> | null {
+  if (!local.cancelRequestedAt) return null;
+  const evento = eventos.find(
+    (e) => String(e.type).toUpperCase() === 'CANCELLATION' && (!local.cancelEventId || e.id === local.cancelEventId),
+  );
+  if (!evento) return null;
+  const st = String(evento.status).toUpperCase();
+  if (st === 'AUTHORIZED') {
+    return {
+      status: 'CANCELLED',
+      cancelEventId: null,
+      cancelRequestedAt: null,
+      eventError: null,
+      eventErrorType: null,
+    };
+  }
+  if (st === 'REJECTED') {
+    const cstat = evento.cStat != null && evento.cStat !== '' ? ` (cStat ${evento.cStat})` : '';
+    return {
+      cancelEventId: null,
+      cancelRequestedAt: null,
+      eventError: `Cancelamento recusado pela SEFAZ: ${evento.motivo || 'sem detalhe do motivo'}${cstat}`,
+      eventErrorType: 'CANCELLATION',
+    };
+  }
+  return null; // PENDING: segue esperando
+}

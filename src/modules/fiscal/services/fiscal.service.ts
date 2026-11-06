@@ -1086,6 +1086,10 @@ export class FiscalService {
             type: 'NFE',
             uuid: resp.data?.documentId || fiscalDoc.uuid,
             errorMessage: null,
+            // ambiente em que a nota está sendo emitida (a reconciliação confirma depois)
+            ...(normalizarAmbiente(config?.environment)
+              ? { environment: normalizarAmbiente(config?.environment)! }
+              : {}),
           },
         });
       } else {
@@ -1096,6 +1100,9 @@ export class FiscalService {
             status: 'PROCESSING',
             type: 'NFE',
             uuid: resp.data?.documentId,
+            ...(normalizarAmbiente(config?.environment)
+              ? { environment: normalizarAmbiente(config?.environment)! }
+              : {}),
           },
         });
       }

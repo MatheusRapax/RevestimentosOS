@@ -753,12 +753,12 @@ export default function OrdersPage() {
                                                                 {doc.number && <span className="ml-2 text-gray-600 font-mono">Nº {doc.number}</span>}
                                                             </div>
                                                             <div className="flex gap-2">
-                                                                {doc.xmlUrl && (
+                                                                {(doc.xmlUrl || (doc.uuid && ['APPROVED', 'APROVADO'].includes((doc.status || '').toUpperCase()))) && (
                                                                     <button type="button" onClick={() => openFiscalFile(doc.id, 'xml')} className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
                                                                         XML
                                                                     </button>
                                                                 )}
-                                                                {doc.danfeUrl && (
+                                                                {(doc.danfeUrl || (doc.uuid && ['APPROVED', 'APROVADO'].includes((doc.status || '').toUpperCase()))) && (
                                                                     <button type="button" onClick={() => openFiscalFile(doc.id, 'danfe')} className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
                                                                         PDF
                                                                     </button>
