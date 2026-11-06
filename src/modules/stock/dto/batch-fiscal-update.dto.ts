@@ -22,13 +22,14 @@ export class FiscalUpdateItemDto {
   @Matches(/^\d{8}$/, { message: 'NCM deve ter 8 dígitos.' })
   ncm: string;
 
+  // CFOP e CST saem do motor de regras fiscais; aceitos só por compatibilidade.
   @IsString()
-  @IsNotEmpty()
-  cfop: string;
+  @IsOptional()
+  cfop?: string;
 
   @IsString()
-  @IsNotEmpty()
-  cst: string;
+  @IsOptional()
+  cst?: string;
 
   @IsString()
   @IsOptional()

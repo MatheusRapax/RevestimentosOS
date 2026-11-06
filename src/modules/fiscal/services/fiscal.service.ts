@@ -486,13 +486,37 @@ export class FiscalService {
       '',
     );
 
-    const ufOrigem = profile?.uf || 'SP';
-    const ufDestino = order.customer?.state || 'SP';
+    // Sem UF padrão: se faltar a UF do emitente ou do cliente, o pré-flight
+    // bloqueia a emissão (emitente.uf / cliente.state). Assumir "SP" aqui
+    // transformaria uma venda local numa interestadual sem avisar ninguém.
+    const ufOrigem = (profile?.uf || '').trim().toUpperCase();
+    const ufDestino = (order.customer?.state || '').trim().toUpperCase();
     const consumidorFinal = order.customer?.consumidorFinal ?? true;
     const contribuinte = order.customer?.indicadorIe === 1;
     const regime = profile?.crt ?? 3;
 
     const avisosFiscais: string[] = [];
+
+    // Tipo de operação (dentro/fora do estado) — só para a tela de revisão.
+    // Nunca é escolhido pelo operador: sai do estado do emitente × do cliente.
+    const operacaoResolvida =
+      ufOrigem && ufDestino
+        ? this.cfopResolver.resolve({
+            operacao: 'VENDA',
+            ufOrigem,
+            ufDestino,
+            destinatarioContribuinte: contribuinte,
+            consumidorFinal,
+          })
+        : null;
+    const _operacao = operacaoResolvida
+      ? {
+          ufOrigem,
+          ufDestino,
+          interestadual: operacaoResolvida.interestadual,
+          descricao: operacaoResolvida.descricao,
+        }
+      : null;
 
     const itens = await Promise.all(
       order.items.map(async (item: any) => {
@@ -582,13 +606,16 @@ export class FiscalService {
             logradouro || order.customer?.address || 'Rua não informada',
           numero: order.customer?.addressNumber || numero || 'S/N',
           bairro: order.customer?.neighborhood || 'Centro',
-          codigoMunicipio: order.customer?.municipioIbge || '3550308',
-          municipio: order.customer?.city || 'São Paulo',
-          uf: order.customer?.state || 'SP',
+          // Sem município/UF "padrão de São Paulo": o pré-flight exige os
+          // dados reais do cliente antes de qualquer transmissão.
+          codigoMunicipio: order.customer?.municipioIbge || '',
+          municipio: order.customer?.city || '',
+          uf: ufDestino,
           cep: customerCep,
         },
       },
       itens,
+      _operacao,
       frete: {
         modalidade: order.deliveryFee > 0 ? 0 : 9,
         valorFrete: order.deliveryFee
@@ -616,7 +643,7 @@ export class FiscalService {
    * transmitir, mantendo-os só na resposta local (preflight/tela de revisão).
    */
   private toTransmissionPayload(payload: any) {
-    const { avisosFiscais, ...rest } = payload;
+    const { avisosFiscais, _operacao, ...rest } = payload;
     return {
       ...rest,
       itens: payload.itens.map((item: any) => {
@@ -709,7 +736,16 @@ export class FiscalService {
       }
       const uf = (c.state || '').toUpperCase();
       if (!UF_COD[uf]) {
-        err('cliente.state', 'UF do cliente ausente ou inválida.');
+        err(
+          'cliente.state',
+          'O cliente não tem o estado (UF) cadastrado. Ele define se a venda é dentro ou fora do estado; edite o cadastro do cliente para continuar.',
+        );
+      }
+      if (!(c.city || '').trim()) {
+        err(
+          'cliente.city',
+          'O cliente não tem a cidade cadastrada. Edite o cadastro do cliente para continuar.',
+        );
       }
       if (!/^\d{7}$/.test(c.municipioIbge || '')) {
         err(
@@ -737,13 +773,17 @@ export class FiscalService {
     }
 
     // ── Itens ──
-    order.items.forEach((item: any, i: number) => {
+    // CFOP e CST NÃO são exigidos do produto: saem do motor de regras fiscais
+    // (CfopResolverService/TaxCalculatorService). Do produto só vêm a
+    // classificação (NCM) e a origem.
+    order.items.forEach((item: any) => {
       const p = item.product;
-      const tag = `item[${i}] (${p.name})`;
-      if (!/^\d{8}$/.test(p.ncm || '')) err(`item.ncm`, `${tag}: NCM ausente ou inválido (8 dígitos).`);
-      if (!p.cfop) err(`item.cfop`, `${tag}: CFOP sugerido não cadastrado.`);
-      if (!p.cst) err(`item.cst`, `${tag}: CST/CSOSN não cadastrado.`);
-      if (p.origin == null) err(`item.origin`, `${tag}: Origem da mercadoria não cadastrada.`);
+      if (!/^\d{8}$/.test(p.ncm || '')) {
+        err('item.ncm', `${p.name}: falta a classificação fiscal (NCM, 8 dígitos).`);
+      }
+      if (p.origin == null) {
+        err('item.origin', `${p.name}: falta informar a origem da mercadoria (nacional ou importada).`);
+      }
     });
 
     // ── Totais ──
@@ -774,8 +814,6 @@ export class FiscalService {
       .filter(
         (item: any) =>
           !/^\d{8}$/.test(item.product.ncm || '') ||
-          !item.product.cfop ||
-          !item.product.cst ||
           item.product.origin == null,
       )
       .map((i: any) => ({
@@ -803,6 +841,16 @@ export class FiscalService {
     const payload = await this.buildEmitPayload(order, config, profile);
 
     const local = this.runLocalPreflight(order, payload, profile);
+
+    // Com erro local (dado faltando no cadastro) o serviço fiscal só repetiria o
+    // problema em inglês; corrigido o cadastro, a validação remota roda.
+    if (local.some((e) => e.severidade === 'error')) {
+      return {
+        valido: false,
+        erros: local,
+        payload,
+      };
+    }
 
     let remote: any[] = [];
     try {
@@ -877,7 +925,7 @@ export class FiscalService {
     if (missingProducts.length > 0) {
       throw new BadRequestException({
         message:
-          'Existem produtos sem dados fiscais completos (NCM, CFOP, CST, Origem). A emissão foi bloqueada.',
+          'Existem produtos sem dados fiscais (NCM e origem). A emissão foi bloqueada.',
         code: 'MISSING_FISCAL_DATA',
         products: missingProducts,
       });
