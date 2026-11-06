@@ -8,7 +8,11 @@ import {
 } from './nfe-payload';
 
 describe('montarPagamento (A1: meio real)', () => {
-  const pag = (method: string, amountCents: number, status = 'APPROVED') => ({ method, status, amountCents });
+  const pag = (method: string, amountCents: number, status = 'APPROVED') => ({
+    method,
+    status,
+    amountCents,
+  });
 
   it('usa os meios reais agrupados (PIX + dinheiro) e fecha com o total do pedido', () => {
     const r = montarPagamento([pag('PIX', 82600), pag('CASH', 82600)], 165200);
@@ -22,10 +26,20 @@ describe('montarPagamento (A1: meio real)', () => {
 
   it('traduz cada método do ERP para o meio do serviço', () => {
     const r = montarPagamento(
-      [pag('CREDIT_CARD', 100), pag('DEBIT_CARD', 100), pag('BOLETO', 100), pag('TRANSFER', 100)],
+      [
+        pag('CREDIT_CARD', 100),
+        pag('DEBIT_CARD', 100),
+        pag('BOLETO', 100),
+        pag('TRANSFER', 100),
+      ],
       400,
     );
-    expect(r.formas.map((f) => f.meio)).toEqual(['CARTAO_CREDITO', 'CARTAO_DEBITO', 'BOLETO', 'TED']);
+    expect(r.formas.map((f) => f.meio)).toEqual([
+      'CARTAO_CREDITO',
+      'CARTAO_DEBITO',
+      'BOLETO',
+      'TED',
+    ]);
   });
 
   it('soma pagamentos do mesmo meio numa linha só', () => {
@@ -34,7 +48,14 @@ describe('montarPagamento (A1: meio real)', () => {
   });
 
   it('ignora pagamento reembolsado, pendente ou cancelado', () => {
-    const r = montarPagamento([pag('PIX', 5700, 'REFUNDED'), pag('CASH', 5700, 'PENDING'), pag('PIX', 1000)], 1000);
+    const r = montarPagamento(
+      [
+        pag('PIX', 5700, 'REFUNDED'),
+        pag('CASH', 5700, 'PENDING'),
+        pag('PIX', 1000),
+      ],
+      1000,
+    );
     expect(r.formas).toEqual([{ meio: 'PIX', valor: 10 }]);
     expect(r.fecha).toBe(true);
   });
@@ -44,7 +65,9 @@ describe('montarPagamento (A1: meio real)', () => {
     expect(r.formas).toEqual([{ meio: 'SEM_PAGAMENTO', valor: 76 }]);
     expect(r.fecha).toBe(false);
     expect(r.avisos[0]).toMatch(/sem pagamento/);
-    expect(montarPagamento(undefined, 100).formas[0].meio).toBe('SEM_PAGAMENTO');
+    expect(montarPagamento(undefined, 100).formas[0].meio).toBe(
+      'SEM_PAGAMENTO',
+    );
   });
 
   it('soma diferente do total: mantém os pagamentos e avisa', () => {
@@ -64,19 +87,29 @@ describe('campos do cadastro (A1)', () => {
   });
 
   it('informações complementares: compacta espaços e limita a 2000', () => {
-    expect(informacoesComplementares('  Entregar   na obra \n bloco B ')).toBe('Entregar na obra bloco B');
+    expect(informacoesComplementares('  Entregar   na obra \n bloco B ')).toBe(
+      'Entregar na obra bloco B',
+    );
     expect(informacoesComplementares('')).toBeUndefined();
     expect(informacoesComplementares('x'.repeat(2500))).toHaveLength(2000);
   });
 
   it('IE do destinatário: indicador sempre que válido; IE só para contribuinte', () => {
-    expect(dadosIeDestinatario({ indicadorIe: 1, stateRegistration: '123.456.789' })).toEqual({
+    expect(
+      dadosIeDestinatario({ indicadorIe: 1, stateRegistration: '123.456.789' }),
+    ).toEqual({
       indicadorIe: 1,
       ie: '123456789',
     });
-    expect(dadosIeDestinatario({ indicadorIe: 9, stateRegistration: '123456789' })).toEqual({ indicadorIe: 9 });
-    expect(dadosIeDestinatario({ indicadorIe: 2, stateRegistration: 'ISENTO' })).toEqual({ indicadorIe: 2 });
-    expect(dadosIeDestinatario({ indicadorIe: null, stateRegistration: null })).toEqual({});
+    expect(
+      dadosIeDestinatario({ indicadorIe: 9, stateRegistration: '123456789' }),
+    ).toEqual({ indicadorIe: 9 });
+    expect(
+      dadosIeDestinatario({ indicadorIe: 2, stateRegistration: 'ISENTO' }),
+    ).toEqual({ indicadorIe: 2 });
+    expect(
+      dadosIeDestinatario({ indicadorIe: null, stateRegistration: null }),
+    ).toEqual({});
     expect(dadosIeDestinatario({ indicadorIe: 7 as any })).toEqual({});
   });
 });
@@ -105,7 +138,13 @@ function build() {
   return service as any;
 }
 
-const perfil = { cnpj: '42580788000100', ie: '123', crt: 1, uf: 'MA', municipioIbge: '2111300' };
+const perfil = {
+  cnpj: '42580788000100',
+  ie: '123',
+  crt: 1,
+  uf: 'MA',
+  municipioIbge: '2111300',
+};
 
 const pedido = (over: any = {}, customer: any = {}) => ({
   id: 'o1',
@@ -132,7 +171,15 @@ const pedido = (over: any = {}, customer: any = {}) => ({
     {
       quantityBoxes: 10,
       totalCents: 178000,
-      product: { id: 'p1', name: 'Porcelanato', ncm: '69072100', origin: 2, unit: 'M2', boxCoverage: 1.5, gtin: '7891234567895' },
+      product: {
+        id: 'p1',
+        name: 'Porcelanato',
+        ncm: '69072100',
+        origin: 2,
+        unit: 'M2',
+        boxCoverage: 1.5,
+        gtin: '7891234567895',
+      },
     },
   ],
   payments: [
@@ -166,15 +213,23 @@ describe('FiscalService.buildEmitPayload — campos novos (A1)', () => {
   it('total pago = total do pedido (o frete NÃO é somado de novo)', async () => {
     const service = build();
     const p = await service.buildEmitPayload(pedido(), {}, perfil);
-    const pago = p.pagamento.formas.reduce((s: number, f: any) => s + f.valor, 0);
+    const pago = p.pagamento.formas.reduce(
+      (s: number, f: any) => s + f.valor,
+      0,
+    );
     const itens = p.itens.reduce((s: number, i: any) => s + i.valorTotal, 0);
-    expect(Number(pago.toFixed(2))).toBe(Number((itens + p.frete.valorFrete - p.desconto).toFixed(2)));
+    expect(Number(pago.toFixed(2))).toBe(
+      Number((itens + p.frete.valorFrete - p.desconto).toFixed(2)),
+    );
   });
 
   it('sem desconto/observação não manda os campos; sem IE do contribuinte não inventa', async () => {
     const service = build();
     const p = await service.buildEmitPayload(
-      pedido({ discountCents: 0, notes: null, totalCents: 183000 }, { indicadorIe: 9, stateRegistration: null }),
+      pedido(
+        { discountCents: 0, notes: null, totalCents: 183000 },
+        { indicadorIe: 9, stateRegistration: null },
+      ),
       {},
       perfil,
     );
@@ -201,11 +256,15 @@ describe('FiscalService.runLocalPreflight — A1', () => {
     const ok = pedido();
     const p = await service.buildEmitPayload(ok, {}, perfil);
     const erros = service.runLocalPreflight(ok, p, perfil);
-    expect(erros.find((e: any) => e.campo === 'totais.desconto')).toBeUndefined();
+    expect(
+      erros.find((e: any) => e.campo === 'totais.desconto'),
+    ).toBeUndefined();
 
     const absurdo = pedido({ discountCents: 999999 });
     const p2 = await service.buildEmitPayload(absurdo, {}, perfil);
-    const e2 = service.runLocalPreflight(absurdo, p2, perfil).find((e: any) => e.campo === 'totais.desconto');
+    const e2 = service
+      .runLocalPreflight(absurdo, p2, perfil)
+      .find((e: any) => e.campo === 'totais.desconto');
     expect(e2.severidade).toBe('error');
   });
 
@@ -213,8 +272,12 @@ describe('FiscalService.runLocalPreflight — A1', () => {
     const service = build();
     const o = pedido({ payments: [] });
     const p = await service.buildEmitPayload(o, {}, perfil);
-    expect(p.pagamento.formas).toEqual([{ meio: 'SEM_PAGAMENTO', valor: 1652 }]);
-    const aviso = service.runLocalPreflight(o, p, perfil).find((e: any) => e.campo === 'pagamento');
+    expect(p.pagamento.formas).toEqual([
+      { meio: 'SEM_PAGAMENTO', valor: 1652 },
+    ]);
+    const aviso = service
+      .runLocalPreflight(o, p, perfil)
+      .find((e: any) => e.campo === 'pagamento');
     expect(aviso.severidade).toBe('warning');
   });
 
@@ -222,7 +285,11 @@ describe('FiscalService.runLocalPreflight — A1', () => {
     const service = build();
     const o = pedido({}, { document: '12345678909', indicadorIe: 1 });
     const p = await service.buildEmitPayload(o, {}, perfil);
-    const e = service.runLocalPreflight(o, p, perfil).find((x: any) => x.campo === 'cliente.indicadorIe' && /CPF/.test(x.mensagem));
+    const e = service
+      .runLocalPreflight(o, p, perfil)
+      .find(
+        (x: any) => x.campo === 'cliente.indicadorIe' && /CPF/.test(x.mensagem),
+      );
     expect(e?.severidade).toBe('error');
   });
 });

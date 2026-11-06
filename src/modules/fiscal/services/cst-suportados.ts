@@ -8,7 +8,18 @@ export const CST_ICMS_SUPORTADOS: Record<number, string[]> = {
   2: ['102', '103', '300', '400', '500'], // Simples, excesso de sublimite
 };
 
-export const CST_PIS_COFINS_SUPORTADOS = ['01', '02', '04', '05', '06', '07', '08', '09', '49', '99'];
+export const CST_PIS_COFINS_SUPORTADOS = [
+  '01',
+  '02',
+  '04',
+  '05',
+  '06',
+  '07',
+  '08',
+  '09',
+  '49',
+  '99',
+];
 
 export interface ImpostosDoItem {
   icms?: { cst?: string | null };
@@ -17,7 +28,10 @@ export interface ImpostosDoItem {
 }
 
 /** Lista o que, nos impostos do item, o serviço fiscal ainda não consegue transmitir. */
-export function cstNaoSuportados(crt: number | null | undefined, impostos: ImpostosDoItem): string[] {
+export function cstNaoSuportados(
+  crt: number | null | undefined,
+  impostos: ImpostosDoItem,
+): string[] {
   const problemas: string[] = [];
 
   const icms = String(impostos.icms?.cst ?? '').trim();
@@ -35,7 +49,9 @@ export function cstNaoSuportados(crt: number | null | undefined, impostos: Impos
   ] as const) {
     const v = String(cst ?? '').trim();
     if (!CST_PIS_COFINS_SUPORTADOS.includes(v)) {
-      problemas.push(`${nome} com CST "${v || 'vazio'}" (aceitos: ${CST_PIS_COFINS_SUPORTADOS.join(', ')})`);
+      problemas.push(
+        `${nome} com CST "${v || 'vazio'}" (aceitos: ${CST_PIS_COFINS_SUPORTADOS.join(', ')})`,
+      );
     }
   }
   return problemas;

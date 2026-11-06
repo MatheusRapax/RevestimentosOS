@@ -4,7 +4,12 @@
 
 export type StatusLocal = 'PROCESSING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
-const EM_ANDAMENTO = new Set(['PENDING', 'PROCESSING', 'QUEUED', 'AWAITING_SEFAZ']);
+const EM_ANDAMENTO = new Set([
+  'PENDING',
+  'PROCESSING',
+  'QUEUED',
+  'AWAITING_SEFAZ',
+]);
 
 /**
  * Status textual do serviço fiscal → status do ERP.
@@ -16,10 +21,15 @@ export function mapearStatusNexos(status: string | null | undefined): {
   status: StatusLocal;
   conhecido: boolean;
 } {
-  const s = String(status ?? '').trim().toUpperCase();
-  if (s === 'AUTHORIZED' || s === 'APPROVED' || s === 'CORRECTED') return { status: 'APPROVED', conhecido: true };
-  if (s === 'REJECTED' || s === 'DENIED' || s === 'FAILED') return { status: 'REJECTED', conhecido: true };
-  if (s === 'CANCELLED' || s === 'CANCELED') return { status: 'CANCELLED', conhecido: true };
+  const s = String(status ?? '')
+    .trim()
+    .toUpperCase();
+  if (s === 'AUTHORIZED' || s === 'APPROVED' || s === 'CORRECTED')
+    return { status: 'APPROVED', conhecido: true };
+  if (s === 'REJECTED' || s === 'DENIED' || s === 'FAILED')
+    return { status: 'REJECTED', conhecido: true };
+  if (s === 'CANCELLED' || s === 'CANCELED')
+    return { status: 'CANCELLED', conhecido: true };
   if (EM_ANDAMENTO.has(s)) return { status: 'PROCESSING', conhecido: true };
   return { status: 'PROCESSING', conhecido: false };
 }
@@ -28,10 +38,16 @@ export const AGUARDANDO_SEFAZ_MENSAGEM =
   'Aguardando a SEFAZ; a nota será emitida automaticamente.';
 
 /** "homologacao" | "producao" a partir do que o serviço (ou a config local) informar. */
-export function normalizarAmbiente(valor: unknown): 'homologacao' | 'producao' | null {
-  const v = String(valor ?? '').trim().toLowerCase();
-  if (['homologacao', 'homologação', 'hom', '2', 'homologation'].includes(v)) return 'homologacao';
-  if (['producao', 'produção', 'prod', '1', 'production'].includes(v)) return 'producao';
+export function normalizarAmbiente(
+  valor: unknown,
+): 'homologacao' | 'producao' | null {
+  const v = String(valor ?? '')
+    .trim()
+    .toLowerCase();
+  if (['homologacao', 'homologação', 'hom', '2', 'homologation'].includes(v))
+    return 'homologacao';
+  if (['producao', 'produção', 'prod', '1', 'production'].includes(v))
+    return 'producao';
   return null;
 }
 
@@ -77,8 +93,10 @@ export function planejarWebhook(
 
   // Campos de acompanhamento que o serviço pode mandar junto (B3): só entram se vierem.
   const acompanhamento: Record<string, any> = {};
-  if (d.series != null && d.series !== '') acompanhamento.serie = String(d.series);
-  if (d.number != null && d.number !== '') acompanhamento.number = String(d.number);
+  if (d.series != null && d.series !== '')
+    acompanhamento.serie = String(d.series);
+  if (d.number != null && d.number !== '')
+    acompanhamento.number = String(d.number);
   const amb = normalizarAmbiente(d.environment);
   if (amb) acompanhamento.environment = amb;
 
@@ -95,24 +113,36 @@ export function planejarWebhook(
   switch (nome) {
     case 'NFeAuthorized':
       if (doc.status === 'CANCELLED') {
-        return { acao: 'ignorar', motivo: 'autorização atrasada de nota já cancelada' };
+        return {
+          acao: 'ignorar',
+          motivo: 'autorização atrasada de nota já cancelada',
+        };
       }
       return {
         acao: 'atualizar',
         resumo: 'APPROVED',
-        dados: { status: 'APPROVED', errorMessage: null, ...referencias(), ...acompanhamento },
+        dados: {
+          status: 'APPROVED',
+          errorMessage: null,
+          ...referencias(),
+          ...acompanhamento,
+        },
       };
 
     case 'NFeRejected':
       if (doc.status === 'CANCELLED') {
-        return { acao: 'ignorar', motivo: 'rejeição atrasada de nota já cancelada' };
+        return {
+          acao: 'ignorar',
+          motivo: 'rejeição atrasada de nota já cancelada',
+        };
       }
       return {
         acao: 'atualizar',
         resumo: 'REJECTED',
         dados: {
           status: 'REJECTED',
-          errorMessage: d.rejectionreason || d.motivo || 'Nota rejeitada pela SEFAZ.',
+          errorMessage:
+            d.rejectionreason || d.motivo || 'Nota rejeitada pela SEFAZ.',
           ...referencias(),
           ...acompanhamento,
         },
@@ -135,10 +165,14 @@ export function planejarWebhook(
     case 'EventRejected': {
       const tipo = String(d.eventtype ?? '').toUpperCase();
       if (tipo === 'DISABLEMENT') {
-        return { acao: 'ignorar', motivo: 'inutilização recusada (não pertence a uma nota)' };
+        return {
+          acao: 'ignorar',
+          motivo: 'inutilização recusada (não pertence a uma nota)',
+        };
       }
       const motivo = d.motivo ? String(d.motivo) : 'sem detalhe do motivo';
-      const cstat = d.cstat != null && d.cstat !== '' ? ` (cStat ${d.cstat})` : '';
+      const cstat =
+        d.cstat != null && d.cstat !== '' ? ` (cStat ${d.cstat})` : '';
       const dados: Record<string, any> = {
         eventError: `${textoEvento(tipo)} recusado pela SEFAZ: ${motivo}${cstat}`,
         eventErrorType: tipo || 'UNKNOWN',
@@ -148,21 +182,37 @@ export function planejarWebhook(
         dados.cancelEventId = null;
         dados.cancelRequestedAt = null;
       }
-      return { acao: 'atualizar', resumo: `EventRejected/${dados.eventErrorType}`, dados };
+      return {
+        acao: 'atualizar',
+        resumo: `EventRejected/${dados.eventErrorType}`,
+        dados,
+      };
     }
 
     case 'NFeDelayed':
       // B1: a SEFAZ está lenta/fora; a nota segue em andamento e o serviço retoma sozinho.
-      return { acao: 'ignorar', motivo: 'nota em espera da SEFAZ (segue em andamento)' };
+      return {
+        acao: 'ignorar',
+        motivo: 'nota em espera da SEFAZ (segue em andamento)',
+      };
 
     case 'NFeCorrection':
-      return { acao: 'ignorar', motivo: 'carta de correção registrada (sem mudança de status)' };
+      return {
+        acao: 'ignorar',
+        motivo: 'carta de correção registrada (sem mudança de status)',
+      };
 
     case 'RangeDisabled':
-      return { acao: 'ignorar', motivo: 'inutilização de faixa (sem nota associada)' };
+      return {
+        acao: 'ignorar',
+        motivo: 'inutilização de faixa (sem nota associada)',
+      };
 
     default:
-      return { acao: 'ignorar', motivo: `evento desconhecido: ${nome || '(sem nome)'}` };
+      return {
+        acao: 'ignorar',
+        motivo: `evento desconhecido: ${nome || '(sem nome)'}`,
+      };
   }
 }
 
@@ -231,8 +281,10 @@ export function planejarReconciliacao(
   if (remota.accessKey && !local.key) dados.key = remota.accessKey;
   const amb = normalizarAmbiente(remota.environment);
   if (amb && amb !== local.environment) dados.environment = amb;
-  if (remota.series != null && String(remota.series) !== (local.serie ?? '')) dados.serie = String(remota.series);
-  if (remota.number != null && String(remota.number) !== (local.number ?? '')) dados.number = String(remota.number);
+  if (remota.series != null && String(remota.series) !== (local.serie ?? ''))
+    dados.serie = String(remota.series);
+  if (remota.number != null && String(remota.number) !== (local.number ?? ''))
+    dados.number = String(remota.number);
 
   return Object.keys(dados).length > 0 ? dados : null;
 }
@@ -256,7 +308,9 @@ export function planejarCancelamentoPendente(
 ): Record<string, any> | null {
   if (!local.cancelRequestedAt) return null;
   const evento = eventos.find(
-    (e) => String(e.type).toUpperCase() === 'CANCELLATION' && (!local.cancelEventId || e.id === local.cancelEventId),
+    (e) =>
+      String(e.type).toUpperCase() === 'CANCELLATION' &&
+      (!local.cancelEventId || e.id === local.cancelEventId),
   );
   if (!evento) return null;
   const st = String(evento.status).toUpperCase();
@@ -270,7 +324,10 @@ export function planejarCancelamentoPendente(
     };
   }
   if (st === 'REJECTED') {
-    const cstat = evento.cStat != null && evento.cStat !== '' ? ` (cStat ${evento.cStat})` : '';
+    const cstat =
+      evento.cStat != null && evento.cStat !== ''
+        ? ` (cStat ${evento.cStat})`
+        : '';
     return {
       cancelEventId: null,
       cancelRequestedAt: null,

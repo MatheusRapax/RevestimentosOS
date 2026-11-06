@@ -34,15 +34,25 @@ const reais = (cents: number) => Number((cents / 100).toFixed(2));
 export function montarPagamento(
   pagamentos: PagamentoPedido[] | undefined | null,
   totalNotaCents: number,
-): { formas: FormaPagamento[]; fecha: boolean; somaCents: number; avisos: string[] } {
-  const aprovados = (pagamentos ?? []).filter((p) => p.status === 'APPROVED' && p.amountCents > 0);
+): {
+  formas: FormaPagamento[];
+  fecha: boolean;
+  somaCents: number;
+  avisos: string[];
+} {
+  const aprovados = (pagamentos ?? []).filter(
+    (p) => p.status === 'APPROVED' && p.amountCents > 0,
+  );
   const porMeio = new Map<string, number>();
   for (const p of aprovados) {
     const meio = MEIO_POR_METODO[p.method];
     if (!meio) continue; // método desconhecido: não inventa um meio
     porMeio.set(meio, (porMeio.get(meio) ?? 0) + p.amountCents);
   }
-  let formas = [...porMeio.entries()].map(([meio, cents]) => ({ meio, valor: reais(cents) }));
+  let formas = [...porMeio.entries()].map(([meio, cents]) => ({
+    meio,
+    valor: reais(cents),
+  }));
   const somaCents = [...porMeio.values()].reduce((s, c) => s + c, 0);
   const fecha = Math.abs(somaCents - totalNotaCents) <= 1;
   const avisos: string[] = [];
@@ -70,7 +80,9 @@ export function gtinParaNota(gtin: unknown): string | undefined {
 
 /** Observações do pedido como informações complementares (limite do campo infCpl: 2000). */
 export function informacoesComplementares(notes: unknown): string | undefined {
-  const t = String(notes ?? '').replace(/\s+/g, ' ').trim();
+  const t = String(notes ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
   return t ? t.slice(0, 2000) : undefined;
 }
 

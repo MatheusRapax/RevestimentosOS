@@ -49,7 +49,12 @@ const produto = (over: any = {}) => ({
   ...over,
 });
 
-const pedido = (customer: any, items: any[] = [{ product: produto(), quantityBoxes: 10, totalCents: 100000 }]) => ({
+const pedido = (
+  customer: any,
+  items: any[] = [
+    { product: produto(), quantityBoxes: 10, totalCents: 100000 },
+  ],
+) => ({
   id: 'o1',
   clinicId: 'c1',
   status: 'PAGO',
@@ -72,16 +77,34 @@ const pedido = (customer: any, items: any[] = [{ product: produto(), quantityBox
 describe('FiscalService — tipo de operação calculado do cadastro', () => {
   it('cliente do mesmo estado: venda dentro do estado (5102), sem transmitir o resumo', async () => {
     const { service } = build();
-    const payload = await service.buildEmitPayload(pedido({ state: 'MA' }), {}, perfil());
-    expect(payload._operacao).toMatchObject({ ufOrigem: 'MA', ufDestino: 'MA', interestadual: false });
+    const payload = await service.buildEmitPayload(
+      pedido({ state: 'MA' }),
+      {},
+      perfil(),
+    );
+    expect(payload._operacao).toMatchObject({
+      ufOrigem: 'MA',
+      ufDestino: 'MA',
+      interestadual: false,
+    });
     expect(payload.itens[0].cfop).toBe('5102');
-    expect(service.toTransmissionPayload(payload)).not.toHaveProperty('_operacao');
+    expect(service.toTransmissionPayload(payload)).not.toHaveProperty(
+      '_operacao',
+    );
   });
 
   it('cliente de outro estado: venda interestadual (6108 para consumidor final não contribuinte)', async () => {
     const { service } = build();
-    const payload = await service.buildEmitPayload(pedido({ state: 'sp' }), {}, perfil());
-    expect(payload._operacao).toMatchObject({ ufOrigem: 'MA', ufDestino: 'SP', interestadual: true });
+    const payload = await service.buildEmitPayload(
+      pedido({ state: 'sp' }),
+      {},
+      perfil(),
+    );
+    expect(payload._operacao).toMatchObject({
+      ufOrigem: 'MA',
+      ufDestino: 'SP',
+      interestadual: true,
+    });
     expect(payload.itens[0].cfop).toBe('6108');
   });
 
@@ -101,11 +124,23 @@ describe('FiscalService — tipo de operação calculado do cadastro', () => {
   it('sem UF do emitente também não assume SP', async () => {
     const { service, taxCalculator } = build();
     const order = pedido({ state: 'MA' });
-    const payload = await service.buildEmitPayload(order, {}, perfil({ uf: null }));
+    const payload = await service.buildEmitPayload(
+      order,
+      {},
+      perfil({ uf: null }),
+    );
     expect(payload._operacao).toBeNull();
     expect(taxCalculator.calcular.mock.calls[0][0].ufOrigem).toBe('');
-    const erros = service.runLocalPreflight(order, payload, perfil({ uf: null }));
-    expect(erros.some((x: any) => x.campo === 'emitente.uf' && x.severidade === 'error')).toBe(true);
+    const erros = service.runLocalPreflight(
+      order,
+      payload,
+      perfil({ uf: null }),
+    );
+    expect(
+      erros.some(
+        (x: any) => x.campo === 'emitente.uf' && x.severidade === 'error',
+      ),
+    ).toBe(true);
   });
 });
 
@@ -123,7 +158,9 @@ describe('FiscalService — validateOrder não repete em inglês o que já falta
     });
     const r = await service.validateOrder('o1', 'c1');
     expect(r.valido).toBe(false);
-    expect(r.erros.map((e: any) => e.campo)).toEqual(expect.arrayContaining(['cliente.state', 'cliente.city']));
+    expect(r.erros.map((e: any) => e.campo)).toEqual(
+      expect.arrayContaining(['cliente.state', 'cliente.city']),
+    );
     expect(http.post).not.toHaveBeenCalled();
   });
 });
@@ -147,10 +184,14 @@ describe('FiscalService — dados fiscais exigidos do produto', () => {
       { product: semNcm, quantityBoxes: 1, totalCents: 1000 },
       { product: semOrigem, quantityBoxes: 1, totalCents: 1000 },
     ]);
-    expect(service.missingItemFiscalProducts(order).map((p: any) => p.id)).toEqual(['p2', 'p3']);
+    expect(
+      service.missingItemFiscalProducts(order).map((p: any) => p.id),
+    ).toEqual(['p2', 'p3']);
     const payload = await service.buildEmitPayload(order, {}, perfil());
     const erros = service.runLocalPreflight(order, payload, perfil());
-    const msgs = erros.filter((x: any) => x.campo.startsWith('item.')).map((x: any) => x.mensagem);
+    const msgs = erros
+      .filter((x: any) => x.campo.startsWith('item.'))
+      .map((x: any) => x.mensagem);
     expect(msgs).toEqual([
       'Argamassa AC3: falta a classificação fiscal (NCM, 8 dígitos).',
       'Rejunte: falta informar a origem da mercadoria (nacional ou importada).',

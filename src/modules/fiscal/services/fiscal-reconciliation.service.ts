@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
@@ -31,7 +36,9 @@ export interface ResultadoReconciliacao {
  * Sem dependência de agendador: um timer simples; é idempotente, então duas instâncias não se atrapalham.
  */
 @Injectable()
-export class FiscalReconciliationService implements OnModuleInit, OnModuleDestroy {
+export class FiscalReconciliationService
+  implements OnModuleInit, OnModuleDestroy
+{
   private readonly logger = new Logger(FiscalReconciliationService.name);
   private timer?: NodeJS.Timeout;
   private primeira?: NodeJS.Timeout;
@@ -52,12 +59,15 @@ export class FiscalReconciliationService implements OnModuleInit, OnModuleDestro
       return;
     }
     const intervalo =
-      Number(this.configService.get<string>('FISCAL_RECONCILE_INTERVAL_MS')) || INTERVALO_PADRAO_MS;
+      Number(this.configService.get<string>('FISCAL_RECONCILE_INTERVAL_MS')) ||
+      INTERVALO_PADRAO_MS;
     this.primeira = setTimeout(() => void this.reconciliarTodas(), 30_000);
     this.timer = setInterval(() => void this.reconciliarTodas(), intervalo);
     this.timer.unref?.();
     this.primeira.unref?.();
-    this.logger.log(`Reconciliação fiscal a cada ${Math.round(intervalo / 1000)} s.`);
+    this.logger.log(
+      `Reconciliação fiscal a cada ${Math.round(intervalo / 1000)} s.`,
+    );
   }
 
   onModuleDestroy() {
@@ -83,7 +93,9 @@ export class FiscalReconciliationService implements OnModuleInit, OnModuleDestro
             );
           }
         } catch (e: any) {
-          this.logger.warn(`Reconciliação da loja ${clinicId} falhou: ${e?.message || e}`);
+          this.logger.warn(
+            `Reconciliação da loja ${clinicId} falhou: ${e?.message || e}`,
+          );
         }
       }
     } catch (e: any) {
@@ -94,15 +106,21 @@ export class FiscalReconciliationService implements OnModuleInit, OnModuleDestro
   }
 
   async reconciliarClinica(clinicId: string): Promise<ResultadoReconciliacao> {
-    const config = await this.prisma.clinicFiscalConfig.findUnique({ where: { clinicId } });
-    const apiKey = config?.nexosApiKey || this.configService.get<string>('FISCAL_API_KEY');
+    const config = await this.prisma.clinicFiscalConfig.findUnique({
+      where: { clinicId },
+    });
+    const apiKey =
+      config?.nexosApiKey || this.configService.get<string>('FISCAL_API_KEY');
     const apiUrl = this.configService.get<string>('FISCAL_MICROSERVICE_URL');
-    if (!apiKey || !apiUrl) return { conferidas: 0, atualizadas: 0, cancelamentosPendentes: 0 };
+    if (!apiKey || !apiUrl)
+      return { conferidas: 0, atualizadas: 0, cancelamentosPendentes: 0 };
     const headers = { 'X-API-Key': apiKey };
 
     const inicio = new Date(); // o próximo cursor: tudo que mudar depois disto será lido na volta seguinte
     const desde = new Date(
-      (config?.lastReconciledAt ? config.lastReconciledAt.getTime() - SOBREPOSICAO_MS : inicio.getTime() - PRIMEIRA_JANELA_MS),
+      config?.lastReconciledAt
+        ? config.lastReconciledAt.getTime() - SOBREPOSICAO_MS
+        : inicio.getTime() - PRIMEIRA_JANELA_MS,
     );
 
     let conferidas = 0;
@@ -112,7 +130,11 @@ export class FiscalReconciliationService implements OnModuleInit, OnModuleDestro
       const resp = await firstValueFrom(
         this.httpService.get(`${apiUrl}/nfe`, {
           headers,
-          params: { updatedSince: desde.toISOString(), page: pagina, pageSize: TAMANHO_PAGINA },
+          params: {
+            updatedSince: desde.toISOString(),
+            page: pagina,
+            pageSize: TAMANHO_PAGINA,
+          },
         }),
       );
       const corpo = resp.data ?? {};
@@ -123,13 +145,19 @@ export class FiscalReconciliationService implements OnModuleInit, OnModuleDestro
         const local = await this.prisma.fiscalDocument.findFirst({
           where: {
             clinicId,
-            OR: [{ uuid: remota.id }, ...(remota.externalId ? [{ orderId: remota.externalId }] : [])],
+            OR: [
+              { uuid: remota.id },
+              ...(remota.externalId ? [{ orderId: remota.externalId }] : []),
+            ],
           },
         });
         if (!local) continue; // nota que não nasceu de um pedido do ERP (ex.: teste direto na API)
         const dados = planejarReconciliacao(local, remota);
         if (dados) {
-          await this.prisma.fiscalDocument.update({ where: { id: local.id }, data: dados });
+          await this.prisma.fiscalDocument.update({
+            where: { id: local.id },
+            data: dados,
+          });
           atualizadas++;
         }
       }
@@ -138,7 +166,11 @@ export class FiscalReconciliationService implements OnModuleInit, OnModuleDestro
       if (pagina >= totalPaginas) break;
     }
 
-    const cancelamentosPendentes = await this.conferirCancelamentosPendentes(clinicId, apiUrl, headers);
+    const cancelamentosPendentes = await this.conferirCancelamentosPendentes(
+      clinicId,
+      apiUrl,
+      headers,
+    );
 
     await this.prisma.clinicFiscalConfig.update({
       where: { clinicId },
@@ -157,7 +189,12 @@ export class FiscalReconciliationService implements OnModuleInit, OnModuleDestro
     headers: Record<string, string>,
   ): Promise<number> {
     const pendentes = await this.prisma.fiscalDocument.findMany({
-      where: { clinicId, status: 'APPROVED', cancelRequestedAt: { not: null }, uuid: { not: null } },
+      where: {
+        clinicId,
+        status: 'APPROVED',
+        cancelRequestedAt: { not: null },
+        uuid: { not: null },
+      },
     });
     let resolvidos = 0;
     for (const doc of pendentes) {
@@ -165,14 +202,21 @@ export class FiscalReconciliationService implements OnModuleInit, OnModuleDestro
         const resp = await firstValueFrom(
           this.httpService.get(`${apiUrl}/nfe/${doc.uuid}/events`, { headers }),
         );
-        const eventos: EventoRemoto[] = Array.isArray(resp.data) ? resp.data : resp.data?.data ?? [];
+        const eventos: EventoRemoto[] = Array.isArray(resp.data)
+          ? resp.data
+          : (resp.data?.data ?? []);
         const dados = planejarCancelamentoPendente(doc, eventos);
         if (dados) {
-          await this.prisma.fiscalDocument.update({ where: { id: doc.id }, data: dados });
+          await this.prisma.fiscalDocument.update({
+            where: { id: doc.id },
+            data: dados,
+          });
           resolvidos++;
         }
       } catch (e: any) {
-        this.logger.warn(`Eventos da nota ${doc.id} indisponíveis: ${e?.message || e}`);
+        this.logger.warn(
+          `Eventos da nota ${doc.id} indisponíveis: ${e?.message || e}`,
+        );
       }
     }
     return resolvidos;
