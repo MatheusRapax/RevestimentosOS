@@ -20,6 +20,8 @@ import {
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { NcmPicker } from '@/components/fiscal/ncm-picker';
+import { ORIGENS } from '@/lib/fiscal-labels';
 
 interface FastInputModalProps {
   isOpen: boolean;
@@ -39,43 +41,36 @@ interface FastInputModalProps {
 
 type FiscalRow = {
   ncm: string;
-  cfop: string;
-  cst: string;
   cest: string;
   origin: string;
   gtin: string;
 };
 
-const EMPTY_ROW: FiscalRow = {
-  ncm: '',
-  cfop: '5102',
-  cst: '00',
-  cest: '',
-  origin: '0',
-  gtin: '',
-};
-
+/**
+ * Só pedimos o que o sistema não consegue descobrir sozinho: a classificação do produto
+ * (NCM) e a origem. CFOP e CST saem do motor de regras fiscais, a partir do perfil da
+ * empresa e do cadastro do cliente — por isso não aparecem aqui.
+ */
 export const FastInputModal = ({ isOpen, onClose, products, onSuccess }: FastInputModalProps) => {
   const [fiscalData, setFiscalData] = useState<Record<string, FiscalRow>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
 
   useEffect(() => {
     if (isOpen && products.length > 0) {
       const initialData: Record<string, FiscalRow> = {};
       products.forEach((p) => {
-        // O produto pode já ter alguns campos corretos (ex.: só falta a
-        // Origem) — parte do que já está cadastrado em vez de zerar tudo,
-        // senão o operador precisa redigitar NCM/CFOP/CST de cabeça.
+        // Parte do que já está cadastrado (ex.: só falta a origem). A origem NÃO tem valor
+        // padrão: "nacional" por engano num porcelanato importado muda o imposto.
         initialData[p.id] = {
-          ncm: p.ncm || EMPTY_ROW.ncm,
-          cfop: p.cfop || EMPTY_ROW.cfop,
-          cst: p.cst || EMPTY_ROW.cst,
-          cest: p.cest || EMPTY_ROW.cest,
-          origin: p.origin != null ? String(p.origin) : EMPTY_ROW.origin,
-          gtin: p.gtin || EMPTY_ROW.gtin,
+          ncm: p.ncm && /^\d{8}$/.test(p.ncm) ? p.ncm : '',
+          cest: p.cest || '',
+          origin: p.origin != null ? String(p.origin) : '',
+          gtin: p.gtin || '',
         };
       });
       setFiscalData(initialData);
+      setShowErrors(false);
     }
   }, [isOpen, products]);
 
@@ -87,37 +82,37 @@ export const FastInputModal = ({ isOpen, onClose, products, onSuccess }: FastInp
   };
 
   const handleSave = async () => {
-    let hasError = false;
+    const incompleto = products.some((p) => {
+      const data = fiscalData[p.id];
+      return !data || !/^\d{8}$/.test(data.ncm) || data.origin === '';
+    });
+
+    if (incompleto) {
+      setShowErrors(true);
+      toast.error('Escolha a classificação fiscal e a origem de todos os produtos.');
+      return;
+    }
+
     const updates = products.map((p) => {
       const data = fiscalData[p.id];
-      if (!/^\d{8}$/.test(data.ncm) || !data.cfop || !data.cst || data.origin === '') {
-        hasError = true;
-      }
       return {
         id: p.id,
         ncm: data.ncm,
-        cfop: data.cfop,
-        cst: data.cst,
-        cest: data.cest || undefined,
-        origin: data.origin !== '' ? Number(data.origin) : undefined,
-        gtin: data.gtin?.trim() || undefined,
+        cest: data.cest.trim() || undefined,
+        origin: Number(data.origin),
+        gtin: data.gtin.trim() || undefined,
       };
     });
-
-    if (hasError) {
-      toast.error('Preencha NCM (8 dígitos), CFOP, CST e Origem para todos os produtos.');
-      return;
-    }
 
     setIsSubmitting(true);
     try {
       await api.patch('/stock/products/batch-fiscal', { updates });
-      toast.success('Dados fiscais atualizados com sucesso!');
+      toast.success('Dados fiscais salvos no cadastro dos produtos.');
       onClose();
       onSuccess(); // Retry emission
     } catch (error: any) {
       console.error('Error saving fiscal data:', error);
-      toast.error(error.response?.data?.message?.[0] || error.response?.data?.message || 'Erro ao atualizar dados fiscais.');
+      toast.error(error.response?.data?.message?.[0] || error.response?.data?.message || 'Erro ao salvar os dados fiscais.');
     } finally {
       setIsSubmitting(false);
     }
@@ -125,91 +120,88 @@ export const FastInputModal = ({ isOpen, onClose, products, onSuccess }: FastInp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="p-2 bg-yellow-100 rounded-full">
               <AlertTriangle className="h-5 w-5 text-yellow-600" />
             </div>
             <div>
-              <DialogTitle>Preenchimento Fiscal Obrigatório</DialogTitle>
+              <DialogTitle>Faltam dados fiscais nos produtos</DialogTitle>
               <DialogDescription>
-                A SEFAZ exige NCM, CFOP, CST e Origem. Os produtos abaixo estão sem essas
-                informações no cadastro. Preencha para atualizar o cadastro e concluir a emissão.
+                Para emitir a nota, cada produto precisa de duas informações. Você preenche uma vez:
+                elas ficam salvas no cadastro e não serão pedidas de novo. Os impostos e o tipo da
+                operação (dentro ou fora do estado) o sistema calcula sozinho.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="mt-4 space-y-4">
-          {products.map((product) => (
-            <div key={product.id} className="border p-4 rounded-lg bg-slate-50">
-              <h4 className="font-semibold text-slate-800 mb-3">{product.name}</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1">
-                  <Label>NCM <span className="text-red-500">*</span> <span className="text-xs text-gray-400">(8 dígitos)</span></Label>
-                  <Input
-                    placeholder="Ex: 69072100"
-                    maxLength={8}
-                    value={fiscalData[product.id]?.ncm || ''}
-                    onChange={(e) => handleInputChange(product.id, 'ncm', e.target.value.replace(/\D/g, ''))}
-                  />
+          {products.map((product) => {
+            const row = fiscalData[product.id];
+            const ncmFalta = showErrors && !/^\d{8}$/.test(row?.ncm || '');
+            const origemFalta = showErrors && (row?.origin ?? '') === '';
+            return (
+              <div key={product.id} className="border p-4 rounded-lg bg-slate-50 space-y-4">
+                <h4 className="font-semibold text-slate-800">{product.name}</h4>
+
+                <div className="space-y-1.5">
+                  <Label>
+                    O que é este produto? (classificação fiscal) <span className="text-red-500">*</span>
+                  </Label>
+                  <NcmPicker value={row?.ncm || ''} onChange={(v) => handleInputChange(product.id, 'ncm', v)} />
+                  {ncmFalta && <p className="text-xs text-red-600">Escolha uma classificação para este produto.</p>}
                 </div>
-                <div className="space-y-1">
-                  <Label>CFOP <span className="text-red-500">*</span> <span className="text-xs text-gray-400">(sugerido)</span></Label>
-                  <Input
-                    placeholder="Ex: 5102"
-                    value={fiscalData[product.id]?.cfop || ''}
-                    onChange={(e) => handleInputChange(product.id, 'cfop', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>CST / CSOSN <span className="text-red-500">*</span></Label>
-                  <Input
-                    placeholder="Ex: 00"
-                    value={fiscalData[product.id]?.cst || ''}
-                    onChange={(e) => handleInputChange(product.id, 'cst', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Origem <span className="text-red-500">*</span></Label>
+
+                <div className="space-y-1.5 md:max-w-md">
+                  <Label>
+                    De onde vem o produto? <span className="text-red-500">*</span>
+                  </Label>
                   <Select
-                    value={fiscalData[product.id]?.origin ?? '0'}
+                    value={row?.origin ?? ''}
                     onValueChange={(v) => handleInputChange(product.id, 'origin', v)}
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className={origemFalta ? 'border-red-400' : undefined}>
+                      <SelectValue placeholder="Escolha a origem" />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="0">0 - Nacional</SelectItem>
-                      <SelectItem value="1">1 - Estrangeira (importação direta)</SelectItem>
-                      <SelectItem value="2">2 - Estrangeira (mercado interno)</SelectItem>
-                      <SelectItem value="3">3 - Nacional, conteúdo import. &gt; 40% e ≤ 70%</SelectItem>
-                      <SelectItem value="4">4 - Nacional (processos produtivos básicos)</SelectItem>
-                      <SelectItem value="5">5 - Nacional, conteúdo import. ≤ 40%</SelectItem>
-                      <SelectItem value="6">6 - Estrangeira (import. direta, sem similar)</SelectItem>
-                      <SelectItem value="7">7 - Estrangeira (mercado interno, sem similar)</SelectItem>
-                      <SelectItem value="8">8 - Nacional, conteúdo import. &gt; 70%</SelectItem>
+                      {ORIGENS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  {origemFalta && <p className="text-xs text-red-600">Escolha a origem deste produto.</p>}
                 </div>
-                <div className="space-y-1">
-                  <Label>CEST</Label>
-                  <Input
-                    placeholder="Opcional"
-                    value={fiscalData[product.id]?.cest || ''}
-                    onChange={(e) => handleInputChange(product.id, 'cest', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>GTIN / EAN</Label>
-                  <Input
-                    placeholder="Deixe vazio se não houver"
-                    value={fiscalData[product.id]?.gtin || ''}
-                    onChange={(e) => handleInputChange(product.id, 'gtin', e.target.value)}
-                  />
-                </div>
+
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-slate-500 hover:text-slate-700">
+                    Mais dados (opcionais)
+                  </summary>
+                  <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label>Código de barras (GTIN / EAN)</Label>
+                      <Input
+                        placeholder="Deixe vazio se não houver"
+                        value={row?.gtin || ''}
+                        onChange={(e) => handleInputChange(product.id, 'gtin', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>CEST</Label>
+                      <Input
+                        placeholder="Só se o contador pedir"
+                        value={row?.cest || ''}
+                        onChange={(e) => handleInputChange(product.id, 'cest', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </details>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <DialogFooter className="mt-6">

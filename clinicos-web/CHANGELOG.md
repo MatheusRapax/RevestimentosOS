@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.19.1](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.19.0...v1.19.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **fiscal:** trava de segurança — nenhuma emissão em produção sem liberação no servidor ([d780056](https://github.com/MatheusRapax/RevestimentosOS/commit/d780056b3dd388d7dcfa3bc7bb787f9e8cf0a6e4))
+
 ## [1.19.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.18.2...v1.19.0) (2026-11-05)
 
 

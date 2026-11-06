@@ -6,6 +6,7 @@ import {
   Post,
   Put,
   UseGuards,
+  Logger,
   Query,
   Req,
   Res,
@@ -15,6 +16,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FiscalService } from '../services/fiscal.service';
+import { FiscalReconciliationService } from '../services/fiscal-reconciliation.service';
 import { JwtAuthGuard } from '../../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../../core/tenant/guards/tenant.guard';
 import { PermissionsGuard } from '../../../core/rbac/guards/permissions.guard';
@@ -23,6 +25,7 @@ import { PERMISSIONS } from '../../../core/rbac/permissions';
 import { CurrentUser } from '../../../core/auth/decorators/current-user.decorator';
 import { UpdateFiscalSettingsDto } from '../dto/update-fiscal-settings.dto';
 import { UpsertFiscalProfileDto } from '../dto/upsert-fiscal-profile.dto';
+import { CancelDocumentDto } from '../dto/cancel-document.dto';
 import { Public } from '../../../core/auth/decorators/public.decorator';
 import { Request, Response } from 'express';
 import * as crypto from 'crypto';
@@ -30,7 +33,13 @@ import * as crypto from 'crypto';
 @Controller('fiscal')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class FiscalController {
-  constructor(private readonly fiscalService: FiscalService) {}
+  private readonly logger = new Logger(FiscalController.name);
+  private avisouSegredoPadrao = false;
+
+  constructor(
+    private readonly fiscalService: FiscalService,
+    private readonly reconciliation: FiscalReconciliationService,
+  ) {}
 
   @Post('emit/:orderId')
   @Permissions(PERMISSIONS.FISCAL_EMIT)
@@ -80,6 +89,31 @@ export class FiscalController {
       'Content-Disposition': `inline; filename="${file.filename}"`,
     });
     res.send(file.data);
+  }
+
+  /** Pede à SEFAZ o cancelamento de uma nota autorizada (resultado chega por webhook). */
+  @Post('documents/:id/cancel')
+  @Permissions(PERMISSIONS.FISCAL_CANCEL)
+  async cancelarNota(
+    @Param('id') id: string,
+    @Body() dto: CancelDocumentDto,
+    @Req() req: any,
+  ) {
+    return this.fiscalService.cancelarNota(id, req.clinicId, dto.justificativa);
+  }
+
+  /** Nova tentativa de uma nota aguardando a SEFAZ ou com falha de processamento. */
+  @Post('documents/:id/retry')
+  @Permissions(PERMISSIONS.FISCAL_EMIT)
+  async tentarNovamente(@Param('id') id: string, @Req() req: any) {
+    return this.fiscalService.tentarNovamente(id, req.clinicId);
+  }
+
+  /** Confere agora, no serviço fiscal, as notas desta loja (o mesmo que o job periódico faz). */
+  @Post('reconcile')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async reconciliar(@Req() req: any) {
+    return this.reconciliation.reconciliarClinica(req.clinicId);
   }
 
   @Get('settings')
@@ -132,6 +166,32 @@ export class FiscalController {
     return this.fiscalService.upsertFiscalProfile(targetClinicId, dto);
   }
 
+  /** Reflete o Perfil do Emitente no cadastro (tenant) do serviço fiscal. Não toca no ambiente. */
+  @Post('sync-tenant')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async syncTenant(
+    @Req() req: any,
+    @CurrentUser() user: any,
+    @Query('clinicId') clinicId?: string,
+  ) {
+    const targetClinicId =
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
+    return this.fiscalService.syncTenantFromProfile(targetClinicId);
+  }
+
+  /** Status do certificado e da SEFAZ (não emite nada). */
+  @Get('status')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async sefazStatus(
+    @Req() req: any,
+    @CurrentUser() user: any,
+    @Query('clinicId') clinicId?: string,
+  ) {
+    const targetClinicId =
+      user.isSuperAdmin && clinicId ? clinicId : req.clinicId;
+    return this.fiscalService.getSefazStatus(targetClinicId);
+  }
+
   @Post('setup')
   @Permissions(PERMISSIONS.FISCAL_CONFIG)
   @UseInterceptors(FileInterceptor('certificate'))
@@ -165,11 +225,41 @@ export class FiscalController {
     );
   }
 
+  /**
+   * Segredo HMAC do webhook. Em produção é obrigatório e não pode ser o valor de exemplo; fora dela
+   * (dev/teste) cai num valor fixo conhecido, com aviso, para não quebrar o ambiente local.
+   */
+  private resolverSegredoWebhook(): string | null {
+    const EXEMPLOS = [
+      'uma-senha-secreta-para-hmac',
+      'troque-por-um-segredo-aleatorio-forte',
+    ];
+    const definido = (process.env.FISCAL_WEBHOOK_SECRET || '').trim();
+    const valido = definido && !EXEMPLOS.includes(definido);
+    if (valido) return definido;
+    if (process.env.NODE_ENV === 'production') return null;
+    if (!this.avisouSegredoPadrao) {
+      this.avisouSegredoPadrao = true;
+      this.logger.warn(
+        'FISCAL_WEBHOOK_SECRET não definido (ou de exemplo): usando segredo fixo só porque não é produção.',
+      );
+    }
+    return definido || EXEMPLOS[0];
+  }
+
   @Public()
   @Post('webhook')
   async handleWebhook(@Req() req: Request, @Res() res: Response) {
-    const secret =
-      process.env.FISCAL_WEBHOOK_SECRET || 'uma-senha-secreta-para-hmac';
+    const secret = this.resolverSegredoWebhook();
+    if (!secret) {
+      // Falha fechada: sem segredo próprio, qualquer um assinaria um webhook falso.
+      this.logger.error(
+        'FISCAL_WEBHOOK_SECRET ausente ou com valor de exemplo em produção: webhook recusado.',
+      );
+      return res
+        .status(HttpStatus.SERVICE_UNAVAILABLE)
+        .send('Webhook fiscal não configurado');
+    }
     const signatureFromHeader = req.headers['x-webhook-signature'];
 
     // Validate signature
@@ -187,7 +277,13 @@ export class FiscalController {
       .update(rawBody)
       .digest('base64');
 
-    if (expectedSignature !== signatureFromHeader) {
+    // Comparação em tempo constante (evita descobrir a assinatura por tempo de resposta)
+    const esperado = Buffer.from(expectedSignature);
+    const recebido = Buffer.from(String(signatureFromHeader));
+    if (
+      esperado.length !== recebido.length ||
+      !crypto.timingSafeEqual(esperado, recebido)
+    ) {
       return res.status(HttpStatus.UNAUTHORIZED).send('Invalid signature');
     }
 

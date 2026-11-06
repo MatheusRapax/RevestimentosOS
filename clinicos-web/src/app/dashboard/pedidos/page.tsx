@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 import { useOrders } from '@/hooks/useOrders';
 import { FastInputModal } from './components/FastInputModal';
 import { FiscalReviewModal } from './components/FiscalReviewModal';
+import { NfeStatusExtras } from './components/CancelNfeDialog';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
     CRIADO: { label: 'Novo / Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
@@ -258,9 +259,10 @@ export default function OrdersPage() {
         // Enquanto houver nota fiscal em processamento, o resultado real chega
         // via webhook (assíncrono). Faz polling curto só nesse período.
         refetchInterval: (query) => {
-            const docs = query.state.data?.fiscalDocuments as Array<{ status?: string }> | undefined;
+            const docs = query.state.data?.fiscalDocuments as Array<{ status?: string; cancelRequestedAt?: string | null }> | undefined;
+            // também enquanto um cancelamento aguarda a SEFAZ (a nota segue APPROVED até o webhook)
             const pending = docs?.some((d) =>
-                ['PROCESSING', 'DRAFT', 'PENDING'].includes((d.status || '').toUpperCase()),
+                ['PROCESSING', 'DRAFT', 'PENDING'].includes((d.status || '').toUpperCase()) || Boolean(d.cancelRequestedAt),
             );
             return pending ? 3000 : false;
         },
@@ -730,7 +732,7 @@ export default function OrdersPage() {
                                                     disabled={isEmitting || ['CRIADO', 'RASCUNHO', 'AGUARDANDO_PAGAMENTO', 'CANCELADO'].includes(displayOrder.status)}
                                                     title={['CRIADO', 'RASCUNHO', 'AGUARDANDO_PAGAMENTO', 'CANCELADO'].includes(displayOrder.status) ? 'O pedido deve estar pago/confirmado para emitir NFe' : ''}
                                                 >
-                                                    {isEmitting ? 'Emitindo...' : (displayOrder.fiscalDocuments?.length > 0 ? 'Tentar Novamente' : 'Emitir Nota')}
+                                                    {isEmitting ? 'Emitindo...' : (displayOrder.fiscalDocuments?.length > 0 ? 'Emitir de novo' : 'Emitir Nota')}
                                                 </Button>
                                             )}
                                         </div>
@@ -748,15 +750,15 @@ export default function OrdersPage() {
                                                                     }`}>
                                                                     {doc.status}
                                                                 </span>
-                                                                {doc.number && <span className="ml-2 text-gray-600 font-mono">Nº {doc.number}</span>}
+                                                                {doc.number && <span className="ml-2 text-gray-600 font-mono">{doc.serie ? `Série ${doc.serie} · ` : ''}Nº {doc.number}</span>}
                                                             </div>
                                                             <div className="flex gap-2">
-                                                                {doc.xmlUrl && (
+                                                                {(doc.xmlUrl || (doc.uuid && ['APPROVED', 'APROVADO'].includes((doc.status || '').toUpperCase()))) && (
                                                                     <button type="button" onClick={() => openFiscalFile(doc.id, 'xml')} className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
                                                                         XML
                                                                     </button>
                                                                 )}
-                                                                {doc.danfeUrl && (
+                                                                {(doc.danfeUrl || (doc.uuid && ['APPROVED', 'APROVADO'].includes((doc.status || '').toUpperCase()))) && (
                                                                     <button type="button" onClick={() => openFiscalFile(doc.id, 'danfe')} className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1">
                                                                         PDF
                                                                     </button>
@@ -769,6 +771,8 @@ export default function OrdersPage() {
                                                                 <strong>Erro:</strong> {doc.errorMessage}
                                                             </div>
                                                         )}
+
+                                                        <NfeStatusExtras doc={doc} onChanged={refetchDetails} />
 
                                                         <div className="mt-1 text-xs text-gray-400">
                                                             Chave: {doc.key || '-'}
