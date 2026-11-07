@@ -1843,6 +1843,9 @@ model ClinicFiscalConfig {
   // Informativos do último certificado A1 enviado (o .pfx em si fica no NexosFiscal)
   certificateFileName   String?
   certificateUploadedAt DateTime?
+  // Validade do A1 em uso, vinda do webhook CertificateExpiring ou do GET /sefaz/status (base do aviso de vencimento)
+  certificateNotAfter   DateTime?
+  certificateAlertAt    DateTime? // último webhook CertificateExpiring recebido
 
   // Reconciliação: até quando já conferimos GET /nfe?updatedSince= deste tenant
   lastReconciledAt DateTime?

@@ -199,6 +199,13 @@ export class FiscalController {
     return this.fiscalService.getSefazStatus(targetClinicId);
   }
 
+  /** Aviso de vencimento do certificado (webhook CertificateExpiring), sem consultar a SEFAZ. */
+  @Get('certificate-alert')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async certificateAlert(@Req() req: any) {
+    return this.fiscalService.getCertificateAlert(req.clinicId);
+  }
+
   @Post('setup')
   @Permissions(PERMISSIONS.FISCAL_CONFIG)
   @UseInterceptors(FileInterceptor('certificate'))
