@@ -34,6 +34,7 @@ Cada loja (tenant) tem seus dados isolados, seus usuários, seus papéis e os m�
 | Orçamento — ocultar desconto na impressão | O cliente vê o preço final sem o desconto por item | ✅ |
 | Orçamento — recálculo de markup | Preço acompanha mudança de markup | ✅ |
 | Pedidos | Conversão do orçamento, pagamentos, separação, retirada/entrega | ✅ |
+| Cada vendedor vê só as suas vendas | Orçamentos, pedidos, entregas, notas fiscais, avarias, painel e resumo do cliente mostram só o que o vendedor fez; a permissão “Ver as vendas de todos os vendedores” libera a equipe inteira | 🟡 |
 | Conta-corrente do cliente e boleto | Saldo do cliente e geração de boleto só para pedido não pago | ✅ |
 | Catálogo de produtos (consulta de vendas) | Consulta para o vendedor, com preço por m², sem expor custo | ✅ |
 | Promoções | Campanhas por produto com status e regra para promoções sobrepostas | ✅ |
@@ -124,6 +125,7 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 | Área Super Admin protegida | `SuperAdminGuard` separa operação da plataforma da operação da loja | ✅ |
 | Usuário não altera o próprio papel | Evita elevar o próprio acesso | ✅ |
 | Catálogo de permissões com teste | Toda permissão nova precisa de texto claro (o teste falha sem ele); permissão ativa não pode usar termo de clínica | 🟡 |
+| Venda de outro vendedor não abre | Acessar orçamento, pedido, entrega ou nota de outro vendedor pelo endereço direto responde “não encontrado”, em todas as ações (ver, editar, aprovar, converter, cancelar) | 🟡 |
 | Permissões sensíveis sinalizadas | Dinheiro, estoque, nota fiscal, acessos e exclusões aparecem marcados na hora de dar acesso | 🟡 |
 
 ### 3.2 Rastreabilidade

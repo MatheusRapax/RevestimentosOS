@@ -29,6 +29,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useOrders } from '@/hooks/useOrders';
+import { EscopoVendasAviso } from '@/components/auth/escopo-vendas-aviso';
 import { FastInputModal } from './components/FastInputModal';
 import { FiscalReviewModal } from './components/FiscalReviewModal';
 import { NfeStatusExtras } from './components/CancelNfeDialog';
@@ -378,6 +379,7 @@ export default function OrdersPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
                     <p className="text-gray-500">Gerencie os pedidos de venda</p>
+                    <div className="mt-2"><EscopoVendasAviso assunto="vendas: orçamentos, pedidos e entregas" /></div>
                 </div>
                 <div className="flex gap-3">
                     <Button onClick={handleExportExcel} variant="outline" className="gap-2">

@@ -23,7 +23,7 @@ Medido no código: rota do backend (`@Permissions`), item de menu ou botão da t
 
 | Situação | Quantidade | Significado |
 |---|---|---|
-| Ativa | 48 | Controla o servidor e/ou a tela |
+| Ativa | 49 | Controla o servidor e/ou a tela |
 | Só esconde a tela | 4 | `order.read`, `purchase.read`, `supplier.read`, `audit.read`: somem do menu, mas a API responde a quem chamar direto |
 | Sem efeito | 27 | Nada consulta: `order.create/update/cancel/confirm`, `purchase.create/update/cancel`, `supplier.create/update/delete`, `brand.*`, `category.*`, `user.*`, `finance.create/update`, `clinic.read/update/delete`, `sales.report.read`, `CLINIC_ADMIN` |
 | Antiga (clínica) | 30 | Protegem módulos de clínica que não aparecem no menu |
@@ -63,6 +63,7 @@ Clientes, arquitetos, orçamentos, pedidos e promoções: o dia a dia do vendedo
 | Cadastrar arquitetos | Cria arquitetos parceiros novos. |  | Ativa | `architect.create` |
 | Editar arquitetos | Altera os dados do arquiteto. |  | Ativa | `architect.update` |
 | Excluir arquitetos ⚠️ | Remove um arquiteto do cadastro. |  | Ativa | `architect.delete` |
+| Ver as vendas de todos os vendedores ⚠️ | Sem esta permissão, a pessoa vê só as suas próprias vendas: orçamentos, pedidos, entregas, notas fiscais e avarias dos pedidos que ela fez. Com ela, vê os de todos os vendedores. |  | Ativa | `sales.view.all` |
 | Ver orçamentos | Abre orçamentos, modelos de orçamento, o PDF e a disponibilidade em estoque. | Comercial › Orçamentos | Ativa | `quote.read` |
 | Criar orçamentos | Cria um orçamento novo ou duplica um existente. |  | Ativa | `quote.create` |
 | Editar orçamentos | Altera itens e preços, atualiza preços, aprova, reserva estoque, rejeita e reabre. |  | Ativa | `quote.update` |

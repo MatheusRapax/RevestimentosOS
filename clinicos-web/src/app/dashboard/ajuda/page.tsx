@@ -173,6 +173,20 @@ const GROUPS: Group[] = [
                 ],
                 notes: [
                     {
+                        tone: 'info',
+                        label: 'Cada vendedor vê só as suas vendas',
+                        body: (
+                            <>
+                                Quem <b>não</b> tem a permissão <b>“Ver as vendas de todos os vendedores”</b> enxerga apenas os
+                                orçamentos, pedidos, entregas, notas fiscais e avarias das <b>suas próprias vendas</b> (as do
+                                painel inicial e o resumo de compras de cada cliente também). Um aviso azul no topo da tela
+                                lembra disso. Abrir a venda de outra pessoa pelo endereço direto responde <i>“não encontrado”</i>.
+                                Quem tem a permissão (Administrador e Gerente, por padrão) vê as vendas de toda a equipe. O
+                                pedido fica sempre com o <b>vendedor do orçamento</b>, mesmo que o gerente faça a conversão.
+                            </>
+                        ),
+                    },
+                    {
                         label: 'm² → caixas',
                         body: (
                             <>
@@ -284,6 +298,20 @@ const GROUPS: Group[] = [
                     { label: 'Entregue', tone: 'ok' },
                 ],
                 notes: [
+                    {
+                        tone: 'info',
+                        label: 'Cada vendedor vê só as suas vendas',
+                        body: (
+                            <>
+                                Quem <b>não</b> tem a permissão <b>“Ver as vendas de todos os vendedores”</b> enxerga apenas os
+                                orçamentos, pedidos, entregas, notas fiscais e avarias das <b>suas próprias vendas</b> (as do
+                                painel inicial e o resumo de compras de cada cliente também). Um aviso azul no topo da tela
+                                lembra disso. Abrir a venda de outra pessoa pelo endereço direto responde <i>“não encontrado”</i>.
+                                Quem tem a permissão (Administrador e Gerente, por padrão) vê as vendas de toda a equipe. O
+                                pedido fica sempre com o <b>vendedor do orçamento</b>, mesmo que o gerente faça a conversão.
+                            </>
+                        ),
+                    },
                     {
                         tone: 'warn',
                         label: 'Regras importantes',
@@ -1039,6 +1067,19 @@ const GROUPS: Group[] = [
                                 abre uma tela do menu, a linha <b>“Abre: …”</b>. A etiqueta <b>Sensível</b> marca o que mexe com
                                 dinheiro, estoque, nota fiscal ou acessos, ou que apaga dados: dê só a quem precisa. Passe o mouse
                                 sobre uma permissão para ver o código técnico dela.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Ver as vendas de todos os vendedores',
+                        body: (
+                            <>
+                                Em <b>Vendas › Visibilidade das vendas</b> está a permissão <b>“Ver as vendas de todos os
+                                vendedores”</b>. Sem ela, quem tem acesso a orçamentos e pedidos vê só os <b>seus</b>. O papel
+                                <b> Vendedor</b> não a tem; Administrador e Gerente têm. Para dar a um papel que você criou,
+                                marque a permissão nele. Ela vale para orçamentos, pedidos, entregas, notas fiscais e avarias
+                                dos pedidos.
                             </>
                         ),
                     },
