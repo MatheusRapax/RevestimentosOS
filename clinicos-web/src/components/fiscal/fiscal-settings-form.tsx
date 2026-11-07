@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -60,6 +61,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
+    const queryClient = useQueryClient();
     const [isLoadingSefaz, setIsLoadingSefaz] = useState(false);
     const [sefaz, setSefaz] = useState<any>(null);
     // Último perfil gravado no servidor: o Setup só vale para o que já foi salvo.
@@ -149,6 +151,8 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             setSefaz({ available: false, alertas: [{ nivel: 'erro', mensagem: 'Não foi possível consultar o status do certificado.' }] });
         } finally {
             setIsLoadingSefaz(false);
+            // a consulta atualiza a validade guardada: o aviso do topo reflete na hora
+            queryClient.invalidateQueries({ queryKey: ['fiscal-certificate-alert'] });
         }
     }
 
@@ -415,7 +419,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                                             {sefaz.certificado.cnpjMatchesTenant ? 'Sim' : 'NÃO'}
                                         </dd>
                                     </div>
-                                    <div><dt className="inline text-gray-500">Válido até: </dt><dd className="inline font-medium">{sefaz.certificado.notAfterUtc ? new Date(sefaz.certificado.notAfterUtc).toLocaleDateString('pt-BR') : '—'}{sefaz.certificado.expired ? ' (VENCIDO)' : ''}</dd></div>
+                                    <div><dt className="inline text-gray-500">Válido até: </dt><dd className={`inline font-medium ${['expired', 'invalid', 'not_yet_valid'].includes(sefaz.certificado.level) ? 'text-red-700' : ['warning', 'critical'].includes(sefaz.certificado.level) ? 'text-amber-700' : ''}`}>{sefaz.certificado.notAfterUtc && sefaz.certificado.daysLeft !== null ? new Date(sefaz.certificado.notAfterUtc).toLocaleDateString('pt-BR') : '—'}{sefaz.certificado.level === 'expired' ? ' (VENCIDO)' : sefaz.certificado.daysLeft > 0 ? ` (${sefaz.certificado.daysLeft} ${sefaz.certificado.daysLeft === 1 ? 'dia restante' : 'dias restantes'})` : ''}</dd></div>
                                     <div><dt className="inline text-gray-500">Ambiente do cadastro fiscal: </dt><dd className="inline font-medium">{sefaz.ambiente || '—'}</dd></div>
                                     <div className="md:col-span-2"><dt className="inline text-gray-500">SEFAZ: </dt><dd className="inline font-medium">{sefaz.reachable ? `respondeu${sefaz.cStat ? ` (cStat ${sefaz.cStat}${sefaz.motivo ? ` — ${sefaz.motivo}` : ''})` : ''}` : 'sem resposta'}</dd></div>
                                 </dl>

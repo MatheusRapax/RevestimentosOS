@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import Sidebar from '@/components/layout/sidebar';
 import Header from '@/components/layout/header';
+import { CertificadoAlertaBanner } from '@/components/fiscal/certificado-alerta-banner';
 
 export default function DashboardLayout({
     children,
@@ -130,6 +131,7 @@ export default function DashboardLayout({
                     <Header onOpenMobileNav={() => setIsMobileNavOpen(true)} />
                 </div>
                 <main className="flex-1 overflow-y-auto p-6 print:p-0 print:overflow-visible">
+                    <CertificadoAlertaBanner />
                     {children}
                 </main>
             </div>
