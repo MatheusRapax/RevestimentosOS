@@ -25,7 +25,9 @@ import {
   planejarWebhook,
 } from './nexos-status';
 import {
+  alertasDoStatus,
   avaliarAlertaCertificado,
+  dataDeValidade,
   lerEventoCertificado,
 } from './certificado-alerta';
 import {
@@ -367,6 +369,7 @@ export class FiscalService {
       ).data;
     } catch (e: any) {
       if (e?.response?.status === 404) {
+        await this.guardarValidadeCertificado(clinicId, null);
         return {
           available: true,
           hasCertificate: false,
@@ -398,16 +401,11 @@ export class FiscalService {
         mensagem: `O CNPJ do certificado (${c.cnpj ? formatCnpj(c.cnpj) : '—'}) NÃO confere com o do cadastro fiscal da loja. A emissão será recusada.`,
       });
     }
-    if (c.expired === true) {
-      alertas.push({ nivel: 'erro', mensagem: 'O certificado digital está VENCIDO.' });
-    } else if (c.notAfterUtc) {
-      const dias = Math.floor(
-        (new Date(c.notAfterUtc).getTime() - Date.now()) / 86400000,
-      );
-      if (dias <= 30) {
-        alertas.push({ nivel: 'aviso', mensagem: `O certificado vence em ${dias} dia(s).` });
-      }
-    }
+    const validade = alertasDoStatus(c);
+    alertas.push(...validade.alertas);
+    // A resposta do serviço é a fonte da verdade: mantém o aviso do administrador em dia
+    const notAfter = dataDeValidade(c.notAfterUtc);
+    if (notAfter) await this.guardarValidadeCertificado(clinicId, notAfter);
     if (d?.reachable === false) {
       alertas.push({
         nivel: 'aviso',
@@ -437,9 +435,28 @@ export class FiscalService {
         notAfterUtc: c.notAfterUtc ?? null,
         expired: c.expired ?? null,
         cnpjMatchesTenant: c.cnpjMatchesTenant ?? null,
+        daysLeft: validade.daysLeft,
+        level: validade.level,
       },
       alertas,
     };
+  }
+
+  /** Falhar aqui não pode derrubar a consulta de status: o aviso é só um complemento. */
+  private async guardarValidadeCertificado(
+    clinicId: string,
+    notAfter: Date | null,
+  ) {
+    try {
+      await this.prisma.clinicFiscalConfig.updateMany({
+        where: { clinicId },
+        data: { certificateNotAfter: notAfter },
+      });
+    } catch (e: any) {
+      this.logger.warn(
+        `Não foi possível guardar a validade do certificado: ${this.errMsg(e)}`,
+      );
+    }
   }
 
   // ── Contexto + payload compartilhados por validate e emit ──────────────

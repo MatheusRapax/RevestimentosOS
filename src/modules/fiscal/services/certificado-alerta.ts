@@ -25,7 +25,10 @@ export function dataDeValidade(valor: unknown): Date | null {
 }
 
 /** Mesmo cálculo do serviço: piso de dias UTC até o vencimento. */
-export function diasAteVencer(notAfter: Date, agora: Date = new Date()): number {
+export function diasAteVencer(
+  notAfter: Date,
+  agora: Date = new Date(),
+): number {
   return Math.floor((notAfter.getTime() - agora.getTime()) / MS_POR_DIA);
 }
 
@@ -77,4 +80,62 @@ export function lerEventoCertificado(
   const notAfter = dataDeValidade(data?.NotAfter ?? data?.notAfter);
   if (typeof tenantId !== 'string' || !tenantId || !notAfter) return null;
   return { tenantId, notAfter };
+}
+
+/**
+ * Alertas do certificado na tela de status (GET /sefaz/status). Usa daysLeft/level do serviço; se ele
+ * ainda não os enviar (versão antiga), calcula pela validade.
+ */
+export function alertasDoStatus(
+  c: any,
+  agora: Date = new Date(),
+): {
+  daysLeft: number | null;
+  level: string | null;
+  alertas: { nivel: 'erro' | 'aviso'; mensagem: string }[];
+} {
+  const notAfter = dataDeValidade(c?.notAfterUtc);
+  const daysLeft =
+    typeof c?.daysLeft === 'number' && notAfter
+      ? c.daysLeft
+      : notAfter
+        ? diasAteVencer(notAfter, agora)
+        : null;
+  const level: string | null =
+    c?.level ??
+    (c?.expired === true
+      ? 'expired'
+      : daysLeft !== null
+        ? (nivelPelosDias(daysLeft) ?? 'ok')
+        : null);
+
+  const alertas: { nivel: 'erro' | 'aviso'; mensagem: string }[] = [];
+  if (level === 'expired') {
+    alertas.push({
+      nivel: 'erro',
+      mensagem:
+        'O certificado digital está VENCIDO: nenhuma nota será emitida até enviar um certificado novo.',
+    });
+  } else if (level === 'invalid') {
+    alertas.push({
+      nivel: 'erro',
+      mensagem:
+        'O serviço fiscal não conseguiu ler o certificado (senha ou arquivo inválido): envie o certificado de novo.',
+    });
+  } else if (level === 'not_yet_valid') {
+    alertas.push({
+      nivel: 'erro',
+      mensagem:
+        'O certificado digital ainda não começou a valer: as notas serão recusadas até a data de início.',
+    });
+  } else if (
+    (level === 'warning' || level === 'critical') &&
+    daysLeft !== null
+  ) {
+    alertas.push({
+      nivel: 'aviso',
+      mensagem: `Certificado digital vence em ${emDias(daysLeft)}: renove e envie o novo A1.`,
+    });
+  }
+  return { daysLeft, level, alertas };
 }

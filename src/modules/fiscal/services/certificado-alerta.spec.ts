@@ -1,4 +1,5 @@
 import {
+  alertasDoStatus,
   avaliarAlertaCertificado,
   dataDeValidade,
   lerEventoCertificado,
@@ -116,9 +117,7 @@ describe('FiscalService: webhook CertificateExpiring', () => {
     const prisma: any = {
       clinicFiscalConfig: {
         updateMany: jest.fn().mockResolvedValue({ count }),
-        findUnique: jest
-          .fn()
-          .mockResolvedValue({ certificateNotAfter: salvo }),
+        findUnique: jest.fn().mockResolvedValue({ certificateNotAfter: salvo }),
       },
       fiscalDocument: { findFirst: jest.fn(), update: jest.fn() },
     };
@@ -159,12 +158,12 @@ describe('FiscalService: webhook CertificateExpiring', () => {
       data: corpo,
     });
     expect(r.status).toBe('IGNORED');
-    expect(prisma.clinicFiscalConfig.updateMany.mock.calls[0][0].where.OR).toEqual(
-      [
-        { certificateNotAfter: null },
-        { certificateNotAfter: { lte: new Date(corpo.NotAfter) } },
-      ],
-    );
+    expect(
+      prisma.clinicFiscalConfig.updateMany.mock.calls[0][0].where.OR,
+    ).toEqual([
+      { certificateNotAfter: null },
+      { certificateNotAfter: { lte: new Date(corpo.NotAfter) } },
+    ]);
   });
 
   it('corpo inválido é ignorado com sucesso, para o serviço não reentregar', async () => {
@@ -188,5 +187,56 @@ describe('FiscalService: webhook CertificateExpiring', () => {
   it('loja sem validade guardada: sem aviso', async () => {
     const { service } = build(1, null);
     expect((await service.getCertificateAlert('c1')).alerta).toBeNull();
+  });
+});
+
+describe('certificado-alerta: tela de status', () => {
+  const futuro = (d: number) => emDias(d).toISOString();
+
+  it('usa daysLeft e level do serviço', () => {
+    const r = alertasDoStatus(
+      { notAfterUtc: futuro(40), daysLeft: 40, level: 'warning' },
+      AGORA,
+    );
+    expect(r.daysLeft).toBe(40);
+    expect(r.level).toBe('warning');
+    expect(r.alertas[0].nivel).toBe('aviso');
+    expect(r.alertas[0].mensagem).toMatch(/vence em 40 dias/);
+  });
+
+  it('serviço antigo, sem level: calcula pela validade', () => {
+    const r = alertasDoStatus(
+      { notAfterUtc: futuro(10), expired: false },
+      AGORA,
+    );
+    expect(r.daysLeft).toBe(10);
+    expect(r.level).toBe('critical');
+  });
+
+  it('vencido, sem validade legível ou ainda não válido: erro', () => {
+    expect(
+      alertasDoStatus({ expired: true }, AGORA).alertas[0].mensagem,
+    ).toMatch(/VENCIDO: nenhuma nota será emitida/);
+    const ilegivel = alertasDoStatus(
+      { notAfterUtc: '0001-01-01T00:00:00Z', daysLeft: 0, level: 'invalid' },
+      AGORA,
+    );
+    expect(ilegivel.daysLeft).toBeNull();
+    expect(ilegivel.alertas[0].nivel).toBe('erro');
+    expect(
+      alertasDoStatus(
+        { notAfterUtc: futuro(300), daysLeft: 300, level: 'not_yet_valid' },
+        AGORA,
+      ).alertas[0].nivel,
+    ).toBe('erro');
+  });
+
+  it('dentro da validade: nenhum alerta', () => {
+    expect(
+      alertasDoStatus(
+        { notAfterUtc: futuro(200), daysLeft: 200, level: 'ok' },
+        AGORA,
+      ).alertas,
+    ).toEqual([]);
   });
 });
