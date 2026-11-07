@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { SalesScope, filtroDoVendedor } from '../../core/rbac/sales-scope';
 import { CreateQuoteDto, CreateQuoteItemDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { QuoteStatus, OrderStatus, ReservationType } from '@prisma/client';
@@ -254,8 +255,9 @@ export class QuotesService {
     return quote;
   }
 
-  async findAll(clinicId: string, status?: QuoteStatus) {
-    const where: any = { clinicId };
+  async findAll(clinicId: string, status?: QuoteStatus, scope?: SalesScope) {
+    // quem não vê as vendas de todos enxerga só os orçamentos que ele mesmo fez
+    const where: any = { clinicId, ...filtroDoVendedor(scope) };
     if (status) {
       where.status = status;
     }
@@ -657,7 +659,8 @@ export class QuotesService {
           number: nextOrderNumber,
           quoteId: id,
           customerId: quote.customerId,
-          sellerId,
+          // o vendedor do pedido é o do orçamento: se o gerente converte, a venda continua do vendedor
+          sellerId: quote.sellerId,
           status: OrderStatus.CRIADO,
           subtotalCents: quote.subtotalCents,
           discountCents: quote.discountCents,

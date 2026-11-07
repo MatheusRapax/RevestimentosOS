@@ -24,6 +24,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { ArchitectsModule } from './modules/architects/architects.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
+import { SalesTransfersModule } from './modules/sales-transfers/sales-transfers.module';
 import { DeliveriesModule } from './modules/deliveries/deliveries.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
@@ -72,6 +73,7 @@ import { CommissionsModule } from './modules/commissions/commissions.module';
     CustomersModule,
     ArchitectsModule,
     QuotesModule,
+    SalesTransfersModule,
     DeliveriesModule,
     OrdersModule,
     SuppliersModule,

@@ -17,25 +17,45 @@ import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 import { PermissionsGuard } from '../../core/rbac/guards/permissions.guard';
 import { Permissions } from '../../core/rbac/decorators/permissions.decorator';
 import { PERMISSIONS } from '../../core/rbac/permissions';
+import {
+  SalesOwnerGuard,
+  SalesScopeService,
+} from '../../core/rbac/sales-scope';
 import { ModuleGuard } from '../../core/auth/guards/module.guard';
 import { RequireModules } from '../../core/auth/decorators/module.decorator';
 
+const DonoDaAvaria = SalesOwnerGuard('occurrence');
+
 @Controller('occurrences')
-@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleGuard, DonoDaAvaria)
 @RequireModules('RMA')
 export class OccurrencesController {
-  constructor(private readonly occurrencesService: OccurrencesService) {}
+  constructor(
+    private readonly occurrencesService: OccurrencesService,
+    private readonly escopoDeVendas: SalesScopeService,
+  ) {}
 
   @Post()
   @Permissions(PERMISSIONS.RMA_MANAGE)
-  create(@Req() req: any, @Body() createOccurrenceDto: CreateOccurrenceDto) {
+  async create(
+    @Req() req: any,
+    @Body() createOccurrenceDto: CreateOccurrenceDto,
+  ) {
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
+    // não abre avaria em pedido de outro vendedor
+    await this.occurrencesService.assertPedidoVisivel(
+      req.clinicId,
+      createOccurrenceDto.orderId,
+      escopo,
+    );
     return this.occurrencesService.create(req.clinicId, createOccurrenceDto);
   }
 
   @Get()
   @Permissions(PERMISSIONS.RMA_READ)
-  findAll(@Req() req: any) {
-    return this.occurrencesService.findAll(req.clinicId);
+  async findAll(@Req() req: any) {
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
+    return this.occurrencesService.findAll(req.clinicId, escopo);
   }
 
   @Get(':id')

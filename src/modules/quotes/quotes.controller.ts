@@ -22,14 +22,21 @@ import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 import { PermissionsGuard } from '../../core/rbac/guards/permissions.guard';
 import { Permissions } from '../../core/rbac/decorators/permissions.decorator';
 import { PERMISSIONS } from '../../core/rbac/permissions';
+import {
+  SalesOwnerGuard,
+  SalesScopeService,
+} from '../../core/rbac/sales-scope';
 import { QuoteStatus } from '@prisma/client';
 
+const DonoDoOrcamento = SalesOwnerGuard('quote');
+
 @Controller('quotes')
-@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, DonoDoOrcamento)
 export class QuotesController {
   constructor(
     private readonly quotesService: QuotesService,
     private readonly quotePdfService: QuotePdfService,
+    private readonly escopoDeVendas: SalesScopeService,
   ) {}
 
   @Get(':id/pdf')
@@ -63,8 +70,9 @@ export class QuotesController {
 
   @Get()
   @Permissions(PERMISSIONS.QUOTE_READ)
-  findAll(@Request() req: any, @Query('status') status?: QuoteStatus) {
-    return this.quotesService.findAll(req.clinicId, status);
+  async findAll(@Request() req: any, @Query('status') status?: QuoteStatus) {
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
+    return this.quotesService.findAll(req.clinicId, status, escopo);
   }
 
   @Get(':id/availability')

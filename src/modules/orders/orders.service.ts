@@ -5,6 +5,7 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { SalesScope, filtroDoVendedor } from '../../core/rbac/sales-scope';
 import { FinanceService } from '../finance/finance.service';
 import {
   OrderStatus,
@@ -28,8 +29,10 @@ export class OrdersService {
   async findAll(
     clinicId: string,
     filters?: { status?: string; customerId?: string },
+    scope?: SalesScope,
   ) {
-    const where: any = { clinicId };
+    // quem não vê as vendas de todos enxerga só os pedidos que ele mesmo vendeu
+    const where: any = { clinicId, ...filtroDoVendedor(scope) };
 
     if (filters?.status && filters.status !== 'all') {
       where.status = filters.status;
@@ -485,15 +488,16 @@ export class OrdersService {
     });
   }
 
-  async getStats(clinicId: string) {
+  async getStats(clinicId: string, scope?: SalesScope) {
+    const base = { clinicId, ...filtroDoVendedor(scope) };
     const [pending, awaitingStock, ready, delivered, cancelled] =
       await Promise.all([
         this.prisma.order.count({
-          where: { clinicId, status: OrderStatus.CRIADO },
+          where: { ...base, status: OrderStatus.CRIADO },
         }),
         this.prisma.order.count({
           where: {
-            clinicId,
+            ...base,
             status: {
               in: [
                 OrderStatus.AGUARDANDO_COMPRA,
@@ -505,13 +509,13 @@ export class OrdersService {
           },
         }),
         this.prisma.order.count({
-          where: { clinicId, status: OrderStatus.PRONTO_PARA_ENTREGA },
+          where: { ...base, status: OrderStatus.PRONTO_PARA_ENTREGA },
         }),
         this.prisma.order.count({
-          where: { clinicId, status: OrderStatus.ENTREGUE },
+          where: { ...base, status: OrderStatus.ENTREGUE },
         }),
         this.prisma.order.count({
-          where: { clinicId, status: OrderStatus.CANCELADO },
+          where: { ...base, status: OrderStatus.CANCELADO },
         }),
       ]);
 
@@ -742,7 +746,12 @@ export class OrdersService {
     };
   }
 
-  async exportToExcel(clinicId: string, startDate?: string, endDate?: string) {
+  async exportToExcel(
+    clinicId: string,
+    startDate?: string,
+    endDate?: string,
+    scope?: SalesScope,
+  ) {
     const dateFilter: any = {};
     if (startDate) dateFilter.gte = new Date(startDate);
     if (endDate) dateFilter.lte = new Date(endDate);
@@ -750,6 +759,7 @@ export class OrdersService {
     const orders = await this.prisma.order.findMany({
       where: {
         clinicId,
+        ...filtroDoVendedor(scope),
         createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
         status: { notIn: [OrderStatus.CANCELADO, OrderStatus.RASCUNHO] },
       },

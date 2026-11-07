@@ -134,6 +134,9 @@ model User {
   // Sales Module Relations
   quotesAsSeller   Quote[]         @relation("QuoteSeller")
   ordersAsSeller   Order[]         @relation("OrderSeller")
+  transfersFrom    SalesTransfer[] @relation("SalesTransferFrom")
+  transfersTo      SalesTransfer[] @relation("SalesTransferTo")
+  transfersMade    SalesTransfer[] @relation("SalesTransferBy")
   commissionRuleId String?
   commissionRule   CommissionRule? @relation("UserCommissionRule", fields: [commissionRuleId], references: [id])
 
@@ -203,6 +206,7 @@ model Clinic {
   environments          Environment[]
   CommissionRule        CommissionRule[]
   supplierMappingCaches SupplierMappingCache[]
+  salesTransfers        SalesTransfer[]
 }
 
 // Clinic working hours per day of week
@@ -1160,11 +1164,11 @@ model Customer {
   zipCode       String?
 
   // Fiscal (destinatário da NF-e)
-  indicadorIe     Int?     // 1=Contribuinte ICMS, 2=Isento de IE, 9=Não contribuinte
-  municipioIbge   String?  // 7 dígitos — precisa casar com o `state`
-  countryCode     String?  @default("1058") // 1058 = Brasil
-  consumidorFinal Boolean  @default(true) // varejo: por padrão sim
-  suframa         String?  // inscrição SUFRAMA (Zona Franca), quando aplicável
+  indicadorIe     Int? // 1=Contribuinte ICMS, 2=Isento de IE, 9=Não contribuinte
+  municipioIbge   String? // 7 dígitos — precisa casar com o `state`
+  countryCode     String? @default("1058") // 1058 = Brasil
+  consumidorFinal Boolean @default(true) // varejo: por padrão sim
+  suframa         String? // inscrição SUFRAMA (Zona Franca), quando aplicável
 
   // Relacionamentos
   architectId String? // Arquiteto que indicou
@@ -1346,7 +1350,7 @@ model QuoteItem {
   quoteId   String
   productId String
 
-  sequence  Int    @default(0)
+  sequence Int @default(0)
 
   // Quantidades (lógica dimensional)
   inputArea      Float? // Área informada pelo usuário (m²)
@@ -1361,14 +1365,14 @@ model QuoteItem {
 
   // Preços
   unitPriceCents  Int // Preço por m² ou por caixa
-  discountCents   Int    @default(0)
+  discountCents   Int     @default(0)
   discountPercent Float?
   totalCents      Int
   // Só afeta a impressão/PDF: some com o "De/Por" e o desconto some da tabela
   // de itens, mostrando o preço já com desconto como se fosse o preço normal.
   // NUNCA reflete em unitPriceCents/discountCents/totalCents nem em nenhum
   // cálculo financeiro — é puramente de apresentação no documento do cliente.
-  hideDiscount Boolean @default(false)
+  hideDiscount    Boolean @default(false)
 
   // Lote preferido (opcional)
   preferredLotId String?
@@ -1473,7 +1477,7 @@ model OrderItem {
   orderId   String
   productId String
 
-  sequence  Int    @default(0)
+  sequence Int @default(0)
 
   // Quantidades (copiadas do QuoteItem ou inseridas manualmente)
   inputArea      Float? // Área original (m²)
@@ -1834,8 +1838,8 @@ model ClinicFiscalConfig {
   clinicId String @unique
 
   // NexosFiscal Credentials
-  nexosTenantId String?
-  nexosApiKey   String?
+  nexosTenantId         String?
+  nexosApiKey           String?
   // Informativos do último certificado A1 enviado (o .pfx em si fica no NexosFiscal)
   certificateFileName   String?
   certificateUploadedAt DateTime?
@@ -2101,10 +2105,10 @@ model RegraIcms {
   regime Int // CRT do emitente: 1/2=Simples Nacional, 3=Normal
 
   // Filtros opcionais — null = "vale para qualquer valor" (regra mais genérica)
-  ncm             String? // 8 dígitos
+  ncm              String? // 8 dígitos
   origemMercadoria Int? // 0-8 (Product.origin)
-  consumidorFinal Boolean? // indFinal
-  contribuinte    Boolean? // destinatário é contribuinte de ICMS?
+  consumidorFinal  Boolean? // indFinal
+  contribuinte     Boolean? // destinatário é contribuinte de ICMS?
 
   cst   String // CST (regime Normal) ou CSOSN (Simples)
   modBC Int    @default(0) // modalidade de determinação da BC do ICMS
@@ -2112,9 +2116,9 @@ model RegraIcms {
   aliquota    Float // % ICMS próprio
   reducaoBase Float? // % de redução da base de cálculo
 
-  temSt         Boolean @default(false)
-  mvaSt         Float? // % MVA para ICMS-ST
-  aliquotaFcp   Float? // % Fundo de Combate à Pobreza
+  temSt       Boolean @default(false)
+  mvaSt       Float? // % MVA para ICMS-ST
+  aliquotaFcp Float? // % Fundo de Combate à Pobreza
 
   // DIFAL (só relevante quando ufOrigem != ufDestino e consumidorFinal = true)
   aliquotaInterna Float? // alíquota interna da UF de destino
@@ -2174,4 +2178,32 @@ model RegraIpi {
 
   @@index([ncm])
   @@index([clinicId])
+}
+
+// Histórico de transferência de vendas (orçamento ou pedido) de um vendedor para outro.
+// O vendedor atual fica em Quote.sellerId / Order.sellerId; aqui fica o rastro: quem passou, de quem, para quem e por quê.
+model SalesTransfer {
+  id               String   @id @default(uuid())
+  clinicId         String
+  entity           String // 'QUOTE' | 'ORDER'
+  entityId         String
+  entityNumber     Int? // número do orçamento/pedido, para exibir sem consultar
+  fromSellerId     String
+  toSellerId       String
+  userId           String // quem fez a transferência
+  reason           String   @db.Text
+  commissionImpact Boolean  @default(false) // pedido de mês anterior: a comissão mudou de mãos (confirmado)
+  batchId          String // agrupa o que foi transferido na mesma operação
+  createdAt        DateTime @default(now())
+
+  clinic     Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  fromSeller User   @relation("SalesTransferFrom", fields: [fromSellerId], references: [id])
+  toSeller   User   @relation("SalesTransferTo", fields: [toSellerId], references: [id])
+  user       User   @relation("SalesTransferBy", fields: [userId], references: [id])
+
+  @@index([clinicId, createdAt])
+  @@index([entity, entityId])
+  @@index([fromSellerId])
+  @@index([toSellerId])
+  @@index([batchId])
 }

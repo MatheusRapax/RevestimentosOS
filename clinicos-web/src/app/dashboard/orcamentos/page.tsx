@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { EscopoVendasAviso } from '@/components/auth/escopo-vendas-aviso';
 import { useAuth } from '@/hooks/use-auth';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -482,6 +483,7 @@ export default function OrcamentosPage() {
                         <p className="text-gray-600 mt-1">
                             Gerencie orçamentos e converta em pedidos
                         </p>
+                        <div className="mt-2"><EscopoVendasAviso assunto="vendas: orçamentos, pedidos e entregas" /></div>
                     </div>
                     <Link href="/dashboard/orcamentos/novo">
                         <Button>

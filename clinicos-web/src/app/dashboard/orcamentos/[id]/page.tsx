@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import api from '@/lib/api';
 import { formatPhone } from '@/lib/masks';
 import { useAuth } from '@/hooks/use-auth';
+import { TransferirVendaBotao } from '@/components/vendas/transferir-venda-botao';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -510,6 +511,8 @@ export default function QuoteDetailPage() {
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
+
+                    <TransferirVendaBotao tipo="quote" id={quote.id} numero={quote.number} onTransferido={() => router.push('/dashboard/orcamentos')} />
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
