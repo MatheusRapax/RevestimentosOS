@@ -14,6 +14,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       FISCAL_MASTER_API_KEY: ${FISCAL_MASTER_API_KEY}
       FISCAL_MICROSERVICE_URL: ${FISCAL_MICROSERVICE_URL}
+      # Webhook do NexosFiscal: segredo HMAC e endereço público desta API (sem eles, nenhum aviso chega)
+      FISCAL_WEBHOOK_SECRET: ${FISCAL_WEBHOOK_SECRET}
+      FISCAL_WEBHOOK_URL: ${FISCAL_WEBHOOK_URL}
       NODE_ENV: production
       PORT: 3000
     command: >

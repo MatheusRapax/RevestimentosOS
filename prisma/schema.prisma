@@ -1847,6 +1847,11 @@ model ClinicFiscalConfig {
   certificateNotAfter   DateTime?
   certificateAlertAt    DateTime? // último webhook CertificateExpiring recebido
 
+  // Cadastro do webhook do ERP no NexosFiscal (A17): último resultado, para a tela mostrar
+  webhookUrl          String?
+  webhookRegisteredAt DateTime?
+  webhookError        String?
+
   // Reconciliação: até quando já conferimos GET /nfe?updatedSince= deste tenant
   lastReconciledAt DateTime?
 
