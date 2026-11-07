@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.21.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.20.0...v1.21.0) (2026-11-07)
+
+
+### Features
+
+* **vendas:** aviso na tela para quem vê só as suas vendas, manual e documentação da visibilidade por vendedor ([bbc59b6](https://github.com/MatheusRapax/RevestimentosOS/commit/bbc59b61d482b33207d581905945beddbb63ba10))
+* **vendas:** cada vendedor vê só as suas vendas; a permissão 'Ver as vendas de todos os vendedores' libera tudo ([62f2ef4](https://github.com/MatheusRapax/RevestimentosOS/commit/62f2ef4cfaaf54ae085c1682c3d75a1a4a37e245))
+* **vendas:** tela e botões para transferir vendas entre vendedores ([dafa6cc](https://github.com/MatheusRapax/RevestimentosOS/commit/dafa6cc76eea24959058851644496c7f03facffd))
+* **vendas:** transferir orçamentos e pedidos entre vendedores, com histórico e aviso de comissão ([f724127](https://github.com/MatheusRapax/RevestimentosOS/commit/f7241275962b0dc5cf4cfcfe213a2b8a5afea45e))
+
 ## [1.20.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.19.1...v1.20.0) (2026-11-07)
 
 
