@@ -64,15 +64,39 @@ Quando o contrato mudar, o NexosFiscal registra em `AJUSTES_ERP.md` e este doc �
 - **Como some:** enviar certificado novo limpa o aviso. `GET /fiscal/status` usa `certificado.daysLeft`/`level` e grava a
   validade real, então abrir a Configuração Fiscal corrige o aviso na hora.
 - **Reentrega atrasada:** webhook com validade mais antiga que a guardada é ignorado (responde 200).
-- **Limite:** o serviço só envia o evento se houver webhook cadastrado para o tenant (`webhook_configs`, `eventType` 0 ou 8) e,
-  em produção, o ERP recusa o webhook sem `FISCAL_WEBHOOK_SECRET`. Sem isso, a faixa só aparece depois que alguém abre a
-  Configuração Fiscal. O ERP não cadastra esse webhook sozinho.
+- **Limite:** o serviço só envia o evento se houver webhook cadastrado para o tenant (ver A17 abaixo) e, em produção, o
+  ERP recusa o webhook sem `FISCAL_WEBHOOK_SECRET`. Sem isso, a faixa só aparece depois que alguém abre a Configuração Fiscal.
+
+## Cadastro do webhook no serviço fiscal (A17)
+
+- **O ERP cadastra sozinho:** `POST {FISCAL_MICROSERVICE_URL}/webhook` com a chave do tenant e
+  `{ url: FISCAL_WEBHOOK_URL, secret: FISCAL_WEBHOOK_SECRET, eventType: 0 }`, em três momentos: ao **enviar o certificado**
+  (tenant novo), a cada **Salvar** da Configuração Fiscal e pelo botão **Cadastrar webhook** do cartão "Avisos do serviço
+  fiscal (webhook)". A chamada é idempotente no serviço (mesma URL e tipo atualiza o segredo).
+- **URL de configuração, nunca fixa:** `FISCAL_WEBHOOK_URL` é o endereço público da rota `POST /fiscal/webhook` como o
+  serviço a alcança. Sem ela, ou malformada, ou apontando para `localhost` em produção, o cadastro não é feito e o motivo vai
+  para a tela. Produção sem segredo próprio também não cadastra (o ERP recusaria os eventos).
+- **Falha aparece para o operador:** o último resultado fica em `ClinicFiscalConfig.webhookUrl/webhookRegisteredAt/webhookError`;
+  salvar a configuração ou enviar o certificado mostra um aviso se o cadastro falhou, sem desfazer o resto. O cartão consulta
+  `GET /webhook` do serviço e diz se o endereço deste ERP está **cadastrado e ativo**.
+- Rotas do ERP: `GET /fiscal/webhook-config` (estado) e `POST /fiscal/webhook-config` (cadastrar), ambas com `fiscal.config`.
+- Regras puras em `services/webhook-cadastro.ts`; o segredo é o mesmo resolvido pela rota que recebe os eventos.
+
+## Certificado inválido barra a emissão (A18)
+
+- O serviço devolve erro em `emitente.certificado` (sem certificado ativo, vencido, ilegível ou ainda não válido) no
+  `/nfe/validate` e no `/nfe/emit` (400, sem criar nota). Perto do vencimento ou com CNPJ diferente, vem `warning`.
+- Na **Revisão Fiscal** o erro aparece com a etiqueta **Certificado** e bloqueia o botão de emitir. Quem tem `fiscal.config`
+  vê o botão **Enviar certificado novo**; quem não tem vê "Peça a quem cuida da configuração fiscal da loja para enviar um
+  certificado digital novo." (antes recebia um botão que dava em "acesso restrito").
+- Avisos que vêm junto com um 400 do `/nfe/emit` continuam avisos (antes viravam erro na tela).
 
 ## Variáveis de ambiente
 
 | Variável | Função | Padrão |
 |---|---|---|
 | `FISCAL_WEBHOOK_SECRET` | Segredo HMAC do webhook (obrigatório em produção) | — |
+| `FISCAL_WEBHOOK_URL` | Endereço público da rota `POST /fiscal/webhook`, cadastrado no serviço (A17) | — (sem ela, nada é cadastrado) |
 | `FISCAL_RECONCILE_ENABLED` | `false` desliga o job de reconciliação | ligado |
 | `FISCAL_RECONCILE_INTERVAL_MS` | Intervalo do job | 300000 (5 min) |
 | `FISCAL_ALLOW_PRODUCTION` | Libera emissão em produção (sem ela, só homologação) | bloqueado |

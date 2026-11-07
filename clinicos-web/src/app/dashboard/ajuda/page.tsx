@@ -1442,6 +1442,20 @@ const GROUPS: Group[] = [
                         ),
                     },
                     {
+                        tone: 'info',
+                        label: 'Avisos do serviço fiscal (webhook)',
+                        body: (
+                            <>
+                                É por esse endereço que o serviço fiscal avisa o sistema de nota autorizada, recusada,
+                                cancelada e do certificado vencendo. O sistema cadastra sozinho ao enviar o certificado e a
+                                cada <b>Salvar</b>. O cartão <b>Avisos do serviço fiscal (webhook)</b> mostra se está{' '}
+                                <b>cadastrado e ativo</b>; se aparecer em vermelho, clique em <b>Cadastrar webhook</b> e,
+                                se o erro falar de configuração do servidor, chame o suporte. Sem ele as notas ainda são
+                                atualizadas, mas com atraso de alguns minutos.
+                            </>
+                        ),
+                    },
+                    {
                         tone: 'warn',
                         label: 'Aviso de certificado vencendo',
                         body: (
@@ -1451,7 +1465,9 @@ const GROUPS: Group[] = [
                                 <i>“Certificado digital vence em N dias: renove e envie o novo A1 em Configuração
                                 Fiscal”</i>. Até 15 dias ela fica mais forte e não pode ser dispensada. <b>Vencido, nenhuma
                                 nota será emitida</b> até enviar um certificado novo: renove com a certificadora e use{' '}
-                                <b>Substituir Certificado</b>. A faixa some sozinha ao enviar o certificado novo.
+                                <b>Substituir Certificado</b>. A faixa some sozinha ao enviar o certificado novo. Com o
+                                certificado vencido, a <b>Revisão Fiscal</b> do pedido mostra o motivo na etiqueta{' '}
+                                <b>Certificado</b> e não deixa emitir.
                             </>
                         ),
                     },
