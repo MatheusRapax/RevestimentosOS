@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { SalesScope } from '../../core/rbac/sales-scope';
 import { FinanceService } from '../finance/finance.service';
 import { CreateOccurrenceDto } from './dto/create-occurrence.dto';
 import { UpdateOccurrenceStatusDto } from './dto/update-occurrence.dto';
@@ -69,9 +70,34 @@ export class OccurrencesService {
     return occurrence;
   }
 
-  async findAll(clinicId: string) {
+  /** Quem não vê as vendas de todos só pode ligar uma avaria a um pedido seu. */
+  async assertPedidoVisivel(
+    clinicId: string,
+    orderId: string | null | undefined,
+    scope?: SalesScope,
+  ) {
+    if (!orderId || !scope || scope.all) return;
+    const pedido = await this.prisma.order.findFirst({
+      where: { id: orderId, clinicId, sellerId: scope.userId ?? '__nenhum__' },
+      select: { id: true },
+    });
+    if (!pedido) throw new NotFoundException('Pedido não encontrado');
+  }
+
+  async findAll(clinicId: string, scope?: SalesScope) {
     return this.prisma.occurrence.findMany({
-      where: { clinicId },
+      where: {
+        clinicId,
+        // avaria de um pedido só aparece ao vendedor dele; avaria sem pedido (compra/estoque) segue visível
+        ...(scope && !scope.all
+          ? {
+              OR: [
+                { orderId: null },
+                { order: { sellerId: scope.userId ?? '__nenhum__' } },
+              ],
+            }
+          : {}),
+      },
       include: {
         supplier: { select: { name: true } },
         customer: { select: { name: true } },

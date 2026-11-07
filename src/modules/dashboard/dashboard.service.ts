@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { SalesScope, filtroDoVendedor } from '../../core/rbac/sales-scope';
 import { OrderStatus, TransactionType } from '@prisma/client';
 
 // Widget types available for flooring store
@@ -269,10 +270,11 @@ export class DashboardService {
   }
 
   // Get pending orders (not delivered/cancelled)
-  async getPendingOrders(clinicId: string) {
+  async getPendingOrders(clinicId: string, scope?: SalesScope) {
     return this.prisma.order.findMany({
       where: {
         clinicId,
+        ...filtroDoVendedor(scope),
         status: {
           in: [
             OrderStatus.CRIADO,
@@ -292,7 +294,7 @@ export class DashboardService {
   }
 
   // Get today's revenue summary
-  async getTodayRevenue(clinicId: string) {
+  async getTodayRevenue(clinicId: string, scope?: SalesScope) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -304,6 +306,10 @@ export class DashboardService {
         clinicId,
         type: TransactionType.PAYMENT,
         createdAt: { gte: today, lt: tomorrow },
+        // quem não vê as vendas de todos soma só os recebimentos dos seus pedidos
+        ...(scope && !scope.all
+          ? { payment: { order: { sellerId: scope.userId ?? '__nenhum__' } } }
+          : {}),
       },
       select: { amountCents: true },
     });
@@ -313,13 +319,14 @@ export class DashboardService {
   }
 
   // Get pending deliveries
-  async getPendingDeliveries(clinicId: string) {
+  async getPendingDeliveries(clinicId: string, scope?: SalesScope) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     return this.prisma.order.findMany({
       where: {
         clinicId,
+        ...filtroDoVendedor(scope),
         status: {
           in: [
             OrderStatus.PAGO,
@@ -339,10 +346,18 @@ export class DashboardService {
   }
 
   // Get active RMAs
-  async getRmaAlerts(clinicId: string) {
+  async getRmaAlerts(clinicId: string, scope?: SalesScope) {
     return this.prisma.occurrence.findMany({
       where: {
         clinicId,
+        ...(scope && !scope.all
+          ? {
+              OR: [
+                { orderId: null },
+                { order: { sellerId: scope.userId ?? '__nenhum__' } },
+              ],
+            }
+          : {}),
         status: {
           notIn: ['RESOLVIDO', 'RASCUNHO'],
         },
@@ -397,6 +412,7 @@ export class DashboardService {
     clinicId: string,
     startDate?: string,
     endDate?: string,
+    scope?: SalesScope,
   ) {
     const dateFilter: any = {};
     if (startDate) dateFilter.gte = new Date(startDate);
@@ -441,6 +457,8 @@ export class DashboardService {
     const report = [];
 
     for (const seller of sellers) {
+      // quem não vê as vendas de todos só enxerga a própria linha do ranking
+      if (scope && !scope.all && seller.id !== scope.userId) continue;
       // Aggregate Orders
       const orders = await this.prisma.order.findMany({
         where: {
@@ -532,6 +550,7 @@ export class DashboardService {
     clinicId: string,
     startDate?: string,
     endDate?: string,
+    scope?: SalesScope,
   ) {
     const dateFilter: any = {};
     if (startDate) dateFilter.gte = new Date(startDate);
@@ -555,6 +574,7 @@ export class DashboardService {
       const orders = await this.prisma.order.findMany({
         where: {
           clinicId,
+          ...filtroDoVendedor(scope),
           createdAt,
           status: { notIn: [OrderStatus.CANCELADO, OrderStatus.RASCUNHO] },
           OR: [

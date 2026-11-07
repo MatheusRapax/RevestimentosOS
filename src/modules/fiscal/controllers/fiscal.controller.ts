@@ -22,6 +22,7 @@ import { TenantGuard } from '../../../core/tenant/guards/tenant.guard';
 import { PermissionsGuard } from '../../../core/rbac/guards/permissions.guard';
 import { Permissions } from '../../../core/rbac/decorators/permissions.decorator';
 import { PERMISSIONS } from '../../../core/rbac/permissions';
+import { SalesOwnerGuard } from '../../../core/rbac/sales-scope';
 import { CurrentUser } from '../../../core/auth/decorators/current-user.decorator';
 import { UpdateFiscalSettingsDto } from '../dto/update-fiscal-settings.dto';
 import { UpsertFiscalProfileDto } from '../dto/upsert-fiscal-profile.dto';
@@ -43,18 +44,21 @@ export class FiscalController {
 
   @Post('emit/:orderId')
   @Permissions(PERMISSIONS.FISCAL_EMIT)
+  @UseGuards(SalesOwnerGuard('order', 'orderId'))
   async emitirNota(@Param('orderId') orderId: string, @Req() req: any) {
     return this.fiscalService.emitirNota(orderId, req.clinicId);
   }
 
   @Post('validate/:orderId')
   @Permissions(PERMISSIONS.FISCAL_EMIT)
+  @UseGuards(SalesOwnerGuard('order', 'orderId'))
   async validateOrder(@Param('orderId') orderId: string, @Req() req: any) {
     return this.fiscalService.validateOrder(orderId, req.clinicId);
   }
 
   @Get('documents/:id/xml')
   @Permissions(PERMISSIONS.FISCAL_VIEW)
+  @UseGuards(SalesOwnerGuard('fiscalDocument'))
   async downloadXml(
     @Param('id') id: string,
     @Req() req: any,
@@ -74,6 +78,7 @@ export class FiscalController {
 
   @Get('documents/:id/danfe')
   @Permissions(PERMISSIONS.FISCAL_VIEW)
+  @UseGuards(SalesOwnerGuard('fiscalDocument'))
   async downloadDanfe(
     @Param('id') id: string,
     @Req() req: any,
@@ -94,6 +99,7 @@ export class FiscalController {
   /** Pede à SEFAZ o cancelamento de uma nota autorizada (resultado chega por webhook). */
   @Post('documents/:id/cancel')
   @Permissions(PERMISSIONS.FISCAL_CANCEL)
+  @UseGuards(SalesOwnerGuard('fiscalDocument'))
   async cancelarNota(
     @Param('id') id: string,
     @Body() dto: CancelDocumentDto,
@@ -105,6 +111,7 @@ export class FiscalController {
   /** Nova tentativa de uma nota aguardando a SEFAZ ou com falha de processamento. */
   @Post('documents/:id/retry')
   @Permissions(PERMISSIONS.FISCAL_EMIT)
+  @UseGuards(SalesOwnerGuard('fiscalDocument'))
   async tentarNovamente(@Param('id') id: string, @Req() req: any) {
     return this.fiscalService.tentarNovamente(id, req.clinicId);
   }

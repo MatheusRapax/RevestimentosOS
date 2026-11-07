@@ -19,6 +19,7 @@ import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 import { PermissionsGuard } from '../../core/rbac/guards/permissions.guard';
 import { Permissions } from '../../core/rbac/decorators/permissions.decorator';
 import { PERMISSIONS } from '../../core/rbac/permissions';
+import { SalesScopeService } from '../../core/rbac/sales-scope';
 
 import { ModuleGuard } from '../../core/auth/guards/module.guard';
 import { RequireModules } from '../../core/auth/decorators/module.decorator';
@@ -27,7 +28,10 @@ import { RequireModules } from '../../core/auth/decorators/module.decorator';
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleGuard)
 @RequireModules('SALES')
 export class CustomersController {
-  constructor(private readonly customersService: CustomersService) {}
+  constructor(
+    private readonly customersService: CustomersService,
+    private readonly escopoDeVendas: SalesScopeService,
+  ) {}
 
   @Post()
   @Permissions(PERMISSIONS.CUSTOMER_CREATE)
@@ -49,8 +53,9 @@ export class CustomersController {
 
   @Get(':id/summary')
   @Permissions(PERMISSIONS.CUSTOMER_READ)
-  getSummary(@Request() req: any, @Param('id') id: string) {
-    return this.customersService.getCustomerSummary(id, req.clinicId);
+  async getSummary(@Request() req: any, @Param('id') id: string) {
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
+    return this.customersService.getCustomerSummary(id, req.clinicId, escopo);
   }
 
   @Patch(':id')

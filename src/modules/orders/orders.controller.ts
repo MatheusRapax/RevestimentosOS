@@ -15,6 +15,7 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 import { OrderStatus } from '@prisma/client';
+import { SalesOwnerGuard, SalesScopeService } from '../../core/rbac/sales-scope';
 
 interface AuthRequest extends Request {
   clinicId: string;
@@ -24,11 +25,16 @@ interface AuthRequest extends Request {
 import { ModuleGuard } from '../../core/auth/guards/module.guard';
 import { RequireModules } from '../../core/auth/decorators/module.decorator';
 
+const DonoDoPedido = SalesOwnerGuard('order');
+
 @Controller('orders')
-@UseGuards(JwtAuthGuard, TenantGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, ModuleGuard, DonoDoPedido)
 @RequireModules('SALES')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly escopoDeVendas: SalesScopeService,
+  ) {}
 
   @Get()
   async findAll(
@@ -36,12 +42,18 @@ export class OrdersController {
     @Query('status') status?: string,
     @Query('customerId') customerId?: string,
   ) {
-    return this.ordersService.findAll(req.clinicId, { status, customerId });
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
+    return this.ordersService.findAll(
+      req.clinicId,
+      { status, customerId },
+      escopo,
+    );
   }
 
   @Get('stats')
   async getStats(@Request() req: AuthRequest) {
-    return this.ordersService.getStats(req.clinicId);
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
+    return this.ordersService.getStats(req.clinicId, escopo);
   }
 
   @Get('export/excel')
@@ -51,10 +63,12 @@ export class OrdersController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
     const buffer = await this.ordersService.exportToExcel(
       req.clinicId,
       startDate,
       endDate,
+      escopo,
     );
 
     res.set({

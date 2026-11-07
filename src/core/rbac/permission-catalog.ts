@@ -176,6 +176,14 @@ export const CATALOGO: Record<string, InfoPermissao> = {
     { sensivel: true },
   ),
 
+  'sales.view.all': p(
+    'vendas',
+    'Visibilidade das vendas',
+    'Ver as vendas de todos os vendedores',
+    'Sem esta permissão, a pessoa vê só as suas próprias vendas: orçamentos, pedidos, entregas, notas fiscais e avarias dos pedidos que ela fez. Com ela, vê os de todos os vendedores.',
+    { sensivel: true },
+  ),
+
   'quote.read': p(
     'vendas',
     'Orçamentos',
