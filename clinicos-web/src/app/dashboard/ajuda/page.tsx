@@ -1443,6 +1443,20 @@ const GROUPS: Group[] = [
                     },
                     {
                         tone: 'warn',
+                        label: 'Aviso de certificado vencendo',
+                        body: (
+                            <>
+                                Quando faltam até <b>60 dias</b> para o certificado vencer, quem tem a permissão de
+                                configuração fiscal vê uma faixa no topo de todas as telas:{' '}
+                                <i>“Certificado digital vence em N dias: renove e envie o novo A1 em Configuração
+                                Fiscal”</i>. Até 15 dias ela fica mais forte e não pode ser dispensada. <b>Vencido, nenhuma
+                                nota será emitida</b> até enviar um certificado novo: renove com a certificadora e use{' '}
+                                <b>Substituir Certificado</b>. A faixa some sozinha ao enviar o certificado novo.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
                         label: 'O Perfil do Emitente é a fonte da verdade',
                         body: (
                             <>

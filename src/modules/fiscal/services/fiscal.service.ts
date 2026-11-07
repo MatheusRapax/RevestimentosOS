@@ -25,6 +25,12 @@ import {
   planejarWebhook,
 } from './nexos-status';
 import {
+  alertasDoStatus,
+  avaliarAlertaCertificado,
+  dataDeValidade,
+  lerEventoCertificado,
+} from './certificado-alerta';
+import {
   dadosIeDestinatario,
   gtinParaNota,
   informacoesComplementares,
@@ -231,6 +237,9 @@ export class FiscalService {
           nexosApiKey: apiKey,
           certificateFileName: originalFileName,
           certificateUploadedAt: new Date(),
+          // certificado novo: o aviso do anterior deixa de valer (a tela relê a validade em seguida)
+          certificateNotAfter: null,
+          certificateAlertAt: null,
         },
       });
 
@@ -360,6 +369,7 @@ export class FiscalService {
       ).data;
     } catch (e: any) {
       if (e?.response?.status === 404) {
+        await this.guardarValidadeCertificado(clinicId, null);
         return {
           available: true,
           hasCertificate: false,
@@ -391,16 +401,11 @@ export class FiscalService {
         mensagem: `O CNPJ do certificado (${c.cnpj ? formatCnpj(c.cnpj) : '—'}) NÃO confere com o do cadastro fiscal da loja. A emissão será recusada.`,
       });
     }
-    if (c.expired === true) {
-      alertas.push({ nivel: 'erro', mensagem: 'O certificado digital está VENCIDO.' });
-    } else if (c.notAfterUtc) {
-      const dias = Math.floor(
-        (new Date(c.notAfterUtc).getTime() - Date.now()) / 86400000,
-      );
-      if (dias <= 30) {
-        alertas.push({ nivel: 'aviso', mensagem: `O certificado vence em ${dias} dia(s).` });
-      }
-    }
+    const validade = alertasDoStatus(c);
+    alertas.push(...validade.alertas);
+    // A resposta do serviço é a fonte da verdade: mantém o aviso do administrador em dia
+    const notAfter = dataDeValidade(c.notAfterUtc);
+    if (notAfter) await this.guardarValidadeCertificado(clinicId, notAfter);
     if (d?.reachable === false) {
       alertas.push({
         nivel: 'aviso',
@@ -430,9 +435,28 @@ export class FiscalService {
         notAfterUtc: c.notAfterUtc ?? null,
         expired: c.expired ?? null,
         cnpjMatchesTenant: c.cnpjMatchesTenant ?? null,
+        daysLeft: validade.daysLeft,
+        level: validade.level,
       },
       alertas,
     };
+  }
+
+  /** Falhar aqui não pode derrubar a consulta de status: o aviso é só um complemento. */
+  private async guardarValidadeCertificado(
+    clinicId: string,
+    notAfter: Date | null,
+  ) {
+    try {
+      await this.prisma.clinicFiscalConfig.updateMany({
+        where: { clinicId },
+        data: { certificateNotAfter: notAfter },
+      });
+    } catch (e: any) {
+      this.logger.warn(
+        `Não foi possível guardar a validade do certificado: ${this.errMsg(e)}`,
+      );
+    }
   }
 
   // ── Contexto + payload compartilhados por validate e emit ──────────────
@@ -1328,6 +1352,11 @@ export class FiscalService {
       return { status: 'IGNORED', message: 'Missing data' };
     }
 
+    // Evento do certificado é da empresa, não de uma nota: não tem externalId
+    if (event === 'CertificateExpiring') {
+      return this.registrarAlertaCertificado(data);
+    }
+
     const orderId = data.externalId || data.ExternalId;
 
     if (!orderId) {
@@ -1363,6 +1392,54 @@ export class FiscalService {
       `Updated FiscalDocument for Order ${orderId}: ${plano.resumo}`,
     );
     return { status: 'SUCCESS' };
+  }
+
+  /** Webhook CertificateExpiring (A16): guarda a validade; o aviso é calculado ao mostrar. */
+  private async registrarAlertaCertificado(data: any) {
+    const evento = lerEventoCertificado(data);
+    if (!evento) {
+      this.logger.warn(
+        'Webhook CertificateExpiring sem TenantId ou NotAfter válidos: ignorado',
+      );
+      return { status: 'IGNORED', message: 'Missing TenantId or NotAfter' };
+    }
+    // Reentrega atrasada do certificado antigo não pode apagar a validade de um mais novo
+    const { count } = await this.prisma.clinicFiscalConfig.updateMany({
+      where: {
+        nexosTenantId: evento.tenantId,
+        OR: [
+          { certificateNotAfter: null },
+          { certificateNotAfter: { lte: evento.notAfter } },
+        ],
+      },
+      data: {
+        certificateNotAfter: evento.notAfter,
+        certificateAlertAt: new Date(),
+      },
+    });
+    if (count === 0) {
+      this.logger.warn(
+        `Webhook CertificateExpiring ignorado para o tenant ${evento.tenantId}: tenant desconhecido ou validade mais nova já registrada`,
+      );
+      return {
+        status: 'IGNORED',
+        message: 'Unknown tenant or newer certificate',
+      };
+    }
+    const alerta = avaliarAlertaCertificado(evento.notAfter);
+    this.logger.warn(
+      `Certificado do tenant ${evento.tenantId}: ${alerta?.mensagem ?? 'fora da faixa de aviso'}`,
+    );
+    return { status: 'SUCCESS' };
+  }
+
+  /** Aviso de vencimento do certificado da loja, para o banner do administrador. */
+  async getCertificateAlert(clinicId: string) {
+    const config = await this.prisma.clinicFiscalConfig.findUnique({
+      where: { clinicId },
+      select: { certificateNotAfter: true },
+    });
+    return { alerta: avaliarAlertaCertificado(config?.certificateNotAfter) };
   }
 
   /**
