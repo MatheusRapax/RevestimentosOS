@@ -183,6 +183,8 @@ const GROUPS: Group[] = [
                                 lembra disso. Abrir a venda de outra pessoa pelo endereço direto responde <i>“não encontrado”</i>.
                                 Quem tem a permissão (Administrador e Gerente, por padrão) vê as vendas de toda a equipe. O
                                 pedido fica sempre com o <b>vendedor do orçamento</b>, mesmo que o gerente faça a conversão.
+                                Para passar a venda a outro vendedor use <b>Transferir venda</b> (veja{' '}
+                                <A href="#transferir-vendas">Transferir vendas</A>).
                             </>
                         ),
                     },
@@ -309,6 +311,8 @@ const GROUPS: Group[] = [
                                 lembra disso. Abrir a venda de outra pessoa pelo endereço direto responde <i>“não encontrado”</i>.
                                 Quem tem a permissão (Administrador e Gerente, por padrão) vê as vendas de toda a equipe. O
                                 pedido fica sempre com o <b>vendedor do orçamento</b>, mesmo que o gerente faça a conversão.
+                                Para passar a venda a outro vendedor use <b>Transferir venda</b> (veja{' '}
+                                <A href="#transferir-vendas">Transferir vendas</A>).
                             </>
                         ),
                     },
@@ -570,6 +574,59 @@ const GROUPS: Group[] = [
                                 Vale a de <b>maior desconto</b>. <b>Excluir</b> apaga a campanha de vez; para só parar de
                                 aplicar, desligue o interruptor <b>Ativa</b>. Orçamentos já criados guardam o preço do
                                 momento — use <b>Atualizar Preços</b> neles se precisar.
+                            </>
+                        ),
+                    },
+                ],
+            },
+            {
+                id: 'transferir-vendas',
+                path: 'Comercial › Transferir vendas',
+                title: 'Transferir vendas',
+                lead: (
+                    <>
+                        Passa <b>orçamentos e pedidos</b> de um vendedor para outro, por exemplo quando alguém sai da loja
+                        ou o cliente passa a ser atendido por outra pessoa. Só aparece para quem tem a permissão{' '}
+                        <b>“Transferir vendas entre vendedores”</b> (Administrador e Gerente, por padrão).
+                    </>
+                ),
+                steps: [
+                    <>Uma venda só: abra o <A href="#orcamentos">orçamento</A> ou o <A href="#pedidos">pedido</A> e clique em <b>Transferir venda</b>.</>,
+                    <>Várias de uma vez: menu <b>Comercial › Transferir vendas</b>. Escolha <b>De</b> (vendedor atual) e <b>Para</b> (novo vendedor); as vendas em aberto do vendedor aparecem marcadas — desmarque as que não quiser levar.</>,
+                    <>Escreva o <b>Motivo da transferência</b> (obrigatório, mínimo de 5 letras).</>,
+                    <>Confira o quadro <b>Será transferido</b> e clique em <b>Transferir</b>. O histórico fica no fim da mesma tela.</>,
+                ],
+                notes: [
+                    {
+                        label: 'Orçamento e pedido vão juntos',
+                        body: (
+                            <>
+                                Transferir o orçamento leva o pedido dele, e transferir o pedido leva o orçamento. Pedido{' '}
+                                <b>cancelado</b> não é transferido, e o orçamento ligado a ele também fica de fora. Depois
+                                da transferência o vendedor anterior <b>deixa de ver</b> a venda (veja “Cada vendedor vê só
+                                as suas vendas”).
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Pedido de mês anterior: a comissão muda de mãos',
+                        body: (
+                            <>
+                                A comissão é calculada pelo vendedor do pedido. Se o pedido é de um <b>mês que já passou</b>,
+                                a comissão daquele mês sai do vendedor antigo e vai para o novo. O sistema mostra um aviso
+                                amarelo e só transfere depois que você marcar <b>“Entendo e quero transferir mesmo
+                                assim”</b>. Se a comissão do período já foi acertada, combine o ajuste antes.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'Quem pode receber e quem pode transferir',
+                        body: (
+                            <>
+                                O novo vendedor precisa ser um usuário <b>ativo</b> com acesso a orçamentos ou pedidos. Quem
+                                tem a permissão de transferir mas <b>não</b> vê as vendas de todos só consegue transferir as{' '}
+                                <b>suas próprias</b>. Clientes e arquitetos não mudam de dono: só a venda.
                             </>
                         ),
                     },
@@ -1080,6 +1137,18 @@ const GROUPS: Group[] = [
                                 <b> Vendedor</b> não a tem; Administrador e Gerente têm. Para dar a um papel que você criou,
                                 marque a permissão nele. Ela vale para orçamentos, pedidos, entregas, notas fiscais e avarias
                                 dos pedidos.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Transferir vendas entre vendedores',
+                        body: (
+                            <>
+                                Ainda em <b>Vendas › Visibilidade das vendas</b>, a permissão <b>“Transferir vendas entre
+                                vendedores”</b> libera o botão <b>Transferir venda</b> e a tela <b>Comercial › Transferir
+                                vendas</b>. Administrador e Gerente já têm; qualquer outro papel passa a ter ao marcá-la.
+                                É uma permissão sensível: mexe na comissão de quem vende.
                             </>
                         ),
                     },

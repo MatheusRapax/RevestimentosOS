@@ -36,6 +36,11 @@ pedidos, entregas, avarias, notas fiscais, painel inicial e resumo do cliente. M
 - **Financeiro gerencial** (visão geral, contas a pagar, notas de serviço): é função de gerência, protegida por `finance.read`.
 - **Comissões por arquiteto** (`GET /architects/:id/commissions`): protegido por `commission.report.read`.
 
+## Passar uma venda para outro vendedor
+
+Quem tem a permissão `sales.transfer` transfere orçamentos e pedidos entre vendedores (com motivo, histórico e aviso de
+comissão). Ver `docs/TRANSFERENCIA-DE-VENDAS.md`.
+
 ## Compatibilidade (o que a migração faz)
 
 Concede `sales.view.all` a **todo papel que já vê orçamentos ou pedidos**, **exceto o Vendedor** (`SELLER`). Assim Administrador,

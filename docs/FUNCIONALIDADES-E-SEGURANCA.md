@@ -35,6 +35,7 @@ Cada loja (tenant) tem seus dados isolados, seus usuários, seus papéis e os m�
 | Orçamento — recálculo de markup | Preço acompanha mudança de markup | ✅ |
 | Pedidos | Conversão do orçamento, pagamentos, separação, retirada/entrega | ✅ |
 | Cada vendedor vê só as suas vendas | Orçamentos, pedidos, entregas, notas fiscais, avarias, painel e resumo do cliente mostram só o que o vendedor fez; a permissão “Ver as vendas de todos os vendedores” libera a equipe inteira | 🟡 |
+| Transferir vendas entre vendedores | Passa orçamento e pedido (juntos) de um vendedor para outro, um a um ou o lote de um vendedor que saiu, com motivo, histórico e aviso quando a comissão de mês anterior muda de mãos (`docs/TRANSFERENCIA-DE-VENDAS.md`) | ✅ |
 | Conta-corrente do cliente e boleto | Saldo do cliente e geração de boleto só para pedido não pago | ✅ |
 | Catálogo de produtos (consulta de vendas) | Consulta para o vendedor, com preço por m², sem expor custo | ✅ |
 | Promoções | Campanhas por produto com status e regra para promoções sobrepostas | ✅ |
@@ -126,6 +127,7 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 | Usuário não altera o próprio papel | Evita elevar o próprio acesso | ✅ |
 | Catálogo de permissões com teste | Toda permissão nova precisa de texto claro (o teste falha sem ele); permissão ativa não pode usar termo de clínica | 🟡 |
 | Venda de outro vendedor não abre | Acessar orçamento, pedido, entrega ou nota de outro vendedor pelo endereço direto responde “não encontrado”, em todas as ações (ver, editar, aprovar, converter, cancelar) | 🟡 |
+| Transferência de vendas só com permissão e com rastro | Exige `sales.transfer`; destino precisa ser usuário ativo com acesso a vendas; motivo obrigatório; tudo numa transação; histórico (`SalesTransfer`) e registro no orçamento; mês anterior exige confirmação | ✅ |
 | Permissões sensíveis sinalizadas | Dinheiro, estoque, nota fiscal, acessos e exclusões aparecem marcados na hora de dar acesso | 🟡 |
 
 ### 3.2 Rastreabilidade
