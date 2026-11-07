@@ -33,6 +33,7 @@ import { EscopoVendasAviso } from '@/components/auth/escopo-vendas-aviso';
 import { FastInputModal } from './components/FastInputModal';
 import { FiscalReviewModal } from './components/FiscalReviewModal';
 import { NfeStatusExtras } from './components/CancelNfeDialog';
+import { TransferirVendaBotao } from '@/components/vendas/transferir-venda-botao';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
     CRIADO: { label: 'Novo / Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
@@ -1176,6 +1177,14 @@ export default function OrdersPage() {
                                         Emitir NF-e
                                     </Button>
                                 )}
+
+                                <TransferirVendaBotao
+                                    tipo="order"
+                                    id={displayOrder.id}
+                                    numero={displayOrder.number}
+                                    className="flex-1"
+                                    onTransferido={() => { setSelectedOrder(null); queryClient.invalidateQueries({ queryKey: ['orders'] }); }}
+                                />
 
                                 <Button
                                     variant="outline"
