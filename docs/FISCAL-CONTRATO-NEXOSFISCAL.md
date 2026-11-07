@@ -51,6 +51,23 @@ Quando o contrato mudar, o NexosFiscal registra em `AJUSTES_ERP.md` e este doc �
 - `NFeCanceled`, `NFeCorrection` e `EventRejected` também trazem `Number`, `Series` e `Environment`.
 - ST, redução de base, DIFAL, IPI e FCP: sem previsão; não bloqueiam o cliente atual (Simples Nacional, CSOSN 102).
 
+## Alerta de vencimento do certificado (A16)
+
+- **Webhook `CertificateExpiring`:** tratado em `FiscalService.handleWebhook`; o evento é da empresa, não de uma nota, então
+  não tem `externalId`. Acha a loja por `ClinicFiscalConfig.nexosTenantId`. O serviço envia os campos em **PascalCase**
+  (`TenantId`, `NotAfter`...); o ERP aceita também camelCase.
+- **O que é guardado:** só `certificateNotAfter` e `certificateAlertAt`. Dias e nível são **recalculados ao mostrar**, com as
+  mesmas faixas do serviço (`warning` 16 a 60 dias, `critical` 1 a 15, `expired` 0 ou menos), porque o aviso chega no máximo
+  1x por semana e um número gravado ficaria errado. Regras em `services/certificado-alerta.ts`.
+- **Onde aparece:** faixa no topo de todas as telas para quem tem `fiscal.config` (`GET /fiscal/certificate-alert`, sem
+  consultar a SEFAZ). Só o aviso `warning` pode ser dispensado, até recarregar a página.
+- **Como some:** enviar certificado novo limpa o aviso. `GET /fiscal/status` usa `certificado.daysLeft`/`level` e grava a
+  validade real, então abrir a Configuração Fiscal corrige o aviso na hora.
+- **Reentrega atrasada:** webhook com validade mais antiga que a guardada é ignorado (responde 200).
+- **Limite:** o serviço só envia o evento se houver webhook cadastrado para o tenant (`webhook_configs`, `eventType` 0 ou 8) e,
+  em produção, o ERP recusa o webhook sem `FISCAL_WEBHOOK_SECRET`. Sem isso, a faixa só aparece depois que alguém abre a
+  Configuração Fiscal. O ERP não cadastra esse webhook sozinho.
+
 ## Variáveis de ambiente
 
 | Variável | Função | Padrão |

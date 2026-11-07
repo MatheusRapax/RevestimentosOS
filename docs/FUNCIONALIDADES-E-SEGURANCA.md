@@ -47,7 +47,8 @@ Cada loja (tenant) tem seus dados isolados, seus usuários, seus papéis e os m�
 | Perfil do Emitente por CNPJ | Lupa preenche razão social, endereço e IBGE a partir do CNPJ | ✅ |
 | Certificado digital A1 | Instalação pela tela e selo “Certificado instalado” | ✅ |
 | Perfil do Emitente como fonte da verdade | O cadastro fiscal da loja define o emitente; sincroniza com o serviço fiscal ao salvar | 🟡 |
-| Conferência do certificado (SEFAZ) | Validade, CNPJ do certificado × emitente e alcance da SEFAZ, com alertas | 🟡 |
+| Conferência do certificado (SEFAZ) | Validade com dias restantes, CNPJ do certificado × emitente e alcance da SEFAZ, com alertas | 🟡 |
+| Aviso de vencimento do certificado | Faixa no topo de todas as telas para quem cuida da configuração fiscal, a partir de 60 dias do vencimento; vencido avisa que nenhuma nota será emitida | 🟡 |
 | Revisão em linguagem simples | Tipo de operação, impostos em reais, etiquetas Cliente/Produto/Empresa; códigos só em “detalhes fiscais” | 🟡 |
 | Seletor de NCM | Atalhos de revestimento, busca na tabela oficial e conferência do número digitado | 🟡 |
 | Cálculo automático de CFOP e impostos | Dentro/fora do estado e consumidor final decididos pelo cadastro, sem perguntar ao operador | ✅ (motor) · 🟡 (tela) |
@@ -152,7 +153,7 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 | Sem valores padrão silenciosos | Nada de CRT “3”, UF “SP” ou município de São Paulo assumidos; falta de dado = bloqueio com instrução | 🟡 |
 | Divergência de CNPJ barrada | Se o CNPJ do perfil não bate com o do tenant fiscal, nada é alterado; avisa que é preciso recriar | 🟡 |
 | Divergência formulário × perfil barrada | Setup do certificado que contradiz o perfil é recusado | 🟡 |
-| Alertas de certificado | Vencido, CNPJ diferente do emitente ou ambiente que não é homologação | 🟡 |
+| Alertas de certificado | Vencido, a vencer, ilegível, ainda não válido, CNPJ diferente do emitente ou ambiente que não é homologação | 🟡 |
 | Avisos de cadastro suspeito | IE “ISENTO” para quem vende mercadoria; logradouro com “/” | 🟡 |
 | Operação nunca escolhida à mão | Dentro/fora do estado vem do cadastro; o operador não consegue forçar CFOP errado | 🟡 |
 | Produto só com NCM e origem | Origem sem valor padrão, para não errar imposto por omissão | 🟡 |
