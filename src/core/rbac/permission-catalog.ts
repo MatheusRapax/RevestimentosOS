@@ -184,6 +184,14 @@ export const CATALOGO: Record<string, InfoPermissao> = {
     { sensivel: true },
   ),
 
+  'sales.transfer': p(
+    'vendas',
+    'Visibilidade das vendas',
+    'Transferir vendas entre vendedores',
+    'Passa orçamentos e pedidos de um vendedor para outro, um a um ou todos de uma vez (por exemplo, quando alguém sai da loja). Fica registrado quem transferiu, de quem para quem e o motivo. Pedido de mês anterior muda a comissão e pede confirmação.',
+    { tela: 'Comercial › Transferir vendas', sensivel: true },
+  ),
+
   'quote.read': p(
     'vendas',
     'Orçamentos',

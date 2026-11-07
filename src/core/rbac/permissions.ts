@@ -5,6 +5,8 @@ export const PERMISSIONS = {
 
   // Visibilidade das vendas: sem ela, o usuário vê só as próprias vendas
   SALES_VIEW_ALL: 'sales.view.all',
+  // Passar orçamentos e pedidos de um vendedor para outro
+  SALES_TRANSFER: 'sales.transfer',
 
   // Clinic
   CLINIC_ADMIN: 'CLINIC_ADMIN',
