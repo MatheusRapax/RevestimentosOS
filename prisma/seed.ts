@@ -164,6 +164,8 @@ async function main() {
         { key: 'fiscal.view', description: 'Visualizar Notas Fiscais' },
         { key: 'fiscal.emit', description: 'Emitir Notas Fiscais' },
         { key: 'fiscal.cancel', description: 'Cancelar Notas Fiscais' },
+        { key: 'sales.view.all', description: 'Ver as vendas de todos os vendedores' },
+        { key: 'sales.transfer', description: 'Transferir vendas entre vendedores' },
     ];
 
     for (const perm of permissions) {
@@ -264,6 +266,8 @@ async function main() {
         ...sellerPermKeys,
         'customer.delete', 'architect.create', 'architect.update', 'architect.delete',
         'quote.delete', 'quote.convert',
+        'sales.view.all', // Vê as vendas de todos os vendedores
+        'sales.transfer', // Transfere vendas entre vendedores
         'order.update', 'order.cancel',
         'promotion.create', 'promotion.update', 'promotion.delete',
         'product.create', 'product.update', // Manage Catalog

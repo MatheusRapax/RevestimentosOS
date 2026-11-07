@@ -7,6 +7,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import {
+  SalesScope,
+  filtroDoVendedor,
+  filtroDoVendedorPeloPedido,
+} from '../../core/rbac/sales-scope';
+import {
   CreateDeliveryDto,
   UpdateDeliveryDto,
 } from './dto/create-delivery.dto';
@@ -21,9 +26,13 @@ export class DeliveriesService {
     private ordersService: OrdersService,
   ) {}
 
-  async create(clinicId: string, createDto: CreateDeliveryDto) {
+  async create(
+    clinicId: string,
+    createDto: CreateDeliveryDto,
+    scope?: SalesScope,
+  ) {
     const order = await this.prisma.order.findFirst({
-      where: { id: createDto.orderId, clinicId },
+      where: { id: createDto.orderId, clinicId, ...filtroDoVendedor(scope) },
       include: { delivery: true },
     });
 
@@ -89,8 +98,9 @@ export class DeliveriesService {
     });
   }
 
-  async findAll(clinicId: string, status?: DeliveryStatus) {
-    const where: any = { clinicId };
+  async findAll(clinicId: string, status?: DeliveryStatus, scope?: SalesScope) {
+    // entrega chega ao vendedor pelo pedido: quem não vê tudo só vê as entregas dos seus pedidos
+    const where: any = { clinicId, ...filtroDoVendedorPeloPedido(scope) };
     if (status) {
       where.status = status;
     }

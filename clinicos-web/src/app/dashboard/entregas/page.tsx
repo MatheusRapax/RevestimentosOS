@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { EscopoVendasAviso } from '@/components/auth/escopo-vendas-aviso';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -213,6 +214,7 @@ export default function EntregasPage() {
                     <p className="text-gray-600 mt-1">
                         Gerencie o agendamento e status de entregas
                     </p>
+                    <div className="mt-2"><EscopoVendasAviso assunto="vendas: orçamentos, pedidos e entregas" /></div>
                 </div>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                     <DialogTrigger asChild>

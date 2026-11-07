@@ -19,27 +19,38 @@ import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
 import { PermissionsGuard } from '../../core/rbac/guards/permissions.guard';
 import { Permissions } from '../../core/rbac/decorators/permissions.decorator';
 import { PERMISSIONS } from '../../core/rbac/permissions';
+import {
+  SalesOwnerGuard,
+  SalesScopeService,
+} from '../../core/rbac/sales-scope';
 import { DeliveryStatus } from '@prisma/client';
 
 import { ModuleGuard } from '../../core/auth/guards/module.guard';
 import { RequireModules } from '../../core/auth/decorators/module.decorator';
 
+const DonoDaEntrega = SalesOwnerGuard('delivery');
+
 @Controller('deliveries')
-@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleGuard, DonoDaEntrega)
 @RequireModules('DELIVERIES')
 export class DeliveriesController {
-  constructor(private readonly deliveriesService: DeliveriesService) {}
+  constructor(
+    private readonly deliveriesService: DeliveriesService,
+    private readonly escopoDeVendas: SalesScopeService,
+  ) {}
 
   @Post()
   @Permissions(PERMISSIONS.DELIVERY_CREATE)
-  create(@Request() req: any, @Body() createDto: CreateDeliveryDto) {
-    return this.deliveriesService.create(req.clinicId, createDto);
+  async create(@Request() req: any, @Body() createDto: CreateDeliveryDto) {
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
+    return this.deliveriesService.create(req.clinicId, createDto, escopo);
   }
 
   @Get()
   @Permissions(PERMISSIONS.DELIVERY_READ)
-  findAll(@Request() req: any, @Query('status') status?: DeliveryStatus) {
-    return this.deliveriesService.findAll(req.clinicId, status);
+  async findAll(@Request() req: any, @Query('status') status?: DeliveryStatus) {
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
+    return this.deliveriesService.findAll(req.clinicId, status, escopo);
   }
 
   @Get(':id')

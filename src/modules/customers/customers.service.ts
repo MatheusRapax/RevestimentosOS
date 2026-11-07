@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { SalesScope, filtroDoVendedor } from '../../core/rbac/sales-scope';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { ListCustomerDto } from './dto/list-customer.dto';
@@ -141,23 +142,30 @@ export class CustomersService {
   /**
    * Get customer sales summary (quotes and orders count)
    */
-  async getCustomerSummary(customerId: string, clinicId: string) {
+  async getCustomerSummary(
+    customerId: string,
+    clinicId: string,
+    scope?: SalesScope,
+  ) {
     const customer = await this.findOne(customerId, clinicId);
+    // o cadastro do cliente é de todos, mas o histórico de compras mostra só as vendas de quem pergunta
+    // (a menos que ele veja as vendas de todos os vendedores)
+    const meus = filtroDoVendedor(scope);
 
     const totalQuotes = await this.prisma.quote.count({
-      where: { customerId, clinicId },
+      where: { customerId, clinicId, ...meus },
     });
 
     const totalOrders = await this.prisma.order.count({
-      where: { customerId, clinicId },
+      where: { customerId, clinicId, ...meus },
     });
 
     const pendingOrders = await this.prisma.order.count({
-      where: { customerId, clinicId, status: OrderStatus.CRIADO },
+      where: { customerId, clinicId, ...meus, status: OrderStatus.CRIADO },
     });
 
     const lastOrder = await this.prisma.order.findFirst({
-      where: { customerId, clinicId },
+      where: { customerId, clinicId, ...meus },
       orderBy: { createdAt: 'desc' },
       select: { createdAt: true, totalCents: true },
     });

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import {
+    ArrowRightLeft,
     Users,
     Package,
     Shield,
@@ -73,6 +74,7 @@ const menuSections: MenuSection[] = [
             { href: '/dashboard/pedidos', label: 'Pedidos', icon: ShoppingCart, module: 'SALES', permission: 'order.read' },
             { href: '/dashboard/vendas/catalogo', label: 'Catálogo de Produtos', icon: Tags, module: 'SALES', permission: 'product.read' },
             { href: '/dashboard/vendas/promocoes', label: 'Promoções', icon: Percent, module: 'PROMOTIONS', permission: 'promotion.read' },
+            { href: '/dashboard/vendas/transferencias', label: 'Transferir vendas', icon: ArrowRightLeft, module: 'SALES', permission: 'sales.transfer' },
         ],
     },
     {

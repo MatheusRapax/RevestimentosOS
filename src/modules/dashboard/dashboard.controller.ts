@@ -10,6 +10,7 @@ import {
 import { DashboardService, WIDGET_TYPES } from './dashboard.service';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt.guard';
 import { TenantGuard } from '../../core/tenant/guards/tenant.guard';
+import { SalesScopeService } from '../../core/rbac/sales-scope';
 
 interface AuthRequest {
   user: { id: string; email: string };
@@ -19,7 +20,10 @@ interface AuthRequest {
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class DashboardController {
-  constructor(private dashboardService: DashboardService) {}
+  constructor(
+    private dashboardService: DashboardService,
+    private escopoDeVendas: SalesScopeService,
+  ) {}
 
   // Get available widget types
   @Get('widget-types')
@@ -83,22 +87,26 @@ export class DashboardController {
 
   @Get('widgets/pending-orders')
   async getPendingOrders(@Request() req: AuthRequest) {
-    return this.dashboardService.getPendingOrders(req.clinicId);
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
+    return this.dashboardService.getPendingOrders(req.clinicId, escopo);
   }
 
   @Get('widgets/today-revenue')
   async getTodayRevenue(@Request() req: AuthRequest) {
-    return this.dashboardService.getTodayRevenue(req.clinicId);
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
+    return this.dashboardService.getTodayRevenue(req.clinicId, escopo);
   }
 
   @Get('widgets/pending-deliveries')
   async getPendingDeliveries(@Request() req: AuthRequest) {
-    return this.dashboardService.getPendingDeliveries(req.clinicId);
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
+    return this.dashboardService.getPendingDeliveries(req.clinicId, escopo);
   }
 
   @Get('widgets/rma-alerts')
   async getRmaAlerts(@Request() req: AuthRequest) {
-    return this.dashboardService.getRmaAlerts(req.clinicId);
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
+    return this.dashboardService.getRmaAlerts(req.clinicId, escopo);
   }
 
   // ====================================================================
@@ -110,10 +118,12 @@ export class DashboardController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
     return this.dashboardService.getSellersPerformance(
       req.clinicId,
       startDate,
       endDate,
+      escopo,
     );
   }
 
@@ -123,10 +133,12 @@ export class DashboardController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
+    const escopo = await this.escopoDeVendas.daRequisicao(req);
     return this.dashboardService.getArchitectsPerformance(
       req.clinicId,
       startDate,
       endDate,
+      escopo,
     );
   }
 }

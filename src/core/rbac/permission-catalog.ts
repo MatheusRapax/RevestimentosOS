@@ -176,6 +176,22 @@ export const CATALOGO: Record<string, InfoPermissao> = {
     { sensivel: true },
   ),
 
+  'sales.view.all': p(
+    'vendas',
+    'Visibilidade das vendas',
+    'Ver as vendas de todos os vendedores',
+    'Sem esta permissão, a pessoa vê só as suas próprias vendas: orçamentos, pedidos, entregas, notas fiscais e avarias dos pedidos que ela fez. Com ela, vê os de todos os vendedores.',
+    { sensivel: true },
+  ),
+
+  'sales.transfer': p(
+    'vendas',
+    'Visibilidade das vendas',
+    'Transferir vendas entre vendedores',
+    'Passa orçamentos e pedidos de um vendedor para outro, um a um ou todos de uma vez (por exemplo, quando alguém sai da loja). Fica registrado quem transferiu, de quem para quem e o motivo. Pedido de mês anterior muda a comissão e pede confirmação.',
+    { tela: 'Comercial › Transferir vendas', sensivel: true },
+  ),
+
   'quote.read': p(
     'vendas',
     'Orçamentos',
