@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.20.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.19.1...v1.20.0) (2026-11-07)
+
+
+### Features
+
+* **fiscal:** aviso 'Aguardando a SEFAZ' e botão Tentar novamente no card da nota (A11) ([8686af8](https://github.com/MatheusRapax/RevestimentosOS/commit/8686af85491caca3fee24d6dcedf3d232d5cb883))
+* **fiscal:** AWAITING_SEFAZ como em andamento, NFeDelayed como aviso e tentar novamente (A11, A12) ([4d7ebef](https://github.com/MatheusRapax/RevestimentosOS/commit/4d7ebef43aea9e6823b437607a27d65133a6351a))
+* **fiscal:** bloquear CST que o serviço ainda não emite e mostrar os erros do 400 na revisão (A2) ([afc8f9d](https://github.com/MatheusRapax/RevestimentosOS/commit/afc8f9d84b74aa553df48f5d42634024b95eece2))
+* **fiscal:** cancelamento de NF-e em andamento até a SEFAZ confirmar (A3) ([7423974](https://github.com/MatheusRapax/RevestimentosOS/commit/74239743362d40a5b6e755187026f3e318bcb310))
+* **fiscal:** colunas para ambiente, cancelamento em andamento, evento recusado e reconciliação ([7364d0f](https://github.com/MatheusRapax/RevestimentosOS/commit/7364d0fa7c909335094edb1d439564cf27e4d499))
+* **fiscal:** enviar ao serviço os campos fiscais que faltavam no payload (A1) ([1a3274d](https://github.com/MatheusRapax/RevestimentosOS/commit/1a3274d00b8dd6fbdc0c3beaca903b416be0860a))
+* **fiscal:** erro do serviço em item diz o nome do produto na revisão ([5c3b709](https://github.com/MatheusRapax/RevestimentosOS/commit/5c3b7097c30c39e47d705501e69763c3abb81550))
+* **fiscal:** montar a identidade do emitente a partir do Perfil Fiscal ([f143df5](https://github.com/MatheusRapax/RevestimentosOS/commit/f143df5b31647480affbb9bf4e645e09ed57df1c))
+* **fiscal:** reconciliação periódica por GET /nfe?updatedSince= e registro de série, número e ambiente (A7) ([bd1b1d3](https://github.com/MatheusRapax/RevestimentosOS/commit/bd1b1d33cb6a687cdde1fea6e389a383e5df540f))
+* **fiscal:** revisão da NF-e em linguagem simples e seletor de NCM ([9fdf58e](https://github.com/MatheusRapax/RevestimentosOS/commit/9fdf58eb10bda38eac6880c4c66db525ef2b860d))
+* **fiscal:** tela com sincronização do emitente, conferência do certificado e alertas de IE/logradouro ([169908d](https://github.com/MatheusRapax/RevestimentosOS/commit/169908d1495eb839ac6bd6f0acba0e496e0386ad))
+* **fiscal:** tela de cancelamento, aviso de homologação e motivo de evento recusado no card da nota (A3, A7) ([1858e20](https://github.com/MatheusRapax/RevestimentosOS/commit/1858e200ce87df4f9bbe6d7755e7db7a1dacfa29))
+* **permissoes:** catálogo com texto claro, categoria, tela e situação de cada permissão ([79ed5df](https://github.com/MatheusRapax/RevestimentosOS/commit/79ed5df331994844747b04d7036ef489d62de9e2))
+* **permissoes:** editor de permissões por área, em linguagem de loja, nas duas telas de papéis ([d1084f1](https://github.com/MatheusRapax/RevestimentosOS/commit/d1084f15cae2b310940036c1bb91bf034ae79b28))
+
+
+### Bug Fixes
+
+* **fiscal:** entender o 400 do serviço em formato ProblemDetails e mostrar cada campo ao operador ([be84a57](https://github.com/MatheusRapax/RevestimentosOS/commit/be84a5769debe0c376ba4b1c51047ac276e607a5))
+* **fiscal:** operação calculada do cadastro, sem UF padrão SP e produto só precisa de NCM e origem ([5f01a72](https://github.com/MatheusRapax/RevestimentosOS/commit/5f01a72efe4534d33231d32f873c31678e2c18a8))
+* **fiscal:** pagamento maior que o total bloqueia a emissão; documenta o que o NexosFiscal confirmou ([dfb1fcb](https://github.com/MatheusRapax/RevestimentosOS/commit/dfb1fcb8946b8b3c875a9514997cc6181a80f9cc))
+* **fiscal:** repassar a mensagem do serviço quando ela vem como texto puro; série no card e aviso de espera sem repetição ([67270bf](https://github.com/MatheusRapax/RevestimentosOS/commit/67270bf3d93abd218b2e0bc015a996c42f2204cb))
+* **fiscal:** setup do tenant usa o perfil como fonte da verdade, envia endereço e sincroniza ([b3f6977](https://github.com/MatheusRapax/RevestimentosOS/commit/b3f6977f35e4d182686fe93f93fb72bc685335af))
+* **fiscal:** webhook não apaga mais o erro da nota e FAILED deixa de ficar em processamento ([f9ae766](https://github.com/MatheusRapax/RevestimentosOS/commit/f9ae766acb28f96a0e31f7195b2a3890d22a9ca1))
+* **permissoes:** bloquear as telas de Configuração Fiscal, Regras de Comissão e Ambientes para quem não tem a permissão ([b1fc09d](https://github.com/MatheusRapax/RevestimentosOS/commit/b1fc09d1c1a8dc312c3aa0cde9797c48d8d2ae38))
+* **seguranca:** webhook fiscal recusa produção sem segredo próprio e compara a assinatura em tempo constante ([fe731ca](https://github.com/MatheusRapax/RevestimentosOS/commit/fe731caae446230949c76c55caa674d84ee085c4))
+
+### [1.19.1](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.19.0...v1.19.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **fiscal:** trava de segurança — nenhuma emissão em produção sem liberação no servidor ([d780056](https://github.com/MatheusRapax/RevestimentosOS/commit/d780056b3dd388d7dcfa3bc7bb787f9e8cf0a6e4))
+
 ## [1.19.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.18.2...v1.19.0) (2026-11-05)
 
 

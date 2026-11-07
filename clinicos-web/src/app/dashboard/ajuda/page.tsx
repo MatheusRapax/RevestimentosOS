@@ -322,8 +322,10 @@ const GROUPS: Group[] = [
                     <>
                         No card <b>Nota Fiscal</b> do pedido, o botão <b>Emitir Nota</b> abre a{' '}
                         <b>Revisão Fiscal</b> — uma conferência automática antes de qualquer coisa ir para a SEFAZ.
-                        CFOP, ICMS, PIS e COFINS são <b>calculados sozinhos</b> a partir do cadastro do cliente e do
-                        Perfil do Emitente — você não digita alíquota nem CFOP na hora de emitir.
+                        O <b>tipo da operação</b> (venda dentro ou fora do estado), o CFOP e os impostos são{' '}
+                        <b>calculados sozinhos</b> a partir do estado do cliente e do Perfil do Emitente — você não
+                        digita código nem alíquota na hora de emitir, e o sistema <b>não pergunta</b> se a venda é
+                        dentro ou fora do estado: isso vem do cadastro.
                     </>
                 ),
                 flow: [
@@ -338,12 +340,39 @@ const GROUPS: Group[] = [
                         label: 'Se a revisão bloquear a emissão',
                         body: (
                             <>
-                                Falta <b>NCM, CFOP, CST ou Origem</b> em algum produto → o botão vira{' '}
-                                <Mono>Preencher Dados e Emitir</Mono>: preencha ali mesmo e a nota já sai emitida
-                                em seguida, sem precisar clicar em emitir de novo. Falta <b>código IBGE do
-                                cliente</b> ou outro dado de cadastro → aparece um atalho <Mono>Editar Cliente</Mono>{' '}
-                                (ou <Mono>Configuração Fiscal</Mono>, se o problema for no cadastro da loja) direto
-                                no aviso.
+                                Falta <b>a classificação fiscal (NCM) ou a origem</b> de algum produto → o botão
+                                vira <Mono>Preencher Dados e Emitir</Mono>: escolha a classificação (atalhos de
+                                revestimento ou busca pelo nome) e a origem ali mesmo; os dados ficam salvos no
+                                produto e a nota já sai emitida em seguida. Falta <b>estado (UF), cidade ou código
+                                IBGE do cliente</b> → aparece um atalho <Mono>Editar Cliente</Mono> (ou os dados da
+                                empresa, se o problema for no cadastro da loja) direto no aviso. Cada aviso vem com
+                                a etiqueta de quem precisa agir: <b>Cliente</b>, <b>Produto</b> ou <b>Empresa</b>.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Dentro ou fora do estado: o sistema decide',
+                        body: (
+                            <>
+                                O cartão <b>Tipo de operação</b> mostra, por exemplo, “Venda dentro do estado (MA → MA)”
+                                ou “Venda para outro estado (MA → SP)”. Ele sai da comparação entre o estado da empresa
+                                e o estado do cliente — não é uma escolha do operador, porque a SEFAZ rejeita a nota se
+                                não bater. Se o resultado parecer errado, corrija o <b>estado no cadastro do cliente</b>.
+                                O sistema <b>nunca assume um estado por conta própria</b>: sem estado cadastrado, a
+                                emissão é bloqueada com a instrução de corrigir o cadastro.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Detalhes fiscais (códigos)',
+                        body: (
+                            <>
+                                Quem tem a permissão de <b>configuração fiscal</b> vê, abaixo da lista de produtos,
+                                o item recolhido <Mono>Ver detalhes fiscais (códigos)</Mono> com NCM, CFOP, CST e
+                                alíquotas — para conferir com o contador. Os demais usuários veem só o produto, a
+                                quantidade, o valor e os impostos em reais.
                             </>
                         ),
                     },
@@ -370,13 +399,67 @@ const GROUPS: Group[] = [
                             </>
                         ),
                     },
+                    {
+                        tone: 'info',
+                        label: 'Aguardando a SEFAZ (a nota não se perde)',
+                        body: (
+                            <>
+                                Se a SEFAZ estiver fora do ar ou lenta, o card mostra <b>Aguardando a SEFAZ</b> em azul:
+                                <b> não é erro</b>. A nota é guardada e emitida sozinha assim que a SEFAZ voltar; não
+                                emita de novo. Se quiser forçar agora, use <Mono>Tentar novamente</Mono> (também aparece
+                                quando a nota falhou por um problema interno do sistema fiscal). Uma nota{' '}
+                                <b>rejeitada pela SEFAZ</b> é diferente: corrija o dado apontado e use{' '}
+                                <Mono>Emitir de novo</Mono>.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Homologação = sem valor fiscal',
+                        body: (
+                            <>
+                                Notas emitidas em ambiente de <b>homologação</b> (teste) trazem o selo{' '}
+                                <b>“Homologação — sem valor fiscal”</b> no card. Elas não valem como documento e não
+                                podem ser entregues ao cliente como nota de verdade. Em produção o selo não aparece, e
+                                a emissão em produção só é liberada por quem administra o servidor.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'crit',
+                        label: 'Cancelar uma nota',
+                        body: (
+                            <>
+                                Com a permissão de <b>cancelar nota fiscal</b>, o card de uma nota autorizada tem o botão{' '}
+                                <Mono>Cancelar nota</Mono>. Informe o motivo (de <b>15 a 255 caracteres</b>). O
+                                cancelamento <b>não é instantâneo</b>: o card passa a mostrar <b>Cancelamento em
+                                andamento</b> e a nota só vira cancelada quando a SEFAZ confirmar. A SEFAZ recusa fora do
+                                prazo legal (em geral, 24 h; varia por estado): nesse caso o card mostra o motivo da
+                                recusa e a nota <b>continua valendo</b>.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'O que vai na nota (e não precisa digitar)',
+                        body: (
+                            <>
+                                Vão sozinhos para a nota: o <b>desconto do pedido</b>, o <b>frete</b>, as{' '}
+                                <b>observações do pedido</b> (como informações complementares), a{' '}
+                                <b>forma de pagamento real</b> (PIX, dinheiro, cartão, boleto ou transferência, a partir
+                                dos pagamentos aprovados), a <b>origem</b> do produto e a inscrição estadual do cliente
+                                contribuinte. Pedido <b>sem pagamento aprovado</b> sai como “sem pagamento”, com um aviso
+                                na revisão. O sistema confere, de tempos em tempos, o status das notas no serviço fiscal e
+                                corrige sozinho qualquer atualização que tenha se perdido.
+                            </>
+                        ),
+                    },
                 ],
                 steps: [
                     <>Abra o pedido → card <b>Nota Fiscal</b> → <b>Emitir Nota</b>.</>,
-                    <>A <b>Revisão Fiscal</b> mostra o destinatário e os itens já com CFOP e impostos calculados.
-                        Sem erros → <b>Confirmar e Emitir</b>.</>,
-                    <>Com erro de produto → preencha NCM/CFOP/CST/Origem no formulário que abre e confirme; a
-                        emissão continua sozinha.</>,
+                    <>A <b>Revisão Fiscal</b> mostra o cliente, o tipo da operação (dentro/fora do estado) e os
+                        itens com os impostos já calculados. Sem erros → <b>Confirmar e Emitir</b>.</>,
+                    <>Com erro de produto → escolha a classificação fiscal e a origem no formulário que abre e
+                        confirme; a emissão continua sozinha. Isso é pedido <b>uma vez por produto</b>.</>,
                     <>Com erro de cadastro (cliente ou loja) → use o atalho mostrado no aviso, corrija e volte em{' '}
                         <b>Emitir Nota</b>.</>,
                     <>Acompanhe o status no próprio card; quando aprovar, baixe <b>XML</b> e <b>PDF</b> ali mesmo.</>,
@@ -941,10 +1024,47 @@ const GROUPS: Group[] = [
                 steps: [
                     <><b>Novo Papel</b> → <b>Nome do Papel</b> (ex.: Auxiliar Administrativo) e, se quiser, uma descrição. <b>Criar Papel</b>.</>,
                     <>O papel novo nasce <b>sem nenhuma permissão</b>: clique em <b>Editar</b> na linha dele.</>,
-                    <>Marque as permissões (agrupadas por área: Estoque, Orçamentos, Financeiro, Fiscal…) e clique em <b>Salvar Permissões</b>.</>,
+                    <>Marque as permissões, agrupadas por área (<b>Vendas, Estoque e produtos, Compras, Entregas e avarias,
+                        Financeiro e comissões, Nota fiscal e Administração</b>), e clique em <b>Salvar Permissões</b>. Cada área
+                        tem <Mono>Marcar todas</Mono> e <Mono>Limpar</Mono>, e a busca no topo acha uma permissão pelo nome.</>,
                     <>Depois vá em <A href="#usuarios">Usuários</A> e atribua o papel às pessoas.</>,
                 ],
                 notes: [
+                    {
+                        tone: 'info',
+                        label: 'Como ler cada permissão',
+                        body: (
+                            <>
+                                Cada permissão traz o <b>nome em português</b>, uma frase dizendo <b>o que ela libera</b> e, quando
+                                abre uma tela do menu, a linha <b>“Abre: …”</b>. A etiqueta <b>Sensível</b> marca o que mexe com
+                                dinheiro, estoque, nota fiscal ou acessos, ou que apaga dados: dê só a quem precisa. Passe o mouse
+                                sobre uma permissão para ver o código técnico dela.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Permissões que ainda não controlam nada',
+                        body: (
+                            <>
+                                No fim da lista há duas seções recolhidas. <b>“Permissões que ainda não controlam nada”</b> reúne
+                                as que existem no cadastro mas que o sistema ainda não consulta (por exemplo, criar e cancelar
+                                pedidos, ou cadastrar fornecedores): marcá-las <b>não muda</b> o que a pessoa consegue fazer hoje.
+                                Algumas permissões mostram <b>“Hoje só esconde a tela”</b>: tiram o item do menu, mas ainda não
+                                bloqueiam a ação por dentro do sistema. <b>“Permissões antigas”</b> são sobras do modelo de
+                                clínica (agenda, pacientes, prontuário) e não abrem nenhuma tela da loja.
+                            </>
+                        ),
+                    },
+                    {
+                        label: 'Papel “Administrador da Loja (antigo)”',
+                        body: (
+                            <>
+                                Ele aparece na lista, sem nenhuma permissão, porque o fluxo antigo de criação de loja ainda o
+                                usa. <b>Não atribua esse papel</b> a ninguém: para dar acesso total, use <b>Administrador</b>.
+                            </>
+                        ),
+                    },
                     {
                         tone: 'crit',
                         label: 'Papéis valem para todas as lojas',
@@ -1143,6 +1263,21 @@ const GROUPS: Group[] = [
                 ),
                 notes: [
                     {
+                        tone: 'crit',
+                        label: 'Homologação x Produção (trava de segurança)',
+                        body: (
+                            <>
+                                Em <b>Homologação</b> as notas são de teste e <b>não têm valor fiscal</b>. Notas em{' '}
+                                <b>Produção</b> valem de verdade (e só se cancelam dentro do prazo legal). Por segurança, o
+                                servidor <b>bloqueia a emissão em produção</b> por padrão: a opção Produção aparece
+                                desabilitada e qualquer tentativa de emitir com a loja em produção é recusada. Para
+                                liberar, é preciso uma configuração no servidor feita pelo suporte (e só depois de
+                                homologar tudo com o contador). O card <b>Status da Conexão</b> sempre mostra em qual
+                                ambiente a loja está.
+                            </>
+                        ),
+                    },
+                    {
                         tone: 'warn',
                         label: 'Código IBGE precisa casar com a UF',
                         body: (
@@ -1189,7 +1324,29 @@ const GROUPS: Group[] = [
                                 (senha correta e arquivo válido). Com certificado já instalado, o botão vira{' '}
                                 <b>Substituir Certificado</b> — use só quando o certificado vencer ou for trocado, e{' '}
                                 <b>não clique várias vezes</b> em Configurar: cada envio cria um novo cadastro no serviço
-                                fiscal.
+                                fiscal. Logo abaixo, <b>Conferência do certificado (SEFAZ)</b> mostra o CNPJ do
+                                certificado, a validade, se o CNPJ <b>confere com o cadastro fiscal</b> e se a SEFAZ
+                                respondeu — sem emitir nenhuma nota. Alertas em vermelho (CNPJ não confere, certificado
+                                vencido) precisam ser resolvidos antes de emitir.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'O Perfil do Emitente é a fonte da verdade',
+                        body: (
+                            <>
+                                CNPJ, Inscrição Estadual, regime (CRT), UF, município e <b>endereço</b> do emitente saem
+                                sempre do <b>Perfil do Emitente salvo</b> — o Setup do certificado exige o perfil salvo e
+                                recusa dados divergentes em vez de sobrescrever. O <b>regime tributário não tem valor
+                                padrão</b>: escolha o seu e salve. Ao <b>Salvar Perfil</b>, o sistema já atualiza o cadastro
+                                do emitente no serviço fiscal; se não conseguir, o perfil fica salvo e aparece um aviso. O
+                                botão <b>Sincronizar com o serviço fiscal</b> repete essa atualização sob demanda. O{' '}
+                                <b>CNPJ não muda</b> em cadastro já criado: se o CNPJ do perfil for outro, a sincronização
+                                avisa e é preciso recriar o cadastro e subir o certificado de novo (nada é recriado
+                                sozinho). O sistema também avisa quando a IE está como <i>ISENTO</i> (incomum para quem vende
+                                mercadoria) e quando o logradouro tem uma barra (&quot;/&quot;), sinal de dois endereços
+                                colados.
                             </>
                         ),
                     },
@@ -1201,8 +1358,9 @@ const GROUPS: Group[] = [
                                 estado, 6108 para consumidor final não contribuinte de outro estado). Os padrões de{' '}
                                 <b>CFOP e CST</b> só preenchem produtos ainda sem esses dados quando você lança uma entrada
                                 de estoque com &quot;Atualizar dados fiscais dos produtos&quot;. <b>NCM, CEST e Classe de
-                                Imposto</b> padrão ainda não são usados na emissão: o que vale é o cadastro de cada produto
-                                (NCM de 8 dígitos e origem são obrigatórios).
+                                Imposto</b> padrão ainda não são usados na emissão: o que vale é o cadastro de cada produto.
+                                Na emissão, de cada produto só são exigidos <b>NCM (8 dígitos) e origem</b> — CFOP e CST
+                                <b> não</b> precisam estar no produto, porque saem do motor de regras fiscais.
                             </>
                         ),
                     },
