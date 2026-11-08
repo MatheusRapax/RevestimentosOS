@@ -36,8 +36,8 @@ Levantado em 2026-11-05, ao revisar o que o ERP tem de regras de emissão frente
 - [ ] Os campos "padrão" de **NCM, CEST e Classe de Imposto** (Regras de Emissão) são só guardados:
       não são usados na emissão. Ou passam a ser usados (pré-preencher produto) ou saem da tela.
       O **CFOP/CST padrão** só entram nas entradas de estoque com "Atualizar dados fiscais".
-- [ ] Setup do certificado **cria um tenant novo a cada clique** no NexosFiscal. Deveria reaproveitar o
-      tenant existente quando só o certificado muda.
+- [x] Setup do certificado **criava um tenant novo a cada clique** no NexosFiscal: agora reaproveita o tenant e a
+      chave da loja e só troca o certificado (A19).
 - [ ] `PATCH /settings` (Configurações Globais) só exige o módulo Administração, sem permissão de papel; a
       correção (`clinic.settings.manage`) está no stash `wip usuarios-desativar backend`. Conferir também se
       outros controllers só com `TenantGuard` precisam de permissão.
@@ -52,6 +52,12 @@ Levantado em 2026-11-05, ao revisar o que o ERP tem de regras de emissão frente
       webhook responde 503. **Falta configurar no servidor de produção** `FISCAL_WEBHOOK_SECRET` e `FISCAL_WEBHOOK_URL`
       (o `docker-compose.prod.yml` já repassa as duas). O cadastro no NexosFiscal agora é feito pelo próprio ERP (A17):
       depois de configurar, abra a Configuração Fiscal e confira o cartão "Avisos do serviço fiscal (webhook)".
+- [x] **Contêiner de produção sem `JWT_SECRET`** (achado em 2026-11-08, A21): o `docker-compose.prod.yml` não repassava a
+      variável e o backend caía em `'changeme'`, o que permitia forjar login. Agora o compose exige `JWT_SECRET` e o
+      backend recusa subir em produção sem ela. **Antes do próximo deploy, defina `JWT_SECRET` no Coolify** (todos
+      precisarão entrar de novo, porque os tokens antigos deixam de valer).
+- [x] **Passar para produção não mudava o ambiente no serviço** (A20): agora a troca vai ao serviço e só é gravada se ele
+      aceitar; o ambiente de cada nota vem do serviço.
 
 ## Combinado para o futuro (definido com o cliente em 2026-11-05)
 

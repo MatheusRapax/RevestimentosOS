@@ -91,6 +91,31 @@ Quando o contrato mudar, o NexosFiscal registra em `AJUSTES_ERP.md` e este doc �
   certificado digital novo." (antes recebia um botão que dava em "acesso restrito").
 - Avisos que vêm junto com um 400 do `/nfe/emit` continuam avisos (antes viravam erro na tela).
 
+## Reenviar o certificado não cria outra empresa (A19)
+
+- **Loja que já tem `nexosTenantId` e `nexosApiKey`:** o envio do certificado **não chama `POST /tenants`**. Sincroniza o
+  perfil (`PUT /tenants/{id}`, chave mestra, sem `environment`), envia o certificado com a **chave guardada**
+  (`POST /certificate`; o novo vira o ativo) e recadastra o webhook. Tenant, chave e ambiente continuam os mesmos, e a
+  numeração das notas não recomeça.
+- **Chave guardada recusada (401):** erro para o operador ("O serviço fiscal não aceita mais a chave guardada desta
+  loja (401)…"), sem recriar a empresa. A saída é o suporte gerar uma chave nova para o mesmo tenant.
+- **Primeira vez:** cria o tenant (sempre em homologação), gera a chave e grava os dois **antes** de enviar o
+  certificado. Senha errada ou arquivo recusado não perdem o tenant: o próximo envio cai no reenvio acima. Se uma
+  tentativa criou o tenant e não chegou a gerar a chave, a próxima gera a chave para o mesmo tenant.
+- CNPJ do perfil diferente do tenant, ou tenant que não existe mais no serviço: erro, nada é recriado.
+
+## Ambiente: homologação ou produção (A20)
+
+- **O tenant nasce sempre em homologação** (`POST /tenants` com `environment: 'homologacao'`).
+- **Trocar o ambiente na Configuração Fiscal muda o tenant no serviço:** `PUT /tenants/{id}` com a chave mestra e
+  `{ environment: 'producao', confirmarProducao: true }` (ou `{ environment: 'homologacao' }` para voltar). A troca local
+  só é gravada se o serviço responder 2xx; recusa ou serviço fora do ar viram erro na tela e nada muda.
+- **Antes de passar para produção:** `FISCAL_ALLOW_PRODUCTION=true` no servidor (trava mantida), a loja precisa ter
+  empresa no serviço e ao menos uma nota de **homologação autorizada**. A tela pede confirmação.
+- **Ambiente de cada nota vem do serviço:** depois do `POST /nfe/emit`, o ERP lê `environment` em `GET /nfe/{id}`
+  (também no caso de nota que já existia). Se a consulta falhar, o campo fica vazio e o webhook ou a reconciliação
+  preenchem. A configuração local não é mais usada para isso.
+
 ## Variáveis de ambiente
 
 | Variável | Função | Padrão |
@@ -100,6 +125,11 @@ Quando o contrato mudar, o NexosFiscal registra em `AJUSTES_ERP.md` e este doc �
 | `FISCAL_RECONCILE_ENABLED` | `false` desliga o job de reconciliação | ligado |
 | `FISCAL_RECONCILE_INTERVAL_MS` | Intervalo do job | 300000 (5 min) |
 | `FISCAL_ALLOW_PRODUCTION` | Libera emissão em produção (sem ela, só homologação) | bloqueado |
+| `JWT_SECRET` | Assina o login. Com `NODE_ENV=production`, o backend **não sobe** vazia ou com valor de exemplo (A21) | — (obrigatória) |
+| `JWT_EXPIRES_IN` | Validade do token de login | 8h |
+
+O `docker-compose.prod.yml` repassa todas as variáveis acima ao contêiner (A21). No Coolify, só chegam ao backend as
+que estão listadas em `environment:` do compose; `JWT_SECRET` é obrigatória (`${JWT_SECRET:?…}`) e o deploy falha sem ela.
 
 ## Como testar (homologação)
 

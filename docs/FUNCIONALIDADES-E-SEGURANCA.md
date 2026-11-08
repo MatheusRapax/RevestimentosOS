@@ -120,6 +120,7 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 | Proteção | Como funciona | Status |
 |---|---|---|
 | Login com senha criptografada | Senhas guardadas com hash `bcrypt`, nunca em texto | ✅ |
+| Segredo do login obrigatório em produção | Com `NODE_ENV=production` o backend não sobe com `JWT_SECRET` vazia ou de exemplo; o compose de produção exige a variável | ✅ |
 | Token com validade e renovação | JWT de 8 h; renovado enquanto o usuário usa; reautenticação em janela (`docs/SESSAO-RENOVACAO-TOKEN.md`) | ✅ |
 | Isolamento entre lojas (multiloja) | `TenantGuard` resolve a loja e confirma que o usuário pertence a ela antes de qualquer dado | ✅ |
 | Permissões por papel | `PermissionsGuard` exige a permissão da ação; sem ela, “Acesso Restrito” | ✅ |
@@ -159,6 +160,8 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 | Produto só com NCM e origem | Origem sem valor padrão, para não errar imposto por omissão | 🟡 |
 | Códigos fiscais só para quem tem permissão | “Ver detalhes fiscais” exige `fiscal.config` | 🟡 |
 | Deduplicação de emissão | O serviço fiscal deduplica por pedido; reenvio não gera segunda nota | ✅ |
+| Certificado novo não cria outra empresa | Reenviar ou renovar o A1 troca o certificado do cadastro fiscal que a loja já tem (mesma numeração); chave recusada vira erro na tela, sem recriar nada | 🟡 |
+| Produção muda também no serviço fiscal | Trocar o ambiente na Configuração Fiscal muda o cadastro no serviço e só é gravado se ele aceitar; exige servidor liberado e uma nota de homologação autorizada; o ambiente de cada nota vem do serviço | 🟡 |
 | Webhook cadastrado pelo próprio ERP | Ao enviar o certificado e ao salvar a Configuração Fiscal, o ERP cadastra no serviço fiscal o endereço público (de configuração) e o segredo; falha aparece na tela e o cartão mostra se está ativo | 🟡 |
 | Webhook fiscal sem segredo fixo | Em produção o webhook exige segredo próprio (sem ele, recusa); assinatura comparada em tempo constante | 🟡 |
 | Tributo que o serviço não emite bloqueia | CST/CSOSN fora da lista aceita pelo regime não é enviado: o operador vê a causa em vez de uma nota errada | 🟡 |
