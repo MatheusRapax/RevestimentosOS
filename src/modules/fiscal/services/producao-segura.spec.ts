@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
 import { FiscalService } from './fiscal.service';
 
@@ -253,5 +253,213 @@ describe('A19: reenviar o certificado não cria outra empresa no serviço', () =
       },
     });
     expect((await service.getSettings(CLINIC)).hasCertificate).toBe(false);
+  });
+});
+
+describe('A20: trocar o ambiente muda o tenant no serviço', () => {
+  const loja = (environment: string) => ({
+    clinicId: CLINIC,
+    nexosTenantId: TENANT,
+    nexosApiKey: 'chave-guardada',
+    environment,
+  });
+  const liberado = { FISCAL_ALLOW_PRODUCTION: 'true' };
+
+  it('para produção: PUT /tenants/{id} com a chave mestra e confirmarProducao, e só então grava', async () => {
+    const { service, http, prisma } = build({
+      config: loja('2'),
+      env: liberado,
+      homologadas: 1,
+    });
+    http.put.mockReturnValue(of({ data: { environment: 'producao' } }));
+
+    await service.updateSettings(CLINIC, { environment: '1' } as any);
+
+    const [url, corpo, opcoes] = http.put.mock.calls[0];
+    expect(url).toBe(`${API}/tenants/${TENANT}`);
+    expect(corpo).toEqual({ environment: 'producao', confirmarProducao: true });
+    expect(opcoes.headers['X-API-Key']).toBe('master-teste');
+    expect(prisma.clinicFiscalConfig.upsert).toHaveBeenCalled();
+    expect(http.put.mock.invocationCallOrder[0]).toBeLessThan(
+      prisma.clinicFiscalConfig.upsert.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('volta para homologação: PUT com environment homologacao', async () => {
+    const { service, http } = build({ config: loja('1'), env: liberado });
+    http.put.mockReturnValue(of({ data: {} }));
+    await service.updateSettings(CLINIC, { environment: '2' } as any);
+    expect(http.put.mock.calls[0][1]).toEqual({ environment: 'homologacao' });
+  });
+
+  it('serviço recusa a troca: erro e NADA é gravado no ERP', async () => {
+    const { service, http, prisma } = build({
+      config: loja('2'),
+      env: liberado,
+      homologadas: 1,
+    });
+    http.put.mockReturnValue(
+      throwError(() => ({
+        response: {
+          status: 400,
+          data: {
+            message:
+              'Mudar o ambiente para produção exige confirmarProducao=true.',
+          },
+        },
+      })),
+    );
+    await expect(
+      service.updateSettings(CLINIC, { environment: '1' } as any),
+    ).rejects.toThrow(/recusou a troca de ambiente.*continua em homologação/);
+    expect(prisma.clinicFiscalConfig.upsert).not.toHaveBeenCalled();
+  });
+
+  it('serviço fora do ar: erro "não respondeu" e nada é gravado', async () => {
+    const { service, http, prisma } = build({
+      config: loja('2'),
+      env: liberado,
+      homologadas: 1,
+    });
+    http.put.mockReturnValue(
+      throwError(() => ({
+        code: 'ECONNREFUSED',
+        message: 'connect ECONNREFUSED',
+      })),
+    );
+    await expect(
+      service.updateSettings(CLINIC, { environment: '1' } as any),
+    ).rejects.toThrow(/não respondeu à troca de ambiente/);
+    expect(prisma.clinicFiscalConfig.upsert).not.toHaveBeenCalled();
+  });
+
+  it('a trava FISCAL_ALLOW_PRODUCTION continua valendo: sem ela, nem chama o serviço', async () => {
+    const { service, http, prisma } = build({
+      config: loja('2'),
+      homologadas: 1,
+    });
+    await expect(
+      service.updateSettings(CLINIC, { environment: '1' } as any),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(http.put).not.toHaveBeenCalled();
+    expect(prisma.clinicFiscalConfig.upsert).not.toHaveBeenCalled();
+  });
+
+  it('sem nota de homologação autorizada não passa para produção', async () => {
+    const { service, http } = build({
+      config: loja('2'),
+      env: liberado,
+      homologadas: 0,
+    });
+    await expect(
+      service.updateSettings(CLINIC, { environment: '1' } as any),
+    ).rejects.toThrow(/ao menos uma nota em homologação/);
+    expect(http.put).not.toHaveBeenCalled();
+  });
+
+  it('sem empresa no serviço não passa para produção', async () => {
+    const { service, http } = build({
+      config: { clinicId: CLINIC, environment: '2' },
+      env: liberado,
+    });
+    await expect(
+      service.updateSettings(CLINIC, { environment: '1' } as any),
+    ).rejects.toThrow(/Envie o certificado e emita uma nota de homologação/);
+    expect(http.put).not.toHaveBeenCalled();
+  });
+
+  it('salvar sem mudar o ambiente não chama o serviço', async () => {
+    const { service, http, prisma } = build({ config: loja('2') });
+    await service.updateSettings(CLINIC, {
+      environment: '2',
+      defaultNaturezaOperacao: 'Venda',
+    } as any);
+    expect(http.put).not.toHaveBeenCalled();
+    expect(prisma.clinicFiscalConfig.upsert).toHaveBeenCalled();
+  });
+});
+
+describe('A20: o ambiente da nota vem do serviço', () => {
+  it('lê environment de GET /nfe/{id} com a chave do tenant', async () => {
+    const { service, http } = build();
+    http.get.mockReturnValue(
+      of({ data: { id: 'd1', environment: 'producao' } }),
+    );
+    const amb = await (service as any).ambienteDaNota(API, 'k-tenant', 'd1');
+    expect(amb).toBe('producao');
+    expect(http.get.mock.calls[0][0]).toBe(`${API}/nfe/d1`);
+    expect(http.get.mock.calls[0][1].headers['X-API-Key']).toBe('k-tenant');
+  });
+
+  it('falha na consulta: null (webhook e reconciliação preenchem depois), sem lançar', async () => {
+    const { service, http } = build();
+    http.get.mockReturnValue(throwError(() => new Error('timeout')));
+    await expect(
+      (service as any).ambienteDaNota(API, 'k', 'd1'),
+    ).resolves.toBeNull();
+  });
+});
+
+describe('A20: emissão grava o ambiente que o serviço informou', () => {
+  function emissao(config: any, ambienteNoServico: unknown) {
+    const prisma: any = {
+      fiscalDocument: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+        update: jest.fn(),
+      },
+    };
+    const http: any = {
+      post: jest.fn().mockReturnValue(of({ data: { documentId: 'd1' } })),
+      get: jest
+        .fn()
+        .mockReturnValue(
+          ambienteNoServico instanceof Error
+            ? throwError(() => ambienteNoServico)
+            : of({ data: { id: 'd1', environment: ambienteNoServico } }),
+        ),
+    };
+    const service: any = new FiscalService(
+      prisma,
+      http,
+      { get: () => undefined } as any,
+      {} as any,
+      {} as any,
+    );
+    service.assertEmissionAllowed = jest.fn().mockResolvedValue(undefined);
+    service.buildEmitContext = jest.fn().mockResolvedValue({
+      order: { id: 'o1', items: [] },
+      profile: {},
+      config,
+      apiKey: 'k',
+      apiUrl: API,
+    });
+    service.buildEmitPayload = jest.fn().mockResolvedValue({ itens: [] });
+    service.runLocalPreflight = jest.fn().mockReturnValue([]);
+    service.missingItemFiscalProducts = jest.fn().mockReturnValue([]);
+    return { service, prisma, http };
+  }
+
+  it('loja marcada como produção no ERP, tenant em homologação no serviço: grava homologacao', async () => {
+    const { service, prisma, http } = emissao(
+      { environment: '1' },
+      'homologacao',
+    );
+    await service.emitirNota('o1', CLINIC);
+    expect(http.get.mock.calls[0][0]).toBe(`${API}/nfe/d1`);
+    expect(prisma.fiscalDocument.create.mock.calls[0][0].data.environment).toBe(
+      'homologacao',
+    );
+  });
+
+  it('sem resposta do serviço: não usa a configuração local', async () => {
+    const { service, prisma } = emissao(
+      { environment: '1' },
+      new Error('timeout'),
+    );
+    await service.emitirNota('o1', CLINIC);
+    expect(
+      prisma.fiscalDocument.create.mock.calls[0][0].data,
+    ).not.toHaveProperty('environment');
   });
 });

@@ -1196,10 +1196,17 @@ export class FiscalService {
       if (dedupeStatus) {
         const mapped = this.mapNexosDedupeStatus(dedupeStatus);
         const rawStatus = String(dedupeStatus).toUpperCase();
+        // A20: ambiente da nota que já existe, lido do serviço
+        const ambienteExistente = await this.ambienteDaNota(
+          apiUrl,
+          apiKey,
+          resp.data?.documentId || fiscalDoc?.uuid || undefined,
+        );
         const data = {
           status: mapped,
           type: 'NFE' as const,
           uuid: resp.data?.documentId || fiscalDoc?.uuid,
+          ...(ambienteExistente ? { environment: ambienteExistente } : {}),
           // AWAITING_SEFAZ: rejectionReason é só o último erro de comunicação, não rejeição.
           errorMessage:
             mapped === 'REJECTED'
@@ -1250,6 +1257,12 @@ export class FiscalService {
 
       // Caminho normal: NexosFiscal aceitou uma emissão nova (202) e vai
       // processar de forma assíncrona, avisando via webhook.
+      // A20: o ambiente é o que o serviço gravou na nota, não a configuração local.
+      const ambiente = await this.ambienteDaNota(
+        apiUrl,
+        apiKey,
+        resp.data?.documentId,
+      );
       if (fiscalDoc) {
         await this.prisma.fiscalDocument.update({
           where: { id: fiscalDoc.id },
@@ -1260,10 +1273,8 @@ export class FiscalService {
             errorMessage: null,
             remoteStatus: null,
             statusDetail: null,
-            // ambiente em que a nota está sendo emitida (a reconciliação confirma depois)
-            ...(normalizarAmbiente(config?.environment)
-              ? { environment: normalizarAmbiente(config?.environment)! }
-              : {}),
+            // sem resposta do serviço fica vazio (a nota anterior podia ser de outro ambiente)
+            environment: ambiente,
           },
         });
       } else {
@@ -1274,9 +1285,7 @@ export class FiscalService {
             status: 'PROCESSING',
             type: 'NFE',
             uuid: resp.data?.documentId,
-            ...(normalizarAmbiente(config?.environment)
-              ? { environment: normalizarAmbiente(config?.environment)! }
-              : {}),
+            ...(ambiente ? { environment: ambiente } : {}),
           },
         });
       }
@@ -1415,6 +1424,8 @@ export class FiscalService {
     if (dto.environment === '1' && !this.isProductionAllowed()) {
       throw new ForbiddenException(FiscalService.PRODUCTION_BLOCKED_MESSAGE);
     }
+    // A20: o ambiente vale no serviço fiscal; a troca local só é gravada depois que ele aceitar
+    await this.trocarAmbienteNoServico(clinicId, dto.environment);
     const salvo = await this.prisma.clinicFiscalConfig.upsert({
       where: { clinicId },
       update: { ...dto },
@@ -1428,6 +1439,101 @@ export class FiscalService {
       ? await this.registrarWebhook(clinicId)
       : { ok: false, skipped: true };
     return { ...salvo, webhook };
+  }
+
+  /**
+   * A20: trocar a loja de ambiente muda o tenant no serviço (PUT /tenants/{id}, chave mestra), porque é
+   * o ambiente do tenant que vai em cada nota. Lança se o serviço não aceitar: nesse caso nada é gravado
+   * no ERP. Sem mudança de ambiente, não chama o serviço.
+   */
+  private async trocarAmbienteNoServico(
+    clinicId: string,
+    novo: string | undefined,
+  ) {
+    const destino = normalizarAmbiente(novo);
+    if (!destino) return;
+    const config = await this.prisma.clinicFiscalConfig.findUnique({
+      where: { clinicId },
+    });
+    const atual = normalizarAmbiente(config?.environment) ?? 'homologacao';
+    if (destino === atual) return;
+
+    if (!config?.nexosTenantId) {
+      if (destino === 'producao') {
+        throw new BadRequestException(
+          'Envie o certificado e emita uma nota de homologação antes de passar para produção: ' +
+            'a empresa é criada no serviço fiscal sempre em homologação.',
+        );
+      }
+      return; // voltar para homologação sem empresa no serviço: só local
+    }
+
+    if (destino === 'producao') {
+      const homologadas = await this.prisma.fiscalDocument.count({
+        where: { clinicId, status: 'APPROVED', environment: 'homologacao' },
+      });
+      if (homologadas === 0) {
+        throw new BadRequestException(
+          'Antes de passar para produção, emita e tenha autorizada ao menos uma nota em homologação. ' +
+            'Nada foi alterado.',
+        );
+      }
+    }
+
+    const { masterApiKey, apiUrl } = this.masterCreds();
+    const corpo =
+      destino === 'producao'
+        ? { environment: 'producao', confirmarProducao: true }
+        : { environment: 'homologacao' };
+    try {
+      await firstValueFrom(
+        this.httpService.put(
+          `${apiUrl}/tenants/${config.nexosTenantId}`,
+          corpo,
+          { headers: { 'X-API-Key': masterApiKey } },
+        ),
+      );
+    } catch (e: any) {
+      this.logger.error(
+        `Troca de ambiente para ${destino} recusada pelo serviço — clinic ${clinicId}: ${this.errMsg(e)}`,
+      );
+      throw new BadRequestException(
+        (e?.response
+          ? 'O serviço fiscal recusou a troca de ambiente: '
+          : 'O serviço fiscal não respondeu à troca de ambiente: ') +
+          this.errMsg(e) +
+          '. Nada foi alterado: a loja continua em ' +
+          (atual === 'producao' ? 'produção.' : 'homologação.'),
+      );
+    }
+    this.logger.warn(
+      `Ambiente fiscal trocado para ${destino} no serviço — clinic ${clinicId}, tenant ${config.nexosTenantId}`,
+    );
+  }
+
+  /**
+   * A20: o ambiente de uma nota é o que o serviço gravou nela (GET /nfe/{id}), nunca a configuração
+   * local. Falha na consulta devolve null: o webhook e a reconciliação preenchem depois.
+   */
+  private async ambienteDaNota(
+    apiUrl: string,
+    apiKey: string,
+    documentId: string | undefined,
+  ): Promise<'homologacao' | 'producao' | null> {
+    if (!documentId) return null;
+    try {
+      const r = await firstValueFrom(
+        this.httpService.get(`${apiUrl}/nfe/${documentId}`, {
+          headers: { 'X-API-Key': apiKey },
+        }),
+      );
+      return normalizarAmbiente(r.data?.environment ?? r.data?.Environment);
+    } catch (e: any) {
+      this.logger.warn(
+        `Não foi possível ler o ambiente da nota ${documentId}: ${this.errMsg(e)}`,
+      );
+      return null;
+    }
   }
 
   /**
