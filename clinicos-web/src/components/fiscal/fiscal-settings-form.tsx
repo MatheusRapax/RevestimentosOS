@@ -270,6 +270,16 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
     }
 
     async function onSubmit(data: FiscalSettings) {
+        // A20: passar para produção muda a empresa no serviço fiscal; as notas passam a ter valor fiscal
+        if (
+            data.environment === '1' &&
+            settings?.environment !== '1' &&
+            !window.confirm(
+                'Passar esta loja para PRODUÇÃO? A partir daí as notas emitidas têm valor fiscal e vão para a SEFAZ de verdade.',
+            )
+        ) {
+            return;
+        }
         setIsSaving(true);
         try {
             const resp = await api.put('/fiscal/settings', {
@@ -284,7 +294,9 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             loadSettings(); // Reload to confirm state
         } catch (error) {
             console.error('Erro ao salvar settings:', error);
-            toast.error('Erro ao salvar as configurações.');
+            // o motivo vem do servidor (ex.: o serviço fiscal recusou a troca de ambiente)
+            const m = (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message;
+            toast.error((Array.isArray(m) ? m.join(' ') : m) || 'Erro ao salvar as configurações.', { duration: 12000 });
         } finally {
             setIsSaving(false);
         }
@@ -661,7 +673,8 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                                     </SelectContent>
                                 </Select>
                                 <p className="text-xs text-gray-500">
-                                    Homologação emite notas sem valor fiscal.
+                                    Homologação emite notas sem valor fiscal. Para passar para produção é preciso ter uma nota
+                                    de homologação autorizada; a troca é feita também no serviço fiscal.
                                     {!settings?.productionAllowed && ' A emissão em produção está travada por segurança neste servidor.'}
                                 </p>
                             </div>
