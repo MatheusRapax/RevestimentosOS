@@ -129,16 +129,10 @@ export class FiscalService {
       );
     }
 
-    // Ambiente vem do default fiscal da clínica ("1"=produção, "2"=homologação)
     const [existing, profile] = await Promise.all([
       this.prisma.clinicFiscalConfig.findUnique({ where: { clinicId } }),
       this.prisma.fiscalProfile.findUnique({ where: { clinicId } }),
     ]);
-    // Tenant de PRODUÇÃO só se o servidor liberou; caso contrário, sempre homologação.
-    const environment =
-      existing?.environment === '1' && this.isProductionAllowed()
-        ? 'producao'
-        : 'homologacao';
 
     // O Perfil do Emitente é a FONTE DA VERDADE da identidade do tenant (CNPJ, IE, CRT,
     // UF, município e endereço). Os campos opcionais do Setup só podem repetir o que o
@@ -163,7 +157,23 @@ export class FiscalService {
     if (avisos.length) {
       this.logger.warn(`Setup fiscal clinic ${clinicId}: ${avisos.join(' | ')}`);
     }
+
+    // A19: a loja que já tem empresa no serviço NUNCA cria outra. O serviço aceita dois tenants com o
+    // mesmo CNPJ e a numeração do novo recomeçaria do 1 (a SEFAZ recusa número repetido). Renovar o A1
+    // ou reenviar depois de errar a senha só troca o certificado do tenant que já existe.
+    if (existing?.nexosTenantId && existing?.nexosApiKey) {
+      return this.reenviarCertificado(clinicId, existing.nexosApiKey, {
+        apiUrl,
+        name,
+        pfxBuffer,
+        password,
+        originalFileName,
+      });
+    }
+
     // POST /tenants: inclui o endereço (o transmissor real exige).
+    // A20: o tenant nasce SEMPRE em homologação; produção só pela troca de ambiente na Configuração
+    // Fiscal, que muda o tenant no serviço (PUT /tenants/{id}).
     const tenantPayload = {
       name,
       cnpj: identidade.cnpj,
@@ -173,21 +183,38 @@ export class FiscalService {
       uf: identidade.uf,
       cityCode: identidade.cityCode,
       address: identidade.address,
-      environment,
+      environment: 'homologacao',
     };
 
     try {
       this.logger.log(`Starting NexosFiscal setup for clinic ${clinicId}`);
 
-      // 1. Create Tenant
-      const createTenantRes = await firstValueFrom(
-        this.httpService.post(`${apiUrl}/tenants`, tenantPayload, {
-          headers: { 'X-API-Key': masterApiKey },
-        }),
-      );
-      const tenantId = createTenantRes.data.id;
-
-      this.logger.log(`Tenant created: ${tenantId}`);
+      // 1. Create Tenant (só na primeira vez; se uma tentativa anterior criou o tenant e não chegou a
+      // gerar a chave, reaproveita o mesmo tenant em vez de criar outro)
+      let tenantId = existing?.nexosTenantId ?? null;
+      if (!tenantId) {
+        const createTenantRes = await firstValueFrom(
+          this.httpService.post(`${apiUrl}/tenants`, tenantPayload, {
+            headers: { 'X-API-Key': masterApiKey },
+          }),
+        );
+        tenantId = createTenantRes.data.id as string;
+        // Guarda o tenant na hora: se a chave falhar, a próxima tentativa não cria outra empresa
+        await this.prisma.clinicFiscalConfig.upsert({
+          where: { clinicId },
+          create: { clinicId, nexosTenantId: tenantId, environment: '2' },
+          update: {
+            nexosTenantId: tenantId,
+            nexosApiKey: null,
+            environment: '2',
+          },
+        });
+        this.logger.log(`Tenant created: ${tenantId}`);
+      } else {
+        this.logger.log(
+          `Tenant ${tenantId} já existe sem chave: gerando a chave`,
+        );
+      }
 
       // 2. Generate API Key
       const createKeyRes = await firstValueFrom(
@@ -209,6 +236,25 @@ export class FiscalService {
 
       this.logger.log(`API Key generated for tenant: ${tenantId}`);
 
+      // Tenant e chave ficam gravados antes do certificado: senha errada ou arquivo recusado não
+      // perdem o tenant, e o próximo envio cai no caminho de reenvio (A19) em vez de criar outro.
+      await this.prisma.clinicFiscalConfig.upsert({
+        where: { clinicId },
+        create: {
+          clinicId,
+          nexosTenantId: tenantId,
+          nexosApiKey: apiKey,
+          environment: '2',
+        },
+        update: {
+          nexosTenantId: tenantId,
+          nexosApiKey: apiKey,
+          environment: '2',
+          certificateFileName: null,
+          certificateUploadedAt: null,
+        },
+      });
+
       // 3. Upload Certificate
       const form = new FormData();
       form.append('file', pfxBuffer, { filename: originalFileName });
@@ -227,19 +273,9 @@ export class FiscalService {
       this.logger.log(`Certificate uploaded for tenant: ${tenantId}`);
 
       // 4. Save to Database
-      await this.prisma.clinicFiscalConfig.upsert({
+      await this.prisma.clinicFiscalConfig.update({
         where: { clinicId },
-        create: {
-          clinicId,
-          nexosTenantId: tenantId,
-          nexosApiKey: apiKey,
-          certificateFileName: originalFileName,
-          certificateUploadedAt: new Date(),
-          environment: '2', // default homologation
-        },
-        update: {
-          nexosTenantId: tenantId,
-          nexosApiKey: apiKey,
+        data: {
           certificateFileName: originalFileName,
           certificateUploadedAt: new Date(),
           // certificado novo: o aviso do anterior deixa de valer (a tela relê a validade em seguida)
@@ -266,6 +302,78 @@ export class FiscalService {
           (error.response?.data?.message || error.message),
       );
     }
+  }
+
+  /**
+   * A19: troca o certificado do tenant que a loja já tem, sem criar empresa nova. Sincroniza o perfil
+   * (PUT /tenants/{id}), envia o certificado com a chave guardada (o novo vira o ativo) e recadastra o
+   * webhook. Chave recusada (401) vira erro para o operador: nunca recria a empresa sozinho.
+   */
+  private async reenviarCertificado(
+    clinicId: string,
+    apiKey: string,
+    arquivo: {
+      apiUrl: string;
+      name: string;
+      pfxBuffer: Buffer;
+      password: string;
+      originalFileName: string;
+    },
+  ) {
+    this.logger.log(
+      `Reenvio de certificado para o tenant existente — clinic ${clinicId}`,
+    );
+    // 1. Perfil → tenant. CNPJ diferente ou tenant inexistente no serviço: erro, nada é recriado.
+    await this.syncTenantFromProfile(clinicId);
+
+    // 2. Certificado com a chave que a loja já tem
+    const form = new FormData();
+    form.append('file', arquivo.pfxBuffer, {
+      filename: arquivo.originalFileName,
+    });
+    form.append('password', arquivo.password);
+    form.append('name', `${arquivo.name} - A1`);
+    try {
+      await firstValueFrom(
+        this.httpService.post(`${arquivo.apiUrl}/certificate`, form, {
+          headers: { ...form.getHeaders(), 'X-API-Key': apiKey },
+        }),
+      );
+    } catch (e: any) {
+      if (e?.response?.status === 401) {
+        this.logger.error(
+          `Chave do tenant recusada (401) no reenvio do certificado — clinic ${clinicId}`,
+        );
+        throw new BadRequestException(
+          'O serviço fiscal não aceita mais a chave guardada desta loja (401). Nada foi alterado e ' +
+            'nenhuma empresa nova foi criada: a numeração das notas continua a mesma. Peça ao suporte ' +
+            'uma chave nova para o cadastro fiscal desta loja e envie o certificado de novo.',
+        );
+      }
+      throw new BadRequestException(
+        'O serviço fiscal recusou o certificado: ' + this.errMsg(e),
+      );
+    }
+
+    // 3. Local: só o certificado muda; tenant, chave e ambiente continuam os mesmos
+    await this.prisma.clinicFiscalConfig.update({
+      where: { clinicId },
+      data: {
+        certificateFileName: arquivo.originalFileName,
+        certificateUploadedAt: new Date(),
+        certificateNotAfter: null,
+        certificateAlertAt: null,
+      },
+    });
+
+    // 4. Webhook (idempotente no serviço)
+    const webhook = await this.registrarWebhook(clinicId);
+    return {
+      success: true,
+      message:
+        'Certificado atualizado no cadastro fiscal que a loja já tinha (mesma empresa e numeração).',
+      webhook,
+    };
   }
 
   private errMsg(e: any): string {
@@ -1087,10 +1195,17 @@ export class FiscalService {
       if (dedupeStatus) {
         const mapped = this.mapNexosDedupeStatus(dedupeStatus);
         const rawStatus = String(dedupeStatus).toUpperCase();
+        // A20: ambiente da nota que já existe, lido do serviço
+        const ambienteExistente = await this.ambienteDaNota(
+          apiUrl,
+          apiKey,
+          resp.data?.documentId || fiscalDoc?.uuid || undefined,
+        );
         const data = {
           status: mapped,
           type: 'NFE' as const,
           uuid: resp.data?.documentId || fiscalDoc?.uuid,
+          ...(ambienteExistente ? { environment: ambienteExistente } : {}),
           // AWAITING_SEFAZ: rejectionReason é só o último erro de comunicação, não rejeição.
           errorMessage:
             mapped === 'REJECTED'
@@ -1141,6 +1256,12 @@ export class FiscalService {
 
       // Caminho normal: NexosFiscal aceitou uma emissão nova (202) e vai
       // processar de forma assíncrona, avisando via webhook.
+      // A20: o ambiente é o que o serviço gravou na nota, não a configuração local.
+      const ambiente = await this.ambienteDaNota(
+        apiUrl,
+        apiKey,
+        resp.data?.documentId,
+      );
       if (fiscalDoc) {
         await this.prisma.fiscalDocument.update({
           where: { id: fiscalDoc.id },
@@ -1151,10 +1272,8 @@ export class FiscalService {
             errorMessage: null,
             remoteStatus: null,
             statusDetail: null,
-            // ambiente em que a nota está sendo emitida (a reconciliação confirma depois)
-            ...(normalizarAmbiente(config?.environment)
-              ? { environment: normalizarAmbiente(config?.environment)! }
-              : {}),
+            // sem resposta do serviço fica vazio (a nota anterior podia ser de outro ambiente)
+            environment: ambiente,
           },
         });
       } else {
@@ -1165,9 +1284,7 @@ export class FiscalService {
             status: 'PROCESSING',
             type: 'NFE',
             uuid: resp.data?.documentId,
-            ...(normalizarAmbiente(config?.environment)
-              ? { environment: normalizarAmbiente(config?.environment)! }
-              : {}),
+            ...(ambiente ? { environment: ambiente } : {}),
           },
         });
       }
@@ -1281,6 +1398,8 @@ export class FiscalService {
       hasCredentials: hasDbCredentials || hasEnvCredentials,
       source: hasDbCredentials ? 'database' : 'env',
       // O setup só grava tenant/chave depois que o NexosFiscal aceitou o certificado
+      // Tenant e chave podem estar gravados sem certificado aceito (A19); nesse caso o status do
+      // certificado (GET /sefaz/status) avisa que não há certificado ativo.
       hasCertificate: !!config.nexosTenantId && hasDbCredentials,
       certificateFileName: config.certificateFileName,
       certificateUploadedAt: config.certificateUploadedAt,
@@ -1302,6 +1421,8 @@ export class FiscalService {
     if (dto.environment === '1' && !this.isProductionAllowed()) {
       throw new ForbiddenException(FiscalService.PRODUCTION_BLOCKED_MESSAGE);
     }
+    // A20: o ambiente vale no serviço fiscal; a troca local só é gravada depois que ele aceitar
+    await this.trocarAmbienteNoServico(clinicId, dto.environment);
     const salvo = await this.prisma.clinicFiscalConfig.upsert({
       where: { clinicId },
       update: { ...dto },
@@ -1315,6 +1436,101 @@ export class FiscalService {
       ? await this.registrarWebhook(clinicId)
       : { ok: false, skipped: true };
     return { ...salvo, webhook };
+  }
+
+  /**
+   * A20: trocar a loja de ambiente muda o tenant no serviço (PUT /tenants/{id}, chave mestra), porque é
+   * o ambiente do tenant que vai em cada nota. Lança se o serviço não aceitar: nesse caso nada é gravado
+   * no ERP. Sem mudança de ambiente, não chama o serviço.
+   */
+  private async trocarAmbienteNoServico(
+    clinicId: string,
+    novo: string | undefined,
+  ) {
+    const destino = normalizarAmbiente(novo);
+    if (!destino) return;
+    const config = await this.prisma.clinicFiscalConfig.findUnique({
+      where: { clinicId },
+    });
+    const atual = normalizarAmbiente(config?.environment) ?? 'homologacao';
+    if (destino === atual) return;
+
+    if (!config?.nexosTenantId) {
+      if (destino === 'producao') {
+        throw new BadRequestException(
+          'Envie o certificado e emita uma nota de homologação antes de passar para produção: ' +
+            'a empresa é criada no serviço fiscal sempre em homologação.',
+        );
+      }
+      return; // voltar para homologação sem empresa no serviço: só local
+    }
+
+    if (destino === 'producao') {
+      const homologadas = await this.prisma.fiscalDocument.count({
+        where: { clinicId, status: 'APPROVED', environment: 'homologacao' },
+      });
+      if (homologadas === 0) {
+        throw new BadRequestException(
+          'Antes de passar para produção, emita e tenha autorizada ao menos uma nota em homologação. ' +
+            'Nada foi alterado.',
+        );
+      }
+    }
+
+    const { masterApiKey, apiUrl } = this.masterCreds();
+    const corpo =
+      destino === 'producao'
+        ? { environment: 'producao', confirmarProducao: true }
+        : { environment: 'homologacao' };
+    try {
+      await firstValueFrom(
+        this.httpService.put(
+          `${apiUrl}/tenants/${config.nexosTenantId}`,
+          corpo,
+          { headers: { 'X-API-Key': masterApiKey } },
+        ),
+      );
+    } catch (e: any) {
+      this.logger.error(
+        `Troca de ambiente para ${destino} recusada pelo serviço — clinic ${clinicId}: ${this.errMsg(e)}`,
+      );
+      throw new BadRequestException(
+        (e?.response
+          ? 'O serviço fiscal recusou a troca de ambiente: '
+          : 'O serviço fiscal não respondeu à troca de ambiente: ') +
+          this.errMsg(e) +
+          '. Nada foi alterado: a loja continua em ' +
+          (atual === 'producao' ? 'produção.' : 'homologação.'),
+      );
+    }
+    this.logger.warn(
+      `Ambiente fiscal trocado para ${destino} no serviço — clinic ${clinicId}, tenant ${config.nexosTenantId}`,
+    );
+  }
+
+  /**
+   * A20: o ambiente de uma nota é o que o serviço gravou nela (GET /nfe/{id}), nunca a configuração
+   * local. Falha na consulta devolve null: o webhook e a reconciliação preenchem depois.
+   */
+  private async ambienteDaNota(
+    apiUrl: string,
+    apiKey: string,
+    documentId: string | undefined,
+  ): Promise<'homologacao' | 'producao' | null> {
+    if (!documentId) return null;
+    try {
+      const r = await firstValueFrom(
+        this.httpService.get(`${apiUrl}/nfe/${documentId}`, {
+          headers: { 'X-API-Key': apiKey },
+        }),
+      );
+      return normalizarAmbiente(r.data?.environment ?? r.data?.Environment);
+    } catch (e: any) {
+      this.logger.warn(
+        `Não foi possível ler o ambiente da nota ${documentId}: ${this.errMsg(e)}`,
+      );
+      return null;
+    }
   }
 
   /**

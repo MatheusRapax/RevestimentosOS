@@ -1382,7 +1382,9 @@ const GROUPS: Group[] = [
                                 servidor <b>bloqueia a emissão em produção</b> por padrão: a opção Produção aparece
                                 desabilitada e qualquer tentativa de emitir com a loja em produção é recusada. Para
                                 liberar, é preciso uma configuração no servidor feita pelo suporte (e só depois de
-                                homologar tudo com o contador). O card <b>Status da Conexão</b> sempre mostra em qual
+                                homologar tudo com o contador). Mesmo liberado, a troca para Produção só é aceita com uma
+                                nota de homologação já autorizada, pede confirmação e é feita também no serviço fiscal: se
+                                ele recusar, nada muda e o motivo aparece na tela. O card <b>Status da Conexão</b> sempre mostra em qual
                                 ambiente a loja está.
                             </>
                         ),
@@ -1430,11 +1432,11 @@ const GROUPS: Group[] = [
                             <>
                                 O card <b>Status da Conexão</b> mostra o selo <b>Certificado instalado</b> (ou{' '}
                                 <b>Certificado não instalado</b>) e, no card <b>Certificado Digital A1</b>, a data e o
-                                arquivo enviados. Só aparece como instalado depois que o NexosFiscal aceitou o certificado
-                                (senha correta e arquivo válido). Com certificado já instalado, o botão vira{' '}
-                                <b>Substituir Certificado</b> — use só quando o certificado vencer ou for trocado, e{' '}
-                                <b>não clique várias vezes</b> em Configurar: cada envio cria um novo cadastro no serviço
-                                fiscal. Logo abaixo, <b>Conferência do certificado (SEFAZ)</b> mostra o CNPJ do
+                                arquivo enviados. Com certificado já instalado, o botão vira{' '}
+                                <b>Substituir Certificado</b>: use quando o certificado vencer ou for trocado. Enviar de
+                                novo (por exemplo, depois de errar a senha) <b>não cria outra empresa</b> no serviço fiscal:
+                                só troca o certificado da mesma loja, e a numeração das notas continua. Se aparecer que o
+                                serviço não aceita mais a chave da loja, chame o suporte. Logo abaixo, <b>Conferência do certificado (SEFAZ)</b> mostra o CNPJ do
                                 certificado, a validade, se o CNPJ <b>confere com o cadastro fiscal</b> e se a SEFAZ
                                 respondeu — sem emitir nenhuma nota. Alertas em vermelho (CNPJ não confere, certificado
                                 vencido) precisam ser resolvidos antes de emitir.
