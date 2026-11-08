@@ -129,16 +129,10 @@ export class FiscalService {
       );
     }
 
-    // Ambiente vem do default fiscal da clínica ("1"=produção, "2"=homologação)
     const [existing, profile] = await Promise.all([
       this.prisma.clinicFiscalConfig.findUnique({ where: { clinicId } }),
       this.prisma.fiscalProfile.findUnique({ where: { clinicId } }),
     ]);
-    // Tenant de PRODUÇÃO só se o servidor liberou; caso contrário, sempre homologação.
-    const environment =
-      existing?.environment === '1' && this.isProductionAllowed()
-        ? 'producao'
-        : 'homologacao';
 
     // O Perfil do Emitente é a FONTE DA VERDADE da identidade do tenant (CNPJ, IE, CRT,
     // UF, município e endereço). Os campos opcionais do Setup só podem repetir o que o
@@ -163,7 +157,23 @@ export class FiscalService {
     if (avisos.length) {
       this.logger.warn(`Setup fiscal clinic ${clinicId}: ${avisos.join(' | ')}`);
     }
+
+    // A19: a loja que já tem empresa no serviço NUNCA cria outra. O serviço aceita dois tenants com o
+    // mesmo CNPJ e a numeração do novo recomeçaria do 1 (a SEFAZ recusa número repetido). Renovar o A1
+    // ou reenviar depois de errar a senha só troca o certificado do tenant que já existe.
+    if (existing?.nexosTenantId && existing?.nexosApiKey) {
+      return this.reenviarCertificado(clinicId, existing.nexosApiKey, {
+        apiUrl,
+        name,
+        pfxBuffer,
+        password,
+        originalFileName,
+      });
+    }
+
     // POST /tenants: inclui o endereço (o transmissor real exige).
+    // A20: o tenant nasce SEMPRE em homologação; produção só pela troca de ambiente na Configuração
+    // Fiscal, que muda o tenant no serviço (PUT /tenants/{id}).
     const tenantPayload = {
       name,
       cnpj: identidade.cnpj,
@@ -173,21 +183,38 @@ export class FiscalService {
       uf: identidade.uf,
       cityCode: identidade.cityCode,
       address: identidade.address,
-      environment,
+      environment: 'homologacao',
     };
 
     try {
       this.logger.log(`Starting NexosFiscal setup for clinic ${clinicId}`);
 
-      // 1. Create Tenant
-      const createTenantRes = await firstValueFrom(
-        this.httpService.post(`${apiUrl}/tenants`, tenantPayload, {
-          headers: { 'X-API-Key': masterApiKey },
-        }),
-      );
-      const tenantId = createTenantRes.data.id;
-
-      this.logger.log(`Tenant created: ${tenantId}`);
+      // 1. Create Tenant (só na primeira vez; se uma tentativa anterior criou o tenant e não chegou a
+      // gerar a chave, reaproveita o mesmo tenant em vez de criar outro)
+      let tenantId = existing?.nexosTenantId ?? null;
+      if (!tenantId) {
+        const createTenantRes = await firstValueFrom(
+          this.httpService.post(`${apiUrl}/tenants`, tenantPayload, {
+            headers: { 'X-API-Key': masterApiKey },
+          }),
+        );
+        tenantId = createTenantRes.data.id as string;
+        // Guarda o tenant na hora: se a chave falhar, a próxima tentativa não cria outra empresa
+        await this.prisma.clinicFiscalConfig.upsert({
+          where: { clinicId },
+          create: { clinicId, nexosTenantId: tenantId, environment: '2' },
+          update: {
+            nexosTenantId: tenantId,
+            nexosApiKey: null,
+            environment: '2',
+          },
+        });
+        this.logger.log(`Tenant created: ${tenantId}`);
+      } else {
+        this.logger.log(
+          `Tenant ${tenantId} já existe sem chave: gerando a chave`,
+        );
+      }
 
       // 2. Generate API Key
       const createKeyRes = await firstValueFrom(
@@ -209,6 +236,26 @@ export class FiscalService {
 
       this.logger.log(`API Key generated for tenant: ${tenantId}`);
 
+      // Tenant e chave ficam gravados antes do certificado: senha errada ou arquivo recusado não
+      // perdem o tenant, e o próximo envio cai no caminho de reenvio (A19) em vez de criar outro.
+      // Sem certificado aceito, hasCertificate continua falso (certificateUploadedAt nulo).
+      await this.prisma.clinicFiscalConfig.upsert({
+        where: { clinicId },
+        create: {
+          clinicId,
+          nexosTenantId: tenantId,
+          nexosApiKey: apiKey,
+          environment: '2',
+        },
+        update: {
+          nexosTenantId: tenantId,
+          nexosApiKey: apiKey,
+          environment: '2',
+          certificateFileName: null,
+          certificateUploadedAt: null,
+        },
+      });
+
       // 3. Upload Certificate
       const form = new FormData();
       form.append('file', pfxBuffer, { filename: originalFileName });
@@ -227,19 +274,9 @@ export class FiscalService {
       this.logger.log(`Certificate uploaded for tenant: ${tenantId}`);
 
       // 4. Save to Database
-      await this.prisma.clinicFiscalConfig.upsert({
+      await this.prisma.clinicFiscalConfig.update({
         where: { clinicId },
-        create: {
-          clinicId,
-          nexosTenantId: tenantId,
-          nexosApiKey: apiKey,
-          certificateFileName: originalFileName,
-          certificateUploadedAt: new Date(),
-          environment: '2', // default homologation
-        },
-        update: {
-          nexosTenantId: tenantId,
-          nexosApiKey: apiKey,
+        data: {
           certificateFileName: originalFileName,
           certificateUploadedAt: new Date(),
           // certificado novo: o aviso do anterior deixa de valer (a tela relê a validade em seguida)
@@ -266,6 +303,78 @@ export class FiscalService {
           (error.response?.data?.message || error.message),
       );
     }
+  }
+
+  /**
+   * A19: troca o certificado do tenant que a loja já tem, sem criar empresa nova. Sincroniza o perfil
+   * (PUT /tenants/{id}), envia o certificado com a chave guardada (o novo vira o ativo) e recadastra o
+   * webhook. Chave recusada (401) vira erro para o operador: nunca recria a empresa sozinho.
+   */
+  private async reenviarCertificado(
+    clinicId: string,
+    apiKey: string,
+    arquivo: {
+      apiUrl: string;
+      name: string;
+      pfxBuffer: Buffer;
+      password: string;
+      originalFileName: string;
+    },
+  ) {
+    this.logger.log(
+      `Reenvio de certificado para o tenant existente — clinic ${clinicId}`,
+    );
+    // 1. Perfil → tenant. CNPJ diferente ou tenant inexistente no serviço: erro, nada é recriado.
+    await this.syncTenantFromProfile(clinicId);
+
+    // 2. Certificado com a chave que a loja já tem
+    const form = new FormData();
+    form.append('file', arquivo.pfxBuffer, {
+      filename: arquivo.originalFileName,
+    });
+    form.append('password', arquivo.password);
+    form.append('name', `${arquivo.name} - A1`);
+    try {
+      await firstValueFrom(
+        this.httpService.post(`${arquivo.apiUrl}/certificate`, form, {
+          headers: { ...form.getHeaders(), 'X-API-Key': apiKey },
+        }),
+      );
+    } catch (e: any) {
+      if (e?.response?.status === 401) {
+        this.logger.error(
+          `Chave do tenant recusada (401) no reenvio do certificado — clinic ${clinicId}`,
+        );
+        throw new BadRequestException(
+          'O serviço fiscal não aceita mais a chave guardada desta loja (401). Nada foi alterado e ' +
+            'nenhuma empresa nova foi criada: a numeração das notas continua a mesma. Peça ao suporte ' +
+            'uma chave nova para o cadastro fiscal desta loja e envie o certificado de novo.',
+        );
+      }
+      throw new BadRequestException(
+        'O serviço fiscal recusou o certificado: ' + this.errMsg(e),
+      );
+    }
+
+    // 3. Local: só o certificado muda; tenant, chave e ambiente continuam os mesmos
+    await this.prisma.clinicFiscalConfig.update({
+      where: { clinicId },
+      data: {
+        certificateFileName: arquivo.originalFileName,
+        certificateUploadedAt: new Date(),
+        certificateNotAfter: null,
+        certificateAlertAt: null,
+      },
+    });
+
+    // 4. Webhook (idempotente no serviço)
+    const webhook = await this.registrarWebhook(clinicId);
+    return {
+      success: true,
+      message:
+        'Certificado atualizado no cadastro fiscal que a loja já tinha (mesma empresa e numeração).',
+      webhook,
+    };
   }
 
   private errMsg(e: any): string {
@@ -1281,7 +1390,11 @@ export class FiscalService {
       hasCredentials: hasDbCredentials || hasEnvCredentials,
       source: hasDbCredentials ? 'database' : 'env',
       // O setup só grava tenant/chave depois que o NexosFiscal aceitou o certificado
-      hasCertificate: !!config.nexosTenantId && hasDbCredentials,
+      // (A19: o tenant e a chave são gravados antes do certificado; sem certificado aceito, não tem)
+      hasCertificate:
+        !!config.nexosTenantId &&
+        hasDbCredentials &&
+        !!config.certificateUploadedAt,
       certificateFileName: config.certificateFileName,
       certificateUploadedAt: config.certificateUploadedAt,
       webhookUrl: config.webhookUrl,
