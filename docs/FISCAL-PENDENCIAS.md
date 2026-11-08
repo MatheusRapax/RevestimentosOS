@@ -15,8 +15,8 @@ Levantado em 2026-11-05, ao revisar o que o ERP tem de regras de emissão frente
       Definir com o contador: ST por produto/UF, CEST obrigatório, CST 60 / CSOSN 500, MVA, DIFAL.
 - [ ] **Alíquotas reais.** As regras de ICMS/PIS/COFINS do seed são genéricas (seed `fiscal-rules`).
       Revisar com o contador por regime (CRT) e por UF antes de qualquer nota real.
-- [ ] **Alerta de vencimento do certificado A1** (válido por 1 ano). Hoje só mostramos a data do envio.
-      Mostrar validade/dias restantes e avisar com antecedência (ver GET `/sefaz/status` do NexosFiscal).
+- [x] **Alerta de vencimento do certificado A1**: faixa para quem cuida da configuração fiscal a partir de 60 dias,
+      dias restantes na Conferência do certificado (webhook `CertificateExpiring` e `GET /sefaz/status`).
 - [ ] **Confirmação explícita ao ligar produção** (modal com o CNPJ e a frase de confirmação), além da
       trava de servidor. Registrar quem liberou, quando e por quê (auditoria).
 
@@ -49,8 +49,9 @@ Levantado em 2026-11-05, ao revisar o que o ERP tem de regras de emissão frente
 
 - [x] **Segredo do webhook fiscal tinha valor padrão no código** — corrigido na branch
       `feat/fiscal-contrato-nexos`: em produção, sem `FISCAL_WEBHOOK_SECRET` próprio (ou com o valor de exemplo) o
-      webhook responde 503. **Falta configurar a variável no servidor de produção e o mesmo segredo no webhook do
-      NexosFiscal** (`POST /webhook`).
+      webhook responde 503. **Falta configurar no servidor de produção** `FISCAL_WEBHOOK_SECRET` e `FISCAL_WEBHOOK_URL`
+      (o `docker-compose.prod.yml` já repassa as duas). O cadastro no NexosFiscal agora é feito pelo próprio ERP (A17):
+      depois de configurar, abra a Configuração Fiscal e confira o cartão "Avisos do serviço fiscal (webhook)".
 
 ## Combinado para o futuro (definido com o cliente em 2026-11-05)
 

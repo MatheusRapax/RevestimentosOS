@@ -163,7 +163,7 @@ export const FiscalReviewModal = ({
         const novos: FiscalError[] = corpo.erros.map((e: any) => ({
           campo: String(e.campo ?? 'nota'),
           mensagem: String(e.mensagem ?? ''),
-          severidade: 'error' as const,
+          severidade: e.severidade === 'warning' ? ('warning' as const) : ('error' as const),
           origem: e.origem === 'erp' ? 'erp' : 'fiscal',
         }));
         setResult((atual) =>
@@ -248,13 +248,23 @@ export const FiscalReviewModal = ({
                   </ul>
                   {!somenteErrosDeItem && (
                     <div className="flex flex-wrap gap-2 pt-1">
-                      {erros.some((e) => e.campo.startsWith('emitente.')) && (
-                        <a href="/dashboard/configuracoes/fiscal" target="_blank" rel="noreferrer">
-                          <Button size="sm" variant="outline" className="gap-1.5 bg-white">
-                            <Settings className="h-3.5 w-3.5" /> Dados da empresa (fiscal)
-                          </Button>
-                        </a>
-                      )}
+                      {erros.some((e) => e.campo.startsWith('emitente.')) &&
+                        (podeVerDetalhes ? (
+                          <a href="/dashboard/configuracoes/fiscal" target="_blank" rel="noreferrer">
+                            <Button size="sm" variant="outline" className="gap-1.5 bg-white">
+                              <Settings className="h-3.5 w-3.5" />
+                              {erros.some((e) => e.campo === 'emitente.certificado')
+                                ? 'Enviar certificado novo'
+                                : 'Dados da empresa (fiscal)'}
+                            </Button>
+                          </a>
+                        ) : (
+                          <p className="w-full text-sm text-red-800">
+                            {erros.some((e) => e.campo === 'emitente.certificado')
+                              ? 'Peça a quem cuida da configuração fiscal da loja para enviar um certificado digital novo.'
+                              : 'Peça a quem cuida da configuração fiscal da loja para corrigir os dados da empresa.'}
+                          </p>
+                        ))}
                       {erros.some((e) => e.campo.startsWith('cliente.')) && (
                         <a href="/dashboard/clientes" target="_blank" rel="noreferrer">
                           <Button size="sm" variant="outline" className="gap-1.5 bg-white">

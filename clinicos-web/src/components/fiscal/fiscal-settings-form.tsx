@@ -13,6 +13,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, AlertCircle, Search } from 'lucide-react';
 import { fetchCnpjInfo } from '@/lib/brasil-api';
+import { WebhookFiscalCard } from '@/components/fiscal/webhook-fiscal-card';
+
+/** O cadastro do webhook (A17) falhou? Avisa o operador, sem esconder que o resto deu certo. */
+function avisarFalhaDoWebhook(webhook: { ok?: boolean; skipped?: boolean; message?: string } | undefined, contexto: string) {
+    if (webhook && !webhook.ok && !webhook.skipped) {
+        toast.warning(`${contexto}, mas o webhook do serviço fiscal NÃO foi cadastrado: ${webhook.message}`, { duration: 15000 });
+    }
+}
 
 interface FiscalSettings {
     hasCredentials: boolean;
@@ -21,6 +29,7 @@ interface FiscalSettings {
     hasCertificate?: boolean;
     certificateFileName?: string | null;
     certificateUploadedAt?: string | null;
+    webhookRegisteredAt?: string | null;
     environment: '1' | '2';
     defaultNaturezaOperacao: string;
     defaultTaxClass: string | null;
@@ -263,7 +272,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
     async function onSubmit(data: FiscalSettings) {
         setIsSaving(true);
         try {
-            await api.put('/fiscal/settings', {
+            const resp = await api.put('/fiscal/settings', {
                 ...data,
                 defaultOrigin: Number(data.defaultOrigin) // Ensure number
             }, {
@@ -271,6 +280,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                 headers: clinicId ? { 'X-Clinic-Id': clinicId } : {}
             });
             toast.success('Configurações salvas com sucesso!');
+            avisarFalhaDoWebhook(resp.data?.webhook, 'Configurações salvas');
             loadSettings(); // Reload to confirm state
         } catch (error) {
             console.error('Erro ao salvar settings:', error);
@@ -313,7 +323,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             formData.append('password', data.password);
             formData.append('certificate', data.certificate[0]);
 
-            await api.post('/fiscal/setup', formData, {
+            const resp = await api.post('/fiscal/setup', formData, {
                 params: { clinicId },
                 headers: { 
                     'Content-Type': 'multipart/form-data',
@@ -322,6 +332,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             });
             
             toast.success('Certificado instalado com sucesso! Veja o status no topo da página.');
+            avisarFalhaDoWebhook(resp.data?.webhook, 'Certificado instalado');
             resetSetup(); // limpa arquivo e senha: o status acima passa a mostrar o certificado instalado
             loadSettings(); // Reload to confirm state
             loadSefazStatus(); // confere CNPJ do certificado x tenant, validade e SEFAZ (não emite nada)
@@ -434,6 +445,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                             )}
                         </div>
                     )}
+                    {settings?.hasCertificate && <WebhookFiscalCard key={settings.webhookRegisteredAt ?? 'sem'} clinicId={clinicId} />}
                     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
                         <div className="space-y-1">
                             <p className="font-medium text-sm">Fonte das Credenciais</p>

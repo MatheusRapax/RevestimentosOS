@@ -159,6 +159,7 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 | Produto só com NCM e origem | Origem sem valor padrão, para não errar imposto por omissão | 🟡 |
 | Códigos fiscais só para quem tem permissão | “Ver detalhes fiscais” exige `fiscal.config` | 🟡 |
 | Deduplicação de emissão | O serviço fiscal deduplica por pedido; reenvio não gera segunda nota | ✅ |
+| Webhook cadastrado pelo próprio ERP | Ao enviar o certificado e ao salvar a Configuração Fiscal, o ERP cadastra no serviço fiscal o endereço público (de configuração) e o segredo; falha aparece na tela e o cartão mostra se está ativo | 🟡 |
 | Webhook fiscal sem segredo fixo | Em produção o webhook exige segredo próprio (sem ele, recusa); assinatura comparada em tempo constante | 🟡 |
 | Tributo que o serviço não emite bloqueia | CST/CSOSN fora da lista aceita pelo regime não é enviado: o operador vê a causa em vez de uma nota errada | 🟡 |
 | Atualização atrasada não desfaz nada | Webhook ou consulta atrasada não reabre nota cancelada nem rebaixa nota autorizada | 🟡 |
@@ -167,7 +168,8 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 
 ### 3.5 Pontos de atenção de segurança (a resolver antes de produção)
 - **Segredo do webhook:** corrigido (em produção exige `FISCAL_WEBHOOK_SECRET` próprio e recusa o valor de exemplo). 🟡
-  Antes de produção, **definir a variável no servidor** e cadastrar o mesmo segredo no webhook do NexosFiscal.
+  Antes de produção, **definir `FISCAL_WEBHOOK_SECRET` e `FISCAL_WEBHOOK_URL` no servidor**; o ERP cadastra o webhook no
+  NexosFiscal sozinho (confira o cartão do webhook na Configuração Fiscal).
 - **Permissões que só valem na tela:** pedidos, compras, fornecedores, despesas, catálogo e auditoria não conferem permissão
   no servidor (só o módulo da loja); 27 permissões não controlam nada hoje e 4 só escondem o menu. Levantamento e proposta em
   `docs/PERMISSOES.md`. Depende de decidir quem faz o quê por papel antes de ligar no servidor. 🔜

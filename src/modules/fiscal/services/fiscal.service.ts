@@ -31,6 +31,11 @@ import {
   lerEventoCertificado,
 } from './certificado-alerta';
 import {
+  resolverSegredoWebhook,
+  validarUrlWebhook,
+  webhookDoErpAtivo,
+} from './webhook-cadastro';
+import {
   dadosIeDestinatario,
   gtinParaNota,
   informacoesComplementares,
@@ -243,9 +248,14 @@ export class FiscalService {
         },
       });
 
+      // Sem webhook cadastrado o serviço não avisa de nada (A17); a falha não desfaz o certificado,
+      // mas vai para a tela.
+      const webhook = await this.registrarWebhook(clinicId);
+
       return {
         success: true,
         message: 'Configuração fiscal concluída com sucesso',
+        webhook,
       };
     } catch (error: any) {
       this.logger.error(
@@ -1274,6 +1284,9 @@ export class FiscalService {
       hasCertificate: !!config.nexosTenantId && hasDbCredentials,
       certificateFileName: config.certificateFileName,
       certificateUploadedAt: config.certificateUploadedAt,
+      webhookUrl: config.webhookUrl,
+      webhookRegisteredAt: config.webhookRegisteredAt,
+      webhookError: config.webhookError,
       environment: config.environment,
       defaultNaturezaOperacao: config.defaultNaturezaOperacao,
       defaultTaxClass: config.defaultTaxClass,
@@ -1289,7 +1302,7 @@ export class FiscalService {
     if (dto.environment === '1' && !this.isProductionAllowed()) {
       throw new ForbiddenException(FiscalService.PRODUCTION_BLOCKED_MESSAGE);
     }
-    return this.prisma.clinicFiscalConfig.upsert({
+    const salvo = await this.prisma.clinicFiscalConfig.upsert({
       where: { clinicId },
       update: { ...dto },
       create: {
@@ -1297,6 +1310,157 @@ export class FiscalService {
         ...dto,
       },
     });
+    // Repetir é seguro (A17: mesma URL e tipo atualiza): mantém o webhook em dia a cada salvamento
+    const webhook = salvo.nexosTenantId
+      ? await this.registrarWebhook(clinicId)
+      : { ok: false, skipped: true };
+    return { ...salvo, webhook };
+  }
+
+  /**
+   * A17: cadastra o webhook do ERP no serviço fiscal (POST /webhook com a chave do tenant), com a URL
+   * pública de FISCAL_WEBHOOK_URL e o segredo de FISCAL_WEBHOOK_SECRET. Nunca lança: o resultado
+   * (ok ou motivo da falha) fica gravado e volta para a tela.
+   */
+  async registrarWebhook(clinicId: string): Promise<{
+    ok: boolean;
+    skipped?: boolean;
+    url?: string;
+    message?: string;
+  }> {
+    const config = await this.prisma.clinicFiscalConfig.findUnique({
+      where: { clinicId },
+      select: { nexosTenantId: true, nexosApiKey: true },
+    });
+    if (!config?.nexosTenantId || !config.nexosApiKey) {
+      return {
+        ok: false,
+        skipped: true,
+        message:
+          'A loja ainda não tem cadastro no serviço fiscal: envie o certificado primeiro.',
+      };
+    }
+
+    const producao = process.env.NODE_ENV === 'production';
+    const destino = validarUrlWebhook(
+      this.configService.get<string>('FISCAL_WEBHOOK_URL'),
+      producao,
+    );
+    const { segredo } = resolverSegredoWebhook();
+    const apiUrl = this.configService.get<string>('FISCAL_MICROSERVICE_URL');
+    const problema =
+      destino.erro ??
+      (!segredo
+        ? 'FISCAL_WEBHOOK_SECRET não está configurado (ou é o valor de exemplo): o ERP recusaria os eventos.'
+        : !apiUrl
+          ? 'FISCAL_MICROSERVICE_URL não está configurada no servidor.'
+          : null);
+    if (problema) {
+      return this.gravarResultadoWebhook(
+        clinicId,
+        destino.url ?? null,
+        problema,
+      );
+    }
+
+    try {
+      await firstValueFrom(
+        this.httpService.post(
+          `${apiUrl}/webhook`,
+          { url: destino.url, secret: segredo, eventType: 0 },
+          { headers: { 'X-API-Key': config.nexosApiKey } },
+        ),
+      );
+    } catch (e: any) {
+      return this.gravarResultadoWebhook(
+        clinicId,
+        destino.url!,
+        e?.response
+          ? `O serviço fiscal recusou o cadastro do webhook: ${this.errMsg(e)}`
+          : `O serviço fiscal não respondeu ao cadastro do webhook: ${this.errMsg(e)}`,
+      );
+    }
+    this.logger.log(
+      `Webhook do ERP cadastrado no serviço fiscal para a loja ${clinicId}: ${destino.url}`,
+    );
+    return this.gravarResultadoWebhook(clinicId, destino.url!, null);
+  }
+
+  private async gravarResultadoWebhook(
+    clinicId: string,
+    url: string | null,
+    erro: string | null,
+  ) {
+    if (erro) {
+      this.logger.warn(`Cadastro do webhook (loja ${clinicId}): ${erro}`);
+    }
+    await this.prisma.clinicFiscalConfig.update({
+      where: { clinicId },
+      data: erro
+        ? { webhookError: erro }
+        : {
+            webhookUrl: url,
+            webhookRegisteredAt: new Date(),
+            webhookError: null,
+          },
+    });
+    return erro
+      ? { ok: false, ...(url ? { url } : {}), message: erro }
+      : { ok: true, url: url! };
+  }
+
+  /** GET /webhook do serviço + o último resultado gravado, para a tela de configuração. */
+  async consultarWebhook(clinicId: string) {
+    const config = await this.prisma.clinicFiscalConfig.findUnique({
+      where: { clinicId },
+      select: {
+        nexosTenantId: true,
+        nexosApiKey: true,
+        webhookUrl: true,
+        webhookRegisteredAt: true,
+        webhookError: true,
+      },
+    });
+    const destino = validarUrlWebhook(
+      this.configService.get<string>('FISCAL_WEBHOOK_URL'),
+      process.env.NODE_ENV === 'production',
+    );
+    const base = {
+      urlConfigurada: destino.url ?? null,
+      problemaDeConfiguracao: destino.erro ?? null,
+      ultimoCadastro: {
+        url: config?.webhookUrl ?? null,
+        em: config?.webhookRegisteredAt ?? null,
+        erro: config?.webhookError ?? null,
+      },
+    };
+    if (!config?.nexosTenantId || !config.nexosApiKey) {
+      return { ...base, consultado: false, ativo: false, cadastrados: [] };
+    }
+    try {
+      const apiUrl = this.configService.get<string>('FISCAL_MICROSERVICE_URL');
+      const lista = (
+        await firstValueFrom(
+          this.httpService.get(`${apiUrl}/webhook`, {
+            headers: { 'X-API-Key': config.nexosApiKey },
+          }),
+        )
+      ).data;
+      return {
+        ...base,
+        consultado: true,
+        ativo: destino.url ? webhookDoErpAtivo(lista, destino.url) : false,
+        cadastrados: Array.isArray(lista) ? lista : [],
+      };
+    } catch (e: any) {
+      return {
+        ...base,
+        consultado: false,
+        ativo: false,
+        cadastrados: [],
+        erroConsulta: `Não foi possível consultar o serviço fiscal: ${this.errMsg(e)}`,
+      };
+    }
   }
 
   // ── Perfil fiscal do emitente ──────────────────────────────────────────
