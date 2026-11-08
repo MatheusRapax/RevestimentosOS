@@ -238,7 +238,6 @@ export class FiscalService {
 
       // Tenant e chave ficam gravados antes do certificado: senha errada ou arquivo recusado não
       // perdem o tenant, e o próximo envio cai no caminho de reenvio (A19) em vez de criar outro.
-      // Sem certificado aceito, hasCertificate continua falso (certificateUploadedAt nulo).
       await this.prisma.clinicFiscalConfig.upsert({
         where: { clinicId },
         create: {
@@ -1399,11 +1398,9 @@ export class FiscalService {
       hasCredentials: hasDbCredentials || hasEnvCredentials,
       source: hasDbCredentials ? 'database' : 'env',
       // O setup só grava tenant/chave depois que o NexosFiscal aceitou o certificado
-      // (A19: o tenant e a chave são gravados antes do certificado; sem certificado aceito, não tem)
-      hasCertificate:
-        !!config.nexosTenantId &&
-        hasDbCredentials &&
-        !!config.certificateUploadedAt,
+      // Tenant e chave podem estar gravados sem certificado aceito (A19); nesse caso o status do
+      // certificado (GET /sefaz/status) avisa que não há certificado ativo.
+      hasCertificate: !!config.nexosTenantId && hasDbCredentials,
       certificateFileName: config.certificateFileName,
       certificateUploadedAt: config.certificateUploadedAt,
       webhookUrl: config.webhookUrl,

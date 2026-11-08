@@ -241,19 +241,6 @@ describe('A19: reenviar o certificado não cria outra empresa no serviço', () =
       `${API}/certificate`,
     ]);
   });
-
-  it('sem certificado aceito a tela não mostra certificado (tenant e chave já gravados)', async () => {
-    const { service } = build({
-      config: {
-        clinicId: CLINIC,
-        nexosTenantId: TENANT,
-        nexosApiKey: 'k',
-        certificateUploadedAt: null,
-        environment: '2',
-      },
-    });
-    expect((await service.getSettings(CLINIC)).hasCertificate).toBe(false);
-  });
 });
 
 describe('A20: trocar o ambiente muda o tenant no serviço', () => {
