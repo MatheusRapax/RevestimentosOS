@@ -4,10 +4,10 @@ Inventário **vivo** do que o sistema faz e de tudo que ele protege. É a fonte 
 PowerPoint: nada que existe pode ficar de fora. **Toda feature ou proteção nova entra aqui no mesmo trabalho
 em que é implementada** (junto com o Manual do Operador e, quando couber, um doc próprio).
 
-Atualizado em: 2026-11-05 · Versão na `main`: 1.19.0 · Detalhes do manual: tela **Ajuda** do sistema.
+Atualizado em: 2026-11-10 · Versão na `main`: 1.22.0 · Detalhes do manual: tela **Ajuda** do sistema.
 
 **Legenda de status**
-- ✅ **No ar** — já está na `main` (1.19.0).
+- ✅ **No ar** — já está na `main` (1.22.0).
 - 🟡 **Pronto, aguardando merge** — implementado e testado em branch; entra na próxima versão.
 - 🔜 **Planejado** — combinado, ainda não implementado (ver `docs/FISCAL-PENDENCIAS.md`).
 
@@ -34,11 +34,11 @@ Cada loja (tenant) tem seus dados isolados, seus usuários, seus papéis e os m�
 | Orçamento — ocultar desconto na impressão | O cliente vê o preço final sem o desconto por item | ✅ |
 | Orçamento — recálculo de markup | Preço acompanha mudança de markup | ✅ |
 | Pedidos | Conversão do orçamento, pagamentos, separação, retirada/entrega | ✅ |
-| Cada vendedor vê só as suas vendas | Orçamentos, pedidos, entregas, notas fiscais, avarias, painel e resumo do cliente mostram só o que o vendedor fez; a permissão “Ver as vendas de todos os vendedores” libera a equipe inteira | 🟡 |
+| Cada vendedor vê só as suas vendas | Orçamentos, pedidos, entregas, notas fiscais, avarias, painel e resumo do cliente mostram só o que o vendedor fez; a permissão “Ver as vendas de todos os vendedores” libera a equipe inteira | ✅ |
 | Transferir vendas entre vendedores | Passa orçamento e pedido (juntos) de um vendedor para outro, um a um ou o lote de um vendedor que saiu, com motivo, histórico e aviso quando a comissão de mês anterior muda de mãos (`docs/TRANSFERENCIA-DE-VENDAS.md`) | ✅ |
 | Conta-corrente do cliente e boleto | Saldo do cliente e geração de boleto só para pedido não pago | ✅ |
 | Catálogo de produtos (consulta de vendas) | Consulta para o vendedor, com preço por m², sem expor custo | ✅ |
-| Filtro “com estoque” | No catálogo (“Só com estoque”, aplica na hora) e na visão geral do Estoque (“Com estoque”): só produtos com saldo disponível, já descontadas as reservas; filtrado no banco, com paginação e total corretos | 🟡 |
+| Filtro “com estoque” | No catálogo (“Só com estoque”, aplica na hora) e na visão geral do Estoque (“Com estoque”): só produtos com saldo disponível, já descontadas as reservas; filtrado no banco, com paginação e total corretos (`docs/FILTRO-COM-ESTOQUE.md`) | ✅ |
 | Promoções | Campanhas por produto com status e regra para promoções sobrepostas | ✅ |
 
 ### Nota fiscal (NF-e)
@@ -47,17 +47,17 @@ Cada loja (tenant) tem seus dados isolados, seus usuários, seus papéis e os m�
 | Emissão com Revisão Fiscal | Conferência antes de ir para a SEFAZ; status atualiza sozinho; XML e DANFE (PDF) | ✅ |
 | Perfil do Emitente por CNPJ | Lupa preenche razão social, endereço e IBGE a partir do CNPJ | ✅ |
 | Certificado digital A1 | Instalação pela tela e selo “Certificado instalado” | ✅ |
-| Perfil do Emitente como fonte da verdade | O cadastro fiscal da loja define o emitente; sincroniza com o serviço fiscal ao salvar | 🟡 |
-| Conferência do certificado (SEFAZ) | Validade com dias restantes, CNPJ do certificado × emitente e alcance da SEFAZ, com alertas | 🟡 |
-| Aviso de vencimento do certificado | Faixa no topo de todas as telas para quem cuida da configuração fiscal, a partir de 60 dias do vencimento; vencido avisa que nenhuma nota será emitida | 🟡 |
-| Revisão em linguagem simples | Tipo de operação, impostos em reais, etiquetas Cliente/Produto/Empresa; códigos só em “detalhes fiscais” | 🟡 |
-| Seletor de NCM | Atalhos de revestimento, busca na tabela oficial e conferência do número digitado | 🟡 |
-| Cálculo automático de CFOP e impostos | Dentro/fora do estado e consumidor final decididos pelo cadastro, sem perguntar ao operador | ✅ (motor) · 🟡 (tela) |
-| Cancelamento de NF-e pela tela | Justificativa de 15 a 255 caracteres; fica “cancelamento em andamento” até a SEFAZ confirmar; recusa por prazo mostra o motivo e a nota segue valendo | 🟡 |
-| Nota que não se perde (SEFAZ fora do ar) | “Aguardando a SEFAZ” em andamento, emissão retomada sozinha, botão “Tentar novamente” | 🟡 |
-| Conferência automática com o serviço fiscal | A cada 5 min o ERP confere o status das notas e corrige qualquer atualização perdida | 🟡 |
-| Nota fiel ao pedido | Desconto, frete, observações, forma de pagamento real, origem do produto e IE do cliente vão na nota | 🟡 |
-| Selo “Homologação — sem valor fiscal” | Nota de teste identificada na tela, com série e número guardados | 🟡 |
+| Perfil do Emitente como fonte da verdade | O cadastro fiscal da loja define o emitente; sincroniza com o serviço fiscal ao salvar | ✅ |
+| Conferência do certificado (SEFAZ) | Validade com dias restantes, CNPJ do certificado × emitente e alcance da SEFAZ, com alertas | ✅ |
+| Aviso de vencimento do certificado | Faixa no topo de todas as telas para quem cuida da configuração fiscal, a partir de 60 dias do vencimento; vencido avisa que nenhuma nota será emitida | ✅ |
+| Revisão em linguagem simples | Tipo de operação, impostos em reais, etiquetas Cliente/Produto/Empresa; códigos só em “detalhes fiscais” | ✅ |
+| Seletor de NCM | Atalhos de revestimento, busca na tabela oficial e conferência do número digitado | ✅ |
+| Cálculo automático de CFOP e impostos | Dentro/fora do estado e consumidor final decididos pelo cadastro, sem perguntar ao operador | ✅ |
+| Cancelamento de NF-e pela tela | Justificativa de 15 a 255 caracteres; fica “cancelamento em andamento” até a SEFAZ confirmar; recusa por prazo mostra o motivo e a nota segue valendo | ✅ |
+| Nota que não se perde (SEFAZ fora do ar) | “Aguardando a SEFAZ” em andamento, emissão retomada sozinha, botão “Tentar novamente” | ✅ |
+| Conferência automática com o serviço fiscal | A cada 5 min o ERP confere o status das notas e corrige qualquer atualização perdida | ✅ |
+| Nota fiel ao pedido | Desconto, frete, observações, forma de pagamento real, origem do produto e IE do cliente vão na nota | ✅ |
+| Selo “Homologação — sem valor fiscal” | Nota de teste identificada na tela, com série e número guardados | ✅ |
 | Carta de correção, inutilização, contingência, NFC-e, ST | Recursos de ERP fiscal completo | 🔜 |
 
 ### Estoque & Logística
@@ -91,7 +91,7 @@ Cada loja (tenant) tem seus dados isolados, seus usuários, seus papéis e os m�
 |---|---|---|
 | Usuários | Criar usuários, atribuir papel | ✅ |
 | Papéis e acessos | Permissões por papel (Administrador, Gerente, Estoquista, Vendedor) e papéis próprios | ✅ |
-| Permissões em linguagem de loja | Áreas com explicação, nome claro, o que cada permissão libera, tela que abre, etiqueta “Sensível”, busca e marcar/limpar por área; as antigas de clínica e as sem efeito ficam recolhidas | 🟡 |
+| Permissões em linguagem de loja | Áreas com explicação, nome claro, o que cada permissão libera, tela que abre, etiqueta “Sensível”, busca e marcar/limpar por área; as antigas de clínica e as sem efeito ficam recolhidas | ✅ |
 | Configurações globais | Taxa de entrega padrão e valores iniciais | ✅ |
 | Auditoria | Histórico somente leitura de quem fez o quê | ✅ |
 | Templates de orçamento e ambientes de venda | Padronização do orçamento | ✅ |
@@ -128,10 +128,10 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 | Módulos por loja | `ModuleGuard`: a loja só acessa o que contratou (vendas, estoque, compras, financeiro, RMA, entregas, promoções, arquitetos, admin) | ✅ |
 | Área Super Admin protegida | `SuperAdminGuard` separa operação da plataforma da operação da loja | ✅ |
 | Usuário não altera o próprio papel | Evita elevar o próprio acesso | ✅ |
-| Catálogo de permissões com teste | Toda permissão nova precisa de texto claro (o teste falha sem ele); permissão ativa não pode usar termo de clínica | 🟡 |
-| Venda de outro vendedor não abre | Acessar orçamento, pedido, entrega ou nota de outro vendedor pelo endereço direto responde “não encontrado”, em todas as ações (ver, editar, aprovar, converter, cancelar) | 🟡 |
+| Catálogo de permissões com teste | Toda permissão nova precisa de texto claro (o teste falha sem ele); permissão ativa não pode usar termo de clínica | ✅ |
+| Venda de outro vendedor não abre | Acessar orçamento, pedido, entrega ou nota de outro vendedor pelo endereço direto responde “não encontrado”, em todas as ações (ver, editar, aprovar, converter, cancelar) | ✅ |
 | Transferência de vendas só com permissão e com rastro | Exige `sales.transfer`; destino precisa ser usuário ativo com acesso a vendas; motivo obrigatório; tudo numa transação; histórico (`SalesTransfer`) e registro no orçamento; mês anterior exige confirmação | ✅ |
-| Permissões sensíveis sinalizadas | Dinheiro, estoque, nota fiscal, acessos e exclusões aparecem marcados na hora de dar acesso | 🟡 |
+| Permissões sensíveis sinalizadas | Dinheiro, estoque, nota fiscal, acessos e exclusões aparecem marcados na hora de dar acesso | ✅ |
 
 ### 3.2 Rastreabilidade
 | Proteção | Como funciona | Status |
@@ -149,31 +149,34 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 ### 3.4 Emissão fiscal — proteções
 | Proteção | Como funciona | Status |
 |---|---|---|
-| **Trava de homologação** | Nenhuma nota com valor fiscal sai fora de homologação: `FISCAL_ALLOW_PRODUCTION` ausente = bloqueado, aplicada em salvar configuração, emitir e setup | 🟡 |
+| **Trava de homologação** | Nenhuma nota com valor fiscal sai fora de homologação: `FISCAL_ALLOW_PRODUCTION` ausente = bloqueado, aplicada em salvar configuração, emitir e setup | ✅ |
 | Pré-flight antes de emitir | Valida pedido, emitente, cliente, itens e totais antes de qualquer chamada externa | ✅ |
-| Perfil do emitente completo | Sem CRT, endereço ou IBGE coerente com a UF, o setup e a sincronização são recusados | 🟡 |
-| Sem valores padrão silenciosos | Nada de CRT “3”, UF “SP” ou município de São Paulo assumidos; falta de dado = bloqueio com instrução | 🟡 |
-| Divergência de CNPJ barrada | Se o CNPJ do perfil não bate com o do tenant fiscal, nada é alterado; avisa que é preciso recriar | 🟡 |
-| Divergência formulário × perfil barrada | Setup do certificado que contradiz o perfil é recusado | 🟡 |
-| Alertas de certificado | Vencido, a vencer, ilegível, ainda não válido, CNPJ diferente do emitente ou ambiente que não é homologação | 🟡 |
-| Avisos de cadastro suspeito | IE “ISENTO” para quem vende mercadoria; logradouro com “/” | 🟡 |
-| Operação nunca escolhida à mão | Dentro/fora do estado vem do cadastro; o operador não consegue forçar CFOP errado | 🟡 |
-| Produto só com NCM e origem | Origem sem valor padrão, para não errar imposto por omissão | 🟡 |
-| Códigos fiscais só para quem tem permissão | “Ver detalhes fiscais” exige `fiscal.config` | 🟡 |
+| Perfil do emitente completo | Sem CRT, endereço ou IBGE coerente com a UF, o setup e a sincronização são recusados | ✅ |
+| Sem valores padrão silenciosos | Nada de CRT “3”, UF “SP” ou município de São Paulo assumidos; falta de dado = bloqueio com instrução | ✅ |
+| Divergência de CNPJ barrada | Se o CNPJ do perfil não bate com o do tenant fiscal, nada é alterado; avisa que é preciso recriar | ✅ |
+| Divergência formulário × perfil barrada | Setup do certificado que contradiz o perfil é recusado | ✅ |
+| Alertas de certificado | Vencido, a vencer, ilegível, ainda não válido, CNPJ diferente do emitente ou ambiente que não é homologação | ✅ |
+| Avisos de cadastro suspeito | IE “ISENTO” para quem vende mercadoria; logradouro com “/” | ✅ |
+| Operação nunca escolhida à mão | Dentro/fora do estado vem do cadastro; o operador não consegue forçar CFOP errado | ✅ |
+| Produto só com NCM e origem | Origem sem valor padrão, para não errar imposto por omissão | ✅ |
+| Códigos fiscais só para quem tem permissão | “Ver detalhes fiscais” exige `fiscal.config` | ✅ |
 | Deduplicação de emissão | O serviço fiscal deduplica por pedido; reenvio não gera segunda nota | ✅ |
-| Certificado novo não cria outra empresa | Reenviar ou renovar o A1 troca o certificado do cadastro fiscal que a loja já tem (mesma numeração); chave recusada vira erro na tela, sem recriar nada | 🟡 |
-| Produção muda também no serviço fiscal | Trocar o ambiente na Configuração Fiscal muda o cadastro no serviço e só é gravado se ele aceitar; exige servidor liberado e uma nota de homologação autorizada; o ambiente de cada nota vem do serviço | 🟡 |
-| Webhook cadastrado pelo próprio ERP | Ao enviar o certificado e ao salvar a Configuração Fiscal, o ERP cadastra no serviço fiscal o endereço público (de configuração) e o segredo; falha aparece na tela e o cartão mostra se está ativo | 🟡 |
-| Webhook fiscal sem segredo fixo | Em produção o webhook exige segredo próprio (sem ele, recusa); assinatura comparada em tempo constante | 🟡 |
-| Tributo que o serviço não emite bloqueia | CST/CSOSN fora da lista aceita pelo regime não é enviado: o operador vê a causa em vez de uma nota errada | 🟡 |
-| Atualização atrasada não desfaz nada | Webhook ou consulta atrasada não reabre nota cancelada nem rebaixa nota autorizada | 🟡 |
-| Cancelamento só com permissão | `fiscal.cancel` e escopo por loja; nada de cancelar nota de outra loja | 🟡 |
-| Pagamento e total conferem | O total pago enviado é o do pedido (frete não é somado duas vezes); pagamento menor que o total avisa, **maior bloqueia** a emissão | 🟡 |
+| Certificado novo não cria outra empresa | Reenviar ou renovar o A1 troca o certificado do cadastro fiscal que a loja já tem (mesma numeração); chave recusada vira erro na tela, sem recriar nada | ✅ |
+| Produção muda também no serviço fiscal | Trocar o ambiente na Configuração Fiscal muda o cadastro no serviço e só é gravado se ele aceitar; exige servidor liberado e uma nota de homologação autorizada; o ambiente de cada nota vem do serviço | ✅ |
+| Webhook cadastrado pelo próprio ERP | Ao enviar o certificado e ao salvar a Configuração Fiscal, o ERP cadastra no serviço fiscal o endereço público (de configuração) e o segredo; falha aparece na tela e o cartão mostra se está ativo | ✅ |
+| Webhook fiscal sem segredo fixo | Em produção o webhook exige segredo próprio (sem ele, recusa); assinatura comparada em tempo constante | ✅ |
+| Tributo que o serviço não emite bloqueia | CST/CSOSN fora da lista aceita pelo regime não é enviado: o operador vê a causa em vez de uma nota errada | ✅ |
+| Atualização atrasada não desfaz nada | Webhook ou consulta atrasada não reabre nota cancelada nem rebaixa nota autorizada | ✅ |
+| Cancelamento só com permissão | `fiscal.cancel` e escopo por loja; nada de cancelar nota de outra loja | ✅ |
+| Pagamento e total conferem | O total pago enviado é o do pedido (frete não é somado duas vezes); pagamento menor que o total avisa, **maior bloqueia** a emissão | ✅ |
 
 ### 3.5 Pontos de atenção de segurança (a resolver antes de produção)
-- **Segredo do webhook:** corrigido (em produção exige `FISCAL_WEBHOOK_SECRET` próprio e recusa o valor de exemplo). 🟡
+- **Segredo do webhook:** corrigido (em produção exige `FISCAL_WEBHOOK_SECRET` próprio e recusa o valor de exemplo). ✅
   Antes de produção, **definir `FISCAL_WEBHOOK_SECRET` e `FISCAL_WEBHOOK_URL` no servidor**; o ERP cadastra o webhook no
   NexosFiscal sozinho (confira o cartão do webhook na Configuração Fiscal).
+- **Segredo do login (`JWT_SECRET`):** corrigido na 1.22.0. O contêiner de produção não recebia a variável e usava
+  `changeme`; agora o compose de produção exige a variável e o backend não sobe sem ela. **Definir `JWT_SECRET` no Coolify
+  antes do deploy da 1.22.0** (todos entram de novo depois da troca). ✅
 - **Permissões que só valem na tela:** pedidos, compras, fornecedores, despesas, catálogo e auditoria não conferem permissão
   no servidor (só o módulo da loja); 27 permissões não controlam nada hoje e 4 só escondem o menu. Levantamento e proposta em
   `docs/PERMISSOES.md`. Depende de decidir quem faz o quê por papel antes de ligar no servidor. 🔜
