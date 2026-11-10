@@ -51,14 +51,85 @@ Quando o contrato mudar, o NexosFiscal registra em `AJUSTES_ERP.md` e este doc �
 - `NFeCanceled`, `NFeCorrection` e `EventRejected` também trazem `Number`, `Series` e `Environment`.
 - ST, redução de base, DIFAL, IPI e FCP: sem previsão; não bloqueiam o cliente atual (Simples Nacional, CSOSN 102).
 
+## Alerta de vencimento do certificado (A16)
+
+- **Webhook `CertificateExpiring`:** tratado em `FiscalService.handleWebhook`; o evento é da empresa, não de uma nota, então
+  não tem `externalId`. Acha a loja por `ClinicFiscalConfig.nexosTenantId`. O serviço envia os campos em **PascalCase**
+  (`TenantId`, `NotAfter`...); o ERP aceita também camelCase.
+- **O que é guardado:** só `certificateNotAfter` e `certificateAlertAt`. Dias e nível são **recalculados ao mostrar**, com as
+  mesmas faixas do serviço (`warning` 16 a 60 dias, `critical` 1 a 15, `expired` 0 ou menos), porque o aviso chega no máximo
+  1x por semana e um número gravado ficaria errado. Regras em `services/certificado-alerta.ts`.
+- **Onde aparece:** faixa no topo de todas as telas para quem tem `fiscal.config` (`GET /fiscal/certificate-alert`, sem
+  consultar a SEFAZ). Só o aviso `warning` pode ser dispensado, até recarregar a página.
+- **Como some:** enviar certificado novo limpa o aviso. `GET /fiscal/status` usa `certificado.daysLeft`/`level` e grava a
+  validade real, então abrir a Configuração Fiscal corrige o aviso na hora.
+- **Reentrega atrasada:** webhook com validade mais antiga que a guardada é ignorado (responde 200).
+- **Limite:** o serviço só envia o evento se houver webhook cadastrado para o tenant (ver A17 abaixo) e, em produção, o
+  ERP recusa o webhook sem `FISCAL_WEBHOOK_SECRET`. Sem isso, a faixa só aparece depois que alguém abre a Configuração Fiscal.
+
+## Cadastro do webhook no serviço fiscal (A17)
+
+- **O ERP cadastra sozinho:** `POST {FISCAL_MICROSERVICE_URL}/webhook` com a chave do tenant e
+  `{ url: FISCAL_WEBHOOK_URL, secret: FISCAL_WEBHOOK_SECRET, eventType: 0 }`, em três momentos: ao **enviar o certificado**
+  (tenant novo), a cada **Salvar** da Configuração Fiscal e pelo botão **Cadastrar webhook** do cartão "Avisos do serviço
+  fiscal (webhook)". A chamada é idempotente no serviço (mesma URL e tipo atualiza o segredo).
+- **URL de configuração, nunca fixa:** `FISCAL_WEBHOOK_URL` é o endereço público da rota `POST /fiscal/webhook` como o
+  serviço a alcança. Sem ela, ou malformada, ou apontando para `localhost` em produção, o cadastro não é feito e o motivo vai
+  para a tela. Produção sem segredo próprio também não cadastra (o ERP recusaria os eventos).
+- **Falha aparece para o operador:** o último resultado fica em `ClinicFiscalConfig.webhookUrl/webhookRegisteredAt/webhookError`;
+  salvar a configuração ou enviar o certificado mostra um aviso se o cadastro falhou, sem desfazer o resto. O cartão consulta
+  `GET /webhook` do serviço e diz se o endereço deste ERP está **cadastrado e ativo**.
+- Rotas do ERP: `GET /fiscal/webhook-config` (estado) e `POST /fiscal/webhook-config` (cadastrar), ambas com `fiscal.config`.
+- Regras puras em `services/webhook-cadastro.ts`; o segredo é o mesmo resolvido pela rota que recebe os eventos.
+
+## Certificado inválido barra a emissão (A18)
+
+- O serviço devolve erro em `emitente.certificado` (sem certificado ativo, vencido, ilegível ou ainda não válido) no
+  `/nfe/validate` e no `/nfe/emit` (400, sem criar nota). Perto do vencimento ou com CNPJ diferente, vem `warning`.
+- Na **Revisão Fiscal** o erro aparece com a etiqueta **Certificado** e bloqueia o botão de emitir. Quem tem `fiscal.config`
+  vê o botão **Enviar certificado novo**; quem não tem vê "Peça a quem cuida da configuração fiscal da loja para enviar um
+  certificado digital novo." (antes recebia um botão que dava em "acesso restrito").
+- Avisos que vêm junto com um 400 do `/nfe/emit` continuam avisos (antes viravam erro na tela).
+
+## Reenviar o certificado não cria outra empresa (A19)
+
+- **Loja que já tem `nexosTenantId` e `nexosApiKey`:** o envio do certificado **não chama `POST /tenants`**. Sincroniza o
+  perfil (`PUT /tenants/{id}`, chave mestra, sem `environment`), envia o certificado com a **chave guardada**
+  (`POST /certificate`; o novo vira o ativo) e recadastra o webhook. Tenant, chave e ambiente continuam os mesmos, e a
+  numeração das notas não recomeça.
+- **Chave guardada recusada (401):** erro para o operador ("O serviço fiscal não aceita mais a chave guardada desta
+  loja (401)…"), sem recriar a empresa. A saída é o suporte gerar uma chave nova para o mesmo tenant.
+- **Primeira vez:** cria o tenant (sempre em homologação), gera a chave e grava os dois **antes** de enviar o
+  certificado. Senha errada ou arquivo recusado não perdem o tenant: o próximo envio cai no reenvio acima. Se uma
+  tentativa criou o tenant e não chegou a gerar a chave, a próxima gera a chave para o mesmo tenant.
+- CNPJ do perfil diferente do tenant, ou tenant que não existe mais no serviço: erro, nada é recriado.
+
+## Ambiente: homologação ou produção (A20)
+
+- **O tenant nasce sempre em homologação** (`POST /tenants` com `environment: 'homologacao'`).
+- **Trocar o ambiente na Configuração Fiscal muda o tenant no serviço:** `PUT /tenants/{id}` com a chave mestra e
+  `{ environment: 'producao', confirmarProducao: true }` (ou `{ environment: 'homologacao' }` para voltar). A troca local
+  só é gravada se o serviço responder 2xx; recusa ou serviço fora do ar viram erro na tela e nada muda.
+- **Antes de passar para produção:** `FISCAL_ALLOW_PRODUCTION=true` no servidor (trava mantida), a loja precisa ter
+  empresa no serviço e ao menos uma nota de **homologação autorizada**. A tela pede confirmação.
+- **Ambiente de cada nota vem do serviço:** depois do `POST /nfe/emit`, o ERP lê `environment` em `GET /nfe/{id}`
+  (também no caso de nota que já existia). Se a consulta falhar, o campo fica vazio e o webhook ou a reconciliação
+  preenchem. A configuração local não é mais usada para isso.
+
 ## Variáveis de ambiente
 
 | Variável | Função | Padrão |
 |---|---|---|
 | `FISCAL_WEBHOOK_SECRET` | Segredo HMAC do webhook (obrigatório em produção) | — |
+| `FISCAL_WEBHOOK_URL` | Endereço público da rota `POST /fiscal/webhook`, cadastrado no serviço (A17) | — (sem ela, nada é cadastrado) |
 | `FISCAL_RECONCILE_ENABLED` | `false` desliga o job de reconciliação | ligado |
 | `FISCAL_RECONCILE_INTERVAL_MS` | Intervalo do job | 300000 (5 min) |
 | `FISCAL_ALLOW_PRODUCTION` | Libera emissão em produção (sem ela, só homologação) | bloqueado |
+| `JWT_SECRET` | Assina o login. Com `NODE_ENV=production`, o backend **não sobe** vazia ou com valor de exemplo (A21) | — (obrigatória) |
+| `JWT_EXPIRES_IN` | Validade do token de login | 8h |
+
+O `docker-compose.prod.yml` repassa todas as variáveis acima ao contêiner (A21). No Coolify, só chegam ao backend as
+que estão listadas em `environment:` do compose; `JWT_SECRET` é obrigatória (`${JWT_SECRET:?…}`) e o deploy falha sem ela.
 
 ## Como testar (homologação)
 

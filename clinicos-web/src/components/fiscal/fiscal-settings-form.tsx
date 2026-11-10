@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -12,6 +13,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, AlertCircle, Search } from 'lucide-react';
 import { fetchCnpjInfo } from '@/lib/brasil-api';
+import { WebhookFiscalCard } from '@/components/fiscal/webhook-fiscal-card';
+
+/** O cadastro do webhook (A17) falhou? Avisa o operador, sem esconder que o resto deu certo. */
+function avisarFalhaDoWebhook(webhook: { ok?: boolean; skipped?: boolean; message?: string } | undefined, contexto: string) {
+    if (webhook && !webhook.ok && !webhook.skipped) {
+        toast.warning(`${contexto}, mas o webhook do serviço fiscal NÃO foi cadastrado: ${webhook.message}`, { duration: 15000 });
+    }
+}
 
 interface FiscalSettings {
     hasCredentials: boolean;
@@ -20,6 +29,7 @@ interface FiscalSettings {
     hasCertificate?: boolean;
     certificateFileName?: string | null;
     certificateUploadedAt?: string | null;
+    webhookRegisteredAt?: string | null;
     environment: '1' | '2';
     defaultNaturezaOperacao: string;
     defaultTaxClass: string | null;
@@ -60,6 +70,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
+    const queryClient = useQueryClient();
     const [isLoadingSefaz, setIsLoadingSefaz] = useState(false);
     const [sefaz, setSefaz] = useState<any>(null);
     // Último perfil gravado no servidor: o Setup só vale para o que já foi salvo.
@@ -149,6 +160,8 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             setSefaz({ available: false, alertas: [{ nivel: 'erro', mensagem: 'Não foi possível consultar o status do certificado.' }] });
         } finally {
             setIsLoadingSefaz(false);
+            // a consulta atualiza a validade guardada: o aviso do topo reflete na hora
+            queryClient.invalidateQueries({ queryKey: ['fiscal-certificate-alert'] });
         }
     }
 
@@ -257,9 +270,19 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
     }
 
     async function onSubmit(data: FiscalSettings) {
+        // A20: passar para produção muda a empresa no serviço fiscal; as notas passam a ter valor fiscal
+        if (
+            data.environment === '1' &&
+            settings?.environment !== '1' &&
+            !window.confirm(
+                'Passar esta loja para PRODUÇÃO? A partir daí as notas emitidas têm valor fiscal e vão para a SEFAZ de verdade.',
+            )
+        ) {
+            return;
+        }
         setIsSaving(true);
         try {
-            await api.put('/fiscal/settings', {
+            const resp = await api.put('/fiscal/settings', {
                 ...data,
                 defaultOrigin: Number(data.defaultOrigin) // Ensure number
             }, {
@@ -267,10 +290,13 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                 headers: clinicId ? { 'X-Clinic-Id': clinicId } : {}
             });
             toast.success('Configurações salvas com sucesso!');
+            avisarFalhaDoWebhook(resp.data?.webhook, 'Configurações salvas');
             loadSettings(); // Reload to confirm state
         } catch (error) {
             console.error('Erro ao salvar settings:', error);
-            toast.error('Erro ao salvar as configurações.');
+            // o motivo vem do servidor (ex.: o serviço fiscal recusou a troca de ambiente)
+            const m = (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message;
+            toast.error((Array.isArray(m) ? m.join(' ') : m) || 'Erro ao salvar as configurações.', { duration: 12000 });
         } finally {
             setIsSaving(false);
         }
@@ -309,7 +335,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             formData.append('password', data.password);
             formData.append('certificate', data.certificate[0]);
 
-            await api.post('/fiscal/setup', formData, {
+            const resp = await api.post('/fiscal/setup', formData, {
                 params: { clinicId },
                 headers: { 
                     'Content-Type': 'multipart/form-data',
@@ -318,6 +344,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
             });
             
             toast.success('Certificado instalado com sucesso! Veja o status no topo da página.');
+            avisarFalhaDoWebhook(resp.data?.webhook, 'Certificado instalado');
             resetSetup(); // limpa arquivo e senha: o status acima passa a mostrar o certificado instalado
             loadSettings(); // Reload to confirm state
             loadSefazStatus(); // confere CNPJ do certificado x tenant, validade e SEFAZ (não emite nada)
@@ -415,7 +442,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                                             {sefaz.certificado.cnpjMatchesTenant ? 'Sim' : 'NÃO'}
                                         </dd>
                                     </div>
-                                    <div><dt className="inline text-gray-500">Válido até: </dt><dd className="inline font-medium">{sefaz.certificado.notAfterUtc ? new Date(sefaz.certificado.notAfterUtc).toLocaleDateString('pt-BR') : '—'}{sefaz.certificado.expired ? ' (VENCIDO)' : ''}</dd></div>
+                                    <div><dt className="inline text-gray-500">Válido até: </dt><dd className={`inline font-medium ${['expired', 'invalid', 'not_yet_valid'].includes(sefaz.certificado.level) ? 'text-red-700' : ['warning', 'critical'].includes(sefaz.certificado.level) ? 'text-amber-700' : ''}`}>{sefaz.certificado.notAfterUtc && sefaz.certificado.daysLeft !== null ? new Date(sefaz.certificado.notAfterUtc).toLocaleDateString('pt-BR') : '—'}{sefaz.certificado.level === 'expired' ? ' (VENCIDO)' : sefaz.certificado.daysLeft > 0 ? ` (${sefaz.certificado.daysLeft} ${sefaz.certificado.daysLeft === 1 ? 'dia restante' : 'dias restantes'})` : ''}</dd></div>
                                     <div><dt className="inline text-gray-500">Ambiente do cadastro fiscal: </dt><dd className="inline font-medium">{sefaz.ambiente || '—'}</dd></div>
                                     <div className="md:col-span-2"><dt className="inline text-gray-500">SEFAZ: </dt><dd className="inline font-medium">{sefaz.reachable ? `respondeu${sefaz.cStat ? ` (cStat ${sefaz.cStat}${sefaz.motivo ? ` — ${sefaz.motivo}` : ''})` : ''}` : 'sem resposta'}</dd></div>
                                 </dl>
@@ -430,6 +457,7 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                             )}
                         </div>
                     )}
+                    {settings?.hasCertificate && <WebhookFiscalCard key={settings.webhookRegisteredAt ?? 'sem'} clinicId={clinicId} />}
                     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
                         <div className="space-y-1">
                             <p className="font-medium text-sm">Fonte das Credenciais</p>
@@ -645,7 +673,8 @@ export function FiscalSettingsForm({ clinicId }: FiscalSettingsFormProps) {
                                     </SelectContent>
                                 </Select>
                                 <p className="text-xs text-gray-500">
-                                    Homologação emite notas sem valor fiscal.
+                                    Homologação emite notas sem valor fiscal. Para passar para produção é preciso ter uma nota
+                                    de homologação autorizada; a troca é feita também no serviço fiscal.
                                     {!settings?.productionAllowed && ' A emissão em produção está travada por segurança neste servidor.'}
                                 </p>
                             </div>

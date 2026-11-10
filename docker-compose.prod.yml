@@ -14,6 +14,17 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       FISCAL_MASTER_API_KEY: ${FISCAL_MASTER_API_KEY}
       FISCAL_MICROSERVICE_URL: ${FISCAL_MICROSERVICE_URL}
+      # Webhook do NexosFiscal: segredo HMAC e endereço público desta API (sem eles, nenhum aviso chega)
+      FISCAL_WEBHOOK_SECRET: ${FISCAL_WEBHOOK_SECRET}
+      FISCAL_WEBHOOK_URL: ${FISCAL_WEBHOOK_URL}
+      # Login: obrigatório. Sem ele o backend recusa subir (com o padrão qualquer um forjaria um token).
+      JWT_SECRET: "${JWT_SECRET:?Defina JWT_SECRET (segredo longo e aleatorio) nas variaveis do servidor}"
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      # Trava da emissão em produção (nota com valor fiscal): só "true" depois de homologar.
+      FISCAL_ALLOW_PRODUCTION: ${FISCAL_ALLOW_PRODUCTION:-false}
+      # Conferência periódica das notas com o serviço fiscal (rede de segurança do webhook)
+      FISCAL_RECONCILE_ENABLED: ${FISCAL_RECONCILE_ENABLED:-true}
+      FISCAL_RECONCILE_INTERVAL_MS: ${FISCAL_RECONCILE_INTERVAL_MS:-300000}
       NODE_ENV: production
       PORT: 3000
     command: >

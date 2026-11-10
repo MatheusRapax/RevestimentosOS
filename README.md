@@ -129,7 +129,7 @@ npm run dev                         # http://localhost:3001
 | Variável | Obrigatória | Descrição |
 |---|:---:|---|
 | `DATABASE_URL` | ✅ | String de conexão PostgreSQL. A app **não sobe** sem ela. |
-| `JWT_SECRET` | ⚠️ | Segredo de assinatura do JWT. Faz fallback para `changeme` com apenas um warning — **defina em produção**. |
+| `JWT_SECRET` | ✅ (produção) | Segredo de assinatura do JWT. Com `NODE_ENV=production` a app **não sobe** com ela vazia ou com valor de exemplo (`changeme`); em desenvolvimento só avisa. O `docker-compose.prod.yml` exige a variável. |
 | `JWT_EXPIRES_IN` | ⚠️ | Validade do token (default `8h`). |
 | `PORT` | | Porta HTTP (default `3000`). |
 | `NODE_ENV` | | `development` / `production`. |

@@ -27,7 +27,8 @@ interface ProductWithStock {
     color?: string;
 }
 
-type FilterType = 'all' | 'in_stock' | 'low_stock' | 'out_of_stock';
+// 'available' = com estoque disponível (qualquer saldo acima de zero, já descontadas as reservas)
+type FilterType = 'all' | 'available' | 'in_stock' | 'low_stock' | 'out_of_stock';
 
 export default function EstoquePage() {
     const [products, setProducts] = useState<ProductWithStock[]>([]);
@@ -270,6 +271,15 @@ export default function EstoquePage() {
                             onClick={() => setFilter('all')}
                         >
                             Todos
+                        </Button>
+                        <Button
+                            variant={filter === 'available' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setFilter('available')}
+                            className={filter === 'available' ? 'bg-green-600 hover:bg-green-700' : ''}
+                            title="Só os produtos com saldo disponível (estoque menos reservas)"
+                        >
+                            Com estoque
                         </Button>
                         <Button
                             variant={filter === 'low_stock' ? 'default' : 'outline'}

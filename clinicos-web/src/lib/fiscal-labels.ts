@@ -89,6 +89,7 @@ export function campoLabel(campo: string): string {
   const c = (campo || '').toLowerCase();
   if (c.startsWith('item') || c.includes('ncm') || c.includes('itens')) return 'Produto';
   if (c.startsWith('cliente') || c.startsWith('destinatario')) return 'Cliente';
+  if (c === 'emitente.certificado') return 'Certificado';
   if (c.startsWith('emitente')) return 'Empresa';
   if (c.startsWith('pedido')) return 'Pedido';
   if (c.startsWith('totais')) return 'Valores';

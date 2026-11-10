@@ -38,6 +38,7 @@ Cada loja (tenant) tem seus dados isolados, seus usuários, seus papéis e os m�
 | Transferir vendas entre vendedores | Passa orçamento e pedido (juntos) de um vendedor para outro, um a um ou o lote de um vendedor que saiu, com motivo, histórico e aviso quando a comissão de mês anterior muda de mãos (`docs/TRANSFERENCIA-DE-VENDAS.md`) | ✅ |
 | Conta-corrente do cliente e boleto | Saldo do cliente e geração de boleto só para pedido não pago | ✅ |
 | Catálogo de produtos (consulta de vendas) | Consulta para o vendedor, com preço por m², sem expor custo | ✅ |
+| Filtro “com estoque” | No catálogo (“Só com estoque”, aplica na hora) e na visão geral do Estoque (“Com estoque”): só produtos com saldo disponível, já descontadas as reservas; filtrado no banco, com paginação e total corretos | 🟡 |
 | Promoções | Campanhas por produto com status e regra para promoções sobrepostas | ✅ |
 
 ### Nota fiscal (NF-e)
@@ -47,7 +48,8 @@ Cada loja (tenant) tem seus dados isolados, seus usuários, seus papéis e os m�
 | Perfil do Emitente por CNPJ | Lupa preenche razão social, endereço e IBGE a partir do CNPJ | ✅ |
 | Certificado digital A1 | Instalação pela tela e selo “Certificado instalado” | ✅ |
 | Perfil do Emitente como fonte da verdade | O cadastro fiscal da loja define o emitente; sincroniza com o serviço fiscal ao salvar | 🟡 |
-| Conferência do certificado (SEFAZ) | Validade, CNPJ do certificado × emitente e alcance da SEFAZ, com alertas | 🟡 |
+| Conferência do certificado (SEFAZ) | Validade com dias restantes, CNPJ do certificado × emitente e alcance da SEFAZ, com alertas | 🟡 |
+| Aviso de vencimento do certificado | Faixa no topo de todas as telas para quem cuida da configuração fiscal, a partir de 60 dias do vencimento; vencido avisa que nenhuma nota será emitida | 🟡 |
 | Revisão em linguagem simples | Tipo de operação, impostos em reais, etiquetas Cliente/Produto/Empresa; códigos só em “detalhes fiscais” | 🟡 |
 | Seletor de NCM | Atalhos de revestimento, busca na tabela oficial e conferência do número digitado | 🟡 |
 | Cálculo automático de CFOP e impostos | Dentro/fora do estado e consumidor final decididos pelo cadastro, sem perguntar ao operador | ✅ (motor) · 🟡 (tela) |
@@ -119,6 +121,7 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 | Proteção | Como funciona | Status |
 |---|---|---|
 | Login com senha criptografada | Senhas guardadas com hash `bcrypt`, nunca em texto | ✅ |
+| Segredo do login obrigatório em produção | Com `NODE_ENV=production` o backend não sobe com `JWT_SECRET` vazia ou de exemplo; o compose de produção exige a variável | ✅ |
 | Token com validade e renovação | JWT de 8 h; renovado enquanto o usuário usa; reautenticação em janela (`docs/SESSAO-RENOVACAO-TOKEN.md`) | ✅ |
 | Isolamento entre lojas (multiloja) | `TenantGuard` resolve a loja e confirma que o usuário pertence a ela antes de qualquer dado | ✅ |
 | Permissões por papel | `PermissionsGuard` exige a permissão da ação; sem ela, “Acesso Restrito” | ✅ |
@@ -152,12 +155,15 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 | Sem valores padrão silenciosos | Nada de CRT “3”, UF “SP” ou município de São Paulo assumidos; falta de dado = bloqueio com instrução | 🟡 |
 | Divergência de CNPJ barrada | Se o CNPJ do perfil não bate com o do tenant fiscal, nada é alterado; avisa que é preciso recriar | 🟡 |
 | Divergência formulário × perfil barrada | Setup do certificado que contradiz o perfil é recusado | 🟡 |
-| Alertas de certificado | Vencido, CNPJ diferente do emitente ou ambiente que não é homologação | 🟡 |
+| Alertas de certificado | Vencido, a vencer, ilegível, ainda não válido, CNPJ diferente do emitente ou ambiente que não é homologação | 🟡 |
 | Avisos de cadastro suspeito | IE “ISENTO” para quem vende mercadoria; logradouro com “/” | 🟡 |
 | Operação nunca escolhida à mão | Dentro/fora do estado vem do cadastro; o operador não consegue forçar CFOP errado | 🟡 |
 | Produto só com NCM e origem | Origem sem valor padrão, para não errar imposto por omissão | 🟡 |
 | Códigos fiscais só para quem tem permissão | “Ver detalhes fiscais” exige `fiscal.config` | 🟡 |
 | Deduplicação de emissão | O serviço fiscal deduplica por pedido; reenvio não gera segunda nota | ✅ |
+| Certificado novo não cria outra empresa | Reenviar ou renovar o A1 troca o certificado do cadastro fiscal que a loja já tem (mesma numeração); chave recusada vira erro na tela, sem recriar nada | 🟡 |
+| Produção muda também no serviço fiscal | Trocar o ambiente na Configuração Fiscal muda o cadastro no serviço e só é gravado se ele aceitar; exige servidor liberado e uma nota de homologação autorizada; o ambiente de cada nota vem do serviço | 🟡 |
+| Webhook cadastrado pelo próprio ERP | Ao enviar o certificado e ao salvar a Configuração Fiscal, o ERP cadastra no serviço fiscal o endereço público (de configuração) e o segredo; falha aparece na tela e o cartão mostra se está ativo | 🟡 |
 | Webhook fiscal sem segredo fixo | Em produção o webhook exige segredo próprio (sem ele, recusa); assinatura comparada em tempo constante | 🟡 |
 | Tributo que o serviço não emite bloqueia | CST/CSOSN fora da lista aceita pelo regime não é enviado: o operador vê a causa em vez de uma nota errada | 🟡 |
 | Atualização atrasada não desfaz nada | Webhook ou consulta atrasada não reabre nota cancelada nem rebaixa nota autorizada | 🟡 |
@@ -166,7 +172,8 @@ Painel separado: **Lojas (tenants)**, **Usuários**, **Auditoria global**, **Pap
 
 ### 3.5 Pontos de atenção de segurança (a resolver antes de produção)
 - **Segredo do webhook:** corrigido (em produção exige `FISCAL_WEBHOOK_SECRET` próprio e recusa o valor de exemplo). 🟡
-  Antes de produção, **definir a variável no servidor** e cadastrar o mesmo segredo no webhook do NexosFiscal.
+  Antes de produção, **definir `FISCAL_WEBHOOK_SECRET` e `FISCAL_WEBHOOK_URL` no servidor**; o ERP cadastra o webhook no
+  NexosFiscal sozinho (confira o cartão do webhook na Configuração Fiscal).
 - **Permissões que só valem na tela:** pedidos, compras, fornecedores, despesas, catálogo e auditoria não conferem permissão
   no servidor (só o módulo da loja); 27 permissões não controlam nada hoje e 4 só escondem o menu. Levantamento e proposta em
   `docs/PERMISSOES.md`. Depende de decidir quem faz o quê por papel antes de ligar no servidor. 🔜

@@ -30,6 +30,7 @@ import { CancelDocumentDto } from '../dto/cancel-document.dto';
 import { Public } from '../../../core/auth/decorators/public.decorator';
 import { Request, Response } from 'express';
 import * as crypto from 'crypto';
+import { resolverSegredoWebhook } from '../services/webhook-cadastro';
 
 @Controller('fiscal')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -199,6 +200,27 @@ export class FiscalController {
     return this.fiscalService.getSefazStatus(targetClinicId);
   }
 
+  /** Aviso de vencimento do certificado (webhook CertificateExpiring), sem consultar a SEFAZ. */
+  @Get('certificate-alert')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async certificateAlert(@Req() req: any) {
+    return this.fiscalService.getCertificateAlert(req.clinicId);
+  }
+
+  /** Webhook do ERP no serviço fiscal (A17): o que está cadastrado lá e o último resultado. */
+  @Get('webhook-config')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async webhookConfig(@Req() req: any) {
+    return this.fiscalService.consultarWebhook(req.clinicId);
+  }
+
+  /** Cadastra (ou atualiza) o webhook do ERP no serviço fiscal. Pode repetir: é idempotente. */
+  @Post('webhook-config')
+  @Permissions(PERMISSIONS.FISCAL_CONFIG)
+  async registrarWebhook(@Req() req: any) {
+    return this.fiscalService.registrarWebhook(req.clinicId);
+  }
+
   @Post('setup')
   @Permissions(PERMISSIONS.FISCAL_CONFIG)
   @UseInterceptors(FileInterceptor('certificate'))
@@ -237,21 +259,14 @@ export class FiscalController {
    * (dev/teste) cai num valor fixo conhecido, com aviso, para não quebrar o ambiente local.
    */
   private resolverSegredoWebhook(): string | null {
-    const EXEMPLOS = [
-      'uma-senha-secreta-para-hmac',
-      'troque-por-um-segredo-aleatorio-forte',
-    ];
-    const definido = (process.env.FISCAL_WEBHOOK_SECRET || '').trim();
-    const valido = definido && !EXEMPLOS.includes(definido);
-    if (valido) return definido;
-    if (process.env.NODE_ENV === 'production') return null;
-    if (!this.avisouSegredoPadrao) {
+    const { segredo, padrao } = resolverSegredoWebhook();
+    if (padrao && !this.avisouSegredoPadrao) {
       this.avisouSegredoPadrao = true;
       this.logger.warn(
         'FISCAL_WEBHOOK_SECRET não definido (ou de exemplo): usando segredo fixo só porque não é produção.',
       );
     }
-    return definido || EXEMPLOS[0];
+    return segredo;
   }
 
   @Public()

@@ -510,6 +510,7 @@ const GROUPS: Group[] = [
                 ),
                 steps: [
                     <>Digite na busca (nome, código, EAN, formato, linha…) — ela aplica sozinha quando você para de digitar.</>,
+                    <>Para ver só o que dá para vender agora, ligue <b>Só com estoque</b> (ao lado da busca): a lista atualiza na hora e mostra só os produtos com saldo <b>disponível</b> (estoque menos o que já está reservado para outros pedidos). Funciona junto com a busca e os demais filtros; clique de novo para mostrar também os sem estoque.</>,
                     <>Para filtrar por <b>Unidade Comercial</b>, <b>Formato</b>, <b>Cor / Acabamento</b>, <b>Linha / Coleção</b>, <b>Uso / Aplicação</b> ou <b>Marca</b>, escolha as opções e clique em <b>Aplicar Filtros</b>. <b>Limpar Filtros</b> volta ao todo.</>,
                     <>Em um cartão, clique em <b>Ver Especificações</b> para ver preço, medidas, dados da caixa e do palete e a <b>disponibilidade</b> (Físico, Reservado, Disponível e os lotes).</>,
                 ],
@@ -646,7 +647,9 @@ const GROUPS: Group[] = [
                     <>
                         Consulta do que há disponível. Distingue <b>Físico</b> (em depósito), <b>Reservado</b> (preso a
                         pedidos) e <b>Disponível</b> (físico − reservado). Cards no topo: total de produtos, estoque
-                        baixo, sem disponibilidade.
+                        baixo, sem disponibilidade. Os botões ao lado da busca filtram a lista: <b>Todos</b>,{' '}
+                        <b>Com estoque</b> (qualquer saldo disponível), <b>Baixa Disp.</b> (no mínimo ou abaixo) e{' '}
+                        <b>Indisponível</b> (sem saldo ou tudo reservado).
                     </>
                 ),
                 screen: {
@@ -1382,7 +1385,9 @@ const GROUPS: Group[] = [
                                 servidor <b>bloqueia a emissão em produção</b> por padrão: a opção Produção aparece
                                 desabilitada e qualquer tentativa de emitir com a loja em produção é recusada. Para
                                 liberar, é preciso uma configuração no servidor feita pelo suporte (e só depois de
-                                homologar tudo com o contador). O card <b>Status da Conexão</b> sempre mostra em qual
+                                homologar tudo com o contador). Mesmo liberado, a troca para Produção só é aceita com uma
+                                nota de homologação já autorizada, pede confirmação e é feita também no serviço fiscal: se
+                                ele recusar, nada muda e o motivo aparece na tela. O card <b>Status da Conexão</b> sempre mostra em qual
                                 ambiente a loja está.
                             </>
                         ),
@@ -1430,14 +1435,44 @@ const GROUPS: Group[] = [
                             <>
                                 O card <b>Status da Conexão</b> mostra o selo <b>Certificado instalado</b> (ou{' '}
                                 <b>Certificado não instalado</b>) e, no card <b>Certificado Digital A1</b>, a data e o
-                                arquivo enviados. Só aparece como instalado depois que o NexosFiscal aceitou o certificado
-                                (senha correta e arquivo válido). Com certificado já instalado, o botão vira{' '}
-                                <b>Substituir Certificado</b> — use só quando o certificado vencer ou for trocado, e{' '}
-                                <b>não clique várias vezes</b> em Configurar: cada envio cria um novo cadastro no serviço
-                                fiscal. Logo abaixo, <b>Conferência do certificado (SEFAZ)</b> mostra o CNPJ do
+                                arquivo enviados. Com certificado já instalado, o botão vira{' '}
+                                <b>Substituir Certificado</b>: use quando o certificado vencer ou for trocado. Enviar de
+                                novo (por exemplo, depois de errar a senha) <b>não cria outra empresa</b> no serviço fiscal:
+                                só troca o certificado da mesma loja, e a numeração das notas continua. Se aparecer que o
+                                serviço não aceita mais a chave da loja, chame o suporte. Logo abaixo, <b>Conferência do certificado (SEFAZ)</b> mostra o CNPJ do
                                 certificado, a validade, se o CNPJ <b>confere com o cadastro fiscal</b> e se a SEFAZ
                                 respondeu — sem emitir nenhuma nota. Alertas em vermelho (CNPJ não confere, certificado
                                 vencido) precisam ser resolvidos antes de emitir.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'info',
+                        label: 'Avisos do serviço fiscal (webhook)',
+                        body: (
+                            <>
+                                É por esse endereço que o serviço fiscal avisa o sistema de nota autorizada, recusada,
+                                cancelada e do certificado vencendo. O sistema cadastra sozinho ao enviar o certificado e a
+                                cada <b>Salvar</b>. O cartão <b>Avisos do serviço fiscal (webhook)</b> mostra se está{' '}
+                                <b>cadastrado e ativo</b>; se aparecer em vermelho, clique em <b>Cadastrar webhook</b> e,
+                                se o erro falar de configuração do servidor, chame o suporte. Sem ele as notas ainda são
+                                atualizadas, mas com atraso de alguns minutos.
+                            </>
+                        ),
+                    },
+                    {
+                        tone: 'warn',
+                        label: 'Aviso de certificado vencendo',
+                        body: (
+                            <>
+                                Quando faltam até <b>60 dias</b> para o certificado vencer, quem tem a permissão de
+                                configuração fiscal vê uma faixa no topo de todas as telas:{' '}
+                                <i>“Certificado digital vence em N dias: renove e envie o novo A1 em Configuração
+                                Fiscal”</i>. Até 15 dias ela fica mais forte e não pode ser dispensada. <b>Vencido, nenhuma
+                                nota será emitida</b> até enviar um certificado novo: renove com a certificadora e use{' '}
+                                <b>Substituir Certificado</b>. A faixa some sozinha ao enviar o certificado novo. Com o
+                                certificado vencido, a <b>Revisão Fiscal</b> do pedido mostra o motivo na etiqueta{' '}
+                                <b>Certificado</b> e não deixa emitir.
                             </>
                         ),
                     },

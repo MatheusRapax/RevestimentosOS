@@ -27,6 +27,7 @@ function build(opts: { profile?: any; config?: any } = {}) {
     clinicFiscalConfig: {
       findUnique: jest.fn().mockResolvedValue(opts.config ?? null),
       upsert: jest.fn().mockResolvedValue({}),
+      update: jest.fn().mockResolvedValue({}),
     },
     fiscalProfile: {
       findUnique: jest.fn().mockResolvedValue(opts.profile ?? null),
