@@ -38,6 +38,7 @@ Cada loja (tenant) tem seus dados isolados, seus usuários, seus papéis e os m�
 | Transferir vendas entre vendedores | Passa orçamento e pedido (juntos) de um vendedor para outro, um a um ou o lote de um vendedor que saiu, com motivo, histórico e aviso quando a comissão de mês anterior muda de mãos (`docs/TRANSFERENCIA-DE-VENDAS.md`) | ✅ |
 | Conta-corrente do cliente e boleto | Saldo do cliente e geração de boleto só para pedido não pago | ✅ |
 | Catálogo de produtos (consulta de vendas) | Consulta para o vendedor, com preço por m², sem expor custo | ✅ |
+| Filtro “com estoque” | No catálogo (“Só com estoque”, aplica na hora) e na visão geral do Estoque (“Com estoque”): só produtos com saldo disponível, já descontadas as reservas; filtrado no banco, com paginação e total corretos | 🟡 |
 | Promoções | Campanhas por produto com status e regra para promoções sobrepostas | ✅ |
 
 ### Nota fiscal (NF-e)
