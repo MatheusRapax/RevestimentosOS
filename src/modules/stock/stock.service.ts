@@ -17,6 +17,11 @@ import {
 } from '@prisma/client';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { ListStockMovementsDto } from './dto/list-stock-movements.dto';
+import {
+  condicaoDeDisponibilidade,
+  FILTROS_DE_ESTOQUE,
+  SaldoDoProduto,
+} from './services/stock-availability';
 
 @Injectable()
 export class StockService {
@@ -185,9 +190,17 @@ export class StockService {
       ];
     }
 
-    // out_of_stock can be pushed to DB (no lots with qty > 0)
-    if (filters?.status === 'out_of_stock') {
-      where.lots = { none: { quantity: { gt: 0 } } };
+    // Disponibilidade (estoque menos reservas ativas) filtrada no banco, antes da paginação:
+    // assim cada página vem cheia e o total confere com o filtro.
+    const filtroEstoque = FILTROS_DE_ESTOQUE.find((f) => f === filters?.status);
+    if (filtroEstoque) {
+      Object.assign(
+        where,
+        condicaoDeDisponibilidade(
+          filtroEstoque,
+          await this.saldosDisponiveis(clinicId),
+        ),
+      );
     }
 
     const [totalCount, products] = await Promise.all([
@@ -276,20 +289,8 @@ export class StockService {
       };
     });
 
-    // in_stock / low_stock filtering in memory (requires summed stock vs minStock)
-    let data = enriched;
-    if (filters?.status === 'low_stock') {
-      data = enriched.filter(
-        (p) => p.totalStock > 0 && p.totalStock < p.minStock,
-      );
-    } else if (filters?.status === 'in_stock') {
-      data = enriched.filter(
-        (p) => p.totalStock >= p.minStock && p.totalStock > 0,
-      );
-    }
-
     return {
-      data,
+      data: enriched,
       meta: {
         total: totalCount,
         page,
@@ -297,6 +298,27 @@ export class StockService {
         totalPages: Math.ceil(totalCount / limit),
       },
     };
+  }
+
+  /**
+   * Saldo disponível por produto (lotes com saldo menos reservas ativas desses lotes), só dos
+   * produtos que têm algum lote com saldo. Mesma conta de `availableStock` na listagem.
+   */
+  private async saldosDisponiveis(clinicId: string): Promise<SaldoDoProduto[]> {
+    return this.prisma.$queryRaw<SaldoDoProduto[]>`
+      SELECT l."productId" AS "productId",
+             (SUM(l.quantity) - COALESCE(SUM(r.reservado), 0))::float8 AS "disponivel",
+             MAX(p."minStock")::float8 AS "minStock"
+        FROM "StockLot" l
+        JOIN "Product" p ON p.id = l."productId"
+        LEFT JOIN (
+          SELECT "lotId", SUM(quantity) AS reservado
+            FROM "StockReservation"
+           WHERE "clinicId" = ${clinicId} AND status = 'ACTIVE'
+           GROUP BY "lotId"
+        ) r ON r."lotId" = l.id
+       WHERE l."clinicId" = ${clinicId} AND l.quantity > 0
+       GROUP BY l."productId"`;
   }
 
   async getProductFilters(clinicId: string) {

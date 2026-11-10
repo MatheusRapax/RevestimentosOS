@@ -510,6 +510,7 @@ const GROUPS: Group[] = [
                 ),
                 steps: [
                     <>Digite na busca (nome, código, EAN, formato, linha…) — ela aplica sozinha quando você para de digitar.</>,
+                    <>Para ver só o que dá para vender agora, ligue <b>Só com estoque</b> (ao lado da busca): a lista atualiza na hora e mostra só os produtos com saldo <b>disponível</b> (estoque menos o que já está reservado para outros pedidos). Funciona junto com a busca e os demais filtros; clique de novo para mostrar também os sem estoque.</>,
                     <>Para filtrar por <b>Unidade Comercial</b>, <b>Formato</b>, <b>Cor / Acabamento</b>, <b>Linha / Coleção</b>, <b>Uso / Aplicação</b> ou <b>Marca</b>, escolha as opções e clique em <b>Aplicar Filtros</b>. <b>Limpar Filtros</b> volta ao todo.</>,
                     <>Em um cartão, clique em <b>Ver Especificações</b> para ver preço, medidas, dados da caixa e do palete e a <b>disponibilidade</b> (Físico, Reservado, Disponível e os lotes).</>,
                 ],
@@ -646,7 +647,9 @@ const GROUPS: Group[] = [
                     <>
                         Consulta do que há disponível. Distingue <b>Físico</b> (em depósito), <b>Reservado</b> (preso a
                         pedidos) e <b>Disponível</b> (físico − reservado). Cards no topo: total de produtos, estoque
-                        baixo, sem disponibilidade.
+                        baixo, sem disponibilidade. Os botões ao lado da busca filtram a lista: <b>Todos</b>,{' '}
+                        <b>Com estoque</b> (qualquer saldo disponível), <b>Baixa Disp.</b> (no mínimo ou abaixo) e{' '}
+                        <b>Indisponível</b> (sem saldo ou tudo reservado).
                     </>
                 ),
                 screen: {

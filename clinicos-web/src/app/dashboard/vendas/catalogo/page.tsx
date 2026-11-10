@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Package, Search } from 'lucide-react';
+import { Package, PackageCheck, Search } from 'lucide-react';
 import { SalesProductDialog } from './components/SalesProductDialog';
 
 interface Product {
@@ -141,6 +141,8 @@ export default function VendasCatalogoPage() {
     const [lineFilter, setLineFilter] = useState('');
     const [usageFilter, setUsageFilter] = useState('');
     const [brandFilter, setBrandFilter] = useState('');
+    // Só produtos com saldo disponível no estoque (o vendedor não vê as quantidades, só filtra)
+    const [onlyInStock, setOnlyInStock] = useState(false);
 
     const [filterOptions, setFilterOptions] = useState({
         formats: [] as string[],
@@ -169,7 +171,8 @@ export default function VendasCatalogoPage() {
     }, []);
 
     const fetchProducts = async (
-        currentPage: number, search: string, unit: string, format: string, color: string, line: string, usage: string, brandId: string
+        currentPage: number, search: string, unit: string, format: string, color: string, line: string, usage: string, brandId: string,
+        inStock: boolean = onlyInStock
     ) => {
         try {
             setIsLoading(true);
@@ -185,7 +188,8 @@ export default function VendasCatalogoPage() {
             if (line) params.line = line;
             if (usage) params.usage = usage;
             if (brandId) params.brandId = brandId;
-            
+            if (inStock) params.status = 'available';
+
             const response = await api.get('/stock/products', { params });
             const { data, meta } = response.data;
             setProducts(data ?? response.data);
@@ -214,8 +218,9 @@ export default function VendasCatalogoPage() {
         setLineFilter('');
         setUsageFilter('');
         setBrandFilter('');
+        setOnlyInStock(false);
         setPage(1);
-        fetchProducts(1, '', 'ALL', '', '', '', '', '');
+        fetchProducts(1, '', 'ALL', '', '', '', '', '', false);
     };
 
     // Auto-fetch ONLY on text search (with debounce)
@@ -232,6 +237,14 @@ export default function VendasCatalogoPage() {
     useEffect(() => {
         fetchProducts(page, searchTerm, unitFilter, formatFilter, colorFilter, lineFilter, usageFilter, brandFilter);
     }, [page]);
+
+    // Aplica na hora, junto com os filtros já escolhidos
+    const toggleOnlyInStock = () => {
+        const next = !onlyInStock;
+        setOnlyInStock(next);
+        setPage(1);
+        fetchProducts(1, searchTerm, unitFilter, formatFilter, colorFilter, lineFilter, usageFilter, brandFilter, next);
+    };
 
     const handleProductClick = (item: Product) => {
         // Strip out cost data before passing to the details sheet
@@ -261,6 +274,22 @@ export default function VendasCatalogoPage() {
                             className="pl-10 h-12 bg-gray-50/50 border-gray-200 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 text-base rounded-xl transition-all w-full"
                         />
                     </div>
+
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={onlyInStock}
+                        onClick={toggleOnlyInStock}
+                        title="Mostrar só os produtos com estoque disponível"
+                        className={`h-12 px-4 inline-flex items-center gap-2 rounded-xl border text-sm font-semibold whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                            onlyInStock
+                                ? 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700'
+                                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                        }`}
+                    >
+                        <PackageCheck className="h-5 w-5" />
+                        Só com estoque
+                    </button>
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 pt-4 border-t border-gray-100">
@@ -376,12 +405,18 @@ export default function VendasCatalogoPage() {
                         <Package className="h-12 w-12 text-gray-400" />
                     </div>
                     <h3 className="text-xl font-bold text-gray-900 mb-2">
-                        {searchTerm ? 'Nenhum produto encontrado' : 'Catálogo vazio'}
+                        {onlyInStock ? 'Nenhum produto com estoque' : searchTerm ? 'Nenhum produto encontrado' : 'Catálogo vazio'}
                     </h3>
                     <p className="text-gray-500 mb-6 max-w-sm">
-                        {searchTerm ? `Não encontramos nenhum produto correspondente a "${searchTerm}". Tente usar outros termos.` : 'Ainda não existem produtos disponíveis no catálogo de vendas.'}
+                        {onlyInStock
+                            ? 'Nenhum produto com estoque disponível atende a esta busca e aos filtros. Desligue "Só com estoque" para ver também os produtos sem estoque.'
+                            : searchTerm ? `Não encontramos nenhum produto correspondente a "${searchTerm}". Tente usar outros termos.` : 'Ainda não existem produtos disponíveis no catálogo de vendas.'}
                     </p>
-                    {searchTerm && (
+                    {onlyInStock ? (
+                        <Button variant="outline" onClick={toggleOnlyInStock}>
+                            Mostrar também sem estoque
+                        </Button>
+                    ) : searchTerm && (
                         <Button variant="outline" onClick={() => setSearchTerm('')}>
                             Limpar busca
                         </Button>
