@@ -137,8 +137,16 @@ npm run dev                         # http://localhost:3001
 | `FISCAL_MICROSERVICE_URL` | | URL base do microserviço NexosFiscal (ex.: `http://fiscal-api:5000/api/v1`). |
 | `FISCAL_MASTER_API_KEY` | | Chave master para provisionar tenants no NexosFiscal (`POST /fiscal/setup`). |
 | `FISCAL_API_KEY` | | Chave fiscal usada como fallback quando a loja não tem `nexosApiKey` salva. |
-| `FISCAL_WEBHOOK_SECRET` | | Validação do webhook `POST /fiscal/webhook`. |
+| `FISCAL_WEBHOOK_SECRET` | ✅ (produção) | Segredo HMAC do webhook `POST /fiscal/webhook`. Em produção, sem ele (ou com o valor de exemplo) o webhook é recusado; é o mesmo segredo que o ERP cadastra no NexosFiscal. |
+| `FISCAL_WEBHOOK_URL` | ✅ (produção) | Endereço **público** da rota `POST /fiscal/webhook`, como o NexosFiscal a alcança. O ERP cadastra esse endereço no serviço ao enviar o certificado e a cada "Salvar" da Configuração Fiscal. Sem ela, os avisos do serviço não chegam. |
+| `FISCAL_ALLOW_PRODUCTION` | | Trava da emissão com valor fiscal: só `true` libera produção (default: bloqueado). Deixe ausente enquanto o fiscal estiver em teste. |
+| `FISCAL_RECONCILE_ENABLED` | | `false` desliga a conferência periódica das notas com o serviço fiscal (default: ligada). |
+| `FISCAL_RECONCILE_INTERVAL_MS` | | Intervalo da conferência periódica (default `300000`, 5 min). |
 | `APP_URL` | | URL pública da API (usada no payload fiscal). |
+
+> **Produção (Coolify):** o contêiner só recebe as variáveis listadas em `environment:` do `docker-compose.prod.yml`.
+> Cadastre no Coolify pelo menos `DATABASE_URL`, `JWT_SECRET`, `FISCAL_MASTER_API_KEY`, `FISCAL_MICROSERVICE_URL`,
+> `FISCAL_WEBHOOK_SECRET` e `FISCAL_WEBHOOK_URL`. Sem `JWT_SECRET` o deploy falha de propósito.
 
 ### Frontend (`clinicos-web/.env.local`)
 
@@ -189,7 +197,7 @@ Detalhes completos em [`ARCHITECTURE.md`](ARCHITECTURE.md).
 | Módulo | Rota base | Responsabilidade |
 |---|---|---|
 | `catalogue` | `/catalogue/{brands,categories}` | Marcas e categorias, cada uma com markup padrão |
-| `stock` | `/stock`, `/stock/entries`, `/stock/exits`, `/stock/products/import` | Produtos (campos dimensionais + fiscais), lotes com tonalidade/calibre, movimentações FIFO, entrada de nota (com bloco fiscal NF-e), saída/requisição, importação de catálogo. Custo do produto por **custo médio ponderado móvel** na confirmação de entrada — ver [`docs/CUSTO-MEDIO-ESTOQUE.md`](docs/CUSTO-MEDIO-ESTOQUE.md) |
+| `stock` | `/stock`, `/stock/entries`, `/stock/exits`, `/stock/products/import` | Produtos (campos dimensionais + fiscais), lotes com tonalidade/calibre, movimentações FIFO, entrada de nota (com bloco fiscal NF-e), saída/requisição, importação de catálogo. Custo do produto por **custo médio ponderado móvel** na confirmação de entrada — ver [`docs/CUSTO-MEDIO-ESTOQUE.md`](docs/CUSTO-MEDIO-ESTOQUE.md). Filtro de disponibilidade (`status=available|in_stock|low_stock|out_of_stock`, estoque menos reservas, aplicado no banco) — ver [`docs/FILTRO-COM-ESTOQUE.md`](docs/FILTRO-COM-ESTOQUE.md) |
 | `stock-reservations` | `/stock-reservations` | Reserva de estoque por lote (`ACTIVE`/`CONSUMED`/`EXPIRED`/`CANCELLED`) |
 | `occurrences` | `/occurrences` | RMA / gestão de avarias (recebimento, entrega, defeito de fabricação) |
 
@@ -300,6 +308,14 @@ Ver dívidas técnicas completas na análise de contexto / seção correspondent
 | Arquivo | Conteúdo |
 |---|---|
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Arquitetura detalhada: camadas, guards, modelo de dados, fluxos, dívida técnica |
+| [`docs/FUNCIONALIDADES-E-SEGURANCA.md`](docs/FUNCIONALIDADES-E-SEGURANCA.md) | Inventário vivo de tudo que o sistema faz e protege (base da apresentação) |
+| [`docs/FISCAL-CONTRATO-NEXOSFISCAL.md`](docs/FISCAL-CONTRATO-NEXOSFISCAL.md) | Contrato com o NexosFiscal: emissão, webhook, certificado, ambiente e variáveis |
+| [`docs/FISCAL-PENDENCIAS.md`](docs/FISCAL-PENDENCIAS.md) | O que falta antes de emitir nota com valor fiscal |
+| [`docs/PERMISSOES.md`](docs/PERMISSOES.md) | Permissões: o que cada uma libera e onde é conferida |
+| [`docs/VISIBILIDADE-DAS-VENDAS.md`](docs/VISIBILIDADE-DAS-VENDAS.md) | Cada vendedor vê só as suas vendas |
+| [`docs/TRANSFERENCIA-DE-VENDAS.md`](docs/TRANSFERENCIA-DE-VENDAS.md) | Transferir orçamentos e pedidos entre vendedores |
+| [`docs/FILTRO-COM-ESTOQUE.md`](docs/FILTRO-COM-ESTOQUE.md) | Filtro “com estoque” no Estoque e no Catálogo de Vendas |
+| [`docs/CUSTO-MEDIO-ESTOQUE.md`](docs/CUSTO-MEDIO-ESTOQUE.md) | Custo médio ponderado do estoque |
 | [`docs/plans/PLAN-erp-revestimentos.md`](docs/plans/PLAN-erp-revestimentos.md) | Plano original da transformação ClinicOS → RevestimentosOS (Fases 1-5) |
 | [`docs/plans/PLAN-ambiente-orcamentos.md`](docs/plans/PLAN-ambiente-orcamentos.md) | Feature de "Ambientes" nos orçamentos |
 | [`docs/plans/PLAN-super-admin.md`](docs/plans/PLAN-super-admin.md) | Painel super admin (multi-loja) |
