@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.22.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.21.0...v1.22.0) (2026-11-10)
+
+
+### Features
+
+* **estoque:** filtro de produtos com estoque disponível ([6172361](https://github.com/MatheusRapax/RevestimentosOS/commit/61723617fb319c6d3136d7f81681dd4330e8d6f3))
+* **fiscal:** dias restantes e nível do certificado no status fiscal ([c381267](https://github.com/MatheusRapax/RevestimentosOS/commit/c3812674b40319487dd57b1892d0c0029f9d3ab9))
+* **fiscal:** o ERP cadastra o próprio webhook no serviço fiscal ([f890d20](https://github.com/MatheusRapax/RevestimentosOS/commit/f890d206e49c21eaca038743a836aac43c330ae3))
+* **fiscal:** tratar o webhook CertificateExpiring e expor o aviso de vencimento do certificado ([07df405](https://github.com/MatheusRapax/RevestimentosOS/commit/07df4051196daf268600168c76dd4d9d2dba26d1))
+* **fiscal:** trocar o ambiente muda o tenant no serviço fiscal (A20) ([09e0b68](https://github.com/MatheusRapax/RevestimentosOS/commit/09e0b68e7b6a00764134f9384b62e0df2540ec94))
+* **web:** aviso de vencimento do certificado para quem cuida da configuração fiscal ([f28980b](https://github.com/MatheusRapax/RevestimentosOS/commit/f28980b405dae955fb47202d01d3e2b98a7bfa2b))
+* **web:** cartão do webhook na configuração fiscal e aviso quando o cadastro falha ([6cb9a45](https://github.com/MatheusRapax/RevestimentosOS/commit/6cb9a45bfec32aa0258781a348d52e66062db996))
+* **web:** confirmação e motivo da recusa ao trocar o ambiente fiscal ([943dc4d](https://github.com/MatheusRapax/RevestimentosOS/commit/943dc4d8b1397bfc80e87dc38006345e801185b7))
+* **web:** filtro "com estoque" na tela de Estoque e no Catálogo de Vendas ([b1c9b0f](https://github.com/MatheusRapax/RevestimentosOS/commit/b1c9b0f254403e11bbb5aa17e3bb88436190fc15))
+
+
+### Bug Fixes
+
+* **fiscal:** mantém a regra de certificado presente na configuração fiscal ([77ad92e](https://github.com/MatheusRapax/RevestimentosOS/commit/77ad92e4d945a88a71bded1a0d6a7ab95e7873ef))
+* **fiscal:** reenviar o certificado não cria outra empresa no serviço (A19) ([621c06d](https://github.com/MatheusRapax/RevestimentosOS/commit/621c06d83bf65cdc605989b436347af03de729c5))
+* **seguranca:** backend recusa subir em produção sem JWT_SECRET própria (A21) ([5e66c9a](https://github.com/MatheusRapax/RevestimentosOS/commit/5e66c9a4d0cdbe2da499ee9287d29edd630f0449))
+* **web:** certificado inválido na revisão fiscal ([eae1608](https://github.com/MatheusRapax/RevestimentosOS/commit/eae16080b929c2c3caf56dc4c4cba65863f1c244))
+
 ## [1.21.0](https://github.com/MatheusRapax/RevestimentosOS/compare/v1.20.0...v1.21.0) (2026-11-07)
 
 
