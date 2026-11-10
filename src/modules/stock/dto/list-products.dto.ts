@@ -5,8 +5,13 @@ import {
   IsInt,
   Min,
   Max,
+  IsIn,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
+import {
+  FILTROS_DE_ESTOQUE,
+  FiltroDeEstoque,
+} from '../services/stock-availability';
 
 export class ListProductsDto {
   @IsOptional()
@@ -47,10 +52,13 @@ export class ListProductsDto {
   @IsString()
   brandId?: string;
 
-  /** Filter by stock availability: 'in_stock' | 'low_stock' | 'out_of_stock' */
+  /**
+   * Disponibilidade (estoque menos reservas ativas): 'available' (qualquer saldo), 'in_stock' (acima
+   * do mínimo), 'low_stock' (no mínimo ou abaixo) ou 'out_of_stock' (sem saldo disponível).
+   */
   @IsOptional()
-  @IsString()
-  status?: string;
+  @IsIn(FILTROS_DE_ESTOQUE)
+  status?: FiltroDeEstoque;
 
   @IsOptional()
   @Type(() => Number)
